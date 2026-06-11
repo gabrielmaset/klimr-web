@@ -70,6 +70,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <div>
               <div className="kicker mb-3 text-faint">Product</div>
               <ul className="space-y-2 text-sm">
+                <li><Link href="/signup" className="text-mute transition-colors hover:text-ink">Sign up</Link></li>
                 <li><Link href="/login" className="text-mute transition-colors hover:text-ink">Sign in</Link></li>
                 <li><Link href="/account" className="text-mute transition-colors hover:text-ink">Your account</Link></li>
               </ul>

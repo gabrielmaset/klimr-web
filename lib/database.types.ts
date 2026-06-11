@@ -50,6 +50,13 @@ export interface Database {
           verification_status: VerificationStatus;
           reliability: number;
           avatar_hue: number;
+          bio: string | null;
+          gender: string | null;
+          birth_year: number | null;
+          availability: string[];
+          preferred_format: string;
+          play_style: string;
+          handedness: string | null;
           created_at: string;
         };
         Insert: {
@@ -64,6 +71,13 @@ export interface Database {
           verification_status?: VerificationStatus;
           reliability?: number;
           avatar_hue?: number;
+          bio?: string | null;
+          gender?: string | null;
+          birth_year?: number | null;
+          availability?: string[];
+          preferred_format?: string;
+          play_style?: string;
+          handedness?: string | null;
           created_at?: string;
         };
         Update: {
@@ -77,6 +91,36 @@ export interface Database {
           verification_status?: VerificationStatus;
           reliability?: number;
           avatar_hue?: number;
+          bio?: string | null;
+          gender?: string | null;
+          birth_year?: number | null;
+          availability?: string[];
+          preferred_format?: string;
+          play_style?: string;
+          handedness?: string | null;
+        };
+        Relationships: [];
+      };
+      invite_codes: {
+        Row: {
+          code: string;
+          max_uses: number;
+          uses: number;
+          note: string | null;
+          created_at: string;
+          last_used_at: string | null;
+        };
+        Insert: {
+          code: string;
+          max_uses?: number;
+          uses?: number;
+          note?: string | null;
+        };
+        Update: {
+          max_uses?: number;
+          uses?: number;
+          note?: string | null;
+          last_used_at?: string | null;
         };
         Relationships: [];
       };
@@ -88,6 +132,7 @@ export interface Database {
           skill_rating: number | null;
           matches_played: number;
           wins: number;
+          skill_level: string;
           updated_at: string;
         };
         Insert: {
@@ -97,6 +142,7 @@ export interface Database {
           skill_rating?: number | null;
           matches_played?: number;
           wins?: number;
+          skill_level?: string;
           updated_at?: string;
         };
         Update: {
@@ -104,6 +150,7 @@ export interface Database {
           skill_rating?: number | null;
           matches_played?: number;
           wins?: number;
+          skill_level?: string;
           updated_at?: string;
         };
         Relationships: [];

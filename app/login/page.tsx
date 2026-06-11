@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -25,6 +26,12 @@ export default async function LoginPage({
       <div className="mt-7">
         <LoginForm next={safePath(sp.next)} linkError={sp.error === "link"} />
       </div>
+      <p className="mt-6 text-sm text-mute">
+        New to Klimr?{" "}
+        <Link href="/signup" className="font-semibold text-ink underline underline-offset-2 transition-colors hover:text-brand-deep">
+          Sign up with your invite code
+        </Link>
+      </p>
     </div>
   );
 }

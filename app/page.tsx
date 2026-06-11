@@ -185,7 +185,7 @@ export default function Home() {
           </p>
           <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "270ms" }}>
             <Link
-              href="/login"
+              href="/signup"
               className="press rounded-full bg-brand px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep"
             >
               Claim your spot
@@ -198,7 +198,7 @@ export default function Home() {
             </Link>
           </div>
           <p className="rise mt-6 font-mono text-[12px] text-mute" style={{ animationDelay: "360ms" }}>
-            Free at launch · every player identity-verified
+            Invite-only beta · every player identity-verified
           </p>
         </div>
         <div className="lg:col-span-5">
@@ -291,11 +291,11 @@ export default function Home() {
             Climb the <span className="italic">block.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-white/90">
-            Mar Vista is first. Sign in now and your spot on the board is
+            Mar Vista is first. Got an invite? Your spot on the board is
             waiting when rankings go live.
           </p>
           <Link
-            href="/login"
+            href="/signup"
             className="press mt-7 inline-block rounded-full bg-ink px-7 py-3.5 text-[15px] font-bold text-surface transition-transform hover:scale-[1.02]"
           >
             Claim your spot

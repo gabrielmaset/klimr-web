@@ -11,6 +11,9 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 export const metadata: Metadata = {
   ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
+  // DEV GATE: keeps search engines away while Klimr is in private beta.
+  // Remove this `robots` block at public launch so the site can be indexed.
+  robots: { index: false, follow: false },
   title: {
     default: "Klimr — your game, ranked",
     template: "%s · Klimr",

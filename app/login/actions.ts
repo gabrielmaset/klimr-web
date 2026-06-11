@@ -26,9 +26,18 @@ export async function sendMagicLink(
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
+      shouldCreateUser: false, // sign-IN only; new accounts go through /signup with an invite
       emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}`,
     },
   });
-  if (error) return { error: error.message, email };
+  if (error) {
+    const noAccount = /signup|not allowed|not found/i.test(error.message);
+    return {
+      error: noAccount
+        ? "No Klimr account for this email yet. Sign up with your invite code first."
+        : error.message,
+      email,
+    };
+  }
   return { ok: true, email };
 }

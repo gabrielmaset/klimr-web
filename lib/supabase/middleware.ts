@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
 // Paths reachable without a session. Everything else redirects to /login.
-const PUBLIC_PATHS = ["/", "/login", "/auth", "/investors"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/investors"];
 
 function isPublic(path: string) {
   return PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));

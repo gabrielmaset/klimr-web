@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, MapPin } from "lucide-react";
+import { BadgeCheck, CalendarClock, Hand, MapPin, Pencil, Star, Swords, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { startVerification, approveVerification } from "./actions";
 import { signOutAction } from "@/app/auth/actions";
@@ -15,10 +16,37 @@ const SPORT_EMOJI: Record<string, string> = {
   golf: "⛳",
 };
 
+const LEVEL_LABEL: Record<string, string> = {
+  new: "New",
+  casual: "Casual",
+  competitive: "Competitive",
+  advanced: "Advanced",
+};
+
+const FORMAT_LABEL: Record<string, string> = {
+  singles: "Singles",
+  doubles: "Doubles",
+  both: "Singles & doubles",
+};
+
+const STYLE_LABEL: Record<string, string> = {
+  social: "Mostly social",
+  competitive: "Mostly competitive",
+  both: "Social & competitive",
+};
+
+const HAND_LABEL: Record<string, string> = {
+  right: "Right-handed",
+  left: "Left-handed",
+  either: "Either hand",
+};
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ note?: string }>;
+  searchParams: Promise<{ note?: string; welcome?: string }>;
 }) {
   const sp = await searchParams;
   const supabase = await createClient();
@@ -27,13 +55,21 @@ export default async function AccountPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(
-      "display_name, home_zip, neighborhood, city, state, primary_sport, verification_status, avatar_hue",
-    )
-    .eq("id", user.id)
-    .single();
+  const [{ data: profile }, { data: mySports }, { data: sportMeta }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "display_name, home_zip, neighborhood, city, state, primary_sport, verification_status, avatar_hue, bio, availability, preferred_format, play_style, handedness",
+        )
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("player_sports")
+        .select("sport_key, skill_level, skill_rating")
+        .eq("user_id", user.id),
+      supabase.from("sports").select("key, skill_system"),
+    ]);
 
   if (!profile || !profile.primary_sport || !profile.home_zip) {
     redirect("/onboarding");
@@ -42,6 +78,7 @@ export default async function AccountPage({
   const v = profile.verification_status;
   const hue = profile.avatar_hue ?? 18;
   const name = profile.display_name || user.email || "Player";
+  const firstName = name.split(" ")[0];
   const initials = name
     .split(" ")
     .map((n: string) => n[0])
@@ -51,13 +88,44 @@ export default async function AccountPage({
   const home =
     [profile.neighborhood, profile.city, profile.state].filter(Boolean).join(", ") ||
     `ZIP ${profile.home_zip}`;
-  const sportName = profile.primary_sport
-    ? profile.primary_sport.charAt(0).toUpperCase() + profile.primary_sport.slice(1)
-    : "—";
+  const slots = Array.isArray(profile.availability) ? profile.availability.length : 0;
+  const systems = new Map((sportMeta ?? []).map((s) => [s.key, s.skill_system]));
+  const sportsList = (mySports ?? []).sort((a, b) =>
+    a.sport_key === profile.primary_sport ? -1 : b.sport_key === profile.primary_sport ? 1 : 0,
+  );
+  const hasRating = sportsList.some((s) => s.skill_rating != null);
+
+  /* profile completeness — finishing the wizard earns the base */
+  const pct =
+    40 +
+    (slots > 0 ? 15 : 0) +
+    (profile.bio ? 15 : 0) +
+    (hasRating ? 15 : 0) +
+    (v === "verified" ? 15 : 0);
+  const nextHint =
+    v !== "verified"
+      ? "verify your identity to finish"
+      : !hasRating
+        ? "add a rating to finish"
+        : !profile.bio
+          ? "add a bio to finish"
+          : slots === 0
+            ? "set your schedule to finish"
+            : null;
 
   return (
     <div className="mx-auto max-w-lg space-y-5 px-5 py-14">
-      {sp.note === "area" ? (
+      {sp.welcome === "1" ? (
+        <div className="rise rounded-2xl border border-brand bg-tint-brand px-4 py-3.5 text-sm leading-relaxed text-ink">
+          <span className="font-bold">Welcome to the board, {firstName}.</span>{" "}
+          Your profile is in. One step left before your matches count —
+          verify your identity below.
+          {sp.note === "area" ? (
+            <> (We have not mapped your area&apos;s neighborhoods yet; your
+            ZIP-level ranking works from day one.)</>
+          ) : null}
+        </div>
+      ) : sp.note === "area" ? (
         <div className="rise rounded-2xl border border-pop bg-pop/25 px-4 py-3 text-sm leading-snug text-ink">
           Saved! We have not mapped your area&apos;s neighborhoods yet — your
           ZIP-level ranking works from day one, and the rest fills in as Klimr
@@ -76,31 +144,95 @@ export default async function AccountPage({
 
       {/* Profile card */}
       <div className="rise rounded-3xl border border-rule bg-surface p-5">
-        <div className="flex items-center gap-4">
-          <div
-            aria-hidden
-            className="grid h-16 w-16 shrink-0 place-items-center rounded-full font-display text-2xl text-surface"
-            style={{
-              background: `linear-gradient(145deg, hsl(${hue},85%,62%) 0%, hsl(${(hue + 22) % 360},80%,48%) 100%)`,
-            }}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-4">
+            <div
+              aria-hidden
+              className="grid h-16 w-16 shrink-0 place-items-center rounded-full font-display text-2xl text-surface"
+              style={{
+                background: `linear-gradient(145deg, hsl(${hue},85%,62%) 0%, hsl(${(hue + 22) % 360},80%,48%) 100%)`,
+              }}
+            >
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-lg font-bold text-ink">{name}</div>
+              <div className="truncate font-mono text-[12px] text-mute">{user.email}</div>
+              {profile.bio ? (
+                <p className="mt-1 text-sm leading-snug text-ink-soft">{profile.bio}</p>
+              ) : null}
+            </div>
+          </div>
+          <Link
+            href="/onboarding"
+            className="press flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink"
           >
-            {initials}
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-lg font-bold text-ink">{name}</div>
-            <div className="truncate font-mono text-[12px] text-mute">{user.email}</div>
-          </div>
+            <Pencil size={12} aria-hidden /> Edit profile
+          </Link>
         </div>
+
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm font-semibold text-ink">
-            <span aria-hidden>{SPORT_EMOJI[profile.primary_sport ?? ""] ?? "•"}</span>
-            {sportName}
-          </span>
+          {sportsList.map((s) => (
+            <span
+              key={s.sport_key}
+              className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm font-semibold text-ink"
+            >
+              <span aria-hidden>{SPORT_EMOJI[s.sport_key] ?? "•"}</span>
+              {cap(s.sport_key)}
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-mute">
+                {LEVEL_LABEL[s.skill_level ?? "casual"]}
+              </span>
+              {s.skill_rating != null ? (
+                <span className="font-mono text-[10px] font-bold text-brand-deep">
+                  {systems.get(s.sport_key) ?? "Rating"} {s.skill_rating}
+                </span>
+              ) : null}
+              {s.sport_key === profile.primary_sport ? (
+                <Star size={11} className="text-brand-deep" fill="currentColor" aria-label="Primary sport" />
+              ) : null}
+            </span>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
             <MapPin size={13} className="text-brand" aria-hidden />
             {home}
             <span className="font-mono text-[11px] text-mute">{profile.home_zip}</span>
           </span>
+          <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
+            <CalendarClock size={13} className="text-brand" aria-hidden />
+            {slots > 0 ? `Free ${slots} ${slots === 1 ? "block" : "blocks"} a week` : "Schedule not set"}
+          </span>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
+            <Users size={13} className="text-brand" aria-hidden />
+            {FORMAT_LABEL[profile.preferred_format ?? "both"]}
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
+            <Swords size={13} className="text-brand" aria-hidden />
+            {STYLE_LABEL[profile.play_style ?? "both"]}
+          </span>
+          {profile.handedness ? (
+            <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
+              <Hand size={13} className="text-brand" aria-hidden />
+              {HAND_LABEL[profile.handedness]}
+            </span>
+          ) : null}
+        </div>
+
+        {/* completeness */}
+        <div className="mt-5">
+          <div className="flex items-baseline justify-between">
+            <span className="kicker text-faint">Profile {pct}% complete</span>
+            {nextHint ? <span className="text-[11px] text-mute">{nextHint}</span> : null}
+          </div>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-rule">
+            <div
+              className={"h-full rounded-full transition-all " + (pct === 100 ? "bg-success" : "bg-brand")}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
         </div>
       </div>
 
@@ -144,8 +276,9 @@ export default async function AccountPage({
           <span className="kicker text-brand-deep">Next up · rankings</span>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-mute">
-          Your {sportName} board for {profile.neighborhood ?? `ZIP ${profile.home_zip}`} is
-          being built right now. Your spot is reserved.
+          Your {cap(profile.primary_sport ?? "")} board for{" "}
+          {profile.neighborhood ?? `ZIP ${profile.home_zip}`} is being built
+          right now. Your spot is reserved.
         </p>
         <div className="mt-4 space-y-1.5 opacity-50" aria-hidden>
           {[1, 2, 3].map((r) => (
