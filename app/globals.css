@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  /* Klimr palette — canonical with the investor demo */
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-ink: #0a0a0b;
+  --color-ink-soft: #18181b;
+  --color-mute: #71717a;
+  --color-faint: #a1a1aa;
+  --color-rule: #e4e4e7;
+  --color-brand: #ff4e1b;
+  --color-brand-deep: #d63a0f;
+  --color-pop: #ffe249;
+  --color-success: #16a34a;
+  --color-tint-brand: #fff1ed;
+  --color-tint-success: #f0fdf4;
+
+  /* Type roles — serif display × mono data, the Klimr voice */
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-kicker: "Archivo Black", "Arial Black", sans-serif;
+  --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-brand);
+  color: var(--color-surface);
+}
+
+/* Keyboard focus — visible, branded, never removed */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- motion ---------- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes livedot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
+}
+
+.rise { animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade { animation: fade 0.8s ease both; }
+.marquee { animation: marquee 30s linear infinite; will-change: transform; }
+.live-dot { animation: livedot 2s ease-in-out infinite; }
+
+/* Interactive cards lift one hair; buttons press */
+.lift { transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease; }
+.lift:hover { transform: translateY(-2px); border-color: var(--color-faint); box-shadow: 0 8px 24px -16px rgba(10, 10, 11, 0.25); }
+.press { transition: transform 0.12s ease, background-color 0.15s ease; }
+.press:active { transform: scale(0.98); }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+.kicker {
+  font-family: var(--font-kicker);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+/* Skewed brand highlight — the wordmark gesture from the demo */
+.skew-mark {
+  background: var(--color-brand);
+  color: var(--color-surface);
+  padding: 0 0.16em;
+  border-radius: 0.08em;
+  display: inline-block;
+  transform: skew(-3deg);
+}
+
+/* Respect reduced motion everywhere */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .rise, .fade, .marquee, .live-dot { animation: none; }
+  .lift, .press { transition: none; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
