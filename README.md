@@ -73,10 +73,14 @@ See `Klimr_MVP_Build_Scope.md` for the full scope and data model.
 The web app carries the Klimr brand from the investor demo into product UI:
 
 - **Palette** — paper `#FAFAFA`, ink `#0A0A0B`, signal orange `#FF4E1B`, pop yellow `#FFE249` (pending states), hairline rules `#E4E4E7`.
-- **Type roles** — Instrument Serif (display), Archivo Black (kickers), DM Sans (body), JetBrains Mono (points, ZIPs, emails). Self-hosted via `@fontsource` packages: no runtime Google Fonts dependency.
+- **Type roles** — Fraunces 600 (logotype only), Instrument Serif (display), Archivo Black (kickers), DM Sans (body), JetBrains Mono (points, ZIPs, emails). Self-hosted via `@fontsource` packages: no runtime Google Fonts dependency.
 - **Motion** — functional only: load stagger, hover lift, press feedback. `prefers-reduced-motion` disables everything. Keyboard focus is always visible.
 
 ## Environment variables
 
 Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 Optional: `NEXT_PUBLIC_SITE_URL` (magic-link fallback origin + metadata base), `NEXT_PUBLIC_INVESTOR_DEMO_URL` (when set, /investors links straight to the deployed interactive demo).
+
+## Brand
+
+The Klimr mark is "The Climb": a staircase with the wordmark's orange period elevated above the top step — the player at the top of their block. `components/logo.tsx` exports `<KlimrMark/>` and `<KlimrLogo/>`; standalone assets (mark, white/mono variants, app tile, lockups) live in `public/brand/`. The favicon is `app/icon.svg`.

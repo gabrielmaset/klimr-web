@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { KlimrLogo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/server";
 import { signOutAction } from "@/app/auth/actions";
 import { AdSlot } from "@/components/ads/ad-slot";
@@ -13,12 +14,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-40 border-b border-rule bg-bg/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
-          <Link
-            href="/"
-            className="font-display text-[26px] leading-none tracking-tight text-ink"
-            aria-label="Klimr home"
-          >
-            klimr<span className="text-brand">.</span>
+          <Link href="/" aria-label="Klimr home" className="block">
+            <KlimrLogo />
           </Link>
           <nav className="flex items-center gap-5 text-sm" aria-label="Main">
             <Link
@@ -59,9 +56,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-6xl px-5 py-12">
           <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
             <div>
-              <div className="font-display text-3xl text-ink">
-                klimr<span className="text-brand">.</span>
-              </div>
+              <KlimrLogo markSize={30} textClassName="text-3xl" />
               <p className="mt-2 max-w-xs text-sm leading-relaxed text-mute">
                 The social network for sports players. Your game, ranked — from
                 your ZIP to the world.

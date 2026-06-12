@@ -80,6 +80,16 @@ body {
 
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* Logotype — the wordmark's own face (Fraunces, display optical size).
+   Instrument Serif stays the headline voice; the logo carries more ink so it
+   holds at header and favicon-adjacent sizes. */
+.logotype {
+  font-family: "Fraunces Variable", Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 0;
+  letter-spacing: -0.01em;
+}
+
 .kicker {
   font-family: var(--font-kicker);
   font-size: 10px;

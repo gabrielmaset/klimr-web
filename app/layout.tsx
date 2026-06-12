@@ -4,6 +4,7 @@ import "@fontsource/instrument-serif/400-italic.css";
 import "@fontsource/archivo-black";
 import "@fontsource-variable/dm-sans";
 import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/fraunces/full.css"; // logotype only — see components/logo.tsx
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
