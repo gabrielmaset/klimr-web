@@ -35,7 +35,7 @@ export function SignupForm() {
           autoCapitalize="characters"
           autoComplete="off"
           spellCheck={false}
-          placeholder="KLIMR-XXXX-XXXX"
+          placeholder="X7QM-K2NF-B9G3"
           defaultValue={state.code}
           className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 font-mono text-[15px] uppercase tracking-[0.12em] text-ink outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-faint focus:border-brand"
         />
