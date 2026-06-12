@@ -11,7 +11,6 @@ const SPORT_EMOJI: Record<string, string> = {
   pickleball: "🏓",
   padel: "🟡",
   racquetball: "🟦",
-  golf: "⛳",
 };
 
 const LEVELS = [
@@ -26,7 +25,6 @@ const RATING_HINT: Record<string, string> = {
   DUPR: "e.g. 3.5",
   Level: "e.g. 3.0",
   USAR: "e.g. 4.0",
-  Handicap: "e.g. 18",
 };
 
 const DAYS = [
@@ -385,7 +383,7 @@ export function OnboardingWizard({
             </div>
             <p className="text-xs text-mute">
               Pick everything you play — each sport gets its own ranking. Know
-              your NTRP, DUPR, or handicap? Add it; leave it blank if not.
+              your NTRP, DUPR, or USAR? Add it; leave it blank if not.
             </p>
           </div>
         ) : null}

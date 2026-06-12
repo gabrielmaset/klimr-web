@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · Klimr",
   },
   description:
-    "Per-sport rankings from your ZIP to the world. Verified players, real results. Tennis, pickleball, padel, racquetball, and golf — Los Angeles first.",
+    "Per-sport rankings from your ZIP to the world. Verified players, real results. Tennis, pickleball, padel, and racquetball — Los Angeles first.",
 };
 
 export default function RootLayout({

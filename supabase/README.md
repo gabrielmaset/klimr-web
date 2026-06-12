@@ -2,7 +2,7 @@
 
 ## Files
 - `migrations/0001_init.sql` — full schema: tables, enums, RLS policies, the new-user→profile trigger, the verification guard, security-definer helpers, and `ranked_players(p_sport, p_scope, p_region)` — the function behind the geographic zoom.
-- `seed.sql` — reference data (5 sports + LA-area ZIP→region rows). Safe in any environment.
+- `seed.sql` — reference data (4 sports + LA-area ZIP→region rows). Safe in any environment.
 - `seed_dev_players.sql` — DEV ONLY demo players so rankings render. Do not run in production.
 
 ## Apply — Supabase SQL editor

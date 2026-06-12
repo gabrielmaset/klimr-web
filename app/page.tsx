@@ -117,7 +117,6 @@ const MARQUEE = [
   "Pickleball 🏓",
   "Padel",
   "Racquetball",
-  "Golf ⛳",
   "Mar Vista",
   "ZIP 90066",
   "Verified players",
@@ -165,7 +164,7 @@ export default function Home() {
         <div className="lg:col-span-7">
           <div className="rise flex items-center gap-2">
             <span className="live-dot h-2 w-2 rounded-full bg-brand" aria-hidden />
-            <p className="kicker text-ink">Los Angeles · five sports · pre-launch</p>
+            <p className="kicker text-ink">Los Angeles · four sports · pre-launch</p>
           </div>
           <h1
             className="rise mt-5 font-display text-[clamp(2.9rem,8vw,5.6rem)] leading-[0.93] tracking-tight text-ink"

@@ -13,7 +13,6 @@ const SPORT_EMOJI: Record<string, string> = {
   pickleball: "🏓",
   padel: "🟡",
   racquetball: "🟦",
-  golf: "⛳",
 };
 
 const LEVEL_LABEL: Record<string, string> = {

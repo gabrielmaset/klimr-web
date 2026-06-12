@@ -4,8 +4,7 @@ insert into public.sports (key, name, skill_system) values
   ('tennis','Tennis','NTRP'),
   ('pickleball','Pickleball','DUPR'),
   ('padel','Padel','Level'),
-  ('racquetball','Racquetball','USAR'),
-  ('golf','Golf','Handicap')
+  ('racquetball','Racquetball','USAR')
 on conflict (key) do nothing;
 
 insert into public.zip_regions (zip, neighborhood, city, state, country) values
