@@ -19,20 +19,51 @@ export async function signUpWithInvite(
     return { error: "Enter a valid email address.", email, code };
   }
 
-  // Friendly pre-check (the database trigger is the real gate either way).
+  // ── TEMPORARY DIAGNOSTIC ─────────────────────────────────────────────
+  // Surfaces the real reason the invite lookup fails instead of the generic
+  // "invalid code" message. Revert to the friendly message once fixed.
   const admin = createAdminClient();
-  const { data: invite } = await admin
+
+  const { data: invite, error: lookupError } = await admin
     .from("invite_codes")
     .select("code, max_uses, uses")
     .eq("code", code)
     .maybeSingle();
-  if (!invite || invite.uses >= invite.max_uses) {
+
+  if (lookupError) {
+    console.error("[signup] invite lookup failed:", lookupError);
     return {
-      error: "That invite code is not valid or has been fully used. Check it and try again, or write hello@klimr.com.",
+      error: `[diagnostic] Invite lookup failed: ${lookupError.message} (code ${lookupError.code ?? "?"})`,
       email,
       code,
     };
   }
+
+  if (!invite) {
+    // No error, but this code wasn't found. Check whether the app's
+    // service-role connection can see ANY codes at all — this separates
+    // "wrong code / wrong project" from "can't read the table".
+    const { count, error: countError } = await admin
+      .from("invite_codes")
+      .select("*", { count: "exact", head: true });
+    console.error("[signup] code not found. visible codes:", count, "countError:", countError);
+    return {
+      error: countError
+        ? `[diagnostic] Invite table unreadable: ${countError.message} (code ${countError.code ?? "?"})`
+        : `[diagnostic] Code not found. The app can see ${count ?? 0} code(s) in its database.`,
+      email,
+      code,
+    };
+  }
+
+  if (invite.uses >= invite.max_uses) {
+    return {
+      error: "That invite code has already been fully used. Write hello@klimr.com for a new one.",
+      email,
+      code,
+    };
+  }
+  // ── END DIAGNOSTIC ───────────────────────────────────────────────────
 
   const supabase = await createClient();
   const origin =
