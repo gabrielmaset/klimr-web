@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BadgeCheck, CheckCheck, Fingerprint, ShieldX } from "lucide-react";
+import { KlimrMark } from "@/components/logo";
 
 /* ------------------------------------------------------------------ */
 /* The living ladder — the product, rendered as the hero's signature. */
@@ -124,7 +125,7 @@ const MARQUEE = [
 ];
 
 const FLOWS: { title: string; body: string; status: "live" | "build" | "soon" }[] = [
-  { title: "Accounts & profile", body: "Magic-link sign-in, home ZIP, primary sport. No passwords.", status: "live" },
+  { title: "Accounts & profile", body: "Email + password or a magic link, required two-factor, home ZIP, primary sport.", status: "live" },
   { title: "Identity verification", body: "Every player verified — the trust floor. Stubbed today, KYC provider next.", status: "live" },
   { title: "Rankings + geo zoom", body: "Per sport, ZIP → neighborhood → city → world. The engine is live; the screen is next.", status: "build" },
   { title: "Match · confirm · void", body: "Two-sided confirmation. A disputed match counts for no one.", status: "soon" },
@@ -219,6 +220,78 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {/* ---------------- Image band ---------------- */}
+      {/*
+        Full-bleed photo band. To use a real image, replace the placeholder
+        <div> below with next/image:
+
+          import Image from "next/image";
+          <Image
+            src="/hero/mar-vista-court.jpg"
+            alt="Players on a court in Mar Vista, Los Angeles"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+
+        Master file: 2560×1440 (16:9), high-quality JPEG — next/image emits
+        optimized WebP/AVIF at every size. The licence must permit commercial
+        use and include model releases (identifiable people, commercial product).
+        Drop the file in /public/hero/. The scrim + caption below stay as-is.
+      */}
+      <section aria-label="Klimr on the ground in Los Angeles" className="relative w-full overflow-hidden border-y border-rule bg-ink">
+        <div className="relative h-[clamp(300px,44vw,560px)] w-full">
+          {/* — placeholder art: a stylized court at dusk, so the band reads as
+               finished design before the real photo arrives — */}
+          <div aria-hidden className="absolute inset-0">
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(120% 95% at 80% 12%, rgba(255,78,27,0.32) 0%, rgba(255,78,27,0) 55%), linear-gradient(158deg, #1c1c20 0%, #0a0a0b 72%)",
+              }}
+            />
+            <svg
+              className="absolute inset-0 h-full w-full opacity-[0.13]"
+              preserveAspectRatio="xMidYMid slice"
+              viewBox="0 0 1200 600"
+            >
+              <rect x="70" y="60" width="1060" height="480" fill="none" stroke="white" strokeWidth="2.5" />
+              <line x1="600" y1="60" x2="600" y2="540" stroke="white" strokeWidth="2.5" />
+              <rect x="260" y="180" width="680" height="240" fill="none" stroke="white" strokeWidth="2.5" />
+              <line x1="260" y1="300" x2="940" y2="300" stroke="white" strokeWidth="2.5" />
+              <circle cx="600" cy="300" r="64" fill="none" stroke="white" strokeWidth="2.5" />
+            </svg>
+            <div className="absolute inset-0 grid place-items-center">
+              <span className="kicker rounded-full border border-white/20 px-3.5 py-2 text-white/55">
+                Photo placeholder · drop a 2560×1440 court image
+              </span>
+            </div>
+          </div>
+
+          {/* legibility scrim for the caption */}
+          <div
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-2/3"
+            style={{ background: "linear-gradient(to top, rgba(10,10,11,0.88) 0%, rgba(10,10,11,0) 100%)" }}
+          />
+
+          {/* caption + mark — survive the swap to a real image */}
+          <div className="absolute inset-x-0 bottom-0">
+            <div className="mx-auto flex max-w-6xl items-end justify-between px-5 pb-6">
+              <div>
+                <p className="kicker text-brand">On the ground in LA</p>
+                <p className="mt-1.5 font-display text-[26px] leading-tight text-surface sm:text-4xl">
+                  Real players. Real courts. <span className="italic text-brand">Real rankings.</span>
+                </p>
+              </div>
+              <KlimrMark size={30} dot="brand" className="hidden shrink-0 text-surface/90 sm:block" />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ---------------- Build status ---------------- */}
       <section className="mx-auto max-w-6xl px-5 py-20">

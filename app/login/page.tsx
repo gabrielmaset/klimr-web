@@ -21,7 +21,7 @@ export default async function LoginPage({
       <p className="kicker text-brand-deep">Welcome back</p>
       <h1 className="mt-2 font-display text-4xl text-ink">Sign in.</h1>
       <p className="mt-2 text-sm leading-relaxed text-mute">
-        No password — we email you a magic link.
+        Email and password — or a one-time magic link.
       </p>
       <div className="mt-7">
         <LoginForm next={safePath(sp.next)} linkError={sp.error === "link"} />

@@ -50,6 +50,7 @@ export interface Database {
           verification_status: VerificationStatus;
           reliability: number;
           avatar_hue: number;
+          avatar_path: string | null;
           bio: string | null;
           gender: string | null;
           birth_year: number | null;
@@ -71,6 +72,7 @@ export interface Database {
           verification_status?: VerificationStatus;
           reliability?: number;
           avatar_hue?: number;
+          avatar_path?: string | null;
           bio?: string | null;
           gender?: string | null;
           birth_year?: number | null;
@@ -91,6 +93,7 @@ export interface Database {
           verification_status?: VerificationStatus;
           reliability?: number;
           avatar_hue?: number;
+          avatar_path?: string | null;
           bio?: string | null;
           gender?: string | null;
           birth_year?: number | null;

@@ -10,7 +10,7 @@ const COVERS = [
   "50+ interactive product screens",
   "Geographic rankings · ZIP to world",
   "Match integrity & verification flows",
-  "Market, GTM, and the $825K ask",
+  "Market, go-to-market, and the roadmap",
 ];
 
 export default function InvestorsPage() {
@@ -66,7 +66,7 @@ export default function InvestorsPage() {
       </div>
 
       <p className="mt-8 text-sm text-mute">
-        Raising an $825K pre-seed ·{" "}
+        Get in touch ·{" "}
         <a
           href="mailto:hello@klimr.com?subject=Klimr%20intro"
           className="font-semibold text-ink underline underline-offset-2 transition-colors hover:text-brand-deep"

@@ -50,17 +50,24 @@ Apply the schema in `supabase/` to your project — see `supabase/README.md`.
 
 ## Auth setup (Supabase)
 
-Magic-link email sign-in is used. In your Supabase project:
+Sign-in is **email + password** (primary) with a **magic link** kept as an option, and **two-factor (TOTP) is required** for every account. Sign-up stays **invite-only** (the `handle_new_user` trigger consumes the invite code carried in signup metadata).
 
-1. Authentication -> Providers: Email is on by default (magic link works out of the box).
-2. Authentication -> URL Configuration: set the Site URL and add a Redirect URL for
-   `http://localhost:3000/auth/confirm` (and your deployed `https://.../auth/confirm`).
+In your Supabase project:
+
+1. **Authentication → Providers → Email:** turn ON **"Confirm email"** (no active account until the address is verified). Email/password is enabled by default.
+2. **Authentication → Password policy:** turn ON **leaked-password protection** (HaveIBeenPwned) and set **minimum length 10**.
+3. **Authentication → Multi-factor:** enable **TOTP** (the app enrolls + challenges via `supabase.auth.mfa`).
+4. **Authentication → URL Configuration:** set the Site URL and add Redirect URLs for
+   `http://localhost:3000/auth/confirm` and your deployed `https://.../auth/confirm`. The
+   same callback handles email confirmation, magic link, and password recovery.
+
+First-run loop: sign up with an invite code + password → confirm email → set up 2FA (scan QR, enter code) → onboarding → account. If you ever lock yourself out during testing, delete your TOTP factor under **Authentication → Users**.
 
 ## Build roadmap
 
 - Phase 0 — skeleton (done): Next.js + Tailwind baseline, app shell, reserved ad slots.
 - Phase 1 — database & types (done): Supabase schema + RLS + `ranked_players` + generated types.
-- Phase 2 — accounts & profile (done): magic-link auth, route protection, onboarding, and the verification stub with an admin-approval path.
+- Phase 2 — accounts & profile (done): email+password & magic-link auth, required TOTP two-factor, password reset, profile photos, route protection, onboarding, and the verification stub with an admin-approval path.
 - Phase 3 — rankings (next): per-sport list + ZIP -> world zoom (reads `ranked_players`).
 - Phase 4 — matches: create + two-sided confirm + void-on-dispute.
 - Phase 5 — open play + waitlist: board + join requests + auto-promote.
