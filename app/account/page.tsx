@@ -240,10 +240,10 @@ export default async function AccountPage({
               </div>
             </div>
             <Link
-              href="/reset-password"
+              href="/account/security"
               className="press mt-4 inline-block text-sm font-semibold text-ink underline underline-offset-2 transition-colors hover:text-brand-deep"
             >
-              Change password
+              Manage security
             </Link>
           </div>
 

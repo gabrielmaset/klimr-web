@@ -8,7 +8,7 @@ const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/auth", "/i
 // Reachable with a session that has NOT yet cleared 2FA (AAL1). These are the
 // pages a signed-in user needs *in order to* complete or recover 2FA, so the
 // AAL gate must not bounce them.
-const AAL_EXEMPT = ["/mfa", "/auth", "/reset-password"];
+const AAL_EXEMPT = ["/mfa", "/auth", "/create-password", "/reset-password"];
 
 const matches = (path: string, list: string[]) =>
   list.some((p) => path === p || path.startsWith(p + "/"));

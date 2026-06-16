@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ShieldCheck, Check, Copy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { signOutAction } from "@/app/auth/actions";
+import { factorName } from "@/lib/mfa";
 
 type Phase = "loading" | "enroll" | "challenge" | "done" | "error";
 
@@ -46,7 +47,10 @@ export function MfaFlow({ next }: { next: string }) {
         for (const f of all.filter((x) => x.factor_type === "totp" && x.status !== "verified")) {
           await supabase.auth.mfa.unenroll({ factorId: f.id });
         }
-        const { data: en, error: eErr } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+        const { data: en, error: eErr } = await supabase.auth.mfa.enroll({
+          factorType: "totp",
+          friendlyName: factorName(),
+        });
         if (eErr) throw eErr;
         factorIdRef.current = en.id;
         setQr(en.totp.qr_code);
@@ -148,23 +152,47 @@ export function MfaFlow({ next }: { next: string }) {
             Klimr.
           </p>
           <div className="mt-7">{CodeInput}</div>
+          <p className="mt-4 text-xs leading-relaxed text-faint">
+            Lost access to your authenticator? Write{" "}
+            <a href="mailto:hello@klimr.com?subject=Klimr%202FA%20help" className="underline underline-offset-2 hover:text-mute">
+              hello@klimr.com
+            </a>{" "}
+            and we&apos;ll help you back in.
+          </p>
         </>
       ) : (
         <>
           <h1 className="mt-2 font-display text-4xl text-ink">Set up 2FA.</h1>
           <p className="mt-2 text-sm leading-relaxed text-mute">
-            Two-factor security is required on every Klimr account. Scan this
-            with an authenticator app (Google Authenticator, 1Password, Authy),
-            then enter the 6-digit code it shows.
+            Two-factor security is required on every Klimr account. You&apos;ll
+            use a free <span className="font-semibold text-ink">authenticator app</span>{" "}
+            on your phone — it shows a fresh 6-digit code every 30 seconds, works
+            offline, and is far safer than codes sent by text.
           </p>
-          <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl border border-rule bg-surface p-5">
+
+          <ol className="mt-5 space-y-2 text-sm text-ink-soft">
+            <li className="flex gap-2.5">
+              <span className="font-mono text-[12px] font-bold text-brand">1</span>
+              Install an authenticator app on your phone (options below).
+            </li>
+            <li className="flex gap-2.5">
+              <span className="font-mono text-[12px] font-bold text-brand">2</span>
+              In the app, tap &ldquo;add&rdquo; and scan the QR code below — or paste the key.
+            </li>
+            <li className="flex gap-2.5">
+              <span className="font-mono text-[12px] font-bold text-brand">3</span>
+              Enter the 6-digit code the app shows for Klimr.
+            </li>
+          </ol>
+
+          <div className="mt-5 flex flex-col items-center gap-4 rounded-2xl border border-rule bg-surface p-5">
             {qr ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={qr} alt="Two-factor QR code" width={176} height={176} className="rounded-lg" />
             ) : null}
             {secret ? (
               <div className="w-full">
-                <div className="kicker text-faint">Or enter this key manually</div>
+                <div className="kicker text-faint">Can&apos;t scan? Enter this key</div>
                 <button
                   type="button"
                   onClick={() => {
@@ -184,6 +212,37 @@ export function MfaFlow({ next }: { next: string }) {
               </div>
             ) : null}
           </div>
+
+          <details className="mt-4 rounded-2xl border border-rule bg-bg px-4 py-3 text-sm">
+            <summary className="cursor-pointer font-semibold text-ink">
+              Don&apos;t have an authenticator app?
+            </summary>
+            <div className="mt-3 space-y-3 text-mute">
+              <p className="leading-relaxed">
+                Install one of these free apps, then come back and scan the code.
+                Any authenticator app works.
+              </p>
+              <div className="space-y-2.5">
+                <div>
+                  <div className="font-semibold text-ink">Google Authenticator</div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+                    <a className="text-brand-deep underline underline-offset-2" href="https://apps.apple.com/app/google-authenticator/id388497605" target="_blank" rel="noopener noreferrer">iPhone · App Store</a>
+                    <a className="text-brand-deep underline underline-offset-2" href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" rel="noopener noreferrer">Android · Google Play</a>
+                  </div>
+                </div>
+                <div>
+                  <div className="font-semibold text-ink">Microsoft Authenticator</div>
+                  <div className="mt-0.5 text-[13px]">
+                    <a className="text-brand-deep underline underline-offset-2" href="https://support.microsoft.com/en-us/authenticator/download-microsoft-authenticator" target="_blank" rel="noopener noreferrer">Download for iPhone &amp; Android</a>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[12px] text-faint">
+                Already use 1Password or Authy? Those work as authenticator apps too.
+              </p>
+            </div>
+          </details>
+
           <div className="mt-5">{CodeInput}</div>
         </>
       )}

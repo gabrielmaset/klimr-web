@@ -61,7 +61,7 @@ In your Supabase project:
    `http://localhost:3000/auth/confirm` and your deployed `https://.../auth/confirm`. The
    same callback handles email confirmation, magic link, and password recovery.
 
-First-run loop: sign up with an invite code + password → confirm email → set up 2FA (scan QR, enter code) → onboarding → account. If you ever lock yourself out during testing, delete your TOTP factor under **Authentication → Users**.
+First-run loop: enter an invite code + email → confirm your email → create a password (the email is locked to the invited address) → set up 2FA (scan QR, enter code) → onboarding → account. If you ever lock yourself out during testing, delete your TOTP factor under **Authentication → Users**.
 
 ## Build roadmap
 
