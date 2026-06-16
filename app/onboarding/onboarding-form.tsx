@@ -1,7 +1,7 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
-import { Check, Star } from "lucide-react";
+import { Check, Plus, Star, X } from "lucide-react";
 import { saveProfile, type WizardState } from "./actions";
 
 /* ---------- vocabulary ---------- */
@@ -37,12 +37,6 @@ const DAYS = [
   { key: "sun", label: "Sun" },
 ] as const;
 
-const SLOTS = [
-  { key: "am", label: "Morning" },
-  { key: "pm", label: "Afternoon" },
-  { key: "eve", label: "Evening" },
-] as const;
-
 const HUES = [12, 35, 95, 150, 200, 235, 280, 330];
 
 const STEPS = ["About you", "Your sports", "How you play", "When you play", "Finishing touches"];
@@ -64,6 +58,29 @@ const HANDS: PillOption[] = [
   { value: "either", label: "Either" },
 ];
 
+/* ---------- time helpers (15-minute schedule) ---------- */
+
+type TimeOpt = { value: string; label: string };
+const TIME_OPTS: TimeOpt[] = (() => {
+  const out: TimeOpt[] = [];
+  for (let m = 0; m < 24 * 60; m += 15) {
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    const value = `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    const ampm = h < 12 ? "AM" : "PM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    out.push({ value, label: `${h12}:${String(mm).padStart(2, "0")} ${ampm}` });
+  }
+  return out;
+})();
+const timeLabel = (v: string) => TIME_OPTS.find((t) => t.value === v)?.label ?? v;
+const toMin = (v: string) => {
+  const [h, m] = v.split(":").map(Number);
+  return h * 60 + m;
+};
+
+type Range = { day: string; start: string; end: string };
+
 export type WizardInitial = {
   displayName: string;
   zip: string;
@@ -71,15 +88,23 @@ export type WizardInitial = {
   gender: string;
   birthYear: string;
   hue: number;
-  availability: string[];
-  preferredFormat: string;
+  availability: Range[];
   playStyle: string;
-  handedness: string;
-  sports: { key: string; level: string; primary: boolean; rating: string }[];
+  sports: {
+    key: string;
+    level: string;
+    primary: boolean;
+    rating: string;
+    format: string;
+    hand: string;
+  }[];
 };
 
 type SportMeta = { key: string; name: string; skill_system: string | null };
-type Picked = Record<string, { level: string; primary: boolean; rating: string }>;
+type Picked = Record<
+  string,
+  { level: string; primary: boolean; rating: string; format: string; hand: string }
+>;
 
 const initialState: WizardState = {};
 
@@ -135,24 +160,36 @@ export function OnboardingWizard({
   const [state, formAction, pending] = useActionState(saveProfile, initialState);
   const [step, setStep] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
+  const submitIntent = useRef(false);
 
   const [displayName, setDisplayName] = useState(initial.displayName);
   const [zip, setZip] = useState(initial.zip);
   const [picked, setPicked] = useState<Picked>(
     Object.fromEntries(
-      initial.sports.map((s) => [s.key, { level: s.level, primary: s.primary, rating: s.rating }]),
+      initial.sports.map((s) => [
+        s.key,
+        {
+          level: s.level,
+          primary: s.primary,
+          rating: s.rating,
+          format: s.format || "both",
+          hand: s.hand || "",
+        },
+      ]),
     ),
   );
-  const [format, setFormat] = useState(initial.preferredFormat || "both");
   const [style, setStyle] = useState(initial.playStyle || "both");
-  const [hand, setHand] = useState(initial.handedness || "");
-  const [avail, setAvail] = useState<Set<string>>(new Set(initial.availability));
+  const [ranges, setRanges] = useState<Range[]>(initial.availability);
+  const [addingDay, setAddingDay] = useState<string | null>(null);
+  const [draftStart, setDraftStart] = useState("18:00");
+  const [draftEnd, setDraftEnd] = useState("21:00");
   const [hue, setHue] = useState(initial.hue);
   const [bio, setBio] = useState(initial.bio);
   const [birthYear, setBirthYear] = useState(initial.birthYear);
   const [gender, setGender] = useState(initial.gender);
 
   const pickedKeys = Object.keys(picked);
+  const sportName = (k: string) => sports.find((s) => s.key === k)?.name ?? k;
   const initials = useMemo(
     () =>
       (displayName.trim() || "You")
@@ -174,7 +211,13 @@ export function OnboardingWizard({
         const rest = Object.keys(next);
         if (wasPrimary && rest.length) next[rest[0]] = { ...next[rest[0]], primary: true };
       } else {
-        next[key] = { level: "casual", primary: Object.keys(next).length === 0, rating: "" };
+        next[key] = {
+          level: "casual",
+          primary: Object.keys(next).length === 0,
+          rating: "",
+          format: "both",
+          hand: "",
+        };
       }
       return next;
     });
@@ -186,16 +229,21 @@ export function OnboardingWizard({
       Object.fromEntries(Object.entries(p).map(([k, v]) => [k, { ...v, primary: k === key }])),
     );
 
-  /* ---- availability helpers ---- */
-  function toggleSlot(id: string) {
-    setAvail((a) => {
-      const next = new Set(a);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  /* ---- schedule helpers ---- */
+  function addRange(day: string) {
+    if (toMin(draftStart) >= toMin(draftEnd)) return;
+    setRanges((rs) => {
+      if (rs.some((r) => r.day === day && r.start === draftStart && r.end === draftEnd)) return rs;
+      return [...rs, { day, start: draftStart, end: draftEnd }];
     });
+    setAddingDay(null);
   }
-  const preset = (ids: string[]) => setAvail(new Set(ids));
+  const removeRange = (idx: number) => setRanges((rs) => rs.filter((_, i) => i !== idx));
+  const openAdder = (day: string) => {
+    setDraftStart("18:00");
+    setDraftEnd("21:00");
+    setAddingDay(day);
+  };
 
   /* ---- navigation ---- */
   function next() {
@@ -226,17 +274,28 @@ export function OnboardingWizard({
     }
   };
 
+  // The form may ONLY submit from an explicit click on the final step's button.
+  // This stops the Continue->Submit button (rendered in the same slot) from
+  // firing a save the instant the user lands on the last step, and blocks any
+  // stray Enter-key submission on earlier steps.
+  const onSubmit = (e: React.FormEvent) => {
+    if (step !== STEPS.length - 1 || !submitIntent.current) e.preventDefault();
+    submitIntent.current = false;
+  };
+
   const sportsJson = JSON.stringify(
     pickedKeys.map((key) => ({
       key,
       level: picked[key].level,
       primary: picked[key].primary,
       rating: picked[key].rating.trim(),
+      format: picked[key].format,
+      hand: picked[key].hand,
     })),
   );
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} onSubmit={onSubmit} className="space-y-6">
       {/* progress */}
       <div>
         <div className="flex items-baseline justify-between">
@@ -348,9 +407,9 @@ export function OnboardingWizard({
                             <p className="mt-1.5 text-[11px] leading-snug text-mute">{levelBlurb}</p>
                           ) : null}
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <label className="flex items-center gap-1.5">
-                            <span className="kicker text-faint">{s.skill_system ?? "Rating"}</span>
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                          <label className="flex min-w-0 items-center gap-1.5">
+                            <span className="kicker shrink-0 text-faint">{s.skill_system ?? "Rating"}</span>
                             <input
                               value={sel.rating}
                               onChange={(e) =>
@@ -360,14 +419,14 @@ export function OnboardingWizard({
                               }
                               inputMode="decimal"
                               placeholder={RATING_HINT[s.skill_system ?? ""] ?? "e.g. 4.0"}
-                              className="w-20 rounded-lg border border-rule bg-surface px-2 py-1.5 font-mono text-[13px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                              className="w-16 rounded-lg border border-rule bg-surface px-2 py-1.5 font-mono text-[13px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
                             />
                           </label>
                           <button
                             type="button"
                             onClick={() => setPrimary(s.key)}
                             className={
-                              "flex items-center gap-1 text-[11px] font-semibold transition-colors " +
+                              "flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-semibold transition-colors " +
                               (sel.primary ? "text-brand-deep" : "text-faint hover:text-mute")
                             }
                           >
@@ -388,13 +447,41 @@ export function OnboardingWizard({
           </div>
         ) : null}
 
-        {/* ---- step 3 · how you play ---- */}
+        {/* ---- step 3 · how you play (per sport) ---- */}
         {step === 2 ? (
           <div className="space-y-5">
-            <div>
-              <span className="kicker text-faint">Format</span>
-              <PillRow options={FORMATS} value={format} onPick={setFormat} />
-            </div>
+            {pickedKeys.length > 1 ? (
+              <p className="text-xs text-mute">
+                Set these per sport — your format and hand can differ between them.
+              </p>
+            ) : null}
+            {pickedKeys.map((key) => (
+              <div key={key} className="rounded-2xl border border-rule bg-bg/50 p-4">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface text-lg" aria-hidden>
+                    {SPORT_EMOJI[key] ?? "•"}
+                  </span>
+                  <span className="text-sm font-bold text-ink">{sportName(key)}</span>
+                </div>
+                <div className="mt-3">
+                  <span className="kicker text-faint">Format</span>
+                  <PillRow
+                    options={FORMATS}
+                    value={picked[key].format}
+                    onPick={(v) => setSport(key, { format: v })}
+                  />
+                </div>
+                <div className="mt-3">
+                  <span className="kicker text-faint">Racquet hand · optional</span>
+                  <PillRow
+                    options={HANDS}
+                    value={picked[key].hand}
+                    onPick={(v) => setSport(key, { hand: v })}
+                    allowNone
+                  />
+                </div>
+              </div>
+            ))}
             <div>
               <span className="kicker text-faint">Match style</span>
               <PillRow options={STYLES} value={style} onPick={setStyle} />
@@ -402,74 +489,143 @@ export function OnboardingWizard({
                 Social matches are about the game; competitive ones are about the board. Both is a fine answer.
               </p>
             </div>
-            <div>
-              <span className="kicker text-faint">Racquet hand · optional</span>
-              <PillRow options={HANDS} value={hand} onPick={setHand} allowNone />
-            </div>
           </div>
         ) : null}
 
-        {/* ---- step 4 · schedule ---- */}
+        {/* ---- step 4 · schedule (15-minute blocks per day) ---- */}
         {step === 3 ? (
           <div className="space-y-3">
             <div className="overflow-hidden rounded-2xl border border-rule bg-surface">
-              <div className="grid grid-cols-[3rem_repeat(3,1fr)] gap-px bg-rule">
-                <div className="bg-surface" />
-                {SLOTS.map((sl) => (
-                  <div key={sl.key} className="kicker bg-surface px-1 py-2 text-center text-faint">
-                    {sl.label}
-                  </div>
-                ))}
-                {DAYS.map((d) => (
-                  <div key={d.key} className="contents">
-                    <div className="flex items-center bg-surface px-2.5 font-mono text-[11px] font-bold text-mute">
-                      {d.label}
+              <div className="divide-y divide-rule">
+                {DAYS.map((d) => {
+                  const dayRanges = ranges
+                    .map((r, i) => ({ ...r, i }))
+                    .filter((r) => r.day === d.key);
+                  const adding = addingDay === d.key;
+                  const invalid = toMin(draftStart) >= toMin(draftEnd);
+                  return (
+                    <div key={d.key} className="px-3 py-3 sm:px-4">
+                      <div className="flex items-start gap-3">
+                        <span className="mt-1 w-9 shrink-0 font-mono text-[12px] font-bold text-ink-soft">
+                          {d.label}
+                        </span>
+                        <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                          {dayRanges.length === 0 && !adding ? (
+                            <span className="text-[12px] text-faint">Not available</span>
+                          ) : null}
+                          {dayRanges.map((r) => (
+                            <span
+                              key={r.i}
+                              className="inline-flex items-center gap-1 rounded-full border border-rule bg-bg py-1 pl-2.5 pr-1.5 text-[12px] font-semibold text-ink"
+                            >
+                              {timeLabel(r.start)} – {timeLabel(r.end)}
+                              <button
+                                type="button"
+                                onClick={() => removeRange(r.i)}
+                                aria-label={`Remove ${d.label} ${timeLabel(r.start)} to ${timeLabel(r.end)}`}
+                                className="press grid h-4 w-4 place-items-center rounded-full text-mute transition-colors hover:bg-rule hover:text-brand-deep"
+                              >
+                                <X size={11} strokeWidth={2.5} aria-hidden />
+                              </button>
+                            </span>
+                          ))}
+                          {!adding ? (
+                            <button
+                              type="button"
+                              onClick={() => openAdder(d.key)}
+                              className="press inline-flex items-center gap-1 rounded-full border border-dashed border-rule px-2.5 py-1 text-[12px] font-semibold text-mute transition-colors hover:border-ink hover:text-ink"
+                            >
+                              <Plus size={12} strokeWidth={2.5} aria-hidden /> Add time
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                      {adding ? (
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2 pl-12">
+                          <select
+                            value={draftStart}
+                            onChange={(e) => setDraftStart(e.target.value)}
+                            aria-label="Start time"
+                            className="rounded-lg border border-rule bg-surface px-2 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand"
+                          >
+                            {TIME_OPTS.map((t) => (
+                              <option key={t.value} value={t.value}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="text-[13px] text-mute">to</span>
+                          <select
+                            value={draftEnd}
+                            onChange={(e) => setDraftEnd(e.target.value)}
+                            aria-label="End time"
+                            className="rounded-lg border border-rule bg-surface px-2 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand"
+                          >
+                            {TIME_OPTS.map((t) => (
+                              <option key={t.value} value={t.value}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => addRange(d.key)}
+                            disabled={invalid}
+                            className="press rounded-lg bg-ink px-3 py-1.5 text-[13px] font-bold text-surface transition-colors hover:bg-ink-soft disabled:opacity-40"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAddingDay(null)}
+                            className="press text-[13px] text-mute transition-colors hover:text-ink"
+                          >
+                            Cancel
+                          </button>
+                          {invalid ? (
+                            <span className="w-full text-[11px] text-brand-deep">
+                              End time must be after the start.
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
-                    {SLOTS.map((sl) => {
-                      const id = `${d.key}-${sl.key}`;
-                      const on = avail.has(id);
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          aria-pressed={on}
-                          aria-label={`${d.label} ${sl.label}`}
-                          onClick={() => toggleSlot(id)}
-                          className={"h-9 transition-colors " + (on ? "bg-ink" : "bg-surface hover:bg-bg")}
-                        >
-                          {on ? <span className="mx-auto block h-1.5 w-1.5 rounded-full bg-pop" /> : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => preset(DAYS.slice(0, 5).map((d) => `${d.key}-eve`))}
+                onClick={() =>
+                  setRanges(DAYS.slice(0, 5).map((d) => ({ day: d.key, start: "18:00", end: "21:00" })))
+                }
                 className="press rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:border-ink"
               >
                 Weekday evenings
               </button>
               <button
                 type="button"
-                onClick={() => preset(["sat", "sun"].flatMap((d) => SLOTS.map((sl) => `${d}-${sl.key}`)))}
+                onClick={() =>
+                  setRanges(["sat", "sun"].map((d) => ({ day: d, start: "09:00", end: "12:00" })))
+                }
                 className="press rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:border-ink"
               >
-                Weekends
+                Weekend mornings
               </button>
               <button
                 type="button"
-                onClick={() => preset([])}
+                onClick={() => {
+                  setRanges([]);
+                  setAddingDay(null);
+                }}
                 className="press rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:border-ink"
               >
                 Clear
               </button>
             </div>
             <p className="text-xs text-mute">
-              When are you usually free to play? Tap any block — change it anytime.
+              Add the times you’re usually free, in 15-minute steps — as many blocks per day as you like. Change them anytime.
             </p>
           </div>
         ) : null}
@@ -560,10 +716,8 @@ export function OnboardingWizard({
       <input type="hidden" name="display_name" value={displayName} />
       <input type="hidden" name="zip" value={zip} />
       <input type="hidden" name="sports_json" value={sportsJson} />
-      <input type="hidden" name="preferred_format" value={format} />
       <input type="hidden" name="play_style" value={style} />
-      <input type="hidden" name="handedness" value={hand} />
-      <input type="hidden" name="availability_json" value={JSON.stringify([...avail])} />
+      <input type="hidden" name="availability_json" value={JSON.stringify(ranges)} />
       <input type="hidden" name="avatar_hue" value={hue} />
       <input type="hidden" name="bio" value={bio} />
       <input type="hidden" name="birth_year" value={birthYear} />
@@ -582,6 +736,7 @@ export function OnboardingWizard({
         ) : null}
         {step < STEPS.length - 1 ? (
           <button
+            key="continue"
             type="button"
             onClick={next}
             className="press flex-1 rounded-xl bg-ink px-3.5 py-3 text-[15px] font-bold text-surface transition-colors hover:bg-ink-soft"
@@ -590,8 +745,12 @@ export function OnboardingWizard({
           </button>
         ) : (
           <button
+            key="finish"
             type="submit"
             disabled={pending}
+            onClick={() => {
+              submitIntent.current = true;
+            }}
             className="press flex-1 rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
           >
             {pending ? "Saving…" : isEdit ? "Save profile" : "Finish profile"}

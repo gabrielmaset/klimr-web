@@ -9,8 +9,18 @@ const GENDERS = new Set(["woman", "man", "nonbinary", "prefer_not"]);
 const FORMATS = new Set(["singles", "doubles", "both"]);
 const STYLES = new Set(["social", "competitive", "both"]);
 const HANDS = new Set(["right", "left", "either"]);
-const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-const SLOT_IDS = new Set(DAYS.flatMap((d) => ["am", "pm", "eve"].map((s) => `${d}-${s}`)));
+const DAYS = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+const TIME_RE = /^([01]\d|2[0-3]):(00|15|30|45)$/;
+
+type PickedSport = {
+  key: string;
+  level: string;
+  primary: boolean;
+  rating: string;
+  format?: string;
+  hand?: string;
+};
+type Range = { day: string; start: string; end: string };
 
 export async function saveProfile(
   _prev: WizardState,
@@ -31,7 +41,6 @@ export async function saveProfile(
   const zip = String(formData.get("zip") || "").trim();
   if (!/^\d{5}$/.test(zip)) return { error: "Enter a 5-digit ZIP code." };
 
-  type PickedSport = { key: string; level: string; primary: boolean; rating: string };
   let sportsPicked: PickedSport[];
   try {
     sportsPicked = JSON.parse(String(formData.get("sports_json") || "[]"));
@@ -41,9 +50,13 @@ export async function saveProfile(
   if (!Array.isArray(sportsPicked) || sportsPicked.length === 0) {
     return { error: "Pick at least one sport." };
   }
+
   const { data: sportRows } = await supabase.from("sports").select("key");
   const validKeys = new Set((sportRows ?? []).map((s) => s.key));
+
   const ratings = new Map<string, number | null>();
+  const fmts = new Map<string, string>();
+  const hands = new Map<string, string | null>();
   for (const s of sportsPicked) {
     if (!validKeys.has(s.key) || !LEVELS.has(s.level)) {
       return { error: "One of your sports could not be saved. Go back a step and re-pick." };
@@ -58,25 +71,42 @@ export async function saveProfile(
       }
       ratings.set(s.key, Math.round(r * 10) / 10);
     }
+    fmts.set(s.key, FORMATS.has(String(s.format)) ? String(s.format) : "both");
+    hands.set(s.key, HANDS.has(String(s.hand)) ? String(s.hand) : null);
   }
   const primary = sportsPicked.find((s) => s.primary)?.key ?? sportsPicked[0].key;
 
-  const format = String(formData.get("preferred_format") || "both");
   const style = String(formData.get("play_style") || "both");
-  if (!FORMATS.has(format) || !STYLES.has(style)) {
+  if (!STYLES.has(style)) {
     return { error: "Your play preferences could not be read. Go back a step and re-pick." };
   }
-  const handRaw = String(formData.get("handedness") || "").trim();
-  const handedness = HANDS.has(handRaw) ? handRaw : null;
 
-  let availability: string[];
+  // availability is a list of { day, start, end } ranges, times on 15-min steps.
+  let parsedAvail: unknown;
   try {
-    availability = JSON.parse(String(formData.get("availability_json") || "[]"));
+    parsedAvail = JSON.parse(String(formData.get("availability_json") || "[]"));
   } catch {
-    availability = [];
+    parsedAvail = [];
   }
-  if (!Array.isArray(availability) || availability.some((a) => !SLOT_IDS.has(a))) {
-    return { error: "Your schedule could not be read. Go back a step and re-tap your times." };
+  const availability: Range[] = [];
+  if (Array.isArray(parsedAvail)) {
+    for (const r of parsedAvail) {
+      if (!r || typeof r !== "object") {
+        return { error: "Your schedule could not be read. Go back a step and re-add your times." };
+      }
+      const day = String((r as Range).day);
+      const start = String((r as Range).start);
+      const end = String((r as Range).end);
+      if (!DAYS.has(day) || !TIME_RE.test(start) || !TIME_RE.test(end)) {
+        return { error: "Your schedule could not be read. Go back a step and re-add your times." };
+      }
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      if (sh * 60 + sm >= eh * 60 + em) {
+        return { error: "Each time block needs an end later than its start." };
+      }
+      availability.push({ day, start, end });
+    }
   }
 
   const bioRaw = String(formData.get("bio") || "").trim();
@@ -109,6 +139,8 @@ export async function saveProfile(
     .maybeSingle();
 
   /* ---- writes ---- */
+  // profiles keeps a convenience mirror of the PRIMARY sport's format + hand;
+  // play_style stays profile-level. The per-sport source of truth is player_sports.
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
@@ -124,24 +156,27 @@ export async function saveProfile(
       birth_year: birthYear,
       availability,
       avatar_hue: hue,
-      preferred_format: format,
+      preferred_format: fmts.get(primary) ?? "both",
       play_style: style,
-      handedness,
+      handedness: hands.get(primary) ?? null,
     })
     .eq("id", user.id);
   if (profileError) {
     return { error: "Could not save your profile. Try again in a moment." };
   }
 
-  // One ranking row per sport. New sports insert with zeroed stats (DB defaults,
-  // enforced by RLS); existing rows get level + self-reported rating updated —
-  // the stats guard keeps points/wins untouchable from user context either way.
+  // One ranking row per sport, each carrying its own format + hand. New sports
+  // insert with zeroed stats (DB defaults, enforced by RLS); existing rows get
+  // level / rating / format / hand updated. The stats guard keeps
+  // points / wins / matches untouchable from user context either way.
   const { error: sportsError } = await supabase.from("player_sports").upsert(
     sportsPicked.map((s) => ({
       user_id: user.id,
       sport_key: s.key,
       skill_level: s.level,
       skill_rating: ratings.get(s.key),
+      preferred_format: fmts.get(s.key) ?? "both",
+      handedness: hands.get(s.key) ?? null,
     })),
     { onConflict: "user_id,sport_key" },
   );

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { BadgeCheck, CheckCheck, Fingerprint, ShieldX } from "lucide-react";
 import { KlimrMark } from "@/components/logo";
 
@@ -222,54 +223,18 @@ export default function Home() {
       </div>
 
       {/* ---------------- Image band ---------------- */}
-      {/*
-        Full-bleed photo band. To use a real image, replace the placeholder
-        <div> below with next/image:
-
-          import Image from "next/image";
+      {/* Full-bleed photo band — Stocksy padel rally, 2560×1440. next/image
+          emits optimized WebP/AVIF at every size; scrim + caption sit on top. */}
+      <section aria-label="Klimr on the ground in Los Angeles" className="relative w-full overflow-hidden border-y border-rule bg-ink">
+        <div className="relative h-[clamp(300px,44vw,560px)] w-full">
           <Image
-            src="/hero/mar-vista-court.jpg"
-            alt="Players on a court in Mar Vista, Los Angeles"
+            src="/hero/hero.jpg"
+            alt="Two players in a padel rally on an outdoor court"
             fill
             priority
             sizes="100vw"
             className="object-cover"
           />
-
-        Master file: 2560×1440 (16:9), high-quality JPEG — next/image emits
-        optimized WebP/AVIF at every size. The licence must permit commercial
-        use and include model releases (identifiable people, commercial product).
-        Drop the file in /public/hero/. The scrim + caption below stay as-is.
-      */}
-      <section aria-label="Klimr on the ground in Los Angeles" className="relative w-full overflow-hidden border-y border-rule bg-ink">
-        <div className="relative h-[clamp(300px,44vw,560px)] w-full">
-          {/* — placeholder art: a stylized court at dusk, so the band reads as
-               finished design before the real photo arrives — */}
-          <div aria-hidden className="absolute inset-0">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(120% 95% at 80% 12%, rgba(255,78,27,0.32) 0%, rgba(255,78,27,0) 55%), linear-gradient(158deg, #1c1c20 0%, #0a0a0b 72%)",
-              }}
-            />
-            <svg
-              className="absolute inset-0 h-full w-full opacity-[0.13]"
-              preserveAspectRatio="xMidYMid slice"
-              viewBox="0 0 1200 600"
-            >
-              <rect x="70" y="60" width="1060" height="480" fill="none" stroke="white" strokeWidth="2.5" />
-              <line x1="600" y1="60" x2="600" y2="540" stroke="white" strokeWidth="2.5" />
-              <rect x="260" y="180" width="680" height="240" fill="none" stroke="white" strokeWidth="2.5" />
-              <line x1="260" y1="300" x2="940" y2="300" stroke="white" strokeWidth="2.5" />
-              <circle cx="600" cy="300" r="64" fill="none" stroke="white" strokeWidth="2.5" />
-            </svg>
-            <div className="absolute inset-0 grid place-items-center">
-              <span className="kicker rounded-full border border-white/20 px-3.5 py-2 text-white/55">
-                Photo placeholder · drop a 2560×1440 court image
-              </span>
-            </div>
-          </div>
 
           {/* legibility scrim for the caption */}
           <div
@@ -325,6 +290,21 @@ export default function Home() {
 
       {/* ---------------- Trust floor (dark) ---------------- */}
       <section className="relative overflow-hidden bg-ink py-20 text-surface">
+        {/* Background photo — Stocksy pickleball still-life, 2560×1440. Sits
+            beneath the heavy overlay below, so it reads as quiet atmosphere. */}
+        <Image
+          src="/hero/trust.jpg"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
+        {/* Legibility overlay — keeps the white text crisp once a photo is added. */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(180deg, rgba(10,10,11,0.80) 0%, rgba(10,10,11,0.92) 100%)" }}
+        />
         {/* Court-line geometry — the one quiet texture, used once. */}
         <svg
           className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.07]"

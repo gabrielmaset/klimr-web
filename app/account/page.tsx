@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, CalendarClock, Hand, MapPin, Pencil, ShieldCheck, Star, Swords, Users } from "lucide-react";
+import { BadgeCheck, CalendarClock, MapPin, Pencil, ShieldCheck, Star, Swords } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { startVerification, approveVerification } from "./actions";
 import { signOutAction } from "@/app/auth/actions";
@@ -66,7 +66,7 @@ export default async function AccountPage({
         .single(),
       supabase
         .from("player_sports")
-        .select("sport_key, skill_level, skill_rating")
+        .select("sport_key, skill_level, skill_rating, preferred_format, handedness")
         .eq("user_id", user.id),
       supabase.from("sports").select("key, skill_system"),
     ]);
@@ -193,21 +193,32 @@ export default async function AccountPage({
               {slots > 0 ? `Free ${slots} ${slots === 1 ? "block" : "blocks"} a week` : "Schedule not set"}
             </span>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
-              <Users size={13} className="text-brand" aria-hidden />
-              {FORMAT_LABEL[profile.preferred_format ?? "both"]}
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
-              <Swords size={13} className="text-brand" aria-hidden />
-              {STYLE_LABEL[profile.play_style ?? "both"]}
-            </span>
-            {profile.handedness ? (
+          <div className="mt-3">
+            <div className="kicker text-faint">How you play</div>
+            <div className="mt-2 space-y-1.5">
+              {sportsList.map((s) => (
+                <div key={s.sport_key} className="flex flex-wrap items-center gap-x-2 text-sm text-ink-soft">
+                  <span className="inline-flex items-center gap-1 font-semibold text-ink">
+                    <span aria-hidden>{SPORT_EMOJI[s.sport_key] ?? "•"}</span>
+                    {cap(s.sport_key)}
+                  </span>
+                  <span className="text-faint" aria-hidden>·</span>
+                  <span>{FORMAT_LABEL[s.preferred_format ?? "both"]}</span>
+                  {s.handedness ? (
+                    <>
+                      <span className="text-faint" aria-hidden>·</span>
+                      <span>{HAND_LABEL[s.handedness]}</span>
+                    </>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
-                <Hand size={13} className="text-brand" aria-hidden />
-                {HAND_LABEL[profile.handedness]}
+                <Swords size={13} className="text-brand" aria-hidden />
+                {STYLE_LABEL[profile.play_style ?? "both"]}
               </span>
-            ) : null}
+            </div>
           </div>
 
           {/* completeness */}

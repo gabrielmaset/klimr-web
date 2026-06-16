@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { KlimrLogo } from "@/components/logo";
+import { Avatar } from "@/components/avatar";
 import { createClient } from "@/lib/supabase/server";
 import { signOutAction } from "@/app/auth/actions";
 import { AdSlot } from "@/components/ads/ad-slot";
@@ -9,6 +10,26 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // The header profile icon shows the player's photo (or hue-gradient fallback)
+  // on every page once they're signed in.
+  let avatarUrl: string | null = null;
+  let avatarHue = 200;
+  let avatarName = user?.email ?? "You";
+  if (user) {
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("display_name, avatar_hue, avatar_path")
+      .eq("id", user.id)
+      .single();
+    if (p) {
+      avatarHue = p.avatar_hue ?? 200;
+      avatarName = p.display_name || user.email || "You";
+      avatarUrl = p.avatar_path
+        ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl
+        : null;
+    }
+  }
 
   return (
     <div className="flex min-h-full flex-col">
@@ -28,9 +49,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-4">
                 <Link
                   href="/account"
-                  className="font-semibold text-ink transition-colors hover:text-brand-deep"
+                  aria-label="Your account"
+                  className="press flex items-center gap-2 font-semibold text-ink transition-colors hover:text-brand-deep"
                 >
-                  Account
+                  <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={30} ring />
+                  <span className="hidden sm:block">Account</span>
                 </Link>
                 <form action={signOutAction}>
                   <button className="press text-sm text-mute transition-colors hover:text-ink">

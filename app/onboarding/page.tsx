@@ -5,6 +5,8 @@ import { OnboardingWizard, type WizardInitial } from "./onboarding-form";
 
 export const metadata: Metadata = { title: "Your profile" };
 
+type RawRange = { day?: unknown; start?: unknown; end?: unknown };
+
 export default async function OnboardingPage() {
   const supabase = await createClient();
   const {
@@ -18,17 +20,36 @@ export default async function OnboardingPage() {
       supabase
         .from("profiles")
         .select(
-          "display_name, home_zip, primary_sport, bio, gender, birth_year, availability, avatar_hue, preferred_format, play_style, handedness",
+          "display_name, home_zip, primary_sport, bio, gender, birth_year, availability, avatar_hue, play_style",
         )
         .eq("id", user.id)
         .single(),
       supabase
         .from("player_sports")
-        .select("sport_key, skill_level, skill_rating")
+        .select("sport_key, skill_level, skill_rating, preferred_format, handedness")
         .eq("user_id", user.id),
     ]);
 
   const isEdit = Boolean(profile?.primary_sport && profile?.home_zip);
+
+  // availability is JSONB. New shape is an array of { day, start, end } ranges.
+  // Any legacy entries (the old "mon-eve" slot ids) are dropped gracefully.
+  const availability = Array.isArray(profile?.availability)
+    ? (profile!.availability as RawRange[])
+        .filter(
+          (r) =>
+            !!r &&
+            typeof r === "object" &&
+            typeof r.day === "string" &&
+            typeof r.start === "string" &&
+            typeof r.end === "string",
+        )
+        .map((r) => ({
+          day: String(r.day),
+          start: String(r.start),
+          end: String(r.end),
+        }))
+    : [];
 
   const initial: WizardInitial = {
     displayName:
@@ -40,37 +61,54 @@ export default async function OnboardingPage() {
     gender: profile?.gender ?? "",
     birthYear: profile?.birth_year ? String(profile.birth_year) : "",
     hue: profile?.avatar_hue ?? 200,
-    availability: Array.isArray(profile?.availability)
-      ? (profile.availability as string[])
-      : [],
-    preferredFormat: profile?.preferred_format ?? "both",
+    availability,
     playStyle: profile?.play_style ?? "both",
-    handedness: profile?.handedness ?? "",
     sports: (mySports ?? []).map((s) => ({
       key: s.sport_key,
       level: s.skill_level ?? "casual",
       primary: s.sport_key === profile?.primary_sport,
       rating: s.skill_rating != null ? String(s.skill_rating) : "",
+      format: s.preferred_format ?? "both",
+      hand: s.handedness ?? "",
     })),
   };
 
   return (
-    <div className="mx-auto max-w-md px-5 py-14">
-      <p className="kicker text-brand-deep">{isEdit ? "Your profile" : "Almost in"}</p>
-      <h1 className="mt-2 font-display text-4xl text-ink">
-        {isEdit ? (
-          <>Edit your <span className="italic">profile.</span></>
-        ) : (
-          <>Build your <span className="italic">profile.</span></>
-        )}
-      </h1>
-      <p className="mt-2 text-sm leading-relaxed text-mute">
-        {isEdit
-          ? "Everything here can change as your game does."
-          : "Five quick steps and your spot on the board is reserved."}
-      </p>
-      <div className="mt-7">
-        <OnboardingWizard sports={sports ?? []} initial={initial} isEdit={isEdit} />
+    <div className="mx-auto max-w-5xl px-5 py-12 lg:py-16">
+      <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start lg:gap-14">
+        {/* left rail — heading + reassurance, sticky on desktop */}
+        <div className="lg:sticky lg:top-24">
+          <p className="kicker text-brand-deep">{isEdit ? "Your profile" : "Almost in"}</p>
+          <h1 className="mt-2 font-display text-4xl text-ink sm:text-5xl">
+            {isEdit ? (
+              <>Edit your <span className="italic">profile.</span></>
+            ) : (
+              <>Build your <span className="italic">profile.</span></>
+            )}
+          </h1>
+          <p className="mt-3 max-w-sm text-sm leading-relaxed text-mute">
+            {isEdit
+              ? "Everything here can change as your game does — update a rating, add a sport, reset your times."
+              : "Five quick steps and your spot on the board is reserved. It all stays editable later."}
+          </p>
+          <ul className="mt-6 hidden space-y-2.5 lg:block">
+            {[
+              "Takes about two minutes",
+              "Each sport gets its own ranking",
+              "Nothing here is locked in",
+            ].map((t) => (
+              <li key={t} className="flex items-center gap-2.5 text-sm text-ink-soft">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* right — the wizard, in a card that fills the column */}
+        <div className="rounded-3xl border border-rule bg-surface p-6 shadow-[0_1px_0_rgba(10,10,11,0.02)] sm:p-8">
+          <OnboardingWizard sports={sports ?? []} initial={initial} isEdit={isEdit} />
+        </div>
       </div>
     </div>
   );

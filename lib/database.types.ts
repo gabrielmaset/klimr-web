@@ -54,7 +54,7 @@ export interface Database {
           bio: string | null;
           gender: string | null;
           birth_year: number | null;
-          availability: string[];
+          availability: { day: string; start: string; end: string }[];
           preferred_format: string;
           play_style: string;
           handedness: string | null;
@@ -76,7 +76,7 @@ export interface Database {
           bio?: string | null;
           gender?: string | null;
           birth_year?: number | null;
-          availability?: string[];
+          availability?: { day: string; start: string; end: string }[];
           preferred_format?: string;
           play_style?: string;
           handedness?: string | null;
@@ -97,7 +97,7 @@ export interface Database {
           bio?: string | null;
           gender?: string | null;
           birth_year?: number | null;
-          availability?: string[];
+          availability?: { day: string; start: string; end: string }[];
           preferred_format?: string;
           play_style?: string;
           handedness?: string | null;
@@ -136,6 +136,8 @@ export interface Database {
           matches_played: number;
           wins: number;
           skill_level: string;
+          preferred_format: string;
+          handedness: string | null;
           updated_at: string;
         };
         Insert: {
@@ -146,6 +148,8 @@ export interface Database {
           matches_played?: number;
           wins?: number;
           skill_level?: string;
+          preferred_format?: string;
+          handedness?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -154,6 +158,8 @@ export interface Database {
           matches_played?: number;
           wins?: number;
           skill_level?: string;
+          preferred_format?: string;
+          handedness?: string | null;
           updated_at?: string;
         };
         Relationships: [];
