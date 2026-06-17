@@ -33,10 +33,13 @@ create policy "keys update own" on public.user_keys
   for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ---------- helper: is a user a participant of a match? (security definer to avoid RLS recursion) ----------
-create or replace function public.is_match_participant(p_match uuid, p_user uuid)
+-- NOTE: this function already exists from 0001 with parameters (m_id, uid). We keep
+-- those exact names so CREATE OR REPLACE is a no-op refresh rather than a parameter
+-- rename (Postgres rejects renames on replace — error 42P13).
+create or replace function public.is_match_participant(m_id uuid, uid uuid)
 returns boolean language sql security definer stable set search_path = public as $$
   select exists (
-    select 1 from public.match_participants where match_id = p_match and user_id = p_user
+    select 1 from public.match_participants where match_id = m_id and user_id = uid
   );
 $$;
 
