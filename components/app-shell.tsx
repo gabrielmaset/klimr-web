@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { KlimrLogo } from "@/components/logo";
+import { SiteHeader } from "@/components/site-header";
 import { SideNav } from "@/components/side-nav";
 import { MobileTopBar } from "@/components/mobile-top-bar";
 import { BottomNav } from "@/components/bottom-nav";
@@ -42,21 +41,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   if (!user) {
     return (
       <div className="flex min-h-full flex-col">
-        <header className="sticky top-0 z-40 border-b border-rule/70 bg-bg/75 backdrop-blur-xl backdrop-saturate-150">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
-            <Link href="/" aria-label="Klimr home">
-              <KlimrLogo />
-            </Link>
-            <nav className="flex items-center gap-5">
-              <Link
-                href="/login"
-                className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft"
-              >
-                Sign in
-              </Link>
-            </nav>
-          </div>
-        </header>
+        <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />
       </div>

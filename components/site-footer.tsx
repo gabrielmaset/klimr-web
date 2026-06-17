@@ -11,6 +11,8 @@ export function SiteFooter() {
   const pathname = usePathname();
   // Full-screen chat threads own the viewport — no footer there (matches the nav bars).
   if (pathname.startsWith("/chats/")) return null;
+  // Code-gated portals are deliberately bare — logo + code only, nothing about the product.
+  if (pathname === "/gate" || pathname === "/investor-access") return null;
   const isHome = pathname === "/";
 
   return (
