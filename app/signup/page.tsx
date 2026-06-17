@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { SignupForm } from "./signup-form";
 
 export const metadata: Metadata = { title: "Sign up" };
@@ -10,7 +11,10 @@ const PERKS = [
   "Free during the Mar Vista beta",
 ];
 
-export default function SignupPage() {
+export default async function SignupPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+  const { code } = await searchParams;
+  const cookieCode = (await cookies()).get("klimr_invite")?.value;
+  const initialCode = (code ?? cookieCode ?? "").toUpperCase().slice(0, 40);
   return (
     <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 lg:grid-cols-2 lg:gap-16 lg:py-24">
       {/* ---- left · the pitch ---- */}
@@ -34,7 +38,7 @@ export default function SignupPage() {
 
       {/* ---- right · the form ---- */}
       <div className="w-full max-w-md lg:justify-self-end">
-        <SignupForm />
+        <SignupForm initialCode={initialCode} />
         <p className="mt-6 text-sm text-mute">
           Already have an account?{" "}
           <Link

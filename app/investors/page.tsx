@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
+import { hasGate } from "@/lib/gate";
 
 export const metadata: Metadata = { title: "For investors" };
 
@@ -13,7 +15,9 @@ const COVERS = [
   "Market, go-to-market, and the roadmap",
 ];
 
-export default function InvestorsPage() {
+export default async function InvestorsPage() {
+  if (!(await hasGate("investor"))) redirect("/investor-access");
+
   return (
     <div className="mx-auto max-w-2xl px-5 py-16">
       <p className="kicker text-brand-deep">For investors</p>

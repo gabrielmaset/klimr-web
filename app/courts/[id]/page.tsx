@@ -1,0 +1,198 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect, notFound } from "next/navigation";
+import { ChevronLeft, MapPin, Star, ShieldCheck } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { sportMeta } from "@/lib/sports";
+import { Avatar } from "@/components/avatar";
+import { addReview } from "../actions";
+
+export const metadata: Metadata = { title: "Court" };
+
+type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null };
+type Review = { id: string; author_id: string; rating: number; body: string | null; created_at: string };
+
+function Stars({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`${value} out of 5`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star key={n} size={size} className={n <= Math.round(value) ? "fill-pop text-pop" : "text-rule"} />
+      ))}
+    </span>
+  );
+}
+
+export default async function CourtDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect(`/login?next=/courts/${id}`);
+
+  const { data: court } = await supabase
+    .from("courts")
+    .select("id, name, sports, address, neighborhood, city, state, zip, lat, lng, amenities")
+    .eq("id", id)
+    .maybeSingle();
+  if (!court) notFound();
+
+  const { data: reviewRows } = await supabase
+    .from("court_reviews")
+    .select("id, author_id, rating, body, created_at")
+    .eq("court_id", id)
+    .order("created_at", { ascending: false });
+  const reviews = (reviewRows as Review[] | null) ?? [];
+  const reviewCount = reviews.length;
+  const avg = reviewCount ? reviews.reduce((s, r) => s + r.rating, 0) / reviewCount : 0;
+  const mine = reviews.find((r) => r.author_id === user.id);
+
+  const profById = new Map<string, Prof>();
+  const authorIds = [...new Set(reviews.map((r) => r.author_id))];
+  if (authorIds.length) {
+    const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path").in("id", authorIds);
+    for (const p of (profs as Prof[] | null) ?? []) profById.set(p.id, p);
+  }
+  const avatarUrl = (p: Prof | undefined) =>
+    p?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
+
+  const hasGeo = court.lat != null && court.lng != null;
+  const d = 0.004;
+  const mapSrc = hasGeo
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${court.lng! - d}%2C${court.lat! - d}%2C${court.lng! + d}%2C${court.lat! + d}&layer=mapnik&marker=${court.lat}%2C${court.lng}`
+    : null;
+  const directionsHref = hasGeo
+    ? `https://www.openstreetmap.org/?mlat=${court.lat}&mlon=${court.lng}#map=17/${court.lat}/${court.lng}`
+    : null;
+
+  return (
+    <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
+      <Link href="/courts" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
+        <ChevronLeft size={15} /> Courts
+      </Link>
+
+      <h1 className="font-display text-3xl leading-tight text-ink sm:text-4xl">{court.name}</h1>
+      <p className="mt-1 flex items-center gap-1.5 text-sm text-mute">
+        <MapPin size={14} /> {[court.neighborhood, court.city, court.state].filter(Boolean).join(", ")}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {court.sports.map((s) => {
+          const m = sportMeta(s);
+          return (
+            <span key={s} className="rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink">
+              {m.emoji} {m.name}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* map */}
+      {mapSrc ? (
+        <div className="mt-5 overflow-hidden rounded-2xl border border-rule">
+          <iframe
+            title={`Map of ${court.name}`}
+            src={mapSrc}
+            loading="lazy"
+            className="h-64 w-full"
+            style={{ border: 0 }}
+          />
+        </div>
+      ) : null}
+      {court.address ? (
+        <p className="mt-2 text-sm text-mute">
+          {court.address}
+          {directionsHref ? (
+            <>
+              {" · "}
+              <a href={directionsHref} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-deep hover:text-brand">
+                Directions
+              </a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+
+      {/* amenities */}
+      {court.amenities?.length ? (
+        <section className="mt-5">
+          <h2 className="kicker mb-2 text-faint">Amenities</h2>
+          <div className="flex flex-wrap gap-1.5">
+            {court.amenities.map((a) => (
+              <span key={a} className="rounded-full bg-[#f4f4f5] px-3 py-1 text-xs font-medium text-ink-soft">{a}</span>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* reviews */}
+      <section className="mt-7">
+        <div className="flex items-end justify-between">
+          <h2 className="kicker text-faint">Reviews</h2>
+          {reviewCount > 0 ? (
+            <span className="flex items-center gap-1.5 text-sm text-mute">
+              <Stars value={avg} /> {avg.toFixed(1)} · {reviewCount}
+            </span>
+          ) : null}
+        </div>
+
+        {/* your review */}
+        <form action={addReview} className="mt-3 rounded-2xl border border-rule bg-surface p-4">
+          <input type="hidden" name="courtId" value={court.id} />
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink">{mine ? "Your review" : "Rate this court"}</span>
+            <select
+              name="rating"
+              defaultValue={String(mine?.rating ?? 5)}
+              aria-label="Rating"
+              className="rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink outline-none focus:border-brand"
+            >
+              {[5, 4, 3, 2, 1].map((n) => (
+                <option key={n} value={n}>{"★".repeat(n)} ({n})</option>
+              ))}
+            </select>
+          </div>
+          <textarea
+            name="body"
+            rows={2}
+            maxLength={1000}
+            defaultValue={mine?.body ?? ""}
+            placeholder="Lights work? Courts in good shape? Easy parking?"
+            className="mt-3 w-full resize-none rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+          />
+          <div className="mt-2 flex items-center justify-between">
+            <span className="flex items-center gap-1 text-[11px] text-faint"><ShieldCheck size={11} /> Screened before posting</span>
+            <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+              {mine ? "Update review" : "Post review"}
+            </button>
+          </div>
+        </form>
+
+        {/* others' reviews */}
+        {reviews.length > 0 ? (
+          <div className="mt-3 space-y-2.5">
+            {reviews.map((r) => {
+              const p = profById.get(r.author_id);
+              return (
+                <div key={r.id} className="rounded-2xl border border-rule bg-surface p-4">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar url={avatarUrl(p)} hue={p?.avatar_hue ?? 200} name={p?.display_name ?? "Player"} size={32} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">
+                        {p?.display_name ?? "Player"}
+                        {r.author_id === user.id ? <span className="text-xs text-faint"> · you</span> : null}
+                      </p>
+                      <Stars value={r.rating} size={12} />
+                    </div>
+                  </div>
+                  {r.body ? <p className="mt-2 text-sm leading-relaxed text-ink-soft">{r.body}</p> : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-mute">No reviews yet — be the first.</p>
+        )}
+      </section>
+    </div>
+  );
+}

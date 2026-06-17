@@ -2,6 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { BadgeCheck, CheckCheck, Fingerprint, ShieldX } from "lucide-react";
 import { KlimrMark } from "@/components/logo";
+import { createClient } from "@/lib/supabase/server";
+import { SignedInHome } from "@/components/signed-in-home";
+import { redirect } from "next/navigation";
+import { hasGate } from "@/lib/gate";
 
 /* ------------------------------------------------------------------ */
 /* The living ladder — the product, rendered as the hero's signature. */
@@ -115,14 +119,17 @@ function LadderCard() {
 /* ------------------------------------------------------------------ */
 
 const MARQUEE = [
-  "Tennis 🎾",
-  "Pickleball 🏓",
+  "Tennis",
+  "Pickleball",
   "Padel",
   "Racquetball",
+  "ZIP → world",
+  "Verified players",
+  "Both sides confirm",
+  "Real results",
   "Mar Vista",
   "ZIP 90066",
-  "Verified players",
-  "Real results",
+  "Invite only",
 ];
 
 const FLOWS: { title: string; body: string; status: "live" | "build" | "soon" }[] = [
@@ -158,7 +165,16 @@ const TRUST = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) return <SignedInHome />;
+
+  // Anonymous visitors must pass the invite-code portal before seeing the site.
+  if (!(await hasGate("site"))) redirect("/gate");
+
   return (
     <>
       {/* ---------------- Hero ---------------- */}
@@ -191,12 +207,6 @@ export default function Home() {
             >
               Claim your spot
             </Link>
-            <Link
-              href="/investors"
-              className="press rounded-full border border-ink px-6 py-3.5 text-[15px] font-semibold text-ink transition-colors hover:bg-ink hover:text-surface"
-            >
-              For investors
-            </Link>
           </div>
           <p className="rise mt-6 font-mono text-[12px] text-mute" style={{ animationDelay: "360ms" }}>
             Invite-only beta · every player identity-verified
@@ -209,11 +219,13 @@ export default function Home() {
 
       {/* ---------------- Marquee ---------------- */}
       <div className="overflow-hidden border-y border-rule bg-surface py-3" aria-hidden>
-        <div className="marquee flex w-max gap-10">
-          {[0, 1].map((copy) => (
-            <div key={copy} className="flex shrink-0 gap-10">
+        {/* Five identical copies + even trailing spacing keep the strip full on
+            any width; the keyframe advances exactly one copy (-20%) to loop. */}
+        <div className="marquee flex w-max">
+          {Array.from({ length: 5 }).map((_, copy) => (
+            <div key={copy} className="flex shrink-0 items-center gap-10 pr-10">
               {MARQUEE.map((m) => (
-                <span key={m + copy} className="kicker whitespace-nowrap text-faint">
+                <span key={`${copy}-${m}`} className="kicker whitespace-nowrap text-faint">
                   {m}
                 </span>
               ))}
@@ -290,20 +302,27 @@ export default function Home() {
 
       {/* ---------------- Trust floor (dark) ---------------- */}
       <section className="relative overflow-hidden bg-ink py-20 text-surface">
-        {/* Background photo — Stocksy pickleball still-life, 2560×1440. Sits
-            beneath the heavy overlay below, so it reads as quiet atmosphere. */}
+        {/* Background photo — Stocksy pickleball still-life, 2560×1440. A gentle
+            saturation/contrast lift makes the balls read; the directional scrim
+            below keeps it dark only where the white headline sits. */}
         <Image
           src="/hero/trust.jpg"
           alt=""
           fill
           sizes="100vw"
           className="object-cover"
+          style={{ filter: "saturate(1.12) contrast(1.04)" }}
         />
-        {/* Legibility overlay — keeps the white text crisp once a photo is added. */}
+        {/* Legibility scrim — darkest at the top-left (kicker + headline), opening
+            to ~45% through the middle so the pickleballs stay vivid. The cards
+            carry their own solid background, so this doesn't touch their contrast. */}
         <div
           aria-hidden
           className="absolute inset-0"
-          style={{ background: "linear-gradient(180deg, rgba(10,10,11,0.80) 0%, rgba(10,10,11,0.92) 100%)" }}
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(10,10,11,0.45) 0%, rgba(10,10,11,0.12) 42%, rgba(10,10,11,0) 62%), linear-gradient(180deg, rgba(10,10,11,0.72) 0%, rgba(10,10,11,0.44) 38%, rgba(10,10,11,0.42) 70%, rgba(10,10,11,0.66) 100%)",
+          }}
         />
         {/* Court-line geometry — the one quiet texture, used once. */}
         <svg

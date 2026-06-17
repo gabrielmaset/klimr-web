@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, CalendarClock, MapPin, Pencil, ShieldCheck, Star, Swords } from "lucide-react";
+import { BadgeCheck, CalendarClock, MapPin, Pencil, ShieldCheck, Star, Swords, Settings, Users, Sparkles, Bell, ChevronRight, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { startVerification, approveVerification } from "./actions";
 import { signOutAction } from "@/app/auth/actions";
@@ -138,6 +138,39 @@ export default async function AccountPage({
           </button>
         </form>
       </div>
+
+      {/* secondary navigation — shown on mobile where there's no sidebar */}
+      <nav className="mt-5 grid grid-cols-2 gap-2 md:hidden" aria-label="More">
+        {[
+          { href: "/settings", label: "Settings", Icon: Settings },
+          { href: "/discover", label: "Discover", Icon: Radar },
+          { href: "/challenges", label: "Challenges", Icon: Flag },
+          { href: "/teams", label: "Teams", Icon: Users },
+          { href: "/courts", label: "Courts", Icon: MapPin },
+          { href: "/events", label: "Events", Icon: CalendarDays },
+          { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
+          { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
+          { href: "/resources", label: "Resources", Icon: BookOpen },
+          { href: "/invite", label: "Invite friends", Icon: Gift, soon: true },
+          { href: "/notifications", label: "Notifications", Icon: Bell },
+        ].map(({ href, label, Icon, soon }) => (
+          <Link
+            key={href}
+            href={href}
+            className="lift flex items-center gap-2.5 rounded-2xl border border-rule bg-surface p-3"
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f4f4f5] text-ink">
+              <Icon size={16} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{label}</span>
+            {soon ? (
+              <span className="shrink-0 rounded-full bg-[#f4f4f5] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
+            ) : (
+              <ChevronRight size={16} className="shrink-0 text-faint" />
+            )}
+          </Link>
+        ))}
+      </nav>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-start">
         {/* ---------------- LEFT · profile ---------------- */}

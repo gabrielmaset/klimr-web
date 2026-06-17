@@ -5,7 +5,7 @@ import { signUpWithInvite, type SignupState } from "./signup-actions";
 
 const initial: SignupState = {};
 
-export function SignupForm() {
+export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
   const [state, action, pending] = useActionState(signUpWithInvite, initial);
 
   if (state.ok) {
@@ -37,7 +37,7 @@ export function SignupForm() {
           autoComplete="off"
           spellCheck={false}
           placeholder="X7QM-K2NF-B9G3"
-          defaultValue={state.code}
+          defaultValue={state.code ?? initialCode}
           className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 font-mono text-[15px] uppercase tracking-[0.12em] text-ink outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-faint focus:border-brand"
         />
       </label>

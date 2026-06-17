@@ -26,6 +26,8 @@
 html {
   height: 100%;
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -34,6 +36,7 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
@@ -60,7 +63,10 @@ body {
 }
 @keyframes marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  /* The track holds 5 identical copies; advancing exactly one copy (-20%)
+     loops seamlessly and keeps the strip full edge-to-edge on wide screens.
+     If you change the copy count in page.tsx, change this to -(100/n)%. */
+  to { transform: translateX(-20%); }
 }
 @keyframes livedot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -69,7 +75,7 @@ body {
 
 .rise { animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .fade { animation: fade 0.8s ease both; }
-.marquee { animation: marquee 30s linear infinite; will-change: transform; }
+.marquee { animation: marquee 40s linear infinite; will-change: transform; }
 .live-dot { animation: livedot 2s ease-in-out infinite; }
 
 /* Interactive cards lift one hair; buttons press */
