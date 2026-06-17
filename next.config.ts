@@ -16,6 +16,7 @@ const csp = [
   "img-src 'self' data: blob: https://*.supabase.co",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  "frame-src https://www.openstreetmap.org",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -35,6 +36,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false, // don't advertise the framework
+  experimental: {
+    // Feed image uploads post through a Server Action; default cap is 1MB.
+    serverActions: { bodySizeLimit: "6mb" },
+  },
   images: {
     // Avatars and any future hero art served from Supabase Storage.
     remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }],

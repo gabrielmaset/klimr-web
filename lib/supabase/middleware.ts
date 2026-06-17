@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
 // Reachable without a session. Everything else redirects to /login.
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/auth", "/investors"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/auth", "/investors", "/gate", "/investor-access"];
 
 // Reachable with a session that has NOT yet cleared 2FA (AAL1). These are the
 // pages a signed-in user needs *in order to* complete or recover 2FA, so the
@@ -14,6 +14,16 @@ const matches = (path: string, list: string[]) =>
   list.some((p) => path === p || path.startsWith(p + "/"));
 
 export async function updateSession(request: NextRequest) {
+  // investor.klimr.com → serve the investor flow at its root. The /investors
+  // page then enforces the investor-code gate. (Configure the subdomain in
+  // Vercel + DNS; the in-app rewrite makes the root land in the right place.)
+  const host = request.headers.get("host") ?? "";
+  if (host.startsWith("investor.") && request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/investors";
+    return NextResponse.rewrite(url);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
