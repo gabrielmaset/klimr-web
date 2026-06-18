@@ -142,7 +142,7 @@ export interface Database {
           code: string;
           label: string | null;
           active: boolean;
-          expires_at: string;
+          expires_at: string | null;
           created_at: string;
           last_used_at: string | null;
         };
@@ -150,12 +150,12 @@ export interface Database {
           code: string;
           label?: string | null;
           active?: boolean;
-          expires_at?: string;
+          expires_at?: string | null;
         };
         Update: {
           label?: string | null;
           active?: boolean;
-          expires_at?: string;
+          expires_at?: string | null;
           last_used_at?: string | null;
         };
         Relationships: [];

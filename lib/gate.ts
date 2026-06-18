@@ -3,14 +3,15 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 
 /**
- * Signed-cookie gate for the two portal pages:
- *   - "site"     → the invite-code portal in front of klimr.com
- *   - "investor" → the investor-code portal in front of the demo
+ * Signed-cookie gate for the invite-code portal in front of klimr.com ("site").
  *
- * Each portal validates the entered code against the database server-side, then
+ * The portal validates the entered code against the database server-side, then
  * sets a cookie whose value is an HMAC the visitor could not have produced
  * themselves. Pages verify that HMAC, so the cookie can't be forged by simply
  * setting an arbitrary value.
+ *
+ * The investor portal has its own, separate gate — it lives in the klimr-investor
+ * app at vision.klimr.com and never shares a cookie with this one.
  *
  * GATE_SECRET MUST be set in production (Vercel env) for the token to be
  * forgery-resistant. Without it the gate falls back to a known string so the
@@ -18,11 +19,10 @@ import { cookies } from "next/headers";
  */
 const SECRET = process.env.GATE_SECRET || "klimr-gate-fallback-set-GATE_SECRET";
 
-export type GateScope = "site" | "investor";
+export type GateScope = "site";
 
 const COOKIE: Record<GateScope, string> = {
   site: "klimr_gate",
-  investor: "klimr_investor",
 };
 
 export function gateCookieName(scope: GateScope): string {

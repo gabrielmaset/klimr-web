@@ -12,7 +12,7 @@ export function SiteFooter() {
   // Full-screen chat threads own the viewport — no footer there (matches the nav bars).
   if (pathname.startsWith("/chats/")) return null;
   // Code-gated portals are deliberately bare — logo + code only, nothing about the product.
-  if (pathname === "/gate" || pathname === "/investor-access") return null;
+  if (pathname === "/gate") return null;
   const isHome = pathname === "/";
 
   return (
@@ -37,7 +37,7 @@ export function SiteFooter() {
             <div className="kicker mb-3 text-faint">Company</div>
             <ul className="space-y-2 text-sm">
               {isHome ? (
-                <li><Link href="/investor-access" className="text-mute transition-colors hover:text-ink">For investors ↗</Link></li>
+                <li><a href="https://vision.klimr.com" target="_blank" rel="noopener noreferrer" className="text-mute transition-colors hover:text-ink">For investors ↗</a></li>
               ) : null}
               <li>
                 <a href="mailto:hello@klimr.com" className="font-mono text-[13px] text-mute transition-colors hover:text-ink">

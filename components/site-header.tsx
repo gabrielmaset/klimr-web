@@ -7,7 +7,7 @@ import { KlimrLogo } from "@/components/logo";
 export function SiteHeader() {
   const pathname = usePathname();
   // Code-gated portals are deliberately bare — no nav, no chrome, nothing about the product.
-  if (pathname === "/gate" || pathname === "/investor-access") return null;
+  if (pathname === "/gate") return null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-rule/70 bg-bg/75 backdrop-blur-xl backdrop-saturate-150">
