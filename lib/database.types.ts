@@ -61,6 +61,7 @@ export interface Database {
           handedness: string | null;
           account_status: string;
           suspended_until: string | null;
+          signup_code: string | null;
           created_at: string;
         };
         Insert: {
@@ -118,6 +119,7 @@ export interface Database {
           uses: number;
           note: string | null;
           owner_id: string | null;
+          active: boolean;
           created_at: string;
           last_used_at: string | null;
         };
@@ -127,12 +129,14 @@ export interface Database {
           uses?: number;
           note?: string | null;
           owner_id?: string | null;
+          active?: boolean;
         };
         Update: {
           max_uses?: number;
           uses?: number;
           note?: string | null;
           owner_id?: string | null;
+          active?: boolean;
           last_used_at?: string | null;
         };
         Relationships: [];
@@ -870,6 +874,8 @@ export interface Database {
         }[];
       };
       current_admin_role: { Args: Record<string, never>; Returns: string };
+      generate_invite_codes: { Args: { p_count: number; p_max_uses?: number; p_note?: string | null }; Returns: string[] };
+      generate_investor_codes: { Args: { p_count: number; p_note?: string | null }; Returns: string[] };
     };
     Enums: {
       verification_status: VerificationStatus;
