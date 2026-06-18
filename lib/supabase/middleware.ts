@@ -52,6 +52,19 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // 1.5) Signed in but no password set yet → set one before anything else.
+  //      This is what guarantees the wizard is never reached password-less.
+  if (
+    user &&
+    !matches(path, PUBLIC_PATHS) &&
+    !matches(path, ["/create-password", "/reset-password"]) &&
+    !user.user_metadata?.password_set
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/create-password";
+    return NextResponse.redirect(url);
+  }
+
   // 2) Signed in but two-factor not yet satisfied → complete 2FA first.
   //    Required on every protected page; marketing/auth pages are exempt.
   if (user && !matches(path, PUBLIC_PATHS) && !matches(path, AAL_EXEMPT)) {

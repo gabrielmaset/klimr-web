@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { KlimrLogo } from "@/components/logo";
 import { AdSlot } from "@/components/ads/ad-slot";
 
-export function SiteFooter() {
+export function SiteFooter({ authed = false }: { authed?: boolean }) {
   // Klimr is built primarily for players. The investor link lives only at the
   // bottom of the main (landing) page.
   const pathname = usePathname();
@@ -28,9 +28,19 @@ export function SiteFooter() {
           <div>
             <div className="kicker mb-3 text-faint">Product</div>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/signup" className="text-mute transition-colors hover:text-ink">Sign up</Link></li>
-              <li><Link href="/login" className="text-mute transition-colors hover:text-ink">Sign in</Link></li>
-              <li><Link href="/account" className="text-mute transition-colors hover:text-ink">Your account</Link></li>
+              {authed ? (
+                <>
+                  <li><Link href="/feed" className="text-mute transition-colors hover:text-ink">Feed</Link></li>
+                  <li><Link href="/account" className="text-mute transition-colors hover:text-ink">Your account</Link></li>
+                  <li><Link href="/settings" className="text-mute transition-colors hover:text-ink">Settings</Link></li>
+                </>
+              ) : (
+                <>
+                  <li><Link href="/signup" className="text-mute transition-colors hover:text-ink">Sign up</Link></li>
+                  <li><Link href="/login" className="text-mute transition-colors hover:text-ink">Sign in</Link></li>
+                  <li><Link href="/account" className="text-mute transition-colors hover:text-ink">Your account</Link></li>
+                </>
+              )}
             </ul>
           </div>
           <div>

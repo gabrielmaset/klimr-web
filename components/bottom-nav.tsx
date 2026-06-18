@@ -19,10 +19,12 @@ export function BottomNav({
   avatarUrl,
   avatarHue,
   avatarName,
+  chatUnread,
 }: {
   avatarUrl: string | null;
   avatarHue: number;
   avatarName: string;
+  chatUnread: number;
 }) {
   const pathname = usePathname();
   // Full-screen chat thread: hide app nav like WhatsApp / IG DMs do.
@@ -50,6 +52,7 @@ export function BottomNav({
           />
           {TABS.map(({ href, label, Icon }, i) => {
             const active = activeIndex === i;
+            const badge = href === "/chats" ? chatUnread : 0;
             return (
               <Link
                 key={href}
@@ -57,7 +60,14 @@ export function BottomNav({
                 aria-current={active ? "page" : undefined}
                 className="relative z-10 flex flex-col items-center gap-0.5 pb-2 pt-2.5 text-[11px] font-semibold"
               >
-                <Icon size={20} className={active ? "text-brand-deep" : "text-mute"} />
+                <span className="relative">
+                  <Icon size={20} className={active ? "text-brand-deep" : "text-mute"} />
+                  {badge > 0 ? (
+                    <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  ) : null}
+                </span>
                 <span className={active ? "text-brand-deep" : "text-mute"}>{label}</span>
               </Link>
             );

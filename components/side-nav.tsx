@@ -34,12 +34,14 @@ export function SideNav({
   avatarName,
   adminRole,
   unreadCount,
+  chatUnread,
 }: {
   avatarUrl: string | null;
   avatarHue: number;
   avatarName: string;
   adminRole: boolean;
   unreadCount: number;
+  chatUnread: number;
 }) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -48,7 +50,8 @@ export function SideNav({
   const activeIndex = main.findIndex((i) => isActive(i.href));
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col self-start overflow-y-auto border-r border-rule/70 bg-white/65 px-3 py-5 backdrop-blur-xl backdrop-saturate-150 md:flex">
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
+      <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-rule/60 bg-white/70 px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.2)] backdrop-blur-2xl backdrop-saturate-150">
       <Link href="/" aria-label="Klimr home" className="px-3">
         <KlimrLogo />
       </Link>
@@ -62,6 +65,7 @@ export function SideNav({
         />
         {main.map(({ href, label, Icon }) => {
           const active = isActive(href);
+          const badge = href === "/chats" ? chatUnread : href === "/notifications" ? unreadCount : 0;
           return (
             <Link
               key={href}
@@ -73,9 +77,9 @@ export function SideNav({
             >
               <Icon size={18} className={active ? "text-brand" : "text-mute"} />
               {label}
-              {href === "/notifications" && unreadCount > 0 ? (
+              {badge > 0 ? (
                 <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
-                  {unreadCount > 99 ? "99+" : unreadCount}
+                  {badge > 99 ? "99+" : badge}
                 </span>
               ) : null}
             </Link>
@@ -136,6 +140,7 @@ export function SideNav({
             Sign out
           </button>
         </form>
+      </div>
       </div>
     </aside>
   );

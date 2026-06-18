@@ -16,6 +16,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let avatarName = user?.email ?? "You";
   let adminRole: string | null = null;
   let unread = 0;
+  let chatUnread = 0;
   if (user) {
     const { data: p } = await supabase
       .from("profiles")
@@ -35,6 +36,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       .eq("user_id", user.id)
       .is("read_at", null);
     unread = count ?? 0;
+    const { data: cu } = await supabase.rpc("chat_unread_count");
+    chatUnread = typeof cu === "number" ? cu : 0;
   }
 
   // Logged-out: simple top bar + content + footer (marketing / auth pages).
@@ -43,7 +46,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-full flex-col">
         <SiteHeader />
         <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <SiteFooter authed={false} />
       </div>
     );
   }
@@ -51,12 +54,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   // Signed-in: glassy left sidebar (desktop) + bottom tab bar (mobile).
   return (
     <div className="flex min-h-dvh">
-      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={!!adminRole} unreadCount={unread} />
+      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={!!adminRole} unreadCount={unread} chatUnread={chatUnread} />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar unreadCount={unread} />
         <main className="flex-1">{children}</main>
-        <SiteFooter />
-        <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} />
+        <SiteFooter authed />
+        <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
       </div>
     </div>
   );

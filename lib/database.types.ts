@@ -60,6 +60,7 @@ export interface Database {
           play_style: string;
           handedness: string | null;
           account_status: string;
+          archived_at: string | null;
           suspended_until: string | null;
           signup_code: string | null;
           created_at: string;
@@ -85,6 +86,7 @@ export interface Database {
           play_style?: string;
           handedness?: string | null;
           account_status?: string;
+          archived_at?: string | null;
           suspended_until?: string | null;
           created_at?: string;
         };
@@ -108,6 +110,7 @@ export interface Database {
           play_style?: string;
           handedness?: string | null;
           account_status?: string;
+          archived_at?: string | null;
           suspended_until?: string | null;
         };
         Relationships: [];
@@ -555,6 +558,12 @@ export interface Database {
         Update: { public_key?: string; updated_at?: string };
         Relationships: [];
       };
+      conversation_reads: {
+        Row: { user_id: string; conversation_id: string; last_read_at: string };
+        Insert: { user_id: string; conversation_id: string; last_read_at?: string };
+        Update: { last_read_at?: string };
+        Relationships: [];
+      };
       conversations: {
         Row: { id: string; match_id: string; created_by: string | null; created_at: string; expires_at: string | null };
         Insert: { id?: string; match_id: string; created_by?: string | null; created_at?: string; expires_at?: string | null };
@@ -874,6 +883,7 @@ export interface Database {
         }[];
       };
       current_admin_role: { Args: Record<string, never>; Returns: string };
+      chat_unread_count: { Args: Record<string, never>; Returns: number };
       generate_invite_codes: { Args: { p_count: number; p_max_uses?: number; p_note?: string | null }; Returns: string[] };
       generate_investor_codes: { Args: { p_count: number; p_note?: string | null }; Returns: string[] };
     };
