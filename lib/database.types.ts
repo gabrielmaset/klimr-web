@@ -703,6 +703,24 @@ export interface Database {
         Update: { status?: string };
         Relationships: [];
       };
+      court_search_cache: {
+        Row: { zip: string; radius_km: number; sport: string; results: Json; fetched_at: string };
+        Insert: { zip: string; radius_km: number; sport: string; results?: Json; fetched_at?: string };
+        Update: { results?: Json; fetched_at?: string };
+        Relationships: [];
+      };
+      service_usage: {
+        Row: { month: string; live_search_count: number; updated_at: string };
+        Insert: { month: string; live_search_count?: number; updated_at?: string };
+        Update: { live_search_count?: number; updated_at?: string };
+        Relationships: [];
+      };
+      zip_geocode: {
+        Row: { zip: string; lat: number; lng: number; fetched_at: string };
+        Insert: { zip: string; lat: number; lng: number; fetched_at?: string };
+        Update: { lat?: number; lng?: number; fetched_at?: string };
+        Relationships: [];
+      };
       courts: {
         Row: {
           id: string;
@@ -884,6 +902,7 @@ export interface Database {
       };
       current_admin_role: { Args: Record<string, never>; Returns: string };
       chat_unread_count: { Args: Record<string, never>; Returns: number };
+      claim_live_search: { Args: { p_month: string; p_cap: number }; Returns: boolean };
       generate_invite_codes: { Args: { p_count: number; p_max_uses?: number; p_note?: string | null }; Returns: string[] };
       generate_investor_codes: { Args: { p_count: number; p_note?: string | null }; Returns: string[] };
     };
