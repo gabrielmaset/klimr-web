@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import "@fontsource/instrument-serif";
-import "@fontsource/instrument-serif/400-italic.css";
-import "@fontsource/archivo-black";
-import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/inter/standard-italic.css";
 import "@fontsource-variable/jetbrains-mono";
 import "@fontsource-variable/fraunces/full.css"; // logotype only — see components/logo.tsx
 import "./globals.css";
+import Script from "next/script";
 import { AppShell } from "@/components/app-shell";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -26,10 +25,20 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full">
         <AppShell>{children}</AppShell>
+        {adsenseClient ? (
+          <Script
+            id="adsense-loader"
+            async
+            strategy="afterInteractive"
+            crossOrigin="anonymous"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
+          />
+        ) : null}
       </body>
     </html>
   );

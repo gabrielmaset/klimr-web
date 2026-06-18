@@ -3,6 +3,7 @@ import { ChevronLeft, Trash2 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 import { CodeGenerator } from "./CodeGenerator";
+import { CopyButton } from "./CopyButton";
 import {
   setInviteCodeActive,
   deleteInviteCode,
@@ -34,7 +35,7 @@ function fmt(d: string | null) {
   return d ? new Date(d).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—";
 }
 
-const th = "px-4 py-2.5 font-semibold";
+const th = "sticky top-0 z-10 border-b border-rule bg-surface px-4 py-2.5 font-semibold";
 const td = "px-4 py-2.5";
 
 export default async function AdminCodesPage() {
@@ -81,7 +82,7 @@ export default async function AdminCodesPage() {
       {invites.length === 0 ? (
         <p className="mt-2 text-sm text-mute">No invite codes yet.</p>
       ) : (
-        <div className="mt-2 overflow-x-auto rounded-2xl border border-rule">
+        <div className="mt-2 max-h-[28rem] overflow-auto rounded-2xl border border-rule bg-surface">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-rule text-left text-faint">
@@ -104,7 +105,12 @@ export default async function AdminCodesPage() {
                 const tone = !c.active ? "text-brand-deep" : remaining <= 0 ? "text-faint" : "text-ink";
                 return (
                   <tr key={c.code} className="border-b border-rule/60 last:border-0">
-                    <td className={`${td} whitespace-nowrap font-mono text-ink`}>{c.code}</td>
+                    <td className={`${td} whitespace-nowrap font-mono text-ink`}>
+                      <span className="inline-flex items-center gap-2">
+                        {c.code}
+                        <CopyButton value={c.code} />
+                      </span>
+                    </td>
                     <td className={`${td} whitespace-nowrap`}>
                       <span className={tone}>{status}</span>
                     </td>
@@ -146,7 +152,7 @@ export default async function AdminCodesPage() {
       {investors.length === 0 ? (
         <p className="mt-2 text-sm text-mute">No investor codes yet.</p>
       ) : (
-        <div className="mt-2 overflow-x-auto rounded-2xl border border-rule">
+        <div className="mt-2 max-h-[28rem] overflow-auto rounded-2xl border border-rule bg-surface">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-rule text-left text-faint">
@@ -176,7 +182,12 @@ export default async function AdminCodesPage() {
                       : "text-ink";
                 return (
                   <tr key={c.code} className="border-b border-rule/60 last:border-0">
-                    <td className={`${td} whitespace-nowrap font-mono text-ink`}>{c.code}</td>
+                    <td className={`${td} whitespace-nowrap font-mono text-ink`}>
+                      <span className="inline-flex items-center gap-2">
+                        {c.code}
+                        <CopyButton value={c.code} />
+                      </span>
+                    </td>
                     <td className={td}>
                       <span className={tone}>{status}</span>
                     </td>

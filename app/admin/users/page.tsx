@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, Archive } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 
@@ -23,7 +23,8 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
 
   const query = admin
     .from("profiles")
-    .select("id, display_name, city, state, verification_status, account_status");
+    .select("id, display_name, city, state, verification_status, account_status")
+    .neq("account_status", "archived");
   const { data } = q
     ? await query.ilike("display_name", `%${q}%`).limit(40)
     : await query.order("created_at", { ascending: false }).limit(25);
@@ -44,7 +45,15 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
         <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Search</button>
       </form>
 
-      <div className="mt-3 text-xs text-faint">{q ? `Results for “${q}”` : "Recently joined"}</div>
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-xs text-faint">{q ? `Results for “${q}”` : "Recently joined"}</span>
+        <Link
+          href="/admin/users/archived"
+          className="press inline-flex items-center gap-1 text-xs font-semibold text-mute transition-colors hover:text-ink"
+        >
+          <Archive size={13} /> Archived accounts
+        </Link>
+      </div>
 
       <div className="mt-3 space-y-2">
         {rows.length === 0 ? (

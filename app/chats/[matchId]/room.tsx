@@ -121,6 +121,12 @@ export function ChatRoom({
         if (!convId) throw new Error("no conversation");
         convIdRef.current = convId;
 
+        // Mark this thread read (powers the Chats unread bubble). Best-effort.
+        void supabase.from("conversation_reads").upsert(
+          { user_id: meId, conversation_id: convId, last_read_at: new Date().toISOString() },
+          { onConflict: "user_id,conversation_id" },
+        );
+
         // Obtain the conversation key for THIS device.
         let convKey = await getCachedConversationKey(convId);
         if (!convKey) {

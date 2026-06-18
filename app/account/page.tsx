@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { startVerification, approveVerification } from "./actions";
 import { signOutAction } from "@/app/auth/actions";
 import { AvatarUploader } from "@/components/avatar-uploader";
+import { Chip, ChipMeta } from "@/components/chip";
 
 export const metadata: Metadata = { title: "Your account" };
 
@@ -195,36 +196,28 @@ export default async function AccountPage({
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
             {sportsList.map((s) => (
-              <span
-                key={s.sport_key}
-                className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm font-semibold text-ink"
-              >
-                <span aria-hidden>{SPORT_EMOJI[s.sport_key] ?? "•"}</span>
-                {cap(s.sport_key)}
-                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-mute">
-                  {LEVEL_LABEL[s.skill_level ?? "casual"]}
-                </span>
+              <Chip key={s.sport_key} icon={SPORT_EMOJI[s.sport_key] ?? "•"}>
+                <span className="font-semibold text-ink">{cap(s.sport_key)}</span>
+                <ChipMeta>{LEVEL_LABEL[s.skill_level ?? "casual"]}</ChipMeta>
                 {s.skill_rating != null ? (
-                  <span className="font-mono text-[10px] font-bold text-brand-deep">
+                  <ChipMeta tone="brand">
                     {systems.get(s.sport_key) ?? "Rating"} {s.skill_rating}
-                  </span>
+                  </ChipMeta>
                 ) : null}
                 {s.sport_key === profile.primary_sport ? (
-                  <Star size={11} className="text-brand-deep" fill="currentColor" aria-label="Primary sport" />
+                  <Star size={12} className="text-brand-deep" fill="currentColor" aria-label="Primary sport" />
                 ) : null}
-              </span>
+              </Chip>
             ))}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
-              <MapPin size={13} className="text-brand" aria-hidden />
+            <Chip icon={<MapPin size={15} className="text-brand" aria-hidden />}>
               {home}
-              <span className="font-mono text-[11px] text-mute">{profile.home_zip}</span>
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
-              <CalendarClock size={13} className="text-brand" aria-hidden />
+              <ChipMeta>{profile.home_zip}</ChipMeta>
+            </Chip>
+            <Chip icon={<CalendarClock size={15} className="text-brand" aria-hidden />}>
               {slots > 0 ? `Free ${slots} ${slots === 1 ? "block" : "blocks"} a week` : "Schedule not set"}
-            </span>
+            </Chip>
           </div>
           <div className="mt-3">
             <div className="kicker text-faint">How you play</div>
@@ -247,10 +240,9 @@ export default async function AccountPage({
               ))}
             </div>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1.5 rounded-full border border-rule bg-bg px-3 py-1.5 text-sm text-ink-soft">
-                <Swords size={13} className="text-brand" aria-hidden />
+              <Chip icon={<Swords size={15} className="text-brand" aria-hidden />}>
                 {STYLE_LABEL[profile.play_style ?? "both"]}
-              </span>
+              </Chip>
             </div>
           </div>
 

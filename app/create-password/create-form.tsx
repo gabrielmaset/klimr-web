@@ -38,9 +38,9 @@ export function CreatePasswordForm({ email }: { email: string }) {
             type={show ? "text" : "password"}
             name="password"
             required
-            minLength={10}
+            minLength={8}
             autoComplete="new-password"
-            placeholder="At least 10 characters"
+            placeholder="At least 8 characters"
             className="w-full rounded-xl border border-rule bg-surface px-3.5 py-3 pr-11 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
           />
           <button
@@ -52,6 +52,10 @@ export function CreatePasswordForm({ email }: { email: string }) {
             {show ? <EyeOff size={17} aria-hidden /> : <Eye size={17} aria-hidden />}
           </button>
         </div>
+        <span className="mt-1.5 block text-[11px] leading-relaxed text-faint">
+          8+ characters with an uppercase letter, a lowercase letter, and a number. Avoid your name or a common
+          password.
+        </span>
       </label>
 
       <label className="block">
@@ -60,7 +64,7 @@ export function CreatePasswordForm({ email }: { email: string }) {
           type={show ? "text" : "password"}
           name="confirm"
           required
-          minLength={10}
+          minLength={8}
           autoComplete="new-password"
           placeholder="Re-enter it"
           className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"

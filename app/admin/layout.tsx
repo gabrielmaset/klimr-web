@@ -23,10 +23,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <nav className="mt-5 flex flex-wrap gap-1.5 border-b border-rule pb-3" aria-label="Admin">
         {[
           { href: "/admin", label: "Overview" },
-          { href: "/admin/reports", label: "Reports" },
+          { href: "/admin/reports", label: "Moderation" },
           { href: "/admin/users", label: "Users" },
           { href: "/admin/codes", label: "Codes" },
-          { href: "/admin/updates", label: "Updates" },
+          { href: "/admin/updates", label: "Post to Feed" },
         ].map((t) => (
           <Link
             key={t.href}

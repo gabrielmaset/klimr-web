@@ -26,6 +26,7 @@ type Profile = {
   avatar_hue: number;
   avatar_path: string | null;
   verification_status: string;
+  account_status: string;
   reliability: number;
   home_zip: string | null;
   neighborhood: string | null;
@@ -88,12 +89,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const { data: profileRow } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, avatar_hue, avatar_path, verification_status, reliability, home_zip, neighborhood, city, state, country, primary_sport, created_at",
+      "id, display_name, avatar_hue, avatar_path, verification_status, account_status, reliability, home_zip, neighborhood, city, state, country, primary_sport, created_at",
     )
     .eq("id", id)
     .single();
   if (!profileRow) notFound();
   const profile = profileRow as Profile;
+  // Archived (pending-deletion) accounts are not viewable by others.
+  if (profile.account_status === "archived") notFound();
 
   const isSelf = profile.id === user.id;
 

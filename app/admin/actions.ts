@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, logAdminAction } from "@/lib/admin";
 import { SPORT_KEYS } from "@/lib/sports";
@@ -185,4 +186,82 @@ export async function deleteInvestorCode(formData: FormData) {
   await admin.from("investor_codes").delete().eq("code", code);
   await logAdminAction(userId, "investor:delete", null, undefined, code);
   revalidatePath("/admin/codes");
+}
+
+/* ---------------- Account lifecycle: archive → recover → purge (superadmin) ---------------- */
+
+/**
+ * Soft-delete. The account is hidden and a 30-day clock starts; a nightly
+ * pg_cron job hard-deletes anything past 30 days (cascading through all owned
+ * data). Recoverable until then. An `archived` flag is mirrored into auth
+ * metadata so middleware can block the account immediately. Guarded: superadmin
+ * only, never self, never another staff account (strip the admin role first).
+ */
+export async function archiveUser(formData: FormData) {
+  const { userId } = await requireAdmin("superadmin");
+  const target = String(formData.get("userId") ?? "");
+  if (!target || target === userId) redirect(`/admin/users/${target}`);
+
+  const admin = createAdminClient();
+  const { data: staff } = await admin.from("admin_users").select("role").eq("user_id", target).maybeSingle();
+  if (staff) redirect(`/admin/users/${target}`);
+
+  const { data: prof } = await admin.from("profiles").select("display_name").eq("id", target).single();
+  await admin
+    .from("profiles")
+    .update({ account_status: "archived", archived_at: new Date().toISOString() })
+    .eq("id", target);
+  // Ban the auth user so existing sessions are rejected and they can't sign back
+  // in while archived (~100 years; cleared on recover). Cleaner than session juggling.
+  await admin.auth.admin.updateUserById(target, { ban_duration: "876000h" });
+  await logAdminAction(userId, "user:archive", target, `archived ${prof?.display_name ?? "user"}`);
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/users/archived");
+  revalidatePath("/admin");
+  redirect("/admin/users/archived");
+}
+
+/** Restore an archived account before the 30-day purge. */
+export async function recoverUser(formData: FormData) {
+  const { userId } = await requireAdmin("superadmin");
+  const target = String(formData.get("userId") ?? "");
+  if (!target) redirect("/admin/users/archived");
+
+  const admin = createAdminClient();
+  const { data: prof } = await admin.from("profiles").select("display_name").eq("id", target).single();
+  await admin.from("profiles").update({ account_status: "active", archived_at: null }).eq("id", target);
+  await admin.auth.admin.updateUserById(target, { ban_duration: "none" });
+  await logAdminAction(userId, "user:recover", target, `recovered ${prof?.display_name ?? "user"}`);
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/users/archived");
+  revalidatePath(`/admin/users/${target}`);
+  redirect(`/admin/users/${target}`);
+}
+
+/**
+ * Delete an archived account now, without waiting out the 30 days — for clearing
+ * test accounts. Same cascade as the scheduled purge. The audit log survives
+ * (its target is set null on cascade, so the durable record lives in detail).
+ */
+export async function purgeUserNow(formData: FormData) {
+  const { userId } = await requireAdmin("superadmin");
+  const target = String(formData.get("userId") ?? "");
+  if (!target || target === userId) redirect("/admin/users/archived");
+
+  const admin = createAdminClient();
+  const { data: staff } = await admin.from("admin_users").select("role").eq("user_id", target).maybeSingle();
+  if (staff) redirect("/admin/users/archived");
+
+  const { data: prof } = await admin.from("profiles").select("display_name, avatar_path").eq("id", target).single();
+  if (prof?.avatar_path) await admin.storage.from("avatars").remove([prof.avatar_path]);
+
+  const { error } = await admin.auth.admin.deleteUser(target);
+  if (error) {
+    revalidatePath("/admin/users/archived");
+    redirect("/admin/users/archived");
+  }
+  await logAdminAction(userId, "user:purge", null, `purged ${prof?.display_name ?? "user"} (${target})`, target);
+  revalidatePath("/admin/users/archived");
+  revalidatePath("/admin");
+  redirect("/admin/users/archived");
 }

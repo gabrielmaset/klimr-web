@@ -58,7 +58,7 @@ export function CodeGenerator() {
           </label>
           <label className="block">
             <span className="kicker text-faint">How many</span>
-            <input name="count" type="number" min={1} max={200} defaultValue={5} className={`mt-1 ${field}`} />
+            <input name="count" type="number" min={1} max={200} defaultValue={1} className={`mt-1 ${field}`} />
           </label>
           {codeType === "invite" ? (
             <label className="block">

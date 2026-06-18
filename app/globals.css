@@ -16,10 +16,10 @@
   --color-tint-brand: #fff1ed;
   --color-tint-success: #f0fdf4;
 
-  /* Type roles — serif display × mono data, the Klimr voice */
-  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
-  --font-kicker: "Archivo Black", "Arial Black", sans-serif;
-  --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Type roles — Inter for UI + display, JetBrains Mono for data/codes */
+  --font-display: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-kicker: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -37,6 +37,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
   text-rendering: optimizeLegibility;
 }
 
@@ -86,9 +87,17 @@ body {
 
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* Display headlines + stat numbers: Inter with headline weight, tight tracking,
+   and aligned (tabular) figures so numbers read cleanly. */
+.font-display {
+  font-weight: 600;
+  letter-spacing: -0.021em;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Logotype — the wordmark's own face (Fraunces, display optical size).
-   Instrument Serif stays the headline voice; the logo carries more ink so it
-   holds at header and favicon-adjacent sizes. */
+   Inter is the UI + headline voice; the logo carries more ink so it holds at
+   header and favicon-adjacent sizes. */
 .logotype {
   font-family: "Fraunces Variable", Georgia, "Times New Roman", serif;
   font-weight: 600;
@@ -98,8 +107,9 @@ body {
 
 .kicker {
   font-family: var(--font-kicker);
+  font-weight: 600;
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   line-height: 1.4;
 }

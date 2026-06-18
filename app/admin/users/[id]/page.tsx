@@ -5,7 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, atLeast } from "@/lib/admin";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
-import { setVerification, setAccountStatus, removePost } from "../../actions";
+import { setVerification, setAccountStatus, removePost, recoverUser } from "../../actions";
+import { ArchiveUserButton } from "./ArchiveUserButton";
 
 export const metadata = { title: "User · Admin" };
 
@@ -16,6 +17,7 @@ type Profile = {
   avatar_path: string | null;
   verification_status: string;
   account_status: string;
+  archived_at: string | null;
   suspended_until: string | null;
   reliability: number;
   neighborhood: string | null;
@@ -40,13 +42,13 @@ const STATUS_TONE: Record<string, string> = { active: "#16a34a", suspended: "#b8
 
 export default async function AdminUserDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { role } = await requireAdmin("support");
+  const { role, userId: viewerId } = await requireAdmin("support");
   const admin = createAdminClient();
 
   const { data: profileRow } = await admin
     .from("profiles")
     .select(
-      "id, display_name, avatar_hue, avatar_path, verification_status, account_status, suspended_until, reliability, neighborhood, city, state, primary_sport, created_at",
+      "id, display_name, avatar_hue, avatar_path, verification_status, account_status, archived_at, suspended_until, reliability, neighborhood, city, state, primary_sport, created_at",
     )
     .eq("id", id)
     .single();
@@ -54,14 +56,18 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
   const p = profileRow as Profile;
   const canVerifyOrBan = atLeast(role, "admin");
 
-  const [{ data: psRows }, { data: repRows }, { data: postRows }] = await Promise.all([
+  const [{ data: psRows }, { data: repRows }, { data: postRows }, { data: targetAdminRow }] = await Promise.all([
     admin.from("player_sports").select("sport_key, points, matches_played, wins").eq("user_id", id),
     admin.from("reports").select("id, reporter_id, reason, status, created_at").eq("reported_id", id).order("created_at", { ascending: false }).limit(20),
     admin.from("posts").select("id, body, moderation_status, created_at").eq("author_id", id).order("created_at", { ascending: false }).limit(10),
+    admin.from("admin_users").select("role").eq("user_id", id).maybeSingle(),
   ]);
   const sports = (psRows as PS[] | null) ?? [];
   const reports = (repRows as Rep[] | null) ?? [];
   const posts = (postRows as PostRow[] | null) ?? [];
+  const canDelete = role === "superadmin";
+  const isSelf = id === viewerId;
+  const isTargetAdmin = !!targetAdminRow;
 
   const reporterIds = [...new Set(reports.map((r) => r.reporter_id))];
   const nameMap = new Map<string, string>();
@@ -200,6 +206,42 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
           </div>
         )}
       </div>
+
+      {/* danger zone — archive / recover (superadmin) */}
+      {canDelete ? (
+        <div className="mt-8 rounded-2xl border border-brand/25 bg-brand/[0.03] p-5">
+          <div className="kicker mb-1 text-brand-deep">Danger zone</div>
+          {isSelf ? (
+            <p className="text-sm text-faint">You can’t archive your own account from here.</p>
+          ) : isTargetAdmin ? (
+            <p className="text-sm text-faint">
+              This is a staff account — remove its admin role in SQL before it can be archived.
+            </p>
+          ) : p.account_status === "archived" ? (
+            <>
+              <p className="mb-3 text-sm text-mute">
+                Archived{p.archived_at ? ` on ${new Date(p.archived_at).toLocaleDateString("en-US", { dateStyle: "medium" })}` : ""} —
+                hidden and pending deletion. Recover it to restore full access, or purge it now from Archived accounts.
+              </p>
+              <form action={recoverUser}>
+                <input type="hidden" name="userId" value={p.id} />
+                <button className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-3.5 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+                  Recover account
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-mute">
+                Archive this account: it’s hidden immediately and permanently deleted after 30 days, with all of its
+                data — matches, posts, chats, rankings, and memberships. Recoverable until then. For test accounts and
+                abuse cleanup.
+              </p>
+              <ArchiveUserButton userId={p.id} />
+            </>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

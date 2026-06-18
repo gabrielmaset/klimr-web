@@ -5,6 +5,7 @@ import { Radar, Sparkle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
+import { AdSlot } from "@/components/ads/ad-slot";
 import { suggestedOpponents } from "@/lib/match-intel";
 
 export const metadata: Metadata = { title: "Discover players" };
@@ -114,6 +115,8 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
           })}
         </div>
       )}
+
+      <AdSlot className="mt-6" label="Local sponsor" />
 
       <p className="mt-6 text-xs leading-relaxed text-faint">
         Suggestions use your profile, ranking, and availability. Update your area and times on your account for sharper matches.
