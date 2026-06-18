@@ -19,12 +19,12 @@ export async function enterSite(formData: FormData) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("invite_codes")
-    .select("code, max_uses, uses")
+    .select("code, max_uses, uses, active")
     .eq("code", code)
     .maybeSingle();
 
-  // Must be a real, not-yet-exhausted invite — but uses is NOT incremented here.
-  if (!data || data.uses >= data.max_uses) redirect("/gate?error=1");
+  // Must be a real, active, not-yet-exhausted invite — uses is NOT incremented here.
+  if (!data || !data.active || data.uses >= data.max_uses) redirect("/gate?error=1");
 
   const jar = await cookies();
   jar.set(gateCookieName("site"), gateToken("site"), {

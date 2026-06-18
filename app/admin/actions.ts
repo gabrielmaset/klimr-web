@@ -100,3 +100,89 @@ export async function deleteFeedItem(formData: FormData) {
   revalidatePath("/admin/updates");
   revalidatePath("/feed");
 }
+
+/* ---------------- Code management (invite + investor) ---------------- */
+
+export type GenerateCodesState = {
+  ok?: boolean;
+  error?: string;
+  codeType?: "invite" | "investor";
+  codes?: string[];
+};
+
+export async function generateCodes(
+  _prev: GenerateCodesState,
+  formData: FormData,
+): Promise<GenerateCodesState> {
+  const { userId } = await requireAdmin("admin");
+  const codeType = String(formData.get("codeType")) === "investor" ? "investor" : "invite";
+  let count = parseInt(String(formData.get("count") ?? ""), 10);
+  if (!Number.isFinite(count) || count < 1) count = 1;
+  count = Math.min(count, 200); // safety cap
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  const admin = createAdminClient();
+  let raw: unknown = [];
+  if (codeType === "investor") {
+    const { data, error } = await admin.rpc("generate_investor_codes", { p_count: count, p_note: note });
+    if (error) return { error: "Could not generate investor codes. Try again.", codeType };
+    raw = data;
+  } else {
+    let maxUses = parseInt(String(formData.get("maxUses") ?? ""), 10);
+    if (!Number.isFinite(maxUses) || maxUses < 1) maxUses = 1;
+    const { data, error } = await admin.rpc("generate_invite_codes", {
+      p_count: count,
+      p_max_uses: maxUses,
+      p_note: note,
+    });
+    if (error) return { error: "Could not generate invite codes. Try again.", codeType };
+    raw = data;
+  }
+
+  // setof text comes back as string[]; tolerate the {column: value}[] shape too.
+  const codes = ((raw as unknown[]) ?? [])
+    .map((r) => (typeof r === "string" ? r : String(Object.values(r as Record<string, unknown>)[0] ?? "")))
+    .filter(Boolean);
+
+  await logAdminAction(userId, `codes:generate:${codeType}`, null, `${codes.length} code(s)`);
+  revalidatePath("/admin/codes");
+  return { ok: true, codeType, codes };
+}
+
+export async function setInviteCodeActive(formData: FormData) {
+  const { userId } = await requireAdmin("admin");
+  const code = String(formData.get("code"));
+  const active = String(formData.get("active")) === "true";
+  const admin = createAdminClient();
+  await admin.from("invite_codes").update({ active }).eq("code", code);
+  await logAdminAction(userId, `invite:${active ? "enable" : "disable"}`, null, undefined, code);
+  revalidatePath("/admin/codes");
+}
+
+export async function deleteInviteCode(formData: FormData) {
+  const { userId } = await requireAdmin("superadmin");
+  const code = String(formData.get("code"));
+  const admin = createAdminClient();
+  await admin.from("invite_codes").delete().eq("code", code);
+  await logAdminAction(userId, "invite:delete", null, undefined, code);
+  revalidatePath("/admin/codes");
+}
+
+export async function setInvestorCodeActive(formData: FormData) {
+  const { userId } = await requireAdmin("admin");
+  const code = String(formData.get("code"));
+  const active = String(formData.get("active")) === "true";
+  const admin = createAdminClient();
+  await admin.from("investor_codes").update({ active }).eq("code", code);
+  await logAdminAction(userId, `investor:${active ? "enable" : "disable"}`, null, undefined, code);
+  revalidatePath("/admin/codes");
+}
+
+export async function deleteInvestorCode(formData: FormData) {
+  const { userId } = await requireAdmin("superadmin");
+  const code = String(formData.get("code"));
+  const admin = createAdminClient();
+  await admin.from("investor_codes").delete().eq("code", code);
+  await logAdminAction(userId, "investor:delete", null, undefined, code);
+  revalidatePath("/admin/codes");
+}

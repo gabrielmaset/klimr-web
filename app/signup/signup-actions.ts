@@ -23,12 +23,12 @@ export async function signUpWithInvite(
   const admin = createAdminClient();
   const { data: invite, error: lookupError } = await admin
     .from("invite_codes")
-    .select("code, max_uses, uses")
+    .select("code, max_uses, uses, active")
     .eq("code", code)
     .maybeSingle();
   if (lookupError) console.error("[signup] invite lookup error:", lookupError);
 
-  if (!invite || invite.uses >= invite.max_uses) {
+  if (!invite || !invite.active || invite.uses >= invite.max_uses) {
     return {
       error:
         "That invite code is not valid or has been fully used. Check it and try again, or write hello@klimr.com.",
