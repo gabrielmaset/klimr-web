@@ -87,7 +87,7 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
       const popup = new mapboxgl.Popup({ offset: 16, closeButton: false }).setHTML(
         `<div style="font:600 13px Inter,system-ui,sans-serif;color:#18181b">${escapeHtml(c.name)}</div>` +
           (place ? `<div style="font:500 11px Inter,system-ui,sans-serif;color:#71717a;margin-top:2px">${place}</div>` : "") +
-          `<a href="/courts/${c.id}" style="font:600 11px Inter,system-ui,sans-serif;color:#d63a0f;margin-top:6px;display:inline-block;text-decoration:none">View court →</a>`,
+          `<a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" rel="noopener" style="font:600 11px Inter,system-ui,sans-serif;color:#d63a0f;margin-top:6px;display:inline-block;text-decoration:none">Open in Maps →</a>`,
       );
       const marker = new mapboxgl.Marker(el).setLngLat([lng, lat]).setPopup(popup).addTo(map);
       markersRef.current.push(marker);

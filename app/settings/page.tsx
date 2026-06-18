@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronRight, Download, Mail, ShieldCheck, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { signOutAction } from "@/app/auth/actions";
+import { signOutAction, signOutEverywhereAction } from "@/app/auth/actions";
 import { Avatar } from "@/components/avatar";
 import { SettingsForm, type Prefs } from "./settings-form";
 import { DeleteAccount } from "./delete-account";
@@ -62,7 +62,7 @@ export default async function SettingsPage() {
     p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
       <div className="mb-6">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Settings</h1>
         <p className="mt-1 text-sm text-mute">Manage your account, notifications, and privacy.</p>
@@ -88,67 +88,77 @@ export default async function SettingsPage() {
         <SettingsForm initial={prefs} />
       </div>
 
-      {/* Blocked players */}
-      <section className="mt-4 rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-        <h2 className="kicker text-faint">Blocked players</h2>
-        {blocked.length === 0 ? (
-          <p className="mt-2 text-sm text-mute">You haven&apos;t blocked anyone. Blocking hides a player from your feed and stops them from inviting you.</p>
-        ) : (
-          <ul className="mt-2 divide-y divide-rule">
-            {blocked.map((b) => (
-              <li key={b.id} className="flex items-center gap-3 py-3">
-                <Avatar url={avatarUrl(b)} hue={b.avatar_hue ?? 200} name={b.display_name} size={36} />
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{b.display_name || "Player"}</span>
-                <form action={unblockPlayer}>
-                  <input type="hidden" name="userId" value={b.id} />
-                  <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
-                    Unblock
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {/* Blocked / Data / Support — two balanced columns on wide screens */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 lg:items-start">
+        {/* Blocked players */}
+        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+          <h2 className="kicker text-faint">Blocked players</h2>
+          {blocked.length === 0 ? (
+            <p className="mt-2 text-sm text-mute">You haven&apos;t blocked anyone. Blocking hides a player from your feed and stops them from inviting you.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-rule">
+              {blocked.map((b) => (
+                <li key={b.id} className="flex items-center gap-3 py-3">
+                  <Avatar url={avatarUrl(b)} hue={b.avatar_hue ?? 200} name={b.display_name} size={36} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{b.display_name || "Player"}</span>
+                  <form action={unblockPlayer}>
+                    <input type="hidden" name="userId" value={b.id} />
+                    <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
+                      Unblock
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      {/* Data & account */}
-      <section className="mt-4 rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-        <h2 className="kicker text-faint">Data &amp; account</h2>
-        <a
-          href="/settings/export"
-          className="lift mt-2 flex items-center gap-3 rounded-xl border border-rule p-3"
-        >
-          <Download size={17} className="shrink-0 text-ink" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-ink">Download my data</span>
-            <span className="block text-xs text-mute">A JSON copy of your profile, sports, posts, and settings</span>
-          </span>
-          <ChevronRight size={16} className="shrink-0 text-faint" />
-        </a>
-        <div className="mt-4 border-t border-rule pt-4">
-          <p className="mb-2 text-sm font-semibold text-ink">Delete account</p>
-          <DeleteAccount />
+        <div className="grid gap-4">
+          {/* Data & account */}
+          <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+            <h2 className="kicker text-faint">Data &amp; account</h2>
+            <a
+              href="/settings/export"
+              className="lift mt-2 flex items-center gap-3 rounded-xl border border-rule p-3"
+            >
+              <Download size={17} className="shrink-0 text-ink" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-ink">Download my data</span>
+                <span className="block text-xs text-mute">A JSON copy of your profile, sports, posts, and settings</span>
+              </span>
+              <ChevronRight size={16} className="shrink-0 text-faint" />
+            </a>
+            <div className="mt-4 border-t border-rule pt-4">
+              <p className="mb-2 text-sm font-semibold text-ink">Delete account</p>
+              <DeleteAccount />
+            </div>
+          </section>
+
+          {/* Support + sign out */}
+          <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+            <h2 className="kicker text-faint">Support</h2>
+            <a
+              href="mailto:hello@klimr.com"
+              className="lift mt-2 flex items-center gap-3 rounded-xl border border-rule p-3"
+            >
+              <Mail size={17} className="shrink-0 text-ink" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-ink">Contact support</span>
+                <span className="block text-xs text-mute">Questions or a problem to report? Email hello@klimr.com</span>
+              </span>
+              <ChevronRight size={16} className="shrink-0 text-faint" />
+            </a>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule pt-4">
+              <form action={signOutAction}>
+                <button className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out</button>
+              </form>
+              <form action={signOutEverywhereAction}>
+                <button className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out of all devices</button>
+              </form>
+            </div>
+          </section>
         </div>
-      </section>
-
-      {/* Support + sign out */}
-      <section className="mt-4 rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-        <h2 className="kicker text-faint">Support</h2>
-        <a
-          href="mailto:hello@klimr.com"
-          className="lift mt-2 flex items-center gap-3 rounded-xl border border-rule p-3"
-        >
-          <Mail size={17} className="shrink-0 text-ink" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-ink">Contact support</span>
-            <span className="block text-xs text-mute">Questions or a problem to report? Email hello@klimr.com</span>
-          </span>
-          <ChevronRight size={16} className="shrink-0 text-faint" />
-        </a>
-        <form action={signOutAction} className="mt-4 border-t border-rule pt-4">
-          <button className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out</button>
-        </form>
-      </section>
+      </div>
 
       <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-faint">
         <ShieldCheck size={12} /> Klimr is invite-only and identity-verified. We never sell your data.

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { KlimrLogo } from "@/components/logo";
 import { hasGate } from "@/lib/gate";
 import { enterSite } from "./actions";
+import { GateError } from "./gate-error";
 
 export const metadata: Metadata = { title: "Klimr" };
 
@@ -20,6 +21,8 @@ export default async function GatePage({
   if (user || (await hasGate("site"))) redirect("/");
 
   const { error } = await searchParams;
+  const errorMessage =
+    error === "empty" ? "No access code entered." : error ? "That code isn’t valid." : null;
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-bg px-6">
@@ -37,11 +40,7 @@ export default async function GatePage({
           aria-label="Access code"
           className="w-full rounded-xl border border-rule bg-surface px-4 py-3 text-center font-mono text-sm tracking-wider text-ink outline-none transition-colors placeholder:text-faint focus:border-ink"
         />
-        {error ? (
-          <p className="mt-3 text-center text-[13px] text-brand-deep">
-            That code isn’t valid.
-          </p>
-        ) : null}
+        {errorMessage ? <GateError message={errorMessage} /> : null}
         <button
           type="submit"
           className="press mt-4 w-full rounded-full bg-ink py-3 text-sm font-bold text-surface transition-colors hover:bg-ink-soft"

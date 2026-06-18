@@ -95,7 +95,7 @@ function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; use
   return (
     <div className={CARD}>
       <div className="kicker mb-1 text-faint">The summit · {place}</div>
-      <div className="mx-auto w-full max-w-[420px] lg:max-w-[520px]">
+      <div className="mx-auto w-full max-w-[360px] lg:max-w-[430px]">
         <svg
           viewBox="52 48 408 424"
           className="block h-auto w-full"
@@ -114,28 +114,33 @@ function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; use
               <stop offset="0" stopColor="#ff4e1b" stopOpacity="0.2" />
               <stop offset="1" stopColor="#ff4e1b" stopOpacity="0" />
             </linearGradient>
+            <clipPath id="stairClip">
+              <path d={STAIR} />
+            </clipPath>
           </defs>
 
           <path d={STAIR} fill="#16161b" />
           <path d={WIN} fill="url(#podWin)" />
 
-          {seats.map((s) => (
-            <text
-              key={`g${s.pos}`}
-              x={s.cx}
-              y={452}
-              textAnchor="middle"
-              style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontWeight: 700, fontSize: s.gs, fill: "#262630" }}
-            >
-              {s.pos}
-            </text>
-          ))}
+          <g clipPath="url(#stairClip)">
+            {seats.map((s) => (
+              <text
+                key={`g${s.pos}`}
+                x={s.cx}
+                y={452}
+                textAnchor="middle"
+                style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontWeight: 700, fontSize: s.gs, fill: "#3a3a46" }}
+              >
+                {s.pos}
+              </text>
+            ))}
+          </g>
 
           {seats.map((s) => {
             const you = s.row.user_id === userId;
             return (
               <g key={`l${s.pos}`}>
-                <text x={s.cx} y={s.ny} textAnchor="middle" style={{ fontFamily: '"DM Sans Variable", sans-serif', fontWeight: 700, fontSize: 22, fill: you ? "#ff4e1b" : "#ffffff" }}>
+                <text x={s.cx} y={s.ny} textAnchor="middle" style={{ fontFamily: '"DM Sans Variable", sans-serif', fontWeight: 700, fontSize: 18, fill: you ? "#ff4e1b" : "#ffffff" }}>
                   {you ? "You" : firstName(s.row.display_name)}
                 </text>
                 <text x={s.cx} y={s.py} textAnchor="middle" style={{ fontFamily: '"JetBrains Mono Variable", monospace', fontSize: 14, fill: "rgba(255,255,255,.7)" }}>

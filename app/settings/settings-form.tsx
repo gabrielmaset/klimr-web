@@ -87,67 +87,69 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
 
   return (
     <form action={action}>
-      {/* Notifications */}
-      <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-        <h2 className="kicker text-faint">Notifications</h2>
-        <p className="mt-1 text-xs text-mute">Choose what you hear about. Delivery turns on as each feature ships.</p>
-        <div className="mt-2 divide-y divide-rule">
-          <Toggle label="Match invites" hint="When someone invites you to play" on={p.notif_match_invites} onChange={(v) => set("notif_match_invites", v)} />
-          <Toggle label="Ranking changes" hint="When your rank moves in any area" on={p.notif_ranking_changes} onChange={(v) => set("notif_ranking_changes", v)} />
-          <Toggle label="Region challenges" hint="Neighborhood-vs-neighborhood events" on={p.notif_region_challenges} onChange={(v) => set("notif_region_challenges", v)} />
-          <Toggle label="Marketplace & events" hint="Local coaching, gear, and tournaments" on={p.notif_marketplace_events} onChange={(v) => set("notif_marketplace_events", v)} />
-          <Segmented
-            label="Email digest"
-            hint="A periodic summary by email"
-            value={p.email_digest}
-            onChange={(v) => set("email_digest", v)}
-            options={[
-              { value: "none", label: "Off" },
-              { value: "daily", label: "Daily" },
-              { value: "weekly", label: "Weekly" },
-            ]}
-          />
-        </div>
-      </section>
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        {/* Notifications */}
+        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+          <h2 className="kicker text-faint">Notifications</h2>
+          <p className="mt-1 text-xs text-mute">Choose what you hear about. Delivery turns on as each feature ships.</p>
+          <div className="mt-2 divide-y divide-rule">
+            <Toggle label="Match invites" hint="When someone invites you to play" on={p.notif_match_invites} onChange={(v) => set("notif_match_invites", v)} />
+            <Toggle label="Ranking changes" hint="When your rank moves in any area" on={p.notif_ranking_changes} onChange={(v) => set("notif_ranking_changes", v)} />
+            <Toggle label="Region challenges" hint="Neighborhood-vs-neighborhood events" on={p.notif_region_challenges} onChange={(v) => set("notif_region_challenges", v)} />
+            <Toggle label="Marketplace & events" hint="Local coaching, gear, and tournaments" on={p.notif_marketplace_events} onChange={(v) => set("notif_marketplace_events", v)} />
+            <Segmented
+              label="Email digest"
+              hint="A periodic summary by email"
+              value={p.email_digest}
+              onChange={(v) => set("email_digest", v)}
+              options={[
+                { value: "none", label: "Off" },
+                { value: "daily", label: "Daily" },
+                { value: "weekly", label: "Weekly" },
+              ]}
+            />
+          </div>
+        </section>
 
-      {/* Privacy */}
-      <section className="mt-4 rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-        <h2 className="kicker text-faint">Privacy</h2>
-        <div className="mt-2 divide-y divide-rule">
-          <Segmented
-            label="Profile visibility"
-            hint="Who can view your full profile"
-            value={p.profile_visibility}
-            onChange={(v) => set("profile_visibility", v)}
-            options={[
-              { value: "members", label: "Members only" },
-              { value: "public", label: "Public" },
-            ]}
-          />
-          <Segmented
-            label="Location precision"
-            hint="How precisely your area is shown to others"
-            value={p.location_precision}
-            onChange={(v) => set("location_precision", v)}
-            options={[
-              { value: "city", label: "City" },
-              { value: "neighborhood", label: "Neighborhood" },
-              { value: "zip", label: "ZIP" },
-            ]}
-          />
-          <Segmented
-            label="Who can invite me"
-            hint="Limit who can send you match invites"
-            value={p.who_can_invite}
-            onChange={(v) => set("who_can_invite", v)}
-            options={[
-              { value: "anyone", label: "Anyone" },
-              { value: "verified", label: "Verified only" },
-              { value: "nobody", label: "No one" },
-            ]}
-          />
-        </div>
-      </section>
+        {/* Privacy */}
+        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+          <h2 className="kicker text-faint">Privacy</h2>
+          <div className="mt-2 divide-y divide-rule">
+            <Segmented
+              label="Profile visibility"
+              hint="Who can view your full profile"
+              value={p.profile_visibility}
+              onChange={(v) => set("profile_visibility", v)}
+              options={[
+                { value: "members", label: "Members only" },
+                { value: "public", label: "Public" },
+              ]}
+            />
+            <Segmented
+              label="Location precision"
+              hint="How precisely your area is shown to others"
+              value={p.location_precision}
+              onChange={(v) => set("location_precision", v)}
+              options={[
+                { value: "city", label: "City" },
+                { value: "neighborhood", label: "Neighborhood" },
+                { value: "zip", label: "ZIP" },
+              ]}
+            />
+            <Segmented
+              label="Who can invite me"
+              hint="Limit who can send you match invites"
+              value={p.who_can_invite}
+              onChange={(v) => set("who_can_invite", v)}
+              options={[
+                { value: "anyone", label: "Anyone" },
+                { value: "verified", label: "Verified only" },
+                { value: "nobody", label: "No one" },
+              ]}
+            />
+          </div>
+        </section>
+      </div>
 
       {/* hidden inputs carry the controlled state into the action */}
       <input type="hidden" name="notif_match_invites" value={String(p.notif_match_invites)} />

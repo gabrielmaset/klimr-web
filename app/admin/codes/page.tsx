@@ -88,7 +88,7 @@ export default async function AdminCodesPage() {
               <tr className="border-b border-rule text-left text-faint">
                 <th className={th}>Code</th>
                 <th className={th}>Status</th>
-                <th className={th}>Note</th>
+                <th className={th}>Label</th>
                 <th className={th}>Created</th>
                 <th className={th}>Last used</th>
                 <th className={`${th} text-right`}>Actions</th>

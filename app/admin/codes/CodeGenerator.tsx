@@ -67,11 +67,13 @@ export function CodeGenerator() {
             </label>
           ) : null}
           <label className="block">
-            <span className="kicker text-faint">Note (optional)</span>
+            <span className="kicker text-faint">Label (optional)</span>
             <input
+              key={codeType}
               name="note"
               maxLength={80}
-              placeholder={codeType === "investor" ? "seed round" : "first testers"}
+              defaultValue={codeType === "investor" ? "investor preview" : ""}
+              placeholder={codeType === "investor" ? "investor preview" : "first testers"}
               className={`mt-1 ${field}`}
             />
           </label>

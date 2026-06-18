@@ -14,7 +14,7 @@ const secure = process.env.NODE_ENV === "production";
  */
 export async function enterSite(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim().toUpperCase();
-  if (!code) redirect("/gate?error=1");
+  if (!code) redirect("/gate?error=empty");
 
   const admin = createAdminClient();
   const { data } = await admin
@@ -24,7 +24,7 @@ export async function enterSite(formData: FormData) {
     .maybeSingle();
 
   // Must be a real, active, not-yet-exhausted invite — uses is NOT incremented here.
-  if (!data || !data.active || data.uses >= data.max_uses) redirect("/gate?error=1");
+  if (!data || !data.active || data.uses >= data.max_uses) redirect("/gate?error=invalid");
 
   const jar = await cookies();
   jar.set(gateCookieName("site"), gateToken("site"), {

@@ -7,3 +7,9 @@ export async function signOutAction() {
   await supabase.auth.signOut();
   redirect("/");
 }
+
+export async function signOutEverywhereAction() {
+  const supabase = await createClient();
+  await supabase.auth.signOut({ scope: "global" });
+  redirect("/");
+}
