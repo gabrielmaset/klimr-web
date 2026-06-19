@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, Plus, Check } from "lucide-react";
+import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, CalendarPlus, Check } from "lucide-react";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { CourtsMap } from "./courts-map";
 import { searchCourts, startMatchAtCourt, suggestCities, checkZip, type CourtResult, type SearchResponse, type CitySuggestion } from "./search-actions";
 
 const KM_PER_MI = 1.60934;
 const RADII_MI = [3, 5, 10, 25];
-const MAX_SHOWN = 10;
+const PAGE = 5;
 
 function CourtRow({ c, n }: { c: CourtResult; n: number }) {
   const mi = (c.distanceKm / KM_PER_MI).toFixed(1);
@@ -72,11 +72,11 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
           type="button"
           onClick={createMatchHere}
           disabled={creating}
-          aria-label={`Create a match at ${c.name}`}
+          aria-label={`Schedule a match at ${c.name}`}
           className="press inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-ink px-3.5 text-xs font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
         >
-          {creating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} />}
-          <span className="hidden sm:inline">Match</span>
+          {creating ? <Loader2 size={13} className="animate-spin" /> : <CalendarPlus size={14} />}
+          <span className="hidden sm:inline">Schedule a match</span>
         </button>
       </div>
       {err ? <p className="mt-1 px-1 text-xs text-brand-deep">{err}</p> : null}
@@ -103,6 +103,7 @@ export function CourtsExplorer({
   const [searchedMi, setSearchedMi] = useState(10);
   const [loading, setLoading] = useState(false);
   const [resp, setResp] = useState<SearchResponse | null>(null);
+  const [visible, setVisible] = useState(PAGE);
   const reqRef = useRef(0);
   const skipNextRef = useRef(false);
 
@@ -166,6 +167,7 @@ export function CourtsExplorer({
     if (loading || !selected) return;
     setShowSug(false);
     setLoading(true);
+    setVisible(PAGE);
     setSearchedMi(radiusMi);
     try {
       const r = await searchCourts({ locationKey: selected.key, radiusKm: Math.round(radiusMi * KM_PER_MI), sport });
@@ -178,7 +180,7 @@ export function CourtsExplorer({
   }
 
   const allCourts = resp?.courts ?? [];
-  const shown = allCourts.slice(0, MAX_SHOWN);
+  const shown = allCourts.slice(0, visible);
   const mapCourts = shown.map((c, i) => ({
     id: c.id,
     name: c.name,
@@ -330,10 +332,16 @@ export function CourtsExplorer({
                   <CourtRow key={c.id} c={c} n={i + 1} />
                 ))}
               </div>
-              {allCourts.length > MAX_SHOWN ? (
-                <p className="mt-3 px-0.5 text-center text-xs text-faint">
-                  Showing the {MAX_SHOWN} closest of {allCourts.length}. Narrow the radius to refine.
-                </p>
+              {allCourts.length > visible ? (
+                <button
+                  type="button"
+                  onClick={() => setVisible((v) => Math.min(allCourts.length, v + PAGE))}
+                  className="press mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-rule bg-surface py-3 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+                >
+                  More results <span className="font-normal text-faint">({allCourts.length - visible} more)</span>
+                </button>
+              ) : allCourts.length > PAGE ? (
+                <p className="mt-3 px-0.5 text-center text-xs text-faint">Showing all {allCourts.length}.</p>
               ) : null}
             </>
           )}

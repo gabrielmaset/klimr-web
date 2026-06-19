@@ -515,11 +515,12 @@ export async function upsertGoogleCourt(input: GoogleCourtInput): Promise<{ cour
     is_private: input.private === true,
   };
 
-  const { data: existing } = await admin
+  const { data: existing, error: selErr } = await admin
     .from("courts")
     .select("id, sports")
     .eq("google_place_id", placeId)
     .maybeSingle();
+  if (selErr) console.error("[courts] court lookup failed", selErr.code, selErr.message);
 
   if (existing) {
     const has = SPORT_KEYS.includes(sport) && Array.isArray(existing.sports) && existing.sports.includes(sport);
@@ -534,10 +535,11 @@ export async function upsertGoogleCourt(input: GoogleCourtInput): Promise<{ cour
     .select("id")
     .single();
   if (error || !inserted) {
-    // Lost an insert race — re-read by place id.
+    // Lost an insert race? Re-read by place id.
     const { data: again } = await admin.from("courts").select("id").eq("google_place_id", placeId).maybeSingle();
     if (again) return { courtId: again.id };
-    return { courtId: null, error: "Could not save the court." };
+    console.error("[courts] court insert failed", error?.code, error?.message, error?.details, error?.hint);
+    return { courtId: null, error: `Couldn't save the court${error?.code ? ` (${error.code})` : ""}.` };
   }
   return { courtId: inserted.id };
 }

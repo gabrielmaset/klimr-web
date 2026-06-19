@@ -28,7 +28,6 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
   const markersRef = useRef<Marker[]>([]);
   const mbRef = useRef<(typeof import("mapbox-gl"))["default"] | null>(null);
   const [ready, setReady] = useState(false);
-  const [errored, setErrored] = useState(false);
 
   // Initialise the map once (client-only, dynamic import keeps mapbox-gl out of SSR).
   useEffect(() => {
@@ -40,18 +39,22 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
       if (cancelled || !containerRef.current) return;
       mbRef.current = mapboxgl;
       mapboxgl.accessToken = token;
-      const map = new mapboxgl.Map({
-        container: containerRef.current,
-        style: "mapbox://styles/mapbox/light-v11",
-        center: FALLBACK,
-        zoom: 10.5,
-        attributionControl: false,
-      });
-      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      let map: MapboxMap;
+      try {
+        map = new mapboxgl.Map({
+          container: containerRef.current,
+          style: "mapbox://styles/mapbox/light-v11",
+          center: FALLBACK,
+          zoom: 10.5,
+          attributionControl: false,
+        });
+        map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      } catch (err) {
+        console.warn("[courts map] init failed", err);
+        return;
+      }
       map.on("error", (e: { error?: { status?: number; message?: string } }) => {
-        const status = e?.error?.status;
-        console.warn("[courts map] tile/style error", status ?? "", e?.error?.message ?? "");
-        if (status === 401 || status === 403) setErrored(true);
+        console.warn("[courts map] tile/style error", e?.error?.status ?? "", e?.error?.message ?? "");
       });
       map.on("load", () => {
         if (cancelled) return;
@@ -134,14 +137,5 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
     );
   }
 
-  return (
-    <div className="relative h-80 w-full overflow-hidden rounded-3xl border border-rule lg:h-[560px]">
-      <div ref={containerRef} className="absolute inset-0" />
-      {errored ? (
-        <div className="absolute inset-0 grid place-items-center bg-surface/85 px-6 text-center backdrop-blur-sm">
-          <p className="max-w-xs text-xs text-mute">Map couldn&rsquo;t load right now — the court list still works.</p>
-        </div>
-      ) : null}
-    </div>
-  );
+  return <div ref={containerRef} className="h-80 w-full overflow-hidden rounded-3xl border border-rule lg:h-[560px]" />;
 }
