@@ -212,6 +212,7 @@ export interface Database {
           organizer_id: string;
           scheduled_at: string | null;
           location_text: string | null;
+          court_id: string | null;
           total_slots: number;
           status: MatchStatus;
           recurring: boolean;
@@ -226,6 +227,7 @@ export interface Database {
           organizer_id: string;
           scheduled_at?: string | null;
           location_text?: string | null;
+          court_id?: string | null;
           total_slots?: number;
           status?: MatchStatus;
           recurring?: boolean;
@@ -238,6 +240,7 @@ export interface Database {
           format?: string;
           scheduled_at?: string | null;
           location_text?: string | null;
+          court_id?: string | null;
           total_slots?: number;
           status?: MatchStatus;
           recurring?: boolean;
@@ -734,6 +737,10 @@ export interface Database {
           lat: number | null;
           lng: number | null;
           amenities: string[];
+          google_place_id: string | null;
+          rating: number | null;
+          rating_count: number | null;
+          is_private: boolean;
           created_at: string;
         };
         Insert: {
@@ -748,6 +755,10 @@ export interface Database {
           lat?: number | null;
           lng?: number | null;
           amenities?: string[];
+          google_place_id?: string | null;
+          rating?: number | null;
+          rating_count?: number | null;
+          is_private?: boolean;
           created_at?: string;
         };
         Update: {
@@ -756,6 +767,15 @@ export interface Database {
           amenities?: string[];
           lat?: number | null;
           lng?: number | null;
+          address?: string | null;
+          neighborhood?: string | null;
+          city?: string | null;
+          state?: string | null;
+          zip?: string | null;
+          google_place_id?: string | null;
+          rating?: number | null;
+          rating_count?: number | null;
+          is_private?: boolean;
         };
         Relationships: [];
       };
