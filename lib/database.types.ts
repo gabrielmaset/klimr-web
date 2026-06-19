@@ -26,6 +26,12 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      match_invites: {
+        Row: { id: string; match_id: string; invited_user_id: string; invited_by: string; status: string; created_at: string };
+        Insert: { id?: string; match_id: string; invited_user_id: string; invited_by: string; status?: string; created_at?: string };
+        Update: { id?: string; match_id?: string; invited_user_id?: string; invited_by?: string; status?: string; created_at?: string };
+        Relationships: [];
+      };
       friendships: {
         Row: { id: string; requester_id: string; addressee_id: string; status: string; created_at: string; responded_at: string | null };
         Insert: { id?: string; requester_id: string; addressee_id: string; status?: string; created_at?: string; responded_at?: string | null };
@@ -813,6 +819,12 @@ export interface Database {
         Row: { id: string; court_id: string; author_id: string; rating: number; body: string | null; created_at: string };
         Insert: { id?: string; court_id: string; author_id: string; rating: number; body?: string | null; created_at?: string };
         Update: { rating?: number; body?: string | null };
+        Relationships: [];
+      };
+      court_checkins: {
+        Row: { id: string; court_id: string; user_id: string; created_at: string };
+        Insert: { id?: string; court_id: string; user_id: string; created_at?: string };
+        Update: { id?: string; court_id?: string; user_id?: string; created_at?: string };
         Relationships: [];
       };
       region_challenges: {

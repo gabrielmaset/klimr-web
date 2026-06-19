@@ -7,6 +7,7 @@ import { AdSlot } from "@/components/ads/ad-slot";
 import { sportMeta } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "Feed" };
+export const dynamic = "force-dynamic";
 
 type FeedRow = {
   id: string;
@@ -45,11 +46,12 @@ export default async function FeedPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/feed");
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("feed_items")
     .select("id, kind, title, body, sport_key, link_url, link_label, published_at")
     .order("published_at", { ascending: false })
     .limit(40);
+  if (error) console.error("[feed] read failed", error.code, error.message);
   const items = (data as FeedRow[] | null) ?? [];
 
   return (

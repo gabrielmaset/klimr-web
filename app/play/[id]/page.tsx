@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
 import { joinMatch, leaveMatch, confirmSpot, joinWaitlist, leaveWaitlist, cancelMatch } from "./actions";
+import { MatchInvite } from "./MatchInvite";
 
 export const metadata: Metadata = { title: "Match" };
 
@@ -79,6 +80,48 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   }
 
   const meta = sportMeta(match.sport_key);
+
+  // Friends the organizer can still invite (accepted friends, not already on the
+  // roster and not already invited) — only when there's room to fill.
+  type InviteFriend = { id: string; display_name: string; avatar_hue: number; avatar_url: string | null; city: string | null };
+  let inviteFriends: InviteFriend[] = [];
+  if (isOrganizer && joinable && filled < match.total_slots) {
+    const { data: fr } = await supabase
+      .from("friendships")
+      .select("requester_id, addressee_id")
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+    const friendIds = [
+      ...new Set(
+        ((fr as { requester_id: string; addressee_id: string }[] | null) ?? []).map((r) =>
+          r.requester_id === user.id ? r.addressee_id : r.requester_id,
+        ),
+      ),
+    ];
+    const partSet = new Set(participants.map((p) => p.user_id));
+    const { data: inv } = await supabase
+      .from("match_invites")
+      .select("invited_user_id")
+      .eq("match_id", id)
+      .in("status", ["pending", "accepted"]);
+    const invSet = new Set(((inv as { invited_user_id: string }[] | null) ?? []).map((i) => i.invited_user_id));
+    const candidateIds = friendIds.filter((fid) => !partSet.has(fid) && !invSet.has(fid));
+    if (candidateIds.length) {
+      type FP = { id: string; display_name: string; avatar_hue: number | null; avatar_path: string | null; city: string | null };
+      const { data: fp } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_hue, avatar_path, city")
+        .in("id", candidateIds);
+      inviteFriends = ((fp as FP[] | null) ?? []).map((p) => ({
+        id: p.id,
+        display_name: p.display_name,
+        avatar_hue: p.avatar_hue ?? 200,
+        avatar_url: p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null,
+        city: p.city ?? null,
+      }));
+    }
+  }
+
   const statusLabel = !joinable
     ? match.status[0].toUpperCase() + match.status.slice(1)
     : full
@@ -177,6 +220,14 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           })}
         </div>
       </div>
+
+      {/* invite friends — organizer only, when there's room */}
+      {isOrganizer && joinable && filled < match.total_slots ? (
+        <div className="mt-6">
+          <div className="kicker mb-3 text-faint">Invite friends</div>
+          <MatchInvite matchId={id} friends={inviteFriends} />
+        </div>
+      ) : null}
 
       {/* action area */}
       <div className="mt-6 rounded-2xl border border-rule bg-surface p-5">

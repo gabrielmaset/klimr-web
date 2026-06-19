@@ -186,7 +186,7 @@ export default async function AccountPage({
             </Link>
           </div>
 
-          <div className="mt-5">
+          <div id="email" className="mt-5 scroll-mt-24">
             <div className="text-xl font-bold text-ink">{name}</div>
             <div className="font-mono text-[12px] text-mute">{user.email}</div>
             {profile.bio ? (
@@ -284,7 +284,7 @@ export default async function AccountPage({
           </div>
 
           {/* Verification card */}
-          <div className="rise rounded-3xl border border-rule bg-surface p-6" style={{ animationDelay: "90ms" }}>
+          <div id="verification" className="rise scroll-mt-24 rounded-3xl border border-rule bg-surface p-6" style={{ animationDelay: "90ms" }}>
             <div className="kicker text-faint">Identity verification</div>
             <p className="mt-2 text-sm leading-relaxed text-mute">
               Every Klimr player is verified — it&apos;s the trust floor for

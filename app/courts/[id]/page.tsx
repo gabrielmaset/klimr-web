@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ChevronLeft, MapPin, Star, ShieldCheck } from "lucide-react";
+import { ChevronLeft, MapPin, Star, ShieldCheck, UserCheck, Flame, Clock, BadgeCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
-import { addReview } from "../actions";
+import { addReview, checkInCourt } from "../actions";
+import { courtReviewEligibility } from "@/lib/court-access";
 
 export const metadata: Metadata = { title: "Court" };
 
@@ -55,6 +56,19 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
   }
   const avatarUrl = (p: Prof | undefined) =>
     p?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
+
+  // Busy status + review eligibility, both driven by check-ins.
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now();
+  const since3h = new Date(nowMs - 3 * 3600_000).toISOString();
+  const since7d = new Date(nowMs - 7 * 86_400_000).toISOString();
+  const [{ count: activeCount }, { count: weekCount }, elig] = await Promise.all([
+    supabase.from("court_checkins").select("id", { count: "exact", head: true }).eq("court_id", id).gte("created_at", since3h),
+    supabase.from("court_checkins").select("id", { count: "exact", head: true }).eq("court_id", id).gte("created_at", since7d),
+    courtReviewEligibility(supabase, user.id, id),
+  ]);
+  const active = activeCount ?? 0;
+  const week = weekCount ?? 0;
 
   const hasGeo = court.lat != null && court.lng != null;
   const d = 0.004;
@@ -112,6 +126,32 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
         </p>
       ) : null}
 
+      {/* presence — busy status + check in */}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface p-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full"
+            style={{ background: active > 0 ? "#fff1ed" : "#f4f4f5", color: active > 0 ? "#d63a0f" : "#71717a" }}
+          >
+            {active > 0 ? <Flame size={18} /> : <Clock size={18} />}
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink">
+              {active > 0 ? `${active} ${active === 1 ? "player" : "players"} checked in recently` : "Quiet right now"}
+            </p>
+            <p className="text-xs text-mute">
+              {week > 0 ? `${week} check-in${week === 1 ? "" : "s"} in the last week` : "Be the first to check in this week"}
+            </p>
+          </div>
+        </div>
+        <form action={checkInCourt}>
+          <input type="hidden" name="courtId" value={court.id} />
+          <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+            <UserCheck size={15} /> Check in
+          </button>
+        </form>
+      </div>
+
       {/* amenities */}
       {court.amenities?.length ? (
         <section className="mt-5">
@@ -135,37 +175,62 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
           ) : null}
         </div>
 
-        {/* your review */}
-        <form action={addReview} className="mt-3 rounded-2xl border border-rule bg-surface p-4">
-          <input type="hidden" name="courtId" value={court.id} />
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-ink">{mine ? "Your review" : "Rate this court"}</span>
-            <select
-              name="rating"
-              defaultValue={String(mine?.rating ?? 5)}
-              aria-label="Rating"
-              className="rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink outline-none focus:border-brand"
-            >
-              {[5, 4, 3, 2, 1].map((n) => (
-                <option key={n} value={n}>{"★".repeat(n)} ({n})</option>
-              ))}
-            </select>
+        {/* authenticity note */}
+        <p className="mt-1 flex items-center gap-1 text-xs text-faint">
+          <ShieldCheck size={12} /> Reviews come only from verified players who&rsquo;ve checked in and played here.
+        </p>
+
+        {/* your review — gated to verified players who've actually been here */}
+        {elig.eligible ? (
+          <form action={addReview} className="mt-3 rounded-2xl border border-rule bg-surface p-4">
+            <input type="hidden" name="courtId" value={court.id} />
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-ink">
+                {mine ? "Your review" : "Rate this court"}
+                <span className="inline-flex items-center gap-1 rounded-full bg-tint-success px-2 py-0.5 text-[10px] font-bold text-success"><BadgeCheck size={11} /> Verified · played here</span>
+              </span>
+              <select
+                name="rating"
+                defaultValue={String(mine?.rating ?? 5)}
+                aria-label="Rating"
+                className="rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink outline-none focus:border-brand"
+              >
+                {[5, 4, 3, 2, 1].map((n) => (
+                  <option key={n} value={n}>{"★".repeat(n)} ({n})</option>
+                ))}
+              </select>
+            </div>
+            <textarea
+              name="body"
+              rows={2}
+              maxLength={1000}
+              defaultValue={mine?.body ?? ""}
+              placeholder="Lights work? Courts in good shape? Easy parking?"
+              className="mt-3 w-full resize-none rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <span className="flex items-center gap-1 text-[11px] text-faint"><ShieldCheck size={11} /> Screened before posting</span>
+              <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+                {mine ? "Update review" : "Post review"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-3 rounded-2xl border border-dashed border-rule bg-surface p-4">
+            {!elig.verified ? (
+              <>
+                <p className="text-sm font-semibold text-ink">Verify to review</p>
+                <p className="mt-1 text-sm text-mute">Court reviews come only from verified players. Verify your identity, then you can review the courts you actually play.</p>
+                <Link href="/account#verification" className="press mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"><BadgeCheck size={14} /> Verify identity</Link>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-ink">Check in to review</p>
+                <p className="mt-1 text-sm text-mute">Reviews come from players who&rsquo;ve been here. Tap <b>Check in</b> above when you&rsquo;re at the court — or join a match held here — and you can leave one.</p>
+              </>
+            )}
           </div>
-          <textarea
-            name="body"
-            rows={2}
-            maxLength={1000}
-            defaultValue={mine?.body ?? ""}
-            placeholder="Lights work? Courts in good shape? Easy parking?"
-            className="mt-3 w-full resize-none rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand"
-          />
-          <div className="mt-2 flex items-center justify-between">
-            <span className="flex items-center gap-1 text-[11px] text-faint"><ShieldCheck size={11} /> Screened before posting</span>
-            <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
-              {mine ? "Update review" : "Post review"}
-            </button>
-          </div>
-        </form>
+        )}
 
         {/* others' reviews */}
         {reviews.length > 0 ? (

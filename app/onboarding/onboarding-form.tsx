@@ -154,13 +154,15 @@ export function OnboardingWizard({
   sports,
   initial,
   isEdit,
+  startStep = 0,
 }: {
   sports: SportMeta[];
   initial: WizardInitial;
   isEdit: boolean;
+  startStep?: number;
 }) {
   const [state, formAction, pending] = useActionState(saveProfile, initialState);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(Math.min(Math.max(startStep, 0), STEPS.length - 1));
   const [stepError, setStepError] = useState<string | null>(null);
   const submitIntent = useRef(false);
 

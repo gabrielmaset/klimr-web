@@ -123,7 +123,7 @@ export async function createFeedItem(
   const admin = createAdminClient();
   const { data: inserted, error } = await admin
     .from("feed_items")
-    .insert({ kind, title, body, sport_key, link_url, link_label, created_by: userId, published_at: new Date().toISOString() })
+    .insert({ kind, title, body, sport_key, link_url, link_label, created_by: userId })
     .select("id")
     .single();
   if (error || !inserted) {

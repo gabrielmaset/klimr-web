@@ -101,12 +101,12 @@ export default async function MyProfilePage() {
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
       <CoverUploader initialUrl={coverUrl} hue={hue} />
 
-      {/* Identity header — avatar overlaps the cover */}
-      <div className="px-1 sm:px-4">
-        <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end sm:justify-between">
+      {/* Identity header — avatar overlaps the cover (z-10 so it sits on top) */}
+      <div className="relative z-10 px-1 sm:px-4">
+        <div className="-mt-14 flex flex-col gap-4 sm:-mt-16 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-end gap-4">
             <div className="rounded-full ring-4 ring-bg">
-              <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={104} />
+              <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={112} />
             </div>
             <div className="pb-1">
               <div className="flex items-center gap-2">

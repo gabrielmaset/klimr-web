@@ -7,7 +7,9 @@ export const metadata: Metadata = { title: "Your profile" };
 
 type RawRange = { day?: unknown; start?: unknown; end?: unknown };
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ step?: string }> }) {
+  const { step: stepRaw } = await searchParams;
+  const startStep = Number.isFinite(Number(stepRaw)) ? Math.trunc(Number(stepRaw)) : 0;
   const supabase = await createClient();
   const {
     data: { user },
@@ -105,7 +107,7 @@ export default async function OnboardingPage() {
 
         {/* right — the wizard, in a card that fills the column */}
         <div className="rounded-3xl border border-rule bg-surface p-6 shadow-[0_1px_0_rgba(10,10,11,0.02)] sm:p-8">
-          <OnboardingWizard sports={sports ?? []} initial={initial} isEdit={isEdit} />
+          <OnboardingWizard sports={sports ?? []} initial={initial} isEdit={isEdit} startStep={startStep} />
         </div>
       </div>
     </div>

@@ -30,9 +30,9 @@ type RowDef = { Icon: typeof UserRound; title: string; desc: string; href?: stri
 
 function Section({ title, rows }: { title: string; rows: RowDef[] }) {
   return (
-    <section className="rounded-2xl border border-rule bg-surface p-2 sm:p-2.5">
-      <h2 className="kicker px-3 pb-1 pt-2 text-faint">{title}</h2>
-      <div className="divide-y divide-rule">
+    <section className="rounded-2xl border border-rule bg-surface p-3">
+      <h2 className="kicker px-2 pb-2.5 pt-1 text-faint">{title}</h2>
+      <div className="space-y-1">
         {rows.map((r) => {
           const inner = (
             <>
@@ -56,7 +56,7 @@ function Section({ title, rows }: { title: string; rows: RowDef[] }) {
               {inner}
             </Link>
           ) : (
-            <div key={r.title} className="flex items-center gap-3 px-3 py-3 opacity-70">{inner}</div>
+            <div key={r.title} className="flex items-center gap-3 rounded-xl px-3 py-3 opacity-70">{inner}</div>
           );
         })}
       </div>
@@ -126,24 +126,24 @@ export default async function SettingsPage() {
         <ChevronRight size={18} className="shrink-0 text-faint" />
       </Link>
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        <div className="space-y-4">
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        <div className="space-y-5">
           <Section
             title="Account"
             rows={[
-              { Icon: UserRound, title: "Profile & bio", desc: "Name, photo, cover, and bio", href: "/account" },
-              { Icon: Trophy, title: "Sports & skill levels", desc: "The sports you play and your levels", href: "/account" },
-              { Icon: BadgeCheck, title: "Identity verification", desc: "Your verified-player status", href: "/account" },
-              { Icon: Mail, title: "Linked email & phone", desc: "How you sign in and get reached", href: "/account" },
+              { Icon: UserRound, title: "Profile & bio", desc: "Name, photo, cover, and bio", href: "/onboarding?step=0" },
+              { Icon: Trophy, title: "Sports & skill levels", desc: "The sports you play and your levels", href: "/onboarding?step=1" },
+              { Icon: BadgeCheck, title: "Identity verification", desc: "Your verified-player status", href: "/account#verification" },
+              { Icon: Mail, title: "Linked email & phone", desc: "How you sign in and get reached", href: "/account#email" },
               { Icon: KeyRound, title: "Sign-in & security", desc: "Magic link and two-factor", href: "/account/security" },
             ]}
           />
           <Section
             title="Ranking & play"
             rows={[
-              { Icon: MapPin, title: "Home ZIP & neighborhood", desc: "Anchors your local rankings", href: "/account" },
-              { Icon: Swords, title: "Default sport", desc: "What opens first across Klimr", href: "/account" },
-              { Icon: CalendarDays, title: "Availability schedule", desc: "When you usually play", href: "/account" },
+              { Icon: MapPin, title: "Home ZIP & neighborhood", desc: "Anchors your local rankings", href: "/onboarding?step=0" },
+              { Icon: Swords, title: "Default sport", desc: "What opens first across Klimr", href: "/onboarding?step=1" },
+              { Icon: CalendarDays, title: "Availability schedule", desc: "When you usually play", href: "/onboarding?step=3" },
               { Icon: BookOpen, title: "Sport rules & how to play", desc: "Formats and how ranking points work", href: "/resources" },
             ]}
           />
@@ -151,7 +151,7 @@ export default async function SettingsPage() {
             title="Teams"
             rows={[
               { Icon: Users, title: "My teams", desc: "Crews and squads you're on", href: "/teams" },
-              { Icon: Send, title: "Team invitations", desc: "Invites waiting on you", href: "/teams" },
+              { Icon: Send, title: "Team invitations", desc: "Invites waiting on you", href: "/invites?tab=received&kind=teams" },
               { Icon: ShieldCheck, title: "Team notifications", desc: "Invites and roster changes", soon: true },
             ]}
           />
@@ -165,7 +165,7 @@ export default async function SettingsPage() {
           />
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Notifications + Privacy (client form, saves) */}
           <SettingsForm initial={prefs} />
 
