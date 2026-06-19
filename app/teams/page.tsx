@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Users, ChevronRight, Crown, Plus } from "lucide-react";
+import { Users, ChevronRight, Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { SPORTS, sportMeta } from "@/lib/sports";
-import { createTeam, respondTeamInvite } from "./actions";
+import { sportMeta } from "@/lib/sports";
+import { respondTeamInvite } from "./actions";
+import { CreateTeamForm } from "./CreateTeamForm";
 
 export const metadata: Metadata = { title: "Teams" };
 
@@ -40,7 +41,6 @@ export default async function TeamsPage() {
     for (const c of counts ?? []) memberCount.set(c.team_id, (memberCount.get(c.team_id) ?? 0) + 1);
   }
 
-  const field = "w-full rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
@@ -105,7 +105,7 @@ export default async function TeamsPage() {
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5">
                       <span className="truncate text-sm font-bold text-ink">{t.name}</span>
-                      {role === "captain" ? <Crown size={13} className="shrink-0 text-pop" aria-label="Captain" /> : null}
+                      {role === "owner" ? <Crown size={13} className="shrink-0 text-pop" aria-label="Owner" /> : null}
                     </span>
                     <span className="flex items-center gap-1 text-xs text-mute">
                       <Users size={12} /> {memberCount.get(tid) ?? 1} · {meta.name}
@@ -120,28 +120,12 @@ export default async function TeamsPage() {
         )}
       </section>
 
-      {/* create a team */}
-      <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-        <h2 className="flex items-center gap-1.5 text-sm font-bold text-ink">
-          <Plus size={15} className="text-brand" /> Create a team
-        </h2>
-        <form action={createTeam} className="mt-3 space-y-3">
-          <input name="name" required maxLength={60} placeholder="Team name" className={field} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <select name="sport_key" defaultValue="" required className={field}>
-              <option value="" disabled>Sport…</option>
-              {SPORTS.map((s) => (
-                <option key={s.key} value={s.key}>{s.emoji} {s.name}</option>
-              ))}
-            </select>
-            <input name="city" defaultValue={profile?.city ?? ""} placeholder="City (optional)" className={field} />
-          </div>
-          <input name="neighborhood" defaultValue={profile?.neighborhood ?? ""} placeholder="Neighborhood (optional)" className={field} />
-          <button className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
-            Create team
-          </button>
-        </form>
-      </section>
+      {/* create a team — collapses to a button once you have teams */}
+      <CreateTeamForm
+        hasTeams={myTeamIds.length > 0}
+        defaultCity={profile?.city ?? ""}
+        defaultNeighborhood={profile?.neighborhood ?? ""}
+      />
     </div>
   );
 }

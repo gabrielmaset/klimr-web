@@ -23,6 +23,8 @@ export async function createMatch(_prev: CreateState, formData: FormData): Promi
   const when = String(formData.get("scheduled_at") ?? "").trim();
   const slotsRaw = parseInt(String(formData.get("slots") ?? ""), 10);
   const recurring = formData.get("recurring") === "on";
+  const recurrenceRaw = String(formData.get("recurrence") ?? "");
+  const recurrence = recurring && ["weekly", "biweekly", "monthly"].includes(recurrenceRaw) ? recurrenceRaw : null;
 
   if (!SPORT_KEYS.includes(sport)) return { error: "Pick a sport." };
   if (format !== "singles" && format !== "doubles") return { error: "Pick a format." };
@@ -74,6 +76,7 @@ export async function createMatch(_prev: CreateState, formData: FormData): Promi
       total_slots: slots,
       status: "open",
       recurring,
+      recurrence,
     })
     .select("id")
     .single();

@@ -135,7 +135,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <div className="flex items-center gap-2.5 text-sm text-ink"><MapPin size={16} className="shrink-0 text-faint" /> {match.location_text}</div>
         ) : null}
         {match.recurring ? (
-          <div className="flex items-center gap-2.5 text-sm text-ink"><Repeat size={16} className="shrink-0 text-faint" /> Recurring game</div>
+          <div className="flex items-center gap-2.5 text-sm text-ink"><Repeat size={16} className="shrink-0 text-faint" /> {match.recurrence === "biweekly" ? "Repeats every 2 weeks" : match.recurrence === "monthly" ? "Repeats monthly" : match.recurrence === "weekly" ? "Repeats weekly" : "Recurring game"}</div>
         ) : null}
       </div>
 

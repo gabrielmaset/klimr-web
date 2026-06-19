@@ -28,6 +28,32 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
 
   return (
     <form action={action} className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="kicker text-faint">First name</span>
+          <input
+            name="first_name"
+            required
+            autoComplete="given-name"
+            maxLength={40}
+            placeholder="Alex"
+            defaultValue={state.first_name ?? ""}
+            className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+          />
+        </label>
+        <label className="block">
+          <span className="kicker text-faint">Last name</span>
+          <input
+            name="last_name"
+            required
+            autoComplete="family-name"
+            maxLength={40}
+            placeholder="Rivera"
+            defaultValue={state.last_name ?? ""}
+            className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+          />
+        </label>
+      </div>
       <label className="block">
         <span className="kicker text-faint">Invite code</span>
         <input

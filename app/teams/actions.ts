@@ -16,30 +16,118 @@ async function me() {
   return { supabase, user };
 }
 
-export async function createTeam(formData: FormData) {
+/** The caller's role on a team, or null if they're not a member. */
+async function teamRole(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  teamId: string,
+  userId: string,
+): Promise<string | null> {
+  const { data } = await supabase.from("team_members").select("role").eq("team_id", teamId).eq("user_id", userId).maybeSingle();
+  return data?.role ?? null;
+}
+
+const canManageRoster = (role: string | null) => role === "owner" || role === "manager";
+const canInvite = (role: string | null) => role === "owner" || role === "manager" || role === "staff";
+
+export type TeamFormState = { ok?: boolean; error?: string } | undefined;
+
+
+export async function createTeam(_prev: TeamFormState, formData: FormData): Promise<TeamFormState> {
   const { supabase, user } = await me();
   if (!user) redirect("/login?next=/teams");
-  if (!(await accountActive(supabase, user.id))) return;
+  if (!(await accountActive(supabase, user.id))) return { error: "Your account isn't active yet." };
 
   const name = String(formData.get("name") ?? "").trim().slice(0, 60);
   const sportRaw = String(formData.get("sport_key") ?? "");
   const sport_key = SPORT_KEYS.includes(sportRaw) ? sportRaw : null;
   const city = String(formData.get("city") ?? "").trim().slice(0, 80) || null;
   const neighborhood = String(formData.get("neighborhood") ?? "").trim().slice(0, 80) || null;
-  if (!name || !sport_key) return;
+  if (!name) return { error: "Give your team a name." };
+  if (!sport_key) return { error: "Pick a sport." };
 
   const { data: team, error } = await supabase
     .from("teams")
     .insert({ name, sport_key, city, neighborhood, created_by: user.id })
     .select("id")
     .single();
-  if (error || !team) return;
+  if (error || !team) {
+    console.error("[teams] create failed", error?.code, error?.message);
+    return { error: `Couldn't create the team${error?.code ? ` (${error.code})` : ""}. Please try again.` };
+  }
 
-  // Captain membership is created via the service role (membership writes are server-side).
+  // Owner membership is created via the service role (membership writes are server-side).
   const admin = createAdminClient();
-  await admin.from("team_members").insert({ team_id: team.id, user_id: user.id, role: "captain" });
+  const { error: mErr } = await admin.from("team_members").insert({ team_id: team.id, user_id: user.id, role: "owner" });
+  if (mErr) console.error("[teams] owner membership failed", mErr.code, mErr.message);
 
+  revalidatePath("/teams");
   redirect(`/teams/${team.id}`);
+}
+
+/** Captain edits the team's name and location (sport stays fixed). */
+export async function updateTeam(_prev: TeamFormState, formData: FormData): Promise<TeamFormState> {
+  const { supabase, user } = await me();
+  if (!user) return { error: "Please sign in." };
+  const teamId = String(formData.get("teamId") ?? "");
+  const name = String(formData.get("name") ?? "").trim().slice(0, 60);
+  const city = String(formData.get("city") ?? "").trim().slice(0, 80) || null;
+  const neighborhood = String(formData.get("neighborhood") ?? "").trim().slice(0, 80) || null;
+  if (!teamId) return { error: "Missing team." };
+  if (!name) return { error: "Give your team a name." };
+
+  if (!canManageRoster(await teamRole(supabase, teamId, user.id))) return { error: "Only the owner or a manager can edit the team." };
+
+  const { error } = await supabase.from("teams").update({ name, city, neighborhood }).eq("id", teamId);
+  if (error) {
+    console.error("[teams] update failed", error.code, error.message);
+    return { error: `Couldn't save${error.code ? ` (${error.code})` : ""}.` };
+  }
+  revalidatePath(`/teams/${teamId}`);
+  return { ok: true };
+}
+
+/** Captain-only search for FRIENDS to invite (by name), excluding current
+ *  members, the captain, and anyone already invited. Only accepted friends are
+ *  eligible — you must be connected before you can add someone to a team. */
+export async function searchTeamCandidates(
+  teamId: string,
+  query: string,
+): Promise<{ id: string; display_name: string; avatar_hue: number; avatar_url: string | null; city: string | null }[]> {
+  const { supabase, user } = await me();
+  if (!user) return [];
+  const q = query.replace(/[%,()]/g, "").trim();
+  if (q.length < 2) return [];
+
+  if (!canInvite(await teamRole(supabase, teamId, user.id))) return [];
+
+  const [{ data: members }, { data: invited }, { data: fr }] = await Promise.all([
+    supabase.from("team_members").select("user_id").eq("team_id", teamId),
+    supabase.from("team_invites").select("invited_user_id").eq("team_id", teamId).eq("status", "pending"),
+    supabase.from("friendships").select("requester_id, addressee_id").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq("status", "accepted"),
+  ]);
+  const exclude = new Set<string>([user.id]);
+  for (const m of members ?? []) exclude.add(m.user_id);
+  for (const i of invited ?? []) exclude.add(i.invited_user_id);
+  const friendIds = (fr ?? []).map((f) => (f.requester_id === user.id ? f.addressee_id : f.requester_id)).filter((id) => !exclude.has(id));
+  if (friendIds.length === 0) return [];
+
+  const { data: profs } = await supabase
+    .from("profiles")
+    .select("id, display_name, avatar_hue, avatar_path, city, account_status")
+    .in("id", friendIds)
+    .ilike("display_name", `%${q}%`)
+    .limit(20);
+
+  return ((profs ?? []) as { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null; account_status: string }[])
+    .filter((p) => p.account_status === "active")
+    .slice(0, 8)
+    .map((p) => ({
+      id: p.id,
+      display_name: p.display_name,
+      avatar_hue: p.avatar_hue,
+      avatar_url: p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null,
+      city: p.city,
+    }));
 }
 
 export async function inviteToTeam(formData: FormData) {
@@ -50,7 +138,17 @@ export async function inviteToTeam(formData: FormData) {
   if (!teamId || !inviteeId) return;
 
   const { data: team } = await supabase.from("teams").select("id, name, sport_key, created_by").eq("id", teamId).maybeSingle();
-  if (!team || team.created_by !== user.id) return; // only the captain invites
+  if (!team) return;
+  if (!canInvite(await teamRole(supabase, teamId, user.id))) return; // owner / manager / staff invite
+
+  // You can only invite players you're friends with.
+  const { data: friendship } = await supabase
+    .from("friendships")
+    .select("id")
+    .or(`and(requester_id.eq.${user.id},addressee_id.eq.${inviteeId}),and(requester_id.eq.${inviteeId},addressee_id.eq.${user.id})`)
+    .eq("status", "accepted")
+    .maybeSingle();
+  if (!friendship) return;
 
   const admin = createAdminClient();
   // Skip if already a member or already invited (unique constraint also guards).
@@ -121,11 +219,11 @@ export async function leaveTeam(formData: FormData) {
   if (!teamId) return;
 
   const { data: team } = await supabase.from("teams").select("id, created_by").eq("id", teamId).maybeSingle();
-  const wasCaptain = team?.created_by === user.id;
+  const wasOwner = team?.created_by === user.id;
 
   await supabase.from("team_members").delete().eq("team_id", teamId).eq("user_id", user.id);
 
-  if (wasCaptain) {
+  if (wasOwner) {
     const admin = createAdminClient();
     const { data: remaining } = await admin
       .from("team_members")
@@ -135,8 +233,8 @@ export async function leaveTeam(formData: FormData) {
       .limit(1);
     const next = remaining?.[0];
     if (next) {
-      // Promote the longest-standing remaining member to captain.
-      await admin.from("team_members").update({ role: "captain" }).eq("team_id", teamId).eq("user_id", next.user_id);
+      // Promote the longest-standing remaining member to owner.
+      await admin.from("team_members").update({ role: "owner" }).eq("team_id", teamId).eq("user_id", next.user_id);
       await admin.from("teams").update({ created_by: next.user_id }).eq("id", teamId);
     } else {
       // Last member left — remove the empty team.
@@ -155,11 +253,76 @@ export async function removeMember(formData: FormData) {
   const memberId = String(formData.get("userId"));
   if (!teamId || !memberId || memberId === user.id) return;
 
-  const { data: team } = await supabase.from("teams").select("created_by").eq("id", teamId).maybeSingle();
-  if (!team || team.created_by !== user.id) return; // only the captain removes
+  const [actorRole, { data: targetRow }] = await Promise.all([
+    teamRole(supabase, teamId, user.id),
+    supabase.from("team_members").select("role").eq("team_id", teamId).eq("user_id", memberId).maybeSingle(),
+  ]);
+  if (!canManageRoster(actorRole)) return; // owner / manager remove
+  const targetRole = targetRow?.role ?? "member";
+  if (targetRole === "owner") return; // the owner can't be removed (transfer first)
+  if (actorRole === "manager" && targetRole === "manager") return; // a manager can't remove a peer manager
 
   const admin = createAdminClient();
   await admin.from("team_members").delete().eq("team_id", teamId).eq("user_id", memberId);
   await admin.from("team_invites").delete().eq("team_id", teamId).eq("invited_user_id", memberId); // clear any stale invite
+  revalidatePath(`/teams/${teamId}`);
+}
+
+/** Owner assigns an admin role (manager / staff / member) to a member. */
+export async function setMemberRole(formData: FormData) {
+  const { supabase, user } = await me();
+  if (!user) return;
+  const teamId = String(formData.get("teamId"));
+  const memberId = String(formData.get("userId"));
+  const role = String(formData.get("role"));
+  if (!teamId || !memberId || memberId === user.id) return;
+  if (!["manager", "staff", "member"].includes(role)) return; // owner is set via transfer only
+  if ((await teamRole(supabase, teamId, user.id)) !== "owner") return;
+
+  const admin = createAdminClient();
+  await admin.from("team_members").update({ role }).eq("team_id", teamId).eq("user_id", memberId).neq("role", "owner");
+  revalidatePath(`/teams/${teamId}`);
+}
+
+/** Owner or manager sets a player's on-court designation (captain / co-captain / sub). */
+export async function setMemberDesignation(formData: FormData) {
+  const { supabase, user } = await me();
+  if (!user) return;
+  const teamId = String(formData.get("teamId"));
+  const memberId = String(formData.get("userId"));
+  const raw = String(formData.get("designation"));
+  const designation = ["captain", "co_captain", "sub"].includes(raw) ? raw : null;
+  if (!teamId || !memberId) return;
+  if (!canManageRoster(await teamRole(supabase, teamId, user.id))) return;
+
+  const admin = createAdminClient();
+  await admin.from("team_members").update({ designation }).eq("team_id", teamId).eq("user_id", memberId);
+  revalidatePath(`/teams/${teamId}`);
+}
+
+/** Owner hands ownership to another member; the old owner becomes a manager. */
+export async function transferOwnership(formData: FormData) {
+  const { supabase, user } = await me();
+  if (!user) return;
+  const teamId = String(formData.get("teamId"));
+  const memberId = String(formData.get("userId"));
+  if (!teamId || !memberId || memberId === user.id) return;
+  if ((await teamRole(supabase, teamId, user.id)) !== "owner") return;
+
+  const admin = createAdminClient();
+  // Target must already be a member.
+  const { data: target } = await admin.from("team_members").select("user_id").eq("team_id", teamId).eq("user_id", memberId).maybeSingle();
+  if (!target) return;
+  await admin.from("team_members").update({ role: "owner" }).eq("team_id", teamId).eq("user_id", memberId);
+  await admin.from("team_members").update({ role: "manager" }).eq("team_id", teamId).eq("user_id", user.id);
+  await admin.from("teams").update({ created_by: memberId }).eq("id", teamId);
+
+  await createNotification({
+    userId: memberId,
+    kind: "system",
+    title: "You're now a team owner",
+    body: "Ownership of your team was transferred to you.",
+    linkUrl: `/teams/${teamId}`,
+  });
   revalidatePath(`/teams/${teamId}`);
 }

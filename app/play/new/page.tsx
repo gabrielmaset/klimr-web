@@ -12,9 +12,21 @@ export const metadata: Metadata = { title: "Organize a match" };
 export default async function NewMatchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ court?: string; sport?: string }>;
+  searchParams: Promise<{
+    court?: string;
+    sport?: string;
+    placeId?: string;
+    name?: string;
+    address?: string;
+    lat?: string;
+    lng?: string;
+    rating?: string;
+    ratingCount?: string;
+    private?: string;
+  }>;
 }) {
-  const { court: courtId, sport: sportParam } = await searchParams;
+  const sp = await searchParams;
+  const { court: courtId, sport: sportParam } = sp;
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,7 +47,9 @@ export default async function NewMatchPage({
         ? profile.primary_sport
         : "";
 
-  // Pre-fill a court when arriving from the Courts page ("Create a match").
+  // Pre-fill a court when arriving from the Courts page ("Schedule a match").
+  // Two shapes: a saved directory court (?court=<id>), or a Google place handed
+  // over inline (?placeId&name&…) that we persist only when the match is created.
   let initialCourt: PickerCourt | null = null;
   if (courtId) {
     const { data: c } = await supabase
@@ -60,6 +74,22 @@ export default async function NewMatchPage({
         distanceKm: null,
       };
     }
+  } else if (sp.placeId && sp.name) {
+    const num = (v?: string) => (v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
+    initialCourt = {
+      key: sp.placeId,
+      courtId: null,
+      placeId: sp.placeId,
+      name: sp.name,
+      address: sp.address || null,
+      lat: num(sp.lat),
+      lng: num(sp.lng),
+      rating: num(sp.rating),
+      ratingCount: num(sp.ratingCount),
+      private: sp.private === "1",
+      sport: defaultSport,
+      distanceKm: null,
+    };
   }
 
   return (

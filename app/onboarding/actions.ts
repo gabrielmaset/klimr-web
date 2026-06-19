@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ageFromDob } from "@/lib/age";
 
 export type WizardState = { error?: string };
 
@@ -33,10 +34,11 @@ export async function saveProfile(
   if (!user) redirect("/login");
 
   /* ---- parse + validate ---- */
-  const displayName = String(formData.get("display_name") || "").trim();
-  if (displayName.length < 2 || displayName.length > 40) {
-    return { error: "Enter your name (2–40 characters)." };
-  }
+  const firstName = String(formData.get("first_name") || "").trim();
+  const lastName = String(formData.get("last_name") || "").trim();
+  if (firstName.length < 2 || firstName.length > 40) return { error: "Enter your first name." };
+  if (lastName.length < 2 || lastName.length > 40) return { error: "Enter your last name." };
+  const displayName = firstName;
 
   const zip = String(formData.get("zip") || "").trim();
   if (!/^\d{5}$/.test(zip)) return { error: "Enter a 5-digit ZIP code." };
@@ -115,19 +117,14 @@ export async function saveProfile(
   const genderRaw = String(formData.get("gender") || "").trim();
   const gender = GENDERS.has(genderRaw) ? genderRaw : null;
 
-  const yearRaw = String(formData.get("birth_year") || "").trim();
-  let birthYear: number | null = null;
-  if (yearRaw) {
-    const y = Number(yearRaw);
-    const adultBy = new Date().getFullYear() - 18;
-    if (!Number.isInteger(y) || y < 1900 || y > 2020) {
-      return { error: "Birth year looks off — four digits, like 1990." };
-    }
-    if (y > adultBy) {
-      return { error: "Klimr is 18+ during the beta. Leave birth year blank if you prefer." };
-    }
-    birthYear = y;
-  }
+  const dobRaw = String(formData.get("dob") || "").trim();
+  if (!dobRaw) return { error: "Enter your date of birth." };
+  const age = ageFromDob(dobRaw);
+  if (age === null) return { error: "Enter a valid date of birth." };
+  if (age < 18) return { error: "Klimr is 18+ during the beta." };
+  if (age > 120) return { error: "Enter a valid date of birth." };
+  const dateOfBirth = dobRaw; // YYYY-MM-DD
+  const birthYear = new Date(dobRaw).getFullYear();
 
   const hue = Math.min(360, Math.max(0, Number(formData.get("avatar_hue")) || 200));
 
@@ -145,6 +142,8 @@ export async function saveProfile(
     .from("profiles")
     .update({
       display_name: displayName,
+      first_name: firstName,
+      last_name: lastName,
       home_zip: zip,
       neighborhood: region?.neighborhood ?? null,
       city: region?.city ?? null,
@@ -154,6 +153,7 @@ export async function saveProfile(
       bio,
       gender,
       birth_year: birthYear,
+      date_of_birth: dateOfBirth,
       availability,
       avatar_hue: hue,
       preferred_format: fmts.get(primary) ?? "both",

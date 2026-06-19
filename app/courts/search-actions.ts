@@ -555,12 +555,3 @@ export async function upsertGoogleCourt(input: GoogleCourtInput): Promise<{ cour
   }
   return { courtId: inserted.id };
 }
-
-/* Courts page "Create a match" button: persist the court, then drop the
- * organizer into the create flow with it pre-filled. */
-export async function startMatchAtCourt(input: GoogleCourtInput): Promise<{ url?: string; error?: string }> {
-  const { courtId, error } = await upsertGoogleCourt(input);
-  if (error || !courtId) return { error: error ?? "Could not start a match here." };
-  const sport = SPORT_KEYS.includes(input.sport) ? input.sport : "";
-  return { url: `/play/new?court=${courtId}${sport ? `&sport=${sport}` : ""}` };
-}

@@ -22,7 +22,7 @@ function escapeHtml(s: string) {
 // Westside LA fallback center (Mar Vista).
 const FALLBACK: [number, number] = [-118.4309, 34.0119];
 
-export function CourtsMap({ token, courts }: { token: string | null; courts: MapCourt[] }) {
+export function CourtsMap({ token, courts, tall = false }: { token: string | null; courts: MapCourt[]; tall?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
@@ -43,7 +43,7 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
       try {
         map = new mapboxgl.Map({
           container: containerRef.current,
-          style: "mapbox://styles/mapbox/light-v11",
+          style: "mapbox://styles/mapbox/streets-v12",
           center: FALLBACK,
           zoom: 10.5,
           attributionControl: false,
@@ -126,7 +126,7 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
 
   if (!token) {
     return (
-      <div className="grid h-80 place-items-center rounded-3xl border border-dashed border-rule bg-surface text-center lg:h-[560px]">
+      <div className={`grid h-80 place-items-center rounded-3xl border border-dashed border-rule bg-surface text-center ${tall ? "lg:h-[720px]" : "lg:h-[560px]"}`}>
         <div className="px-6">
           <div className="text-sm font-semibold text-ink">Map view</div>
           <p className="mx-auto mt-1 max-w-xs text-xs text-mute">
@@ -137,5 +137,5 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
     );
   }
 
-  return <div ref={containerRef} className="h-80 w-full overflow-hidden rounded-3xl border border-rule lg:h-[560px]" />;
+  return <div ref={containerRef} className={`h-80 w-full overflow-hidden rounded-3xl border border-rule ${tall ? "lg:h-[720px]" : "lg:h-[560px]"}`} />;
 }

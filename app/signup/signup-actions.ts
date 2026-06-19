@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type SignupState = { ok?: boolean; error?: string; email?: string; code?: string };
+export type SignupState = { ok?: boolean; error?: string; email?: string; code?: string; first_name?: string; last_name?: string };
 
 export async function signUpWithInvite(
   _prev: SignupState,
@@ -11,12 +11,17 @@ export async function signUpWithInvite(
 ): Promise<SignupState> {
   const email = String(formData.get("email") || "").trim();
   const code = String(formData.get("code") || "").trim().toUpperCase();
+  const first_name = String(formData.get("first_name") || "").trim().slice(0, 40);
+  const last_name = String(formData.get("last_name") || "").trim().slice(0, 40);
 
+  if (!first_name || !last_name) {
+    return { error: "Enter your first and last name.", email, code, first_name, last_name };
+  }
   if (!/^[A-Z0-9-]{8,40}$/.test(code)) {
-    return { error: "Enter your invite code.", email, code };
+    return { error: "Enter your invite code.", email, code, first_name, last_name };
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { error: "Enter a valid email address.", email, code };
+    return { error: "Enter a valid email address.", email, code, first_name, last_name };
   }
 
   // Friendly pre-check (the database trigger is the real gate either way).
@@ -34,6 +39,8 @@ export async function signUpWithInvite(
         "That invite code is not valid or has been fully used. Check it and try again, or write hello@klimr.com.",
       email,
       code,
+      first_name,
+      last_name,
     };
   }
 
@@ -41,14 +48,14 @@ export async function signUpWithInvite(
   const origin =
     (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
-  // No password yet. The invite rides in the signup metadata (the trigger
-  // consumes it). The confirmation link lands on /create-password, where the
-  // user sets a password against their now-confirmed account.
+  // No password yet. The invite + name ride in the signup metadata (the trigger
+  // consumes them). display_name defaults to the first name; the full legal name
+  // is stored for a future identity-verification match.
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       shouldCreateUser: true,
-      data: { invite_code: code },
+      data: { invite_code: code, first_name, last_name, display_name: first_name },
       emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent("/create-password")}`,
     },
   });
@@ -60,9 +67,11 @@ export async function signUpWithInvite(
           "We couldn't complete signup with that invite — it may have just been used. Write hello@klimr.com.",
         email,
         code,
+        first_name,
+        last_name,
       };
     }
-    return { error: "We couldn't start your signup. Try again in a moment.", email, code };
+    return { error: "We couldn't start your signup. Try again in a moment.", email, code, first_name, last_name };
   }
 
   return { ok: true, email };

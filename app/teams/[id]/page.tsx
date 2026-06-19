@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ChevronLeft, Crown, Users, UserPlus, X, MapPin, Trophy } from "lucide-react";
+import { ChevronLeft, Crown, Users, MapPin, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
-import { leaveTeam, removeMember, inviteToTeam } from "../actions";
+import { leaveTeam } from "../actions";
+import { EditTeamForm } from "./EditTeamForm";
+import { InviteSearch } from "./InviteSearch";
+import { MemberControls } from "./MemberControls";
+
+const ROLE_LABEL: Record<string, string> = { owner: "Owner", manager: "Manager", staff: "Staff" };
+const DESIG_LABEL: Record<string, string> = { captain: "Captain", co_captain: "Co-captain", sub: "Sub" };
 
 export const metadata: Metadata = { title: "Team" };
 
@@ -27,10 +33,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
   if (!team) notFound();
 
   const meta = sportMeta(team.sport_key);
-  const isCaptain = team.created_by === user.id;
 
-  const { data: memberRows } = await supabase.from("team_members").select("user_id, role, joined_at").eq("team_id", id).order("joined_at");
+  const { data: memberRows } = await supabase.from("team_members").select("user_id, role, designation, joined_at").eq("team_id", id).order("joined_at");
   const members = memberRows ?? [];
+  const myRole = members.find((m) => m.user_id === user.id)?.role ?? null;
+  const isOwner = myRole === "owner";
+  const canManage = myRole === "owner" || myRole === "manager";
+  const canInviteMembers = canManage || myRole === "staff";
   const memberIds = members.map((m) => m.user_id);
   const amMember = memberIds.includes(user.id);
 
@@ -57,27 +66,35 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
-  // Captain-only: people to invite (players the captain has matched with) + pending invites.
-  let candidates: Prof[] = [];
+  // Captain-only: friends to invite + pending invites. You can only add people
+  // you're already connected with (friendship requires approval).
+  type FriendForInvite = { id: string; display_name: string; avatar_hue: number; avatar_url: string | null; city: string | null };
+  let friendsForInvite: FriendForInvite[] = [];
   let pendingInvitees: Prof[] = [];
-  if (isCaptain) {
-    const { data: myMatches } = await supabase.from("match_participants").select("match_id").eq("user_id", user.id);
-    const matchIds = [...new Set((myMatches ?? []).map((m) => m.match_id))];
-    const coIds = new Set<string>();
-    if (matchIds.length) {
-      const { data: co } = await supabase.from("match_participants").select("user_id").in("match_id", matchIds);
-      for (const c of co ?? []) if (c.user_id !== user.id) coIds.add(c.user_id);
-    }
-    const { data: pend } = await supabase.from("team_invites").select("invited_user_id").eq("team_id", id).eq("status", "pending");
+  if (canInviteMembers) {
+    const [{ data: fr }, { data: pend }] = await Promise.all([
+      supabase.from("friendships").select("requester_id, addressee_id").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq("status", "accepted"),
+      supabase.from("team_invites").select("invited_user_id").eq("team_id", id).eq("status", "pending"),
+    ]);
+    const friendIds = (fr ?? []).map((f) => (f.requester_id === user.id ? f.addressee_id : f.requester_id));
     const pendingIds = new Set((pend ?? []).map((p) => p.invited_user_id));
-    for (const mid of memberIds) coIds.delete(mid);
-    const candidateIds = [...coIds].filter((cid) => !pendingIds.has(cid)).slice(0, 12);
+    const candidateIds = friendIds.filter((fid) => !memberIds.includes(fid) && !pendingIds.has(fid));
 
     const lookupIds = [...new Set([...candidateIds, ...pendingIds])];
     if (lookupIds.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path").in("id", lookupIds);
-      const map = new Map((profs as Prof[] | null ?? []).map((p) => [p.id, p]));
-      candidates = candidateIds.map((cid) => map.get(cid)).filter(Boolean) as Prof[];
+      const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path, city").in("id", lookupIds);
+      type FullProf = Prof & { city: string | null };
+      const map = new Map(((profs as FullProf[] | null) ?? []).map((p) => [p.id, p]));
+      friendsForInvite = candidateIds
+        .map((cid) => map.get(cid))
+        .filter(Boolean)
+        .map((p) => ({
+          id: p!.id,
+          display_name: p!.display_name,
+          avatar_hue: p!.avatar_hue,
+          avatar_url: p!.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p!.avatar_path).data.publicUrl : null,
+          city: p!.city,
+        }));
       pendingInvitees = [...pendingIds].map((pid) => map.get(pid)).filter(Boolean) as Prof[];
     }
   }
@@ -103,6 +120,17 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
+      {canManage ? (
+        <div className="mt-4">
+          <EditTeamForm
+            teamId={team.id}
+            name={team.name}
+            city={team.city ?? ""}
+            neighborhood={team.neighborhood ?? ""}
+          />
+        </div>
+      ) : null}
+
       {/* combined stats */}
       {totalMatches > 0 ? (
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -123,26 +151,36 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         <div className="divide-y divide-rule rounded-2xl border border-rule bg-surface">
           {members.map((m) => {
             const p = profById.get(m.user_id);
+            const showControls = canManage && m.user_id !== user.id && m.role !== "owner" && !(myRole === "manager" && m.role === "manager");
             return (
               <div key={m.user_id} className="flex items-center gap-3 px-4 py-3">
                 <Link href={`/profile/${m.user_id}`} className="press">
                   <Avatar url={avatarUrl(p)} hue={p?.avatar_hue ?? 200} name={p?.display_name ?? "Player"} size={38} />
                 </Link>
                 <Link href={`/profile/${m.user_id}`} className="press min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex flex-wrap items-center gap-1.5">
                     <span className="truncate text-sm font-semibold text-ink">{p?.display_name ?? "Player"}</span>
-                    {m.role === "captain" ? <Crown size={13} className="shrink-0 text-pop" aria-label="Captain" /> : null}
+                    {m.role === "owner" ? <Crown size={13} className="shrink-0 text-pop" aria-label="Owner" /> : null}
                     {m.user_id === user.id ? <span className="text-xs text-faint">· you</span> : null}
                   </span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                    {ROLE_LABEL[m.role] ? (
+                      <span className="rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-soft">{ROLE_LABEL[m.role]}</span>
+                    ) : null}
+                    {m.designation && DESIG_LABEL[m.designation] ? (
+                      <span className="rounded-full bg-tint-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-deep">{DESIG_LABEL[m.designation]}</span>
+                    ) : null}
+                  </span>
                 </Link>
-                {isCaptain && m.role !== "captain" ? (
-                  <form action={removeMember}>
-                    <input type="hidden" name="teamId" value={team.id} />
-                    <input type="hidden" name="userId" value={m.user_id} />
-                    <button aria-label="Remove member" className="press grid h-8 w-8 place-items-center rounded-full text-faint hover:text-brand-deep">
-                      <X size={15} />
-                    </button>
-                  </form>
+                {showControls ? (
+                  <MemberControls
+                    teamId={team.id}
+                    userId={m.user_id}
+                    name={p?.display_name ?? "Player"}
+                    role={m.role}
+                    designation={m.designation}
+                    viewerIsOwner={isOwner}
+                  />
                 ) : null}
               </div>
             );
@@ -150,43 +188,45 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         </div>
       </section>
 
-      {/* captain: invite players you've matched with */}
-      {isCaptain ? (
+      {/* captain: add players — searchable list of friends only */}
+      {canInviteMembers ? (
         <section className="mt-6">
-          <h2 className="kicker mb-2 text-faint">Invite players</h2>
+          <h2 className="kicker mb-2 text-faint">Add players</h2>
+          <InviteSearch teamId={team.id} friends={friendsForInvite} />
+
           {pendingInvitees.length > 0 ? (
-            <p className="mb-2 text-xs text-mute">
-              Invited: {pendingInvitees.map((p) => p.display_name).join(", ")}
+            <p className="mt-3 text-xs text-mute">
+              Invited &amp; pending: {pendingInvitees.map((p) => p.display_name).join(", ")}
             </p>
           ) : null}
-          {candidates.length === 0 ? (
-            <p className="text-sm text-mute">No one to invite yet. Players you&apos;ve matched with will show up here.</p>
-          ) : (
-            <div className="divide-y divide-rule rounded-2xl border border-rule bg-surface">
-              {candidates.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-                  <Avatar url={avatarUrl(p)} hue={p.avatar_hue ?? 200} name={p.display_name} size={34} />
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{p.display_name || "Player"}</span>
-                  <form action={inviteToTeam}>
-                    <input type="hidden" name="teamId" value={team.id} />
-                    <input type="hidden" name="userId" value={p.id} />
-                    <button className="press inline-flex items-center gap-1 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
-                      <UserPlus size={13} /> Invite
-                    </button>
-                  </form>
-                </div>
-              ))}
-            </div>
-          )}
         </section>
       ) : null}
+
+      {/* roles explainer — real club structure */}
+      <section className="mt-8 rounded-2xl border border-rule bg-surface p-5">
+        <h2 className="kicker text-brand-deep">Roles like an actual club</h2>
+        <p className="mt-1 text-sm text-mute">A verified player owns the team. Only verified players can join, so the identity guarantee extends to every roster.</p>
+        <div className="mt-3 space-y-px overflow-hidden rounded-xl border border-rule">
+          {[
+            { r: "Owner", d: "Full control · transfers ownership" },
+            { r: "Manager", d: "Roster, scheduling, invites" },
+            { r: "Staff", d: "Support role · can invite" },
+            { r: "Member", d: "Captain · Co-captain · Sub" },
+          ].map((row) => (
+            <div key={row.r} className="flex items-center justify-between gap-3 bg-bg px-4 py-3">
+              <span className="text-sm font-semibold text-ink">{row.r}</span>
+              <span className="text-right text-xs text-mute">{row.d}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* leave */}
       {amMember ? (
         <form action={leaveTeam} className="mt-8">
           <input type="hidden" name="teamId" value={team.id} />
           <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-brand/40 hover:text-brand-deep">
-            {isCaptain ? "Leave team (captaincy passes on)" : "Leave team"}
+            {isOwner ? "Leave team (ownership passes on)" : "Leave team"}
           </button>
         </form>
       ) : null}

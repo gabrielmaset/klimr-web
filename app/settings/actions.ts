@@ -38,7 +38,10 @@ export async function savePreferences(_prev: PrefState, formData: FormData): Pro
   };
 
   const { error } = await supabase.from("user_preferences").upsert(row, { onConflict: "user_id" });
-  if (error) return { error: "Could not save your settings. Please try again." };
+  if (error) {
+    console.error("[settings] save failed", error.code, error.message);
+    return { error: `Couldn't save${error.code ? ` (${error.code})` : ""}. Please try again.` };
+  }
   revalidatePath("/settings");
   return { ok: true };
 }

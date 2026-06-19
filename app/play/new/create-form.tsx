@@ -19,6 +19,8 @@ export function CreateMatchForm({
   const [sport, setSport] = useState<string>(initialCourt?.sport || defaultSport || "");
   const [format, setFormat] = useState<"singles" | "doubles">("singles");
   const [court, setCourt] = useState<PickerCourt | null>(initialCourt);
+  const [recurring, setRecurring] = useState(false);
+  const [recurrence, setRecurrence] = useState("weekly");
 
   const defaultSlots = format === "doubles" ? 4 : 2;
   const courtPayload = court
@@ -119,10 +121,33 @@ export function CreateMatchForm({
           </div>
 
           {/* recurring */}
-          <label className="flex items-center gap-3">
-            <input name="recurring" type="checkbox" className="h-4 w-4 accent-brand" />
-            <span className="text-sm text-ink">This is a recurring game</span>
-          </label>
+          <div>
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={recurring}
+                onChange={(e) => setRecurring(e.target.checked)}
+                className="h-4 w-4 accent-brand"
+              />
+              <span className="text-sm text-ink">This is a recurring game</span>
+            </label>
+            {recurring ? (
+              <div className="mt-3 pl-7">
+                <label htmlFor="recurrence" className="kicker text-faint">How often</label>
+                <select
+                  id="recurrence"
+                  value={recurrence}
+                  onChange={(e) => setRecurrence(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand sm:w-56"
+                >
+                  <option value="weekly">Every week</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly">Every month</option>
+                </select>
+                <p className="mt-1.5 text-xs text-faint">Pick a date &amp; time above so players know when it repeats.</p>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {/* RIGHT — court + note */}
@@ -152,6 +177,8 @@ export function CreateMatchForm({
       <input type="hidden" name="sport" value={sport} />
       <input type="hidden" name="format" value={format} />
       <input type="hidden" name="court_payload" value={courtPayload} />
+      <input type="hidden" name="recurring" value={recurring ? "on" : ""} />
+      <input type="hidden" name="recurrence" value={recurring ? recurrence : ""} />
 
       {state?.error ? (
         <p className="mt-6 rounded-xl border border-brand/30 bg-tint-brand px-4 py-3 text-sm text-brand-deep">{state.error}</p>

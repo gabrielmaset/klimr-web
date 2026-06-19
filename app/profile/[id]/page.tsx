@@ -16,6 +16,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
+import { displayAge } from "@/lib/age";
+import { RelationshipButtons, type FriendStatus } from "@/components/relationship-buttons";
 import { blockUser, unblockUser, reportUser } from "./actions";
 
 export const metadata: Metadata = { title: "Player" };
@@ -35,6 +37,8 @@ type Profile = {
   country: string;
   primary_sport: string | null;
   created_at: string;
+  date_of_birth: string | null;
+  birth_year: number | null;
 };
 type PS = { sport_key: string; points: number; skill_rating: number | null; matches_played: number; wins: number };
 type Rung = { label: string; rank: number | null; field: number };
@@ -89,7 +93,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const { data: profileRow } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, avatar_hue, avatar_path, verification_status, account_status, reliability, home_zip, neighborhood, city, state, country, primary_sport, created_at",
+      "id, display_name, avatar_hue, avatar_path, verification_status, account_status, reliability, home_zip, neighborhood, city, state, country, primary_sport, created_at, date_of_birth, birth_year",
     )
     .eq("id", id)
     .single();
@@ -144,19 +148,33 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   // Viewer's safety state toward this player.
   let blocked = false;
   let reported = false;
+  let friendStatus: FriendStatus = "none";
+  let isFollowing = false;
   if (!isSelf) {
-    const [{ data: b }, { data: r }] = await Promise.all([
+    const [{ data: b }, { data: r }, { data: fr }, { data: fol }] = await Promise.all([
       supabase.from("blocks").select("blocked_id").eq("blocker_id", user.id).eq("blocked_id", id).maybeSingle(),
       supabase.from("reports").select("id").eq("reporter_id", user.id).eq("reported_id", id).limit(1).maybeSingle(),
+      supabase
+        .from("friendships")
+        .select("requester_id, status")
+        .or(`and(requester_id.eq.${user.id},addressee_id.eq.${id}),and(requester_id.eq.${id},addressee_id.eq.${user.id})`)
+        .maybeSingle(),
+      supabase.from("follows").select("followee_id").eq("follower_id", user.id).eq("followee_id", id).maybeSingle(),
     ]);
     blocked = !!b;
     reported = !!r;
+    isFollowing = !!fol;
+    if (fr) {
+      if (fr.status === "accepted") friendStatus = "friends";
+      else friendStatus = fr.requester_id === user.id ? "requested" : "incoming";
+    }
   }
 
   const avatarUrl = profile.avatar_path
     ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl
     : null;
   const memberSince = new Date(profile.created_at).toLocaleString("en-US", { month: "long", year: "numeric" });
+  const age = displayAge(profile.date_of_birth, profile.birth_year);
   const place = [profile.neighborhood, profile.city, profile.state].filter(Boolean).join(", ") || "Location not set";
   const primary = profile.primary_sport ? sportMeta(profile.primary_sport) : null;
 
@@ -197,6 +215,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-mute">
               <span className="flex items-center gap-1.5"><MapPin size={14} className="text-faint" /> {place}</span>
+              {age !== null ? <span className="flex items-center gap-1.5">{age} yrs</span> : null}
               {primary ? <span className="flex items-center gap-1.5">{primary.emoji} {primary.name}</span> : null}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -214,7 +233,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           >
             <Pencil size={15} /> Edit profile
           </Link>
-        ) : null}
+        ) : (
+          <RelationshipButtons targetId={profile.id} friendStatus={friendStatus} isFollowing={isFollowing} />
+        )}
       </div>
 
       {/* badges */}

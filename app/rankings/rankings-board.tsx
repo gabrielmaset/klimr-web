@@ -89,8 +89,8 @@ function Disc({ row, you, size = 36 }: { row: RankedRow; you: boolean; size?: nu
 function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; userId: string }) {
   const seats = [
     { row: top3[0], pos: 1, cx: 384, cy: 120, r: 40, ny: 188, py: 210, gs: 150 },
-    { row: top3[1], pos: 2, cx: 262, cy: 220, r: 36, ny: 288, py: 310, gs: 102 },
-    { row: top3[2], pos: 3, cx: 134, cy: 322, r: 33, ny: 388, py: 410, gs: 46 },
+    { row: top3[1], pos: 2, cx: 262, cy: 220, r: 36, ny: 288, py: 310, gs: 106 },
+    { row: top3[2], pos: 3, cx: 134, cy: 322, r: 33, ny: 388, py: 410, gs: 74 },
   ];
   return (
     <div className={CARD}>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, CalendarPlus, Check } from "lucide-react";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { CourtsMap } from "./courts-map";
-import { searchCourts, startMatchAtCourt, suggestCities, checkZip, type CourtResult, type SearchResponse, type CitySuggestion } from "./search-actions";
+import { searchCourts, suggestCities, checkZip, type CourtResult, type SearchResponse, type CitySuggestion } from "./search-actions";
 
 const KM_PER_MI = 1.60934;
 const RADII_MI = [3, 5, 10, 25];
@@ -16,34 +16,22 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
   const maps = `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`;
   const [creating, setCreating] = useState(false);
   const router = useRouter();
-  const [err, setErr] = useState<string | null>(null);
 
-  async function createMatchHere() {
+  function scheduleHere() {
     if (creating) return;
-    setErr(null);
+    // Hand the court to the new-match form via the URL; it persists on submit.
+    const p = new URLSearchParams();
+    if (c.sport) p.set("sport", c.sport);
+    p.set("placeId", c.id);
+    p.set("name", c.name);
+    if (c.address) p.set("address", c.address);
+    if (typeof c.lat === "number") p.set("lat", String(c.lat));
+    if (typeof c.lng === "number") p.set("lng", String(c.lng));
+    if (typeof c.rating === "number") p.set("rating", String(c.rating));
+    if (typeof c.ratingCount === "number") p.set("ratingCount", String(c.ratingCount));
+    if (c.private) p.set("private", "1");
     setCreating(true);
-    try {
-      const res = await startMatchAtCourt({
-        placeId: c.id,
-        name: c.name,
-        address: c.address,
-        lat: c.lat,
-        lng: c.lng,
-        rating: c.rating,
-        ratingCount: c.ratingCount,
-        private: c.private,
-        sport: c.sport,
-      });
-      if (res?.url) {
-        router.push(res.url); // keep the spinner while navigating
-        return;
-      }
-      setErr(res?.error ?? "Couldn't start a match. Try again.");
-      setCreating(false);
-    } catch {
-      setErr("Couldn't start a match. Try again.");
-      setCreating(false);
-    }
+    router.push(`/play/new?${p.toString()}`);
   }
 
   return (
@@ -73,7 +61,7 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
         </a>
         <button
           type="button"
-          onClick={createMatchHere}
+          onClick={scheduleHere}
           disabled={creating}
           aria-label={`Schedule a match at ${c.name}`}
           className="press inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-ink px-3.5 text-xs font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
@@ -82,7 +70,6 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
           <span className="hidden sm:inline">Schedule a match</span>
         </button>
       </div>
-      {err ? <p className="mt-1 px-1 text-xs text-brand-deep">{err}</p> : null}
     </div>
   );
 }
@@ -207,9 +194,11 @@ export function CourtsExplorer({
   });
 
   return (
-    <div>
-      {/* Search controls — full width */}
-      <div className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+    <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+      {/* LEFT — search + results stack (narrower column) */}
+      <div className="space-y-5">
+        {/* Search controls */}
+        <div className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
         <div className="flex flex-col gap-2.5 sm:flex-row">
           <div className="relative flex-1">
             <MapPin size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
@@ -296,12 +285,10 @@ export function CourtsExplorer({
             </button>
           ))}
         </div>
-      </div>
+        </div>
 
-      {/* Results + map, side by side on desktop */}
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
         {/* Results list */}
-        <div className="order-2 lg:order-1">
+        <div>
           {resp === null ? (
             <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
               Enter a ZIP or city, pick a sport, and find courts near you.
@@ -349,13 +336,11 @@ export function CourtsExplorer({
             </>
           )}
         </div>
+      </div>
 
-        {/* Map */}
-        <div className="order-1 lg:order-2">
-          <div className="lg:sticky lg:top-6">
-            <CourtsMap token={mapboxToken} courts={mapCourts} />
-          </div>
-        </div>
+      {/* RIGHT — tall map, top-aligned with the search card */}
+      <div className="lg:sticky lg:top-6">
+        <CourtsMap token={mapboxToken} courts={mapCourts} tall />
       </div>
     </div>
   );

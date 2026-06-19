@@ -114,40 +114,24 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
         {/* Privacy */}
         <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
           <h2 className="kicker text-faint">Privacy</h2>
+          <p className="mt-1 text-xs text-mute">
+            Every Klimr member is identity-verified, so your profile and rank are always visible to other members.
+          </p>
           <div className="mt-2 divide-y divide-rule">
             <Segmented
-              label="Profile visibility"
-              hint="Who can view your full profile"
-              value={p.profile_visibility}
-              onChange={(v) => set("profile_visibility", v)}
-              options={[
-                { value: "members", label: "Members only" },
-                { value: "public", label: "Public" },
-              ]}
-            />
-            <Segmented
-              label="Location precision"
-              hint="How precisely your area is shown to others"
-              value={p.location_precision}
-              onChange={(v) => set("location_precision", v)}
-              options={[
-                { value: "city", label: "City" },
-                { value: "neighborhood", label: "Neighborhood" },
-                { value: "zip", label: "ZIP" },
-              ]}
-            />
-            <Segmented
               label="Who can invite me"
-              hint="Limit who can send you match invites"
-              value={p.who_can_invite}
+              hint="Who can send you match invites"
+              value={p.who_can_invite === "nobody" ? "nobody" : "anyone"}
               onChange={(v) => set("who_can_invite", v)}
               options={[
-                { value: "anyone", label: "Anyone" },
-                { value: "verified", label: "Verified only" },
+                { value: "anyone", label: "Any member" },
                 { value: "nobody", label: "No one" },
               ]}
             />
           </div>
+          <p className="mt-3 text-xs text-faint">
+            Need to stop a specific player? Block them from their profile — they&rsquo;ll appear under Blocked players below.
+          </p>
         </section>
       </div>
 

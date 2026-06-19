@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MailCheck } from "lucide-react";
-import { confirmSignIn } from "./actions";
+import { AutoConfirm } from "./AutoConfirm";
 
-export const metadata: Metadata = { title: "Confirm sign-in" };
+export const metadata: Metadata = { title: "Signing in" };
 
 export default async function VerifyPage({
   searchParams,
@@ -34,25 +33,14 @@ export default async function VerifyPage({
   return (
     <div className="mx-auto max-w-sm px-5 py-16">
       <p className="kicker text-brand-deep">Almost there</p>
-      <h1 className="mt-2 font-display text-4xl text-ink">Confirm sign-in.</h1>
+      <h1 className="mt-2 font-display text-4xl text-ink">Signing you in.</h1>
       <p className="mt-2 text-sm leading-relaxed text-mute">
-        One last tap to finish signing in to Klimr on this device.
+        Finishing up on this device — you&rsquo;ll go straight to the two-factor check.
       </p>
-      <form action={confirmSignIn} className="mt-7">
-        <input type="hidden" name="token_hash" value={token_hash} />
-        <input type="hidden" name="type" value={type} />
-        <input type="hidden" name="next" value={next ?? "/account"} />
-        <button
-          type="submit"
-          className="press flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep"
-        >
-          <MailCheck size={18} aria-hidden />
-          Confirm sign-in
-        </button>
-      </form>
+      <AutoConfirm token_hash={token_hash} type={type} next={next ?? "/account"} />
       <p className="mt-4 text-xs leading-relaxed text-faint">
-        This extra tap keeps automated email scanners from using up your link
-        before you do.
+        If nothing happens, tap Continue. This step keeps automated email scanners
+        from using up your link before you do.
       </p>
     </div>
   );

@@ -20,7 +20,7 @@ export default async function OnboardingPage() {
       supabase
         .from("profiles")
         .select(
-          "display_name, home_zip, primary_sport, bio, gender, birth_year, availability, avatar_hue, play_style",
+          "display_name, first_name, last_name, home_zip, primary_sport, bio, gender, birth_year, date_of_birth, availability, avatar_hue, play_style",
         )
         .eq("id", user.id)
         .single(),
@@ -52,14 +52,12 @@ export default async function OnboardingPage() {
     : [];
 
   const initial: WizardInitial = {
-    displayName:
-      profile?.display_name && !profile.display_name.includes("@")
-        ? profile.display_name
-        : "",
+    firstName: profile?.first_name ?? "",
+    lastName: profile?.last_name ?? "",
     zip: profile?.home_zip ?? "",
     bio: profile?.bio ?? "",
     gender: profile?.gender ?? "",
-    birthYear: profile?.birth_year ? String(profile.birth_year) : "",
+    dob: profile?.date_of_birth ?? "",
     hue: profile?.avatar_hue ?? 200,
     availability,
     playStyle: profile?.play_style ?? "both",

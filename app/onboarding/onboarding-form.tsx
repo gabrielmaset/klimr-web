@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import { Check, Plus, Star, X } from "lucide-react";
 import { saveProfile, type WizardState } from "./actions";
+import { ageFromDob } from "@/lib/age";
 
 /* ---------- vocabulary ---------- */
 
@@ -82,11 +83,12 @@ const toMin = (v: string) => {
 type Range = { day: string; start: string; end: string };
 
 export type WizardInitial = {
-  displayName: string;
+  firstName: string;
+  lastName: string;
   zip: string;
   bio: string;
   gender: string;
-  birthYear: string;
+  dob: string;
   hue: number;
   availability: Range[];
   playStyle: string;
@@ -162,7 +164,8 @@ export function OnboardingWizard({
   const [stepError, setStepError] = useState<string | null>(null);
   const submitIntent = useRef(false);
 
-  const [displayName, setDisplayName] = useState(initial.displayName);
+  const [firstName, setFirstName] = useState(initial.firstName);
+  const [lastName, setLastName] = useState(initial.lastName);
   const [zip, setZip] = useState(initial.zip);
   const [picked, setPicked] = useState<Picked>(
     Object.fromEntries(
@@ -185,20 +188,15 @@ export function OnboardingWizard({
   const [draftEnd, setDraftEnd] = useState("21:00");
   const [hue, setHue] = useState(initial.hue);
   const [bio, setBio] = useState(initial.bio);
-  const [birthYear, setBirthYear] = useState(initial.birthYear);
+  const [dob, setDob] = useState(initial.dob);
   const [gender, setGender] = useState(initial.gender);
 
   const pickedKeys = Object.keys(picked);
   const sportName = (k: string) => sports.find((s) => s.key === k)?.name ?? k;
   const initials = useMemo(
     () =>
-      (displayName.trim() || "You")
-        .split(/\s+/)
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-    [displayName],
+      `${(firstName.trim()[0] ?? "")}${(lastName.trim()[0] ?? "")}`.toUpperCase() || "Y",
+    [firstName, lastName],
   );
 
   /* ---- sport helpers ---- */
@@ -248,8 +246,14 @@ export function OnboardingWizard({
   /* ---- navigation ---- */
   function next() {
     if (step === 0) {
-      if (displayName.trim().length < 2) return setStepError("Enter your name — it appears on the board.");
+      if (firstName.trim().length < 2) return setStepError("Enter your first name.");
+      if (lastName.trim().length < 2) return setStepError("Enter your last name.");
       if (!/^\d{5}$/.test(zip)) return setStepError("Enter a 5-digit ZIP code.");
+      if (!dob) return setStepError("Enter your date of birth.");
+      const age = ageFromDob(dob);
+      if (age === null) return setStepError("Enter a valid date of birth.");
+      if (age < 18) return setStepError("You must be 18 or older to join Klimr.");
+      if (age > 120) return setStepError("Enter a valid date of birth.");
     }
     if (step === 1) {
       if (pickedKeys.length === 0) return setStepError("Pick at least one sport.");
@@ -316,18 +320,42 @@ export function OnboardingWizard({
         {/* ---- step 1 · about you ---- */}
         {step === 0 ? (
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="kicker text-faint">First name</span>
+                <input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value.slice(0, 40))}
+                  onKeyDown={enterAdvances}
+                  placeholder="Alex"
+                  autoFocus
+                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                />
+              </label>
+              <label className="block">
+                <span className="kicker text-faint">Last name</span>
+                <input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value.slice(0, 40))}
+                  onKeyDown={enterAdvances}
+                  placeholder="Rivera"
+                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                />
+              </label>
+            </div>
+            <p className="-mt-1 text-xs text-mute">
+              Only your first name is shown to other players. Your full name verifies your identity.
+            </p>
             <label className="block">
-              <span className="kicker text-faint">Your name</span>
+              <span className="kicker text-faint">Date of birth</span>
               <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value.slice(0, 40))}
-                onKeyDown={enterAdvances}
-                placeholder="Alex Rivera"
-                autoFocus
-                className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                type="date"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
               />
               <span className="mt-1.5 block text-xs text-mute">
-                This is how you appear on rankings and to other players.
+                Klimr is 18+. Your age is shown on your profile; your full date of birth is not.
               </span>
             </label>
             <label className="block">
@@ -344,6 +372,14 @@ export function OnboardingWizard({
                 Your home board. Rankings start at the ZIP level.
               </span>
             </label>
+            <div className="rounded-xl border border-rule bg-bg p-3.5">
+              <p className="text-xs leading-relaxed text-mute">
+                <span className="font-semibold text-ink">Your information is private.</span> Your name, date of birth, and ZIP
+                are kept confidential and stored encrypted. We never sell your personal information and never share these
+                details with other members. See our{" "}
+                <a href="/legal" target="_blank" className="font-semibold text-brand-deep underline underline-offset-2">Privacy policy</a>.
+              </p>
+            </div>
           </div>
         ) : null}
 
@@ -679,48 +715,37 @@ export function OnboardingWizard({
               <span className="mt-1 block text-right font-mono text-[10px] text-faint">{bio.length}/160</span>
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="kicker text-faint">Birth year · optional</span>
-                <input
-                  value={birthYear}
-                  onChange={(e) => setBirthYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                  inputMode="numeric"
-                  placeholder="1990"
-                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 font-mono text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
-                />
-              </label>
-              <label className="block">
-                <span className="kicker text-faint">Gender · optional</span>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
-                >
-                  <option value="">Prefer not to say</option>
-                  <option value="woman">Woman</option>
-                  <option value="man">Man</option>
-                  <option value="nonbinary">Non-binary</option>
-                </select>
-              </label>
-            </div>
+            <label className="block">
+              <span className="kicker text-faint">Gender · optional</span>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
+              >
+                <option value="">Prefer not to say</option>
+                <option value="woman">Woman</option>
+                <option value="man">Man</option>
+                <option value="nonbinary">Non-binary</option>
+              </select>
+            </label>
             <p className="text-xs leading-relaxed text-mute">
-              Used later for optional match filters, never shown without your
-              say. Klimr is 18+ during the beta.
+              Gender is used only for optional match filters and is never shown without your say.
             </p>
           </div>
         ) : null}
       </div>
 
       {/* serialized payload */}
-      <input type="hidden" name="display_name" value={displayName} />
+      <input type="hidden" name="display_name" value={firstName.trim()} />
+      <input type="hidden" name="first_name" value={firstName.trim()} />
+      <input type="hidden" name="last_name" value={lastName.trim()} />
       <input type="hidden" name="zip" value={zip} />
       <input type="hidden" name="sports_json" value={sportsJson} />
       <input type="hidden" name="play_style" value={style} />
       <input type="hidden" name="availability_json" value={JSON.stringify(ranges)} />
       <input type="hidden" name="avatar_hue" value={hue} />
       <input type="hidden" name="bio" value={bio} />
-      <input type="hidden" name="birth_year" value={birthYear} />
+      <input type="hidden" name="dob" value={dob} />
       <input type="hidden" name="gender" value={gender} />
 
       {/* nav */}
