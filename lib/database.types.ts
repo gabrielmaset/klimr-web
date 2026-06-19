@@ -64,6 +64,7 @@ export interface Database {
           suspended_until: string | null;
           signup_code: string | null;
           created_at: string;
+          last_seen_at: string | null;
         };
         Insert: {
           id: string;
@@ -89,6 +90,7 @@ export interface Database {
           archived_at?: string | null;
           suspended_until?: string | null;
           created_at?: string;
+          last_seen_at?: string | null;
         };
         Update: {
           display_name?: string;
@@ -112,6 +114,7 @@ export interface Database {
           account_status?: string;
           archived_at?: string | null;
           suspended_until?: string | null;
+          last_seen_at?: string | null;
         };
         Relationships: [];
       };

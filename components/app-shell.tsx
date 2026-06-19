@@ -20,13 +20,20 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   if (user) {
     const { data: p } = await supabase
       .from("profiles")
-      .select("display_name, avatar_hue, avatar_path")
+      .select("display_name, avatar_hue, avatar_path, last_seen_at")
       .eq("id", user.id)
       .single();
     if (p) {
       avatarHue = p.avatar_hue ?? 200;
       avatarName = p.display_name || user.email || "You";
       avatarUrl = p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
+      // Presence heartbeat — touch last_seen at most ~once a minute of activity.
+      // eslint-disable-next-line react-hooks/purity
+      const nowMs = Date.now();
+      const lastSeen = p.last_seen_at ? Date.parse(p.last_seen_at) : 0;
+      if (!lastSeen || nowMs - lastSeen > 60_000) {
+        await supabase.from("profiles").update({ last_seen_at: new Date(nowMs).toISOString() }).eq("id", user.id);
+      }
     }
     const { data: r } = await supabase.rpc("current_admin_role");
     adminRole = typeof r === "string" ? r : null;
