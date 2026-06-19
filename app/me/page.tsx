@@ -103,13 +103,18 @@ export default async function MyProfilePage() {
 
       {/* Identity header — avatar overlaps the cover; name sits BELOW it so nothing bleeds onto the cover */}
       <div className="relative z-10 px-1 sm:px-4">
-        <div className="-mt-12 flex items-end justify-between sm:-mt-14">
-          <div className="rounded-full ring-4 ring-bg">
+        {/* This row is pulled up over the cover with -mt; its empty space would
+            otherwise sit on top of the cover's "Add cover photo" button and
+            swallow the click. pointer-events-none lets clicks fall through to
+            the button beneath, while the avatar and Edit-profile link below
+            re-enable pointer events so they stay interactive. */}
+        <div className="pointer-events-none -mt-12 flex items-end justify-between sm:-mt-14">
+          <div className="pointer-events-auto rounded-full ring-4 ring-bg">
             <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={112} />
           </div>
           <Link
             href="/account"
-            className="press mb-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            className="press pointer-events-auto mb-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
           >
             <Pencil size={14} /> Edit profile
           </Link>
