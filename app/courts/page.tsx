@@ -24,8 +24,8 @@ export default async function CourtsPage() {
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null;
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
-      <div className="mb-4">
+    <div className="mx-auto max-w-7xl px-5 py-8 sm:py-10">
+      <div className="mb-5">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Courts</h1>
         <p className="mt-1 text-sm text-mute">
           Find courts near any ZIP — screened by Klimr so you get real, active places to play.

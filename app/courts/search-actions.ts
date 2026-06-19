@@ -1,7 +1,10 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS } from "@/lib/sports";
+import { lookupZip, resolveLocation as resolveLocationData, suggestCities as suggestCitiesData } from "@/lib/us-places";
 
 /* ------------------------------------------------------------------ *
  * Live court search.
@@ -17,7 +20,7 @@ import { SPORT_KEYS } from "@/lib/sports";
  * Tunables (optional env, sensible defaults):
  *   COURTS_AI_MODEL                 default "claude-haiku-4-5-20251001"
  *   COURTS_MONTHLY_LIVE_SEARCH_CAP  default 800
- *   COURTS_CACHE_TTL_DAYS           default 14
+ *   COURTS_CACHE_TTL_DAYS           default 7
  * ------------------------------------------------------------------ */
 
 export type CourtResult = {
@@ -40,6 +43,8 @@ export type SearchResponse = {
   courts: CourtResult[];
   source: "live" | "cache" | "none";
   message?: string;
+  /** True when the requested radius found nothing and we widened to 50 mi. */
+  expanded?: boolean;
 };
 
 const QUERY_FOR: Record<string, string> = {
@@ -48,6 +53,24 @@ const QUERY_FOR: Record<string, string> = {
   padel: "padel court",
   racquetball: "racquetball court",
 };
+
+// --- Model + radius policy -------------------------------------------------
+// Court screening is a simple, high-volume yes/no classification, so the cheapest
+// current Claude model (Haiku 4.5) is the deliberate default.
+//
+// This is a PINNED snapshot ID: its behavior never changes under us, and Anthropic
+// ships model *updates* as brand-new IDs — so a Haiku update will NOT break this.
+// The only thing that eventually ends a pinned ID is retirement, which comes with
+// >=60 days' email notice; at that point swap the string here (or just set the
+// COURTS_AI_MODEL env var in Vercel — no code change needed). And if the model is
+// ever unavailable for any reason, aiFilter() degrades gracefully: Courts still
+// returns the Google-screened list, only without the AI de-noise pass.
+const COURTS_AI_MODEL_DEFAULT = "claude-haiku-4-5-20251001";
+// Users can pick up to 25 mi. If a search finds nothing, we auto-widen to a 50-mi
+// envelope before reporting "none found" (Google biases up to 50 km; the distance
+// filter spans the full 50 mi). We fetch + cache that envelope once per zip+sport.
+const MAX_REQUEST_KM = 41; // ~25 mi
+const WIDE_KM = 80; // ~50 mi
 
 const num = (v: string | undefined, d: number) => {
   const n = Number(v);
@@ -62,31 +85,6 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
     Math.sin(dLat / 2) ** 2 +
     Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-}
-
-/* Geocode a US ZIP to a centroid, caching the result forever. */
-async function geocodeZip(
-  admin: ReturnType<typeof createAdminClient>,
-  zip: string,
-  key: string,
-): Promise<{ lat: number; lng: number } | null> {
-  const { data: cached } = await admin.from("zip_geocode").select("lat, lng").eq("zip", zip).maybeSingle();
-  if (cached) return { lat: cached.lat, lng: cached.lng };
-
-  try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-      zip,
-    )}&components=country:US|postal_code:${encodeURIComponent(zip)}&key=${key}`;
-    const resp = await fetch(url);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const loc = data?.results?.[0]?.geometry?.location;
-    if (!loc || typeof loc.lat !== "number" || typeof loc.lng !== "number") return null;
-    await admin.from("zip_geocode").upsert({ zip, lat: loc.lat, lng: loc.lng }, { onConflict: "zip" });
-    return { lat: loc.lat, lng: loc.lng };
-  } catch {
-    return null;
-  }
 }
 
 type RawPlace = {
@@ -193,7 +191,10 @@ async function aiFilter(
         messages: [{ role: "user", content: `Sport: ${sport}\nCandidates:\n${JSON.stringify(compact)}` }],
       }),
     });
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      console.warn(`[courts] AI screen unavailable (HTTP ${resp.status}) — using Google-filtered results.`);
+      return null;
+    }
     const data = await resp.json();
     const text = Array.isArray(data?.content)
       ? data.content
@@ -211,19 +212,33 @@ async function aiFilter(
       if (r && typeof r.id === "string") map.set(r.id, { keep: r.keep !== false, private: r.private === true });
     }
     return map;
-  } catch {
+  } catch (err) {
+    console.warn("[courts] AI screen errored — using Google-filtered results.", err);
     return null;
   }
 }
 
-export async function searchCourts(input: { zip: string; radiusKm: number; sport: string }): Promise<SearchResponse> {
-  const zip = String(input.zip ?? "").trim();
-  const sport = String(input.sport ?? "");
-  const radiusKm = Math.max(1, Math.min(50, Math.round(input.radiusKm)));
+export async function searchCourts(input: { locationKey: string; radiusKm: number; sport: string }): Promise<SearchResponse> {
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return { status: "error", courts: [], source: "none", message: "Please sign in to search courts." };
 
-  if (!/^\d{5}$/.test(zip) || !SPORT_KEYS.includes(sport)) {
-    return { status: "bad_input", courts: [], source: "none", message: "Enter a 5-digit ZIP and pick a sport." };
+  const sport = String(input.sport ?? "");
+  const requestedKm = Math.max(1, Math.min(MAX_REQUEST_KM, Math.round(input.radiusKm)));
+
+  if (!SPORT_KEYS.includes(sport)) {
+    return { status: "bad_input", courts: [], source: "none", message: "Pick a sport." };
   }
+
+  // Resolve the location (a ZIP or a "city|state" key) to a centroid from the
+  // local US dataset — free, offline, and it validates existence in one step.
+  const place = resolveLocationData(String(input.locationKey ?? ""));
+  if (!place) {
+    return { status: "bad_input", courts: [], source: "none", message: "That location isn't recognized." };
+  }
+  const locationKey = place.key;
 
   const googleKey = process.env.GOOGLE_MAPS_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -232,23 +247,31 @@ export async function searchCourts(input: { zip: string; radiusKm: number; sport
   }
 
   const admin = createAdminClient();
-  const ttlDays = num(process.env.COURTS_CACHE_TTL_DAYS, 14);
+  const ttlDays = num(process.env.COURTS_CACHE_TTL_DAYS, 7);
   const cap = num(process.env.COURTS_MONTHLY_LIVE_SEARCH_CAP, 800);
-  const model = process.env.COURTS_AI_MODEL || "claude-haiku-4-5-20251001";
+  const model = process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT;
 
-  // 1) Fresh cache hit → free.
+  // Given the cached/fetched 50-mi envelope, return the requested radius if it has
+  // anything; otherwise widen to the full envelope (flagged); otherwise report none.
+  const shape = (wide: CourtResult[], source: "live" | "cache"): SearchResponse => {
+    const near = wide.filter((c) => c.distanceKm <= requestedKm + 0.05);
+    if (near.length > 0) return { status: "ok", courts: near, source };
+    if (wide.length > 0) return { status: "ok", courts: wide, source, expanded: true };
+    return { status: "empty", courts: [], source, message: "No courts found within 50 miles." };
+  };
+
+  // 1) Fresh cache hit (the 50-mile envelope) → free.
   const { data: cacheRow } = await admin
     .from("court_search_cache")
     .select("results, fetched_at")
-    .eq("zip", zip)
-    .eq("radius_km", radiusKm)
+    .eq("zip", locationKey)
+    .eq("radius_km", WIDE_KM)
     .eq("sport", sport)
     .maybeSingle();
   if (cacheRow) {
     const ageMs = Date.now() - new Date(cacheRow.fetched_at).getTime();
     if (ageMs < ttlDays * 86_400_000) {
-      const courts = (cacheRow.results as unknown as CourtResult[]) ?? [];
-      return { status: courts.length ? "ok" : "empty", courts, source: "cache" };
+      return shape((cacheRow.results as unknown as CourtResult[]) ?? [], "cache");
     }
   }
 
@@ -258,34 +281,28 @@ export async function searchCourts(input: { zip: string; radiusKm: number; sport
   const { data: claimed } = await admin.rpc("claim_live_search", { p_month: month, p_cap: cap });
   if (claimed !== true) {
     if (cacheRow) {
-      const courts = (cacheRow.results as unknown as CourtResult[]) ?? [];
-      return {
-        status: courts.length ? "ok" : "empty",
-        courts,
-        source: "cache",
-        message: "Showing recent results — live search is paused until next month.",
-      };
+      const r = shape((cacheRow.results as unknown as CourtResult[]) ?? [], "cache");
+      return { ...r, message: r.message ?? "Showing recent results — live search is paused until next month." };
     }
     return { status: "capped", courts: [], source: "none", message: "Live court search has hit this month's limit. Try again next month." };
   }
 
-  // 3) Geocode → Places → pre-filter → AI.
-  const center = await geocodeZip(admin, zip, googleKey);
-  if (!center) return { status: "no_location", courts: [], source: "none", message: "Couldn't locate that ZIP code." };
+  // 3) Places → pre-filter → AI (location already resolved locally).
+  const center = { lat: place.lat, lng: place.lng };
 
   let candidates: RawPlace[] = [];
   try {
-    candidates = await placesSearch(QUERY_FOR[sport] ?? `${sport} court`, center.lat, center.lng, radiusKm, googleKey);
+    candidates = await placesSearch(QUERY_FOR[sport] ?? `${sport} court`, center.lat, center.lng, WIDE_KM, googleKey);
   } catch {
     return { status: "error", courts: [], source: "none", message: "Search is temporarily unavailable." };
   }
 
-  let courts: CourtResult[];
+  let wide: CourtResult[];
   if (candidates.length === 0) {
-    courts = [];
+    wide = [];
   } else {
     const verdicts = await aiFilter(candidates, sport, model, anthropicKey);
-    courts = candidates
+    wide = candidates
       .filter((c) => (verdicts ? verdicts.get(c.id)?.keep !== false : true)) // AI down → keep pre-filtered list
       .map((c) => ({
         id: c.id,
@@ -302,13 +319,234 @@ export async function searchCourts(input: { zip: string; radiusKm: number; sport
       .sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
-  // 4) Cache the result set.
+  // 4) Cache the 50-mile envelope (one row per zip+sport).
   await admin
     .from("court_search_cache")
     .upsert(
-      { zip, radius_km: radiusKm, sport, results: courts, fetched_at: new Date().toISOString() },
+      { zip: locationKey, radius_km: WIDE_KM, sport, results: wide, fetched_at: new Date().toISOString() },
       { onConflict: "zip,radius_km,sport" },
     );
 
-  return { status: courts.length ? "ok" : "empty", courts, source: "live" };
+  return shape(wide, "live");
+}
+
+/* ------------------------------------------------------------------ *
+ * Location input (ZIP or city) — all free + local, no Google.
+ * ------------------------------------------------------------------ */
+
+export type CitySuggestion = { key: string; label: string };
+
+/* Autocomplete US cities by (partial) name. Letters only — digits are ZIPs. */
+export async function suggestCities(query: string): Promise<CitySuggestion[]> {
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return [];
+  const q = String(query ?? "");
+  if (!/[a-zA-Z]/.test(q)) return [];
+  return suggestCitiesData(q, 7).map((c) => ({ key: c.key, label: c.label }));
+}
+
+/* Validate a 5-digit US ZIP exists before we ever spend on a search. */
+export async function checkZip(zip: string): Promise<{ valid: boolean; label?: string }> {
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return { valid: false };
+  const z = lookupZip(String(zip ?? ""));
+  return z ? { valid: true, label: `${z.city}, ${z.state}` } : { valid: false };
+}
+
+/* ------------------------------------------------------------------ *
+ * Court picker (match creation).
+ * ------------------------------------------------------------------ */
+
+export type PickerCourt = {
+  key: string; // stable react key: courtId ?? placeId
+  courtId: string | null; // directory row, if persisted
+  placeId: string | null; // google place id, if from Google
+  name: string;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  rating: number | null;
+  ratingCount: number | null;
+  private: boolean;
+  sport: string;
+  distanceKm: number | null;
+};
+
+export type PickerResponse = {
+  status: SearchStatus;
+  courts: PickerCourt[];
+  source: "directory" | "mixed" | "none";
+  message?: string;
+};
+
+export type GoogleCourtInput = {
+  placeId: string;
+  name: string;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  rating?: number | null;
+  ratingCount?: number | null;
+  private?: boolean;
+  sport: string;
+};
+
+/* FREE court list for the match picker: the directory (seeds + courts anyone has
+ * used) plus any cached search envelope already on file for this ZIP. This NEVER
+ * triggers a paid Places/AI search — only the explicit "Search nearby" path does. */
+export async function courtsNearZip(input: { zip: string; sport: string }): Promise<PickerResponse> {
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return { status: "error", courts: [], source: "none", message: "Please sign in." };
+
+  const zip = String(input.zip ?? "").trim();
+  const sport = String(input.sport ?? "");
+  if (!/^\d{5}$/.test(zip) || !SPORT_KEYS.includes(sport)) {
+    return { status: "bad_input", courts: [], source: "none" };
+  }
+
+  const admin = createAdminClient();
+
+  // Geocode the ZIP locally (free, offline) — only to sort/limit by distance.
+  const zc = lookupZip(zip);
+  const center: { lat: number; lng: number } | null = zc ? { lat: zc.lat, lng: zc.lng } : null;
+
+  const within = MAX_REQUEST_KM; // ~25 mi picker window
+  const byKey = new Map<string, PickerCourt>();
+  const placeIds = new Set<string>();
+
+  // 1) Directory courts for this sport.
+  const { data: dirRows } = await admin
+    .from("courts")
+    .select("id, name, sports, address, neighborhood, city, lat, lng, rating, rating_count, is_private, google_place_id")
+    .contains("sports", [sport]);
+  for (const c of dirRows ?? []) {
+    const dist =
+      center && typeof c.lat === "number" && typeof c.lng === "number"
+        ? Math.round(haversineKm(center.lat, center.lng, c.lat, c.lng) * 10) / 10
+        : null;
+    if (center && dist != null && dist > within) continue;
+    const place = [c.neighborhood, c.city].filter(Boolean).join(", ");
+    byKey.set(c.id, {
+      key: c.id,
+      courtId: c.id,
+      placeId: c.google_place_id ?? null,
+      name: c.name,
+      address: c.address ?? (place || null),
+      lat: c.lat,
+      lng: c.lng,
+      rating: c.rating,
+      ratingCount: c.rating_count,
+      private: c.is_private === true,
+      sport,
+      distanceKm: dist,
+    });
+    if (c.google_place_id) placeIds.add(c.google_place_id);
+  }
+
+  // 2) Merge any cached search envelope for this ZIP+sport (free, already screened).
+  const { data: cacheRow } = await admin
+    .from("court_search_cache")
+    .select("results")
+    .eq("zip", zip)
+    .eq("radius_km", WIDE_KM)
+    .eq("sport", sport)
+    .maybeSingle();
+  if (cacheRow) {
+    const cached = (cacheRow.results as unknown as CourtResult[]) ?? [];
+    for (const c of cached) {
+      if (placeIds.has(c.id) || byKey.has(c.id)) continue;
+      byKey.set(c.id, {
+        key: c.id,
+        courtId: null,
+        placeId: c.id,
+        name: c.name,
+        address: c.address,
+        lat: c.lat,
+        lng: c.lng,
+        rating: c.rating,
+        ratingCount: c.ratingCount,
+        private: c.private,
+        sport,
+        distanceKm: c.distanceKm ?? null,
+      });
+    }
+  }
+
+  const courts = [...byKey.values()].sort((a, b) => {
+    if (a.distanceKm == null) return 1;
+    if (b.distanceKm == null) return -1;
+    return a.distanceKm - b.distanceKm;
+  });
+
+  return { status: courts.length ? "ok" : "empty", courts, source: cacheRow ? "mixed" : "directory" };
+}
+
+/* Persist a Google-discovered court into the directory (dedupe by place id),
+ * preserving any sports already listed. Server-only write via service role. */
+export async function upsertGoogleCourt(input: GoogleCourtInput): Promise<{ courtId: string | null; error?: string }> {
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return { courtId: null, error: "Please sign in." };
+
+  const placeId = String(input.placeId ?? "").trim();
+  const name = String(input.name ?? "").trim();
+  const sport = String(input.sport ?? "");
+  if (!placeId || !name) return { courtId: null, error: "Missing court details." };
+
+  const admin = createAdminClient();
+  const fields = {
+    name,
+    address: input.address ?? null,
+    lat: typeof input.lat === "number" ? input.lat : null,
+    lng: typeof input.lng === "number" ? input.lng : null,
+    rating: typeof input.rating === "number" ? input.rating : null,
+    rating_count: typeof input.ratingCount === "number" ? input.ratingCount : null,
+    is_private: input.private === true,
+  };
+
+  const { data: existing } = await admin
+    .from("courts")
+    .select("id, sports")
+    .eq("google_place_id", placeId)
+    .maybeSingle();
+
+  if (existing) {
+    const has = SPORT_KEYS.includes(sport) && Array.isArray(existing.sports) && existing.sports.includes(sport);
+    const nextSports = has || !SPORT_KEYS.includes(sport) ? existing.sports : [...(existing.sports ?? []), sport];
+    await admin.from("courts").update({ ...fields, sports: nextSports }).eq("id", existing.id);
+    return { courtId: existing.id };
+  }
+
+  const { data: inserted, error } = await admin
+    .from("courts")
+    .insert({ ...fields, google_place_id: placeId, sports: SPORT_KEYS.includes(sport) ? [sport] : [] })
+    .select("id")
+    .single();
+  if (error || !inserted) {
+    // Lost an insert race — re-read by place id.
+    const { data: again } = await admin.from("courts").select("id").eq("google_place_id", placeId).maybeSingle();
+    if (again) return { courtId: again.id };
+    return { courtId: null, error: "Could not save the court." };
+  }
+  return { courtId: inserted.id };
+}
+
+/* Courts page "Create a match" button: persist the court, then drop the
+ * organizer into the create flow with it pre-filled. */
+export async function startMatchAtCourt(input: GoogleCourtInput): Promise<{ error?: string }> {
+  const { courtId, error } = await upsertGoogleCourt(input);
+  if (error || !courtId) return { error: error ?? "Could not start a match here." };
+  const sport = SPORT_KEYS.includes(input.sport) ? input.sport : "";
+  redirect(`/play/new?court=${courtId}${sport ? `&sport=${sport}` : ""}`);
 }

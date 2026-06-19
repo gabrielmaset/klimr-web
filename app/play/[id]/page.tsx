@@ -33,6 +33,12 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const { data: match } = await supabase.from("matches").select("*").eq("id", id).single();
   if (!match) notFound();
 
+  let court: { id: string; name: string; address: string | null; lat: number | null; lng: number | null } | null = null;
+  if (match.court_id) {
+    const { data: c } = await supabase.from("courts").select("id, name, address, lat, lng").eq("id", match.court_id).maybeSingle();
+    court = c ?? null;
+  }
+
   const { data: partRows } = await supabase
     .from("match_participants")
     .select("user_id, slot, is_organizer, confirmed")
@@ -83,8 +89,14 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   const slots = Array.from({ length: match.total_slots }, (_, i) => participants[i] ?? null);
 
+  const courtName = court?.name ?? null;
+  const courtMaps =
+    court && court.lat != null && court.lng != null
+      ? `https://www.google.com/maps/search/?api=1&query=${court.lat},${court.lng}`
+      : null;
+
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
       <Link href="/play" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
         <ArrowLeft size={15} /> All matches
       </Link>
@@ -111,7 +123,15 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       <div className="mt-6 grid gap-3 rounded-2xl border border-rule bg-surface p-5 sm:grid-cols-2">
         <div className="flex items-center gap-2.5 text-sm text-ink"><CalendarClock size={16} className="shrink-0 text-faint" /> {whenLabel(match.scheduled_at)}</div>
         <div className="flex items-center gap-2.5 text-sm text-ink"><Users size={16} className="shrink-0 text-faint" /> {filled}/{match.total_slots} players</div>
-        {match.location_text ? (
+        {courtName ? (
+          courtMaps ? (
+            <a href={courtMaps} target="_blank" rel="noopener noreferrer" className="press flex items-center gap-2.5 text-sm text-ink transition-colors hover:text-brand-deep">
+              <MapPin size={16} className="shrink-0 text-faint" /> <span className="truncate">{courtName}{match.location_text ? ` · ${match.location_text}` : ""}</span>
+            </a>
+          ) : (
+            <div className="flex items-center gap-2.5 text-sm text-ink"><MapPin size={16} className="shrink-0 text-faint" /> <span className="truncate">{courtName}{match.location_text ? ` · ${match.location_text}` : ""}</span></div>
+          )
+        ) : match.location_text ? (
           <div className="flex items-center gap-2.5 text-sm text-ink"><MapPin size={16} className="shrink-0 text-faint" /> {match.location_text}</div>
         ) : null}
         {match.recurring ? (

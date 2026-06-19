@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS } from "@/lib/sports";
 import { accountActive } from "@/lib/guards";
+import { upsertGoogleCourt } from "@/app/courts/search-actions";
 
 export type CreateState = { error?: string } | undefined;
 
@@ -33,6 +34,34 @@ export async function createMatch(_prev: CreateState, formData: FormData): Promi
     if (!Number.isNaN(d.getTime())) scheduledAt = d.toISOString();
   }
 
+  // Resolve the chosen court: an existing directory row, or a Google place we
+  // persist now. Either way it's optional — location_text is the free-text note.
+  let courtId: string | null = null;
+  const rawCourt = String(formData.get("court_payload") ?? "");
+  if (rawCourt) {
+    try {
+      const p = JSON.parse(rawCourt);
+      if (p?.courtId && typeof p.courtId === "string") {
+        courtId = p.courtId;
+      } else if (p?.placeId && p?.name) {
+        const r = await upsertGoogleCourt({
+          placeId: String(p.placeId),
+          name: String(p.name),
+          address: p.address ?? null,
+          lat: typeof p.lat === "number" ? p.lat : null,
+          lng: typeof p.lng === "number" ? p.lng : null,
+          rating: typeof p.rating === "number" ? p.rating : null,
+          ratingCount: typeof p.ratingCount === "number" ? p.ratingCount : null,
+          private: p.private === true,
+          sport,
+        });
+        courtId = r.courtId;
+      }
+    } catch {
+      // Malformed payload — fall back to free-text location only.
+    }
+  }
+
   const { data: match, error } = await supabase
     .from("matches")
     .insert({
@@ -41,6 +70,7 @@ export async function createMatch(_prev: CreateState, formData: FormData): Promi
       organizer_id: user.id,
       scheduled_at: scheduledAt,
       location_text: location || null,
+      court_id: courtId,
       total_slots: slots,
       status: "open",
       recurring,

@@ -56,6 +56,13 @@ export default async function PlayPage({
     parts = (p.data as Part[] | null) ?? [];
   }
   const orgMap = new Map(orgs.map((o) => [o.id, o]));
+
+  const courtIds = [...new Set(list.map((m) => m.court_id).filter(Boolean) as string[])];
+  let courtMap = new Map<string, { id: string; name: string }>();
+  if (courtIds.length) {
+    const { data: cs } = await supabase.from("courts").select("id, name").in("id", courtIds);
+    courtMap = new Map(((cs as { id: string; name: string }[] | null) ?? []).map((c) => [c.id, c]));
+  }
   const countMap = new Map<string, number>();
   const mineSet = new Set<string>();
   for (const p of parts) {
@@ -110,6 +117,9 @@ export default async function PlayPage({
             const full = left <= 0;
             const mine = mineSet.has(m.id);
             const meta = sportMeta(m.sport_key);
+            const court = m.court_id ? courtMap.get(m.court_id) : null;
+            const placeLabel = court ? court.name : m.location_text;
+            const placeNote = court && m.location_text ? m.location_text : null;
             return (
               <Link key={m.id} href={`/play/${m.id}`} className="lift block rounded-2xl border border-rule bg-surface p-5">
                 <div className="flex items-center justify-between">
@@ -126,8 +136,8 @@ export default async function PlayPage({
                 </h3>
                 <div className="mt-3 space-y-1.5 text-sm text-mute">
                   <div className="flex items-center gap-2"><CalendarClock size={14} className="shrink-0 text-faint" /> {whenLabel(m.scheduled_at)}</div>
-                  {m.location_text ? (
-                    <div className="flex items-center gap-2"><MapPin size={14} className="shrink-0 text-faint" /> {m.location_text}</div>
+                  {placeLabel ? (
+                    <div className="flex items-center gap-2"><MapPin size={14} className="shrink-0 text-faint" /> <span className="truncate">{placeLabel}{placeNote ? ` · ${placeNote}` : ""}</span></div>
                   ) : null}
                   <div className="flex items-center gap-2"><Users size={14} className="shrink-0 text-faint" /> {filled}/{m.total_slots} players</div>
                 </div>

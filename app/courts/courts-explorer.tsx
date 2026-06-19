@@ -1,49 +1,86 @@
 "use client";
 
-import { useState } from "react";
-import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, Plus, Check } from "lucide-react";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { CourtsMap } from "./courts-map";
-import { searchCourts, type CourtResult, type SearchResponse } from "./search-actions";
+import { searchCourts, startMatchAtCourt, suggestCities, checkZip, type CourtResult, type SearchResponse, type CitySuggestion } from "./search-actions";
 
 const KM_PER_MI = 1.60934;
 const RADII_MI = [3, 5, 10, 25];
+const MAX_SHOWN = 10;
 
-function CourtRow({ c }: { c: CourtResult }) {
+function CourtRow({ c, n }: { c: CourtResult; n: number }) {
   const mi = (c.distanceKm / KM_PER_MI).toFixed(1);
   const maps = `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`;
+  const [creating, setCreating] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function createMatchHere() {
+    if (creating) return;
+    setErr(null);
+    setCreating(true);
+    try {
+      const res = await startMatchAtCourt({
+        placeId: c.id,
+        name: c.name,
+        address: c.address,
+        lat: c.lat,
+        lng: c.lng,
+        rating: c.rating,
+        ratingCount: c.ratingCount,
+        private: c.private,
+        sport: c.sport,
+      });
+      // On success the action redirects; we only get here on failure.
+      if (res?.error) {
+        setErr(res.error);
+        setCreating(false);
+      }
+    } catch {
+      setErr("Couldn't start a match. Try again.");
+      setCreating(false);
+    }
+  }
+
   return (
-    <a
-      href={maps}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4"
-    >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f4f4f5]">
-        <MapPin size={18} className="text-ink" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate text-sm font-bold text-ink">{c.name}</span>
-          {c.private ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-semibold text-mute">
-              <Lock size={10} /> Private
-            </span>
-          ) : null}
-        </span>
-        {c.address ? <span className="block truncate text-xs text-mute">{c.address}</span> : null}
-        <span className="mt-0.5 flex items-center gap-2 text-xs text-faint">
-          {c.rating != null ? (
-            <span className="inline-flex items-center gap-1">
-              <Star size={12} className="fill-pop text-pop" /> {c.rating.toFixed(1)}
-              {c.ratingCount != null ? ` (${c.ratingCount})` : ""}
-            </span>
-          ) : null}
-          <span>· {mi} mi away</span>
-        </span>
-      </span>
-      <ExternalLink size={16} className="shrink-0 text-faint" />
-    </a>
+    <div>
+      <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-sm font-bold text-surface">{n}</span>
+        <a href={maps} target="_blank" rel="noopener noreferrer" className="press min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-bold text-ink">{c.name}</span>
+            {c.private ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-semibold text-mute">
+                <Lock size={10} /> Private
+              </span>
+            ) : null}
+          </span>
+          {c.address ? <span className="block truncate text-xs text-mute">{c.address}</span> : null}
+          <span className="mt-0.5 flex items-center gap-2 text-xs text-faint">
+            {c.rating != null ? (
+              <span className="inline-flex items-center gap-1">
+                <Star size={12} className="fill-pop text-pop" /> {c.rating.toFixed(1)}
+                {c.ratingCount != null ? ` (${c.ratingCount})` : ""}
+              </span>
+            ) : null}
+            <span>· {mi} mi away</span>
+            <ExternalLink size={11} className="text-faint" />
+          </span>
+        </a>
+        <button
+          type="button"
+          onClick={createMatchHere}
+          disabled={creating}
+          aria-label={`Create a match at ${c.name}`}
+          className="press inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-ink px-3.5 text-xs font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+        >
+          {creating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} />}
+          <span className="hidden sm:inline">Match</span>
+        </button>
+      </div>
+      {err ? <p className="mt-1 px-1 text-xs text-brand-deep">{err}</p> : null}
+    </div>
   );
 }
 
@@ -56,17 +93,82 @@ export function CourtsExplorer({
   defaultSport: string;
   mapboxToken: string | null;
 }) {
-  const [zip, setZip] = useState(defaultZip);
+  const [query, setQuery] = useState(defaultZip);
+  const [selected, setSelected] = useState<{ key: string; label: string } | null>(null);
+  const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
+  const [showSug, setShowSug] = useState(false);
+  const [locMsg, setLocMsg] = useState<string | null>(null);
   const [sport, setSport] = useState(defaultSport);
   const [radiusMi, setRadiusMi] = useState(10);
+  const [searchedMi, setSearchedMi] = useState(10);
   const [loading, setLoading] = useState(false);
   const [resp, setResp] = useState<SearchResponse | null>(null);
+  const reqRef = useRef(0);
+  const skipNextRef = useRef(false);
+
+  // Resolve the typed location: digits → validate a ZIP; letters → suggest cities.
+  // Debounced; every lookup is free + local. setState-in-effect is intentional.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (skipNextRef.current) {
+      skipNextRef.current = false;
+      return;
+    }
+    const q = query.trim();
+    setSelected(null);
+    setLocMsg(null);
+    if (!q) {
+      setSuggestions([]);
+      setShowSug(false);
+      return;
+    }
+    const digits = /^\d+$/.test(q);
+    const t = setTimeout(() => {
+      if (digits) {
+        setSuggestions([]);
+        setShowSug(false);
+        if (q.length === 5) {
+          const id = ++reqRef.current;
+          checkZip(q)
+            .then((r) => {
+              if (id !== reqRef.current) return;
+              if (r.valid) setSelected({ key: q, label: r.label ?? q });
+              else setLocMsg("That ZIP code doesn't exist.");
+            })
+            .catch(() => {});
+        }
+      } else if (q.length >= 2) {
+        const id = ++reqRef.current;
+        suggestCities(q)
+          .then((list) => {
+            if (id !== reqRef.current) return;
+            setSuggestions(list);
+            setShowSug(list.length > 0);
+            if (list.length === 0) setLocMsg("No matching US cities.");
+          })
+          .catch(() => {});
+      }
+    }, 220);
+    return () => clearTimeout(t);
+  }, [query]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  function choose(s: CitySuggestion) {
+    skipNextRef.current = true;
+    setQuery(s.label);
+    setSelected({ key: s.key, label: s.label });
+    setSuggestions([]);
+    setShowSug(false);
+    setLocMsg(null);
+  }
 
   async function run() {
-    if (loading || zip.length !== 5) return;
+    if (loading || !selected) return;
+    setShowSug(false);
     setLoading(true);
+    setSearchedMi(radiusMi);
     try {
-      const r = await searchCourts({ zip, radiusKm: Math.round(radiusMi * KM_PER_MI), sport });
+      const r = await searchCourts({ locationKey: selected.key, radiusKm: Math.round(radiusMi * KM_PER_MI), sport });
       setResp(r);
     } catch {
       setResp({ status: "error", courts: [], source: "none", message: "Search failed. Try again." });
@@ -75,8 +177,9 @@ export function CourtsExplorer({
     }
   }
 
-  const courts = resp?.courts ?? [];
-  const mapCourts = courts.map((c) => ({
+  const allCourts = resp?.courts ?? [];
+  const shown = allCourts.slice(0, MAX_SHOWN);
+  const mapCourts = shown.map((c, i) => ({
     id: c.id,
     name: c.name,
     sports: [c.sport],
@@ -84,12 +187,13 @@ export function CourtsExplorer({
     city: c.address,
     lat: c.lat,
     lng: c.lng,
+    label: String(i + 1),
   }));
 
   const notice =
     resp?.status === "not_configured"
       ? "Court search isn't switched on yet — check back soon."
-      : resp?.message ?? (resp?.status === "empty" ? "No courts found in that area. Try a wider radius." : null);
+      : resp?.message ?? (resp?.status === "empty" ? "No courts found within 50 miles." : null);
 
   const chipStyle = (on: boolean) => ({
     borderColor: on ? "#ff4e1b" : "#e4e4e7",
@@ -99,44 +203,65 @@ export function CourtsExplorer({
 
   return (
     <div>
-      {/* Search controls */}
+      {/* Search controls — full width */}
       <div className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-        <div className="grid gap-2.5 sm:grid-cols-[1fr_auto]">
-          <div className="relative">
+        <div className="flex flex-col gap-2.5 sm:flex-row">
+          <div className="relative flex-1">
             <MapPin size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
             <input
-              value={zip}
-              onChange={(e) => setZip(e.target.value.replace(/[^0-9]/g, "").slice(0, 5))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") run();
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => {
+                if (suggestions.length > 0) setShowSug(true);
               }}
-              inputMode="numeric"
-              placeholder="ZIP code"
-              aria-label="ZIP code"
-              className="h-11 w-full rounded-2xl border border-rule bg-bg pl-10 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
+              onBlur={() => setTimeout(() => setShowSug(false), 120)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && selected) run();
+                else if (e.key === "Escape") setShowSug(false);
+              }}
+              placeholder="ZIP code or city"
+              aria-label="ZIP code or city"
+              autoComplete="off"
+              className="h-11 w-full rounded-2xl border border-rule bg-bg pl-10 pr-9 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
+              style={locMsg ? { borderColor: "#ef4444" } : undefined}
             />
+            {selected ? (
+              <Check size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500" />
+            ) : null}
+            {showSug && suggestions.length > 0 ? (
+              <ul className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-2xl border border-rule bg-surface py-1 shadow-[0_12px_32px_-12px_rgba(10,10,11,0.3)]">
+                {suggestions.map((s) => (
+                  <li key={s.key}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => choose(s)}
+                      className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-ink transition-colors hover:bg-bg"
+                    >
+                      <MapPin size={14} className="shrink-0 text-faint" />
+                      {s.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
           <button
             onClick={run}
-            disabled={loading || zip.length !== 5}
-            className="press inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-ink px-5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+            disabled={loading || !selected}
+            aria-busy={loading}
+            className="press inline-flex h-11 min-w-[150px] shrink-0 items-center justify-center gap-2 rounded-2xl bg-ink px-5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? (
-              <>
-                <Loader2 size={15} className="animate-spin" /> Searching…
-              </>
-            ) : (
-              <>
-                <Search size={15} /> Find courts
-              </>
-            )}
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={15} />}
+            {loading ? "Searching…" : "Find courts"}
           </button>
         </div>
+        {locMsg ? <p className="mt-2 px-1 text-xs text-[#dc2626]">{locMsg}</p> : null}
 
         {/* Radius */}
-        <div className="mt-3">
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="kicker text-faint">Within</span>
-          <div className="mt-1 inline-flex flex-wrap gap-1 rounded-xl border border-rule bg-[#f4f4f5] p-1">
+          <div className="inline-flex flex-wrap gap-1 rounded-xl border border-rule bg-[#f4f4f5] p-1">
             {RADII_MI.map((r) => {
               const on = radiusMi === r;
               return (
@@ -154,7 +279,7 @@ export function CourtsExplorer({
         </div>
 
         {/* Sport */}
-        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {SPORTS.map((s) => (
             <button
               key={s.key}
@@ -168,39 +293,58 @@ export function CourtsExplorer({
         </div>
       </div>
 
-      {/* Map */}
-      <div className="mt-5">
-        <CourtsMap token={mapboxToken} courts={mapCourts} />
-      </div>
+      {/* Results + map, side by side on desktop */}
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        {/* Results list */}
+        <div className="order-2 lg:order-1">
+          {resp === null ? (
+            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
+              Enter a ZIP or city, pick a sport, and find courts near you.
+            </div>
+          ) : loading ? (
+            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
+              Searching nearby courts…
+            </div>
+          ) : shown.length === 0 ? (
+            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
+              {notice ?? "No courts found."}
+            </div>
+          ) : (
+            <>
+              {resp.expanded ? (
+                <div className="mb-2.5 rounded-xl border border-rule bg-[#fff8f0] px-3 py-2 text-xs text-mute">
+                  No {sportMeta(sport).name.toLowerCase()} courts within {searchedMi} mi — showing the nearest within 50 miles.
+                </div>
+              ) : null}
+              <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
+                <span className="text-xs font-medium text-faint">
+                  {allCourts.length} {allCourts.length === 1 ? "court" : "courts"} · {sportMeta(sport).emoji} {sportMeta(sport).name}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] text-faint">
+                  <ShieldCheck size={12} /> AI-screened{resp.source === "cache" ? " · recent" : ""}
+                </span>
+              </div>
+              {notice ? <p className="mb-2 px-0.5 text-xs text-mute">{notice}</p> : null}
+              <div className="space-y-2.5">
+                {shown.map((c, i) => (
+                  <CourtRow key={c.id} c={c} n={i + 1} />
+                ))}
+              </div>
+              {allCourts.length > MAX_SHOWN ? (
+                <p className="mt-3 px-0.5 text-center text-xs text-faint">
+                  Showing the {MAX_SHOWN} closest of {allCourts.length}. Narrow the radius to refine.
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
 
-      {/* Results */}
-      <div className="mt-4">
-        {resp === null ? (
-          <div className="rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
-            Enter a ZIP, pick a sport, and find courts near you.
+        {/* Map */}
+        <div className="order-1 lg:order-2">
+          <div className="lg:sticky lg:top-6">
+            <CourtsMap token={mapboxToken} courts={mapCourts} />
           </div>
-        ) : loading ? (
-          <div className="rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">Searching nearby courts…</div>
-        ) : courts.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">{notice ?? "No courts found."}</div>
-        ) : (
-          <>
-            <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-              <span className="text-xs font-medium text-faint">
-                {courts.length} {courts.length === 1 ? "court" : "courts"} · {sportMeta(sport).emoji} {sportMeta(sport).name}
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] text-faint">
-                <ShieldCheck size={12} /> AI-screened{resp.source === "cache" ? " · recent" : ""}
-              </span>
-            </div>
-            {notice ? <p className="mb-2 px-0.5 text-xs text-mute">{notice}</p> : null}
-            <div className="space-y-2.5">
-              {courts.map((c) => (
-                <CourtRow key={c.id} c={c} />
-              ))}
-            </div>
-          </>
-        )}
+        </div>
       </div>
     </div>
   );
