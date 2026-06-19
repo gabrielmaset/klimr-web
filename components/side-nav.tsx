@@ -113,17 +113,20 @@ export function SideNav({
 
         <div className="flex-1" />
 
+        {/* Admin — a special destination, on its own line above the account
+            divider, with guaranteed space from Explore on short screens. */}
+        {adminRole ? (
+          <Link href="/admin" aria-current={isActive("/admin") ? "page" : undefined} className={`mt-6 ${footerLink(isActive("/admin"))}`}>
+            <ShieldCheck size={17} className={isActive("/admin") ? "text-brand" : "text-mute"} />
+            Admin
+          </Link>
+        ) : null}
+
         {/* Account / footer — separated from the menu with a hairline so it reads
             as a footer, and styled to sit on the glass panel rather than as a box. */}
-        <div className="mt-4 border-t border-rule/60 pt-3">
+        <div className="mt-3 border-t border-rule/60 pt-3">
           <p className="kicker mb-1 px-3 text-faint">Account</p>
           <nav className="flex flex-col gap-0.5" aria-label="Account">
-            {adminRole ? (
-              <Link href="/admin" aria-current={isActive("/admin") ? "page" : undefined} className={footerLink(isActive("/admin"))}>
-                <ShieldCheck size={17} className={isActive("/admin") ? "text-brand" : "text-mute"} />
-                Admin
-              </Link>
-            ) : null}
             <Link href="/settings" aria-current={isActive("/settings") ? "page" : undefined} className={footerLink(isActive("/settings"))}>
               <Settings size={17} className={isActive("/settings") ? "text-brand" : "text-mute"} />
               Settings

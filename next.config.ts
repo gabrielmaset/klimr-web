@@ -12,10 +12,13 @@ import type { NextConfig } from "next";
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
+  // Mapbox GL decodes tiles in a worker created from a blob: URL.
+  "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co",
+  "img-src 'self' data: blob: https://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  // Supabase (auth/storage/realtime) + Mapbox (styles, tiles, glyphs, telemetry).
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com",
   "frame-src https://www.openstreetmap.org",
   "frame-ancestors 'none'",
   "base-uri 'self'",

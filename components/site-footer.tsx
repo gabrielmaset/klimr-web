@@ -16,8 +16,8 @@ export function SiteFooter({ authed = false }: { authed?: boolean }) {
   const isHome = pathname === "/";
 
   return (
-    <footer className="border-t border-rule bg-surface">
-      <div className="mx-auto max-w-6xl px-5 py-12">
+    <footer className={authed ? "bg-transparent" : "border-t border-rule bg-surface"}>
+      <div className={`mx-auto max-w-6xl px-5 ${authed ? "border-t border-rule/60 py-10" : "py-12"}`}>
         <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <KlimrLogo markSize={30} textClassName="text-3xl" />
