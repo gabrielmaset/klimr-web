@@ -26,14 +26,20 @@ export default async function AdminHome() {
     { label: "Suspended / banned", value: restricted.count ?? 0, accent: (restricted.count ?? 0) > 0 },
   ];
 
-  let recentActions: { id: string; action: string; created_at: string; detail: string | null }[] = [];
+  let recentActions: { id: string; action: string; created_at: string; detail: string | null; actor_id: string | null }[] = [];
+  const actorNames = new Map<string, string>();
   if (role === "superadmin") {
     const { data } = await admin
       .from("admin_actions")
-      .select("id, action, created_at, detail")
+      .select("id, action, created_at, detail, actor_id")
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(12);
     recentActions = data ?? [];
+    const ids = [...new Set(recentActions.map((a) => a.actor_id).filter((x): x is string => !!x))];
+    if (ids.length) {
+      const { data: ps } = await admin.from("profiles").select("id, display_name").in("id", ids);
+      for (const x of (ps as { id: string; display_name: string }[] | null) ?? []) actorNames.set(x.id, x.display_name);
+    }
   }
 
   // Currently / recently active players — proxied by a last-seen heartbeat the
@@ -111,9 +117,17 @@ export default async function AdminHome() {
           ) : (
             <div className="space-y-1.5">
               {recentActions.map((a) => (
-                <div key={a.id} className="flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm">
-                  <span className="font-mono text-ink">{a.action}</span>
-                  <span className="text-faint">{new Date(a.created_at).toLocaleString("en-US")}</span>
+                <div key={a.id} className="rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-ink">{a.action}</span>
+                    <span className="shrink-0 text-faint">{new Date(a.created_at).toLocaleString("en-US")}</span>
+                  </div>
+                  {a.detail || a.actor_id ? (
+                    <p className="mt-0.5 text-xs text-mute">
+                      {a.detail ?? ""}
+                      {a.actor_id ? `${a.detail ? " · " : ""}by ${actorNames.get(a.actor_id) ?? "—"}` : ""}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>

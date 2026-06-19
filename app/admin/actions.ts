@@ -105,7 +105,10 @@ export async function removeComment(formData: FormData) {
   revalidatePath("/feed");
 }
 
-export async function createFeedItem(formData: FormData) {
+export async function createFeedItem(
+  _prev: { ok?: boolean; error?: string } | null,
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
   const { userId } = await requireAdmin("admin");
   const kindRaw = String(formData.get("kind") ?? "announcement");
   const kind = ["announcement", "news", "result", "update"].includes(kindRaw) ? kindRaw : "announcement";
@@ -115,13 +118,22 @@ export async function createFeedItem(formData: FormData) {
   const sport_key = SPORT_KEYS.includes(sportRaw) ? sportRaw : null;
   const link_url = String(formData.get("link_url") ?? "").trim() || null;
   const link_label = String(formData.get("link_label") ?? "").trim() || null;
-  if (!body) return;
+  if (!body) return { error: "Write something to publish." };
 
   const admin = createAdminClient();
-  await admin.from("feed_items").insert({ kind, title, body, sport_key, link_url, link_label, created_by: userId });
-  await logAdminAction(userId, `feed:create:${kind}`, null, title ?? undefined);
+  const { data: inserted, error } = await admin
+    .from("feed_items")
+    .insert({ kind, title, body, sport_key, link_url, link_label, created_by: userId, published_at: new Date().toISOString() })
+    .select("id")
+    .single();
+  if (error || !inserted) {
+    console.error("[feed] publish failed", error?.code, error?.message);
+    return { error: `Couldn't publish${error?.code ? ` (${error.code})` : ""}.` };
+  }
+  await logAdminAction(userId, `feed:create:${kind}`, null, `${title ?? "(untitled)"} · #${inserted.id.slice(0, 8)}`, inserted.id);
   revalidatePath("/admin/updates");
   revalidatePath("/feed");
+  return { ok: true };
 }
 
 export async function deleteFeedItem(formData: FormData) {
@@ -232,13 +244,18 @@ export async function deleteInvestorCode(formData: FormData) {
 export async function archiveUser(formData: FormData) {
   const { userId } = await requireAdmin("superadmin");
   const target = String(formData.get("userId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
   if (!target || target === userId) redirect(`/admin/users/${target}`);
+  if (!reason) redirect(`/admin/users/${target}`); // reason is required (client also enforces)
 
   const admin = createAdminClient();
   const { data: staff } = await admin.from("admin_users").select("role").eq("user_id", target).maybeSingle();
   if (staff) redirect(`/admin/users/${target}`);
 
   const { data: prof } = await admin.from("profiles").select("display_name").eq("id", target).single();
+  const { data: authData } = await admin.auth.admin.getUserById(target);
+  const email = authData?.user?.email ?? "unknown email";
+
   await admin
     .from("profiles")
     .update({ account_status: "archived", archived_at: new Date().toISOString() })
@@ -246,7 +263,7 @@ export async function archiveUser(formData: FormData) {
   // Ban the auth user so existing sessions are rejected and they can't sign back
   // in while archived (~100 years; cleared on recover). Cleaner than session juggling.
   await admin.auth.admin.updateUserById(target, { ban_duration: "876000h" });
-  await logAdminAction(userId, "user:archive", target, `archived ${prof?.display_name ?? "user"}`);
+  await logAdminAction(userId, "user:delete", target, `${prof?.display_name ?? "user"} · ${email} · reason: ${reason}`);
   revalidatePath("/admin/users");
   revalidatePath("/admin/users/archived");
   revalidatePath("/admin");

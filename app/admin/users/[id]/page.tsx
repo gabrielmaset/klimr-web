@@ -229,16 +229,16 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
         <div className="mt-8 rounded-2xl border border-brand/25 bg-brand/[0.03] p-5">
           <div className="kicker mb-1 text-brand-deep">Danger zone</div>
           {isSelf ? (
-            <p className="text-sm text-faint">You can’t archive your own account from here.</p>
+            <p className="text-sm text-faint">You can’t delete your own account from here.</p>
           ) : isTargetAdmin ? (
             <p className="text-sm text-faint">
-              This is a staff account — remove its admin role in SQL before it can be archived.
+              This is a staff account — remove its admin role in SQL before it can be deleted.
             </p>
           ) : p.account_status === "archived" ? (
             <>
               <p className="mb-3 text-sm text-mute">
-                Archived{p.archived_at ? ` on ${new Date(p.archived_at).toLocaleDateString("en-US", { dateStyle: "medium" })}` : ""} —
-                hidden and pending deletion. Recover it to restore full access, or purge it now from Archived accounts.
+                Deleted{p.archived_at ? ` on ${new Date(p.archived_at).toLocaleDateString("en-US", { dateStyle: "medium" })}` : ""} —
+                hidden and pending permanent removal. Recover it to restore full access, or purge it now from Archived accounts.
               </p>
               <form action={recoverUser}>
                 <input type="hidden" name="userId" value={p.id} />
@@ -250,9 +250,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
           ) : (
             <>
               <p className="mb-3 text-sm text-mute">
-                Archive this account: it’s hidden immediately and permanently deleted after 30 days, with all of its
-                data — matches, posts, chats, rankings, and memberships. Recoverable until then. For test accounts and
-                abuse cleanup.
+                Permanently delete this account. A reason is required and is recorded in the staff log.
               </p>
               <ArchiveUserButton userId={p.id} />
             </>
