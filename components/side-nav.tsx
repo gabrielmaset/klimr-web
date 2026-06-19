@@ -1,8 +1,13 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Newspaper, MessageCircle, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut, Bell, Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift } from "lucide-react";
+import {
+  Newspaper, MessageCircle, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut, Bell,
+  Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
+  User, MessageSquare, HelpCircle, ChevronsUpDown,
+} from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
@@ -32,6 +37,7 @@ export function SideNav({
   avatarUrl,
   avatarHue,
   avatarName,
+  email,
   adminRole,
   unreadCount,
   chatUnread,
@@ -39,6 +45,7 @@ export function SideNav({
   avatarUrl: string | null;
   avatarHue: number;
   avatarName: string;
+  email: string | null;
   adminRole: boolean;
   unreadCount: number;
   chatUnread: number;
@@ -47,10 +54,33 @@ export function SideNav({
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const activeIndex = MAIN.findIndex((i) => isActive(i.href));
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t) || btnRef.current?.contains(t)) return;
+      setMenuOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
   const footerLink = (active: boolean) =>
     `flex h-10 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
       active ? "bg-tint-brand text-brand-deep" : "text-ink hover:text-brand-deep"
     }`;
+  const menuItem = "flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-ink transition-colors hover:bg-bg";
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
@@ -122,39 +152,65 @@ export function SideNav({
           </Link>
         ) : null}
 
-        {/* Account / footer — separated from the menu with a hairline so it reads
-            as a footer, and styled to sit on the glass panel rather than as a box. */}
+        {/* Account / footer */}
         <div className="mt-3 border-t border-rule/60 pt-3">
           <p className="kicker mb-1 px-3 text-faint">Account</p>
-          <nav className="flex flex-col gap-0.5" aria-label="Account">
-            <Link href="/settings" aria-current={isActive("/settings") ? "page" : undefined} className={footerLink(isActive("/settings"))}>
-              <Settings size={17} className={isActive("/settings") ? "text-brand" : "text-mute"} />
-              Settings
-            </Link>
-            <Link href="/invite" aria-current={isActive("/invite") ? "page" : undefined} className={footerLink(isActive("/invite"))}>
-              <Gift size={17} className={isActive("/invite") ? "text-brand" : "text-mute"} />
-              Invite friends
-              <span className="ml-auto rounded-full bg-[#f4f4f5] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
-            </Link>
-          </nav>
-
-          <Link
-            href="/account"
-            aria-current={isActive("/account") ? "page" : undefined}
-            className="lift mt-2 flex items-center gap-2.5 rounded-2xl bg-black/[0.04] p-2 transition-colors hover:bg-black/[0.07]"
-          >
-            <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={30} ring />
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{avatarName}</span>
+          <Link href="/invite" aria-current={isActive("/invite") ? "page" : undefined} className={footerLink(isActive("/invite"))}>
+            <Gift size={17} className={isActive("/invite") ? "text-brand" : "text-mute"} />
+            Invite friends
+            <span className="ml-auto rounded-full bg-[#f4f4f5] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
           </Link>
-          <form action={signOutAction}>
+
+          {/* User menu — opens upward, Claude-style */}
+          <div className="relative mt-1">
+            {menuOpen ? (
+              <div
+                ref={menuRef}
+                role="menu"
+                className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-2xl border border-rule bg-white shadow-[0_18px_50px_-12px_rgba(10,10,11,0.4)]"
+              >
+                <div className="border-b border-rule px-3.5 py-3">
+                  <p className="truncate text-sm font-semibold text-ink">{avatarName}</p>
+                  {email ? <p className="truncate text-xs text-faint">{email}</p> : null}
+                </div>
+                <div className="py-1">
+                  <Link href="/account" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
+                    <User size={15} className="text-mute" /> Your account
+                  </Link>
+                  <Link href="/settings" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
+                    <Settings size={15} className="text-mute" /> Settings
+                  </Link>
+                </div>
+                <div className="border-t border-rule py-1">
+                  <a href="mailto:hello@klimr.com?subject=Klimr%20feedback" role="menuitem" className={menuItem}>
+                    <MessageSquare size={15} className="text-mute" /> Send feedback
+                  </a>
+                  <a href="mailto:hello@klimr.com?subject=Klimr%20help" role="menuitem" className={menuItem}>
+                    <HelpCircle size={15} className="text-mute" /> Get help
+                  </a>
+                </div>
+                <div className="border-t border-rule py-1">
+                  <form action={signOutAction}>
+                    <button type="submit" role="menuitem" className={menuItem}>
+                      <LogOut size={15} className="text-mute" /> Log out
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ) : null}
             <button
-              type="submit"
-              className="press mt-0.5 flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-xs font-medium text-faint transition-colors hover:bg-black/[0.04] hover:text-ink"
+              ref={btnRef}
+              type="button"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="lift flex w-full items-center gap-2.5 rounded-2xl bg-black/[0.04] p-2 transition-colors hover:bg-black/[0.07]"
             >
-              <LogOut size={14} className="text-faint" />
-              Sign out
+              <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={30} ring />
+              <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-ink">{avatarName}</span>
+              <ChevronsUpDown size={15} className="shrink-0 text-faint" />
             </button>
-          </form>
+          </div>
         </div>
       </div>
     </aside>

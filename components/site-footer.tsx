@@ -15,9 +15,28 @@ export function SiteFooter({ authed = false }: { authed?: boolean }) {
   if (pathname === "/gate") return null;
   const isHome = pathname === "/";
 
+  // In-app footer: deliberately compact. The links here (Feed, account, settings)
+  // already live in the sidebar, so the footer keeps only the sponsor slot + a
+  // slim legal/contact line, with clear separation from the page content.
+  if (authed) {
+    return (
+      <footer className="bg-transparent">
+        <div className="mx-auto max-w-7xl px-5 pb-10 pt-14">
+          <div className="border-t border-rule/60 pt-7">
+            <AdSlot label="Local sponsor" />
+            <div className="mt-5 flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
+              <p className="font-mono text-[11px] text-faint">© 2026 Klimr · Los Angeles</p>
+              <a href="mailto:hello@klimr.com" className="text-xs text-mute transition-colors hover:text-ink">Contact</a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    );
+  }
+
   return (
-    <footer className={authed ? "bg-transparent" : "border-t border-rule bg-surface"}>
-      <div className={`mx-auto max-w-6xl px-5 ${authed ? "border-t border-rule/60 py-10" : "py-12"}`}>
+    <footer className="border-t border-rule bg-surface">
+      <div className="mx-auto max-w-6xl px-5 py-12">
         <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <KlimrLogo markSize={30} textClassName="text-3xl" />

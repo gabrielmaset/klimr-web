@@ -54,7 +54,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   // Signed-in: glassy left sidebar (desktop) + bottom tab bar (mobile).
   return (
     <div className="flex min-h-dvh">
-      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={!!adminRole} unreadCount={unread} chatUnread={chatUnread} />
+      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} email={user?.email ?? null} adminRole={!!adminRole} unreadCount={unread} chatUnread={chatUnread} />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar unreadCount={unread} />
         <main className="flex-1">{children}</main>

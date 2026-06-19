@@ -14,6 +14,7 @@ const csp = [
   "script-src 'self' 'unsafe-inline'",
   // Mapbox GL decodes tiles in a worker created from a blob: URL.
   "worker-src 'self' blob:",
+  "child-src blob:",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com",
   "font-src 'self' data:",
