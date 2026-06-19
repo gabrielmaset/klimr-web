@@ -17,15 +17,21 @@ type Row = {
 
 const STATUS_TONE: Record<string, string> = { active: "#16a34a", suspended: "#b8860b", banned: "#d63a0f" };
 
-export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ q?: string; verification?: string; status?: string }> }) {
   await requireAdmin("support");
-  const { q } = await searchParams;
+  const { q, verification, status } = await searchParams;
   const admin = createAdminClient();
 
-  const query = admin
+  let query = admin
     .from("profiles")
     .select("id, display_name, city, state, verification_status, account_status, last_seen_at")
     .neq("account_status", "archived");
+  if (verification === "pending" || verification === "verified" || verification === "unverified") {
+    query = query.eq("verification_status", verification);
+  }
+  if (status === "restricted") {
+    query = query.in("account_status", ["suspended", "banned"]);
+  }
   const { data } = q
     ? await query.ilike("display_name", `%${q}%`).limit(40)
     : await query.order("created_at", { ascending: false }).limit(25);
@@ -49,7 +55,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
       </form>
 
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-faint">{q ? `Results for “${q}”` : "Recently joined"}</span>
+        <span className="text-xs text-faint">{q ? `Results for “${q}”` : verification === "pending" ? "Pending verification" : verification ? `${verification} players` : status === "restricted" ? "Suspended & banned" : "Recently joined"}</span>
         <Link
           href="/admin/users/archived"
           className="press inline-flex items-center gap-1 text-xs font-semibold text-mute transition-colors hover:text-ink"
@@ -75,6 +81,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
                   </span>
                 ) : null}
                 {u.verification_status === "verified" ? <span className="kicker rounded-full bg-tint-brand px-2 py-0.5 text-[9px] text-brand-deep">verified</span> : null}
+                {u.verification_status === "pending" ? <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "#fff1ed", color: "#d63a0f" }}>pending</span> : null}
                 {u.account_status !== "active" ? (
                   <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "#f4f4f5", color: STATUS_TONE[u.account_status] }}>{u.account_status}</span>
                 ) : null}

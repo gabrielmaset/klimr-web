@@ -55,6 +55,7 @@ export async function createMatch(_prev: CreateState, formData: FormData): Promi
           rating: typeof p.rating === "number" ? p.rating : null,
           ratingCount: typeof p.ratingCount === "number" ? p.ratingCount : null,
           private: p.private === true,
+          website: typeof p.website === "string" ? p.website : null,
           sport,
         });
         courtId = r.courtId;

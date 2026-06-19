@@ -3,14 +3,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ChevronRight, Download, Mail, ShieldCheck, UserRound, Trophy, BadgeCheck, KeyRound,
-  MapPin, Swords, CalendarDays, BookOpen, Users, CreditCard, LifeBuoy, FileText, ScrollText, Send,
+  MapPin, Swords, CalendarDays, BookOpen, Users, CreditCard, LifeBuoy, FileText, ScrollText, Send, Ban,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOutAction, signOutEverywhereAction } from "@/app/auth/actions";
 import { Avatar } from "@/components/avatar";
 import { SettingsForm, type Prefs } from "./settings-form";
 import { DeleteAccount } from "./delete-account";
-import { unblockPlayer } from "./actions";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -25,7 +24,6 @@ const DEFAULTS: Prefs = {
   who_can_invite: "anyone",
 };
 
-type BlockedProf = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null };
 type RowDef = { Icon: typeof UserRound; title: string; desc: string; href?: string; soon?: boolean };
 
 function Section({ title, rows }: { title: string; rows: RowDef[] }) {
@@ -90,17 +88,7 @@ export default async function SettingsPage() {
       }
     : DEFAULTS;
 
-  let blocked: BlockedProf[] = [];
-  const blockedIds = (blocks ?? []).map((b) => b.blocked_id);
-  if (blockedIds.length) {
-    const { data: profs } = await supabase
-      .from("profiles")
-      .select("id, display_name, avatar_hue, avatar_path")
-      .in("id", blockedIds);
-    blocked = (profs as BlockedProf[] | null) ?? [];
-  }
-  const avatarUrl = (p: BlockedProf) =>
-    p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
+  const blockedCount = (blocks ?? []).length;
   const myAvatar = profile?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl : null;
   const place = [profile?.neighborhood, profile?.city].filter(Boolean).join(", ");
 
@@ -131,19 +119,19 @@ export default async function SettingsPage() {
           <Section
             title="Account"
             rows={[
-              { Icon: UserRound, title: "Profile & bio", desc: "Name, photo, cover, and bio", href: "/onboarding?step=0" },
-              { Icon: Trophy, title: "Sports & skill levels", desc: "The sports you play and your levels", href: "/onboarding?step=1" },
-              { Icon: BadgeCheck, title: "Identity verification", desc: "Your verified-player status", href: "/account#verification" },
-              { Icon: Mail, title: "Linked email & phone", desc: "How you sign in and get reached", href: "/account#email" },
+              { Icon: UserRound, title: "Profile & bio", desc: "Name, bio, date of birth, and area", href: "/settings/profile" },
+              { Icon: Trophy, title: "Sports & skill levels", desc: "The sports you play and your levels", href: "/settings/sports" },
+              { Icon: BadgeCheck, title: "Identity verification", desc: "Your verified-player status", href: "/settings/verification" },
+              { Icon: Mail, title: "Linked email & phone", desc: "How you sign in and get reached", href: "/settings/email" },
               { Icon: KeyRound, title: "Sign-in & security", desc: "Magic link and two-factor", href: "/account/security" },
             ]}
           />
           <Section
             title="Ranking & play"
             rows={[
-              { Icon: MapPin, title: "Home ZIP & neighborhood", desc: "Anchors your local rankings", href: "/onboarding?step=0" },
-              { Icon: Swords, title: "Default sport", desc: "What opens first across Klimr", href: "/onboarding?step=1" },
-              { Icon: CalendarDays, title: "Availability schedule", desc: "When you usually play", href: "/onboarding?step=3" },
+              { Icon: MapPin, title: "Home ZIP & neighborhood", desc: "Anchors your local rankings", href: "/settings/profile" },
+              { Icon: Swords, title: "Default sport", desc: "What opens first across Klimr", href: "/settings/sports" },
+              { Icon: CalendarDays, title: "Availability schedule", desc: "When you usually play", href: "/settings/availability" },
               { Icon: BookOpen, title: "Sport rules & how to play", desc: "Formats and how ranking points work", href: "/resources" },
             ]}
           />
@@ -169,28 +157,13 @@ export default async function SettingsPage() {
           {/* Notifications + Privacy (client form, saves) */}
           <SettingsForm initial={prefs} />
 
-          {/* Blocked players */}
-          <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-            <h2 className="kicker text-faint">Blocked players</h2>
-            {blocked.length === 0 ? (
-              <p className="mt-2 text-sm text-mute">You haven&apos;t blocked anyone. Blocking hides a player from your feed and stops them from inviting you.</p>
-            ) : (
-              <ul className="mt-2 divide-y divide-rule">
-                {blocked.map((b) => (
-                  <li key={b.id} className="flex items-center gap-3 py-3">
-                    <Avatar url={avatarUrl(b)} hue={b.avatar_hue ?? 200} name={b.display_name} size={36} />
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{b.display_name || "Player"}</span>
-                    <form action={unblockPlayer}>
-                      <input type="hidden" name="userId" value={b.id} />
-                      <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
-                        Unblock
-                      </button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          {/* Blocked players → own page */}
+          <Section
+            title="Privacy"
+            rows={[
+              { Icon: Ban, title: "Blocked players", desc: blockedCount > 0 ? `${blockedCount} blocked · hidden from your feed and invites` : "No one blocked yet", href: "/settings/blocked" },
+            ]}
+          />
 
           {/* Data & account */}
           <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">

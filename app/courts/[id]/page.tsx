@@ -33,7 +33,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
 
   const { data: court } = await supabase
     .from("courts")
-    .select("id, name, sports, address, neighborhood, city, state, zip, lat, lng, amenities")
+    .select("id, name, sports, address, neighborhood, city, state, zip, lat, lng, amenities, google_place_id, website")
     .eq("id", id)
     .maybeSingle();
   if (!court) notFound();
@@ -75,9 +75,10 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
   const mapSrc = hasGeo
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${court.lng! - d}%2C${court.lat! - d}%2C${court.lng! + d}%2C${court.lat! + d}&layer=mapnik&marker=${court.lat}%2C${court.lng}`
     : null;
-  const directionsHref = hasGeo
-    ? `https://www.openstreetmap.org/?mlat=${court.lat}&mlon=${court.lng}#map=17/${court.lat}/${court.lng}`
-    : null;
+  const mapsQuery = encodeURIComponent([court.name, court.address, court.neighborhood, court.city].filter(Boolean).join(", ") || `${court.lat},${court.lng}`);
+  const directionsHref = court.google_place_id
+    ? `https://www.google.com/maps/search/?api=1&query=${mapsQuery}&query_place_id=${court.google_place_id}`
+    : `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
@@ -119,7 +120,15 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
             <>
               {" · "}
               <a href={directionsHref} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-deep hover:text-brand">
-                Directions
+                Open in Maps
+              </a>
+            </>
+          ) : null}
+          {court.website ? (
+            <>
+              {" · "}
+              <a href={court.website} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-deep hover:text-brand">
+                Website
               </a>
             </>
           ) : null}

@@ -10,7 +10,10 @@ const field =
 export function CodeGenerator() {
   const [state, action, pending] = useActionState<GenerateCodesState, FormData>(generateCodes, {});
   const [codeType, setCodeType] = useState<"invite" | "investor">("invite");
+  const [email, setEmail] = useState("");
+  const [count, setCount] = useState("1");
   const [copied, setCopied] = useState(false);
+  const hasEmail = email.trim().length > 0;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -58,7 +61,17 @@ export function CodeGenerator() {
           </label>
           <label className="block">
             <span className="kicker text-faint">How many</span>
-            <input name="count" type="number" min={1} max={200} defaultValue={1} className={`mt-1 ${field}`} />
+            <input
+              name="count"
+              type="number"
+              min={1}
+              max={200}
+              value={hasEmail ? "1" : count}
+              onChange={(e) => setCount(e.target.value)}
+              disabled={hasEmail}
+              className={`mt-1 ${field} disabled:opacity-60`}
+            />
+            {hasEmail ? <span className="mt-1 block text-xs text-faint">Emailing sends a single code.</span> : null}
           </label>
           {codeType === "invite" ? (
             <label className="block">
@@ -79,16 +92,37 @@ export function CodeGenerator() {
           </label>
         </div>
 
+        <label className="mt-3 block">
+          <span className="kicker text-faint">Email it to someone (optional)</span>
+          <input
+            name="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@example.com"
+            className={`mt-1 ${field}`}
+          />
+          <span className="mt-1 block text-xs text-faint">
+            If set, one {codeType === "investor" ? "investor" : "invite"} code is generated and sent straight to this address.
+          </span>
+        </label>
+
         <button
           type="submit"
           disabled={pending}
           className="press mt-4 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-60"
         >
-          {pending ? "Generating…" : "Generate codes"}
+          {pending ? (hasEmail ? "Sending…" : "Generating…") : hasEmail ? "Generate & send code" : "Generate codes"}
         </button>
       </form>
 
       {state.error ? <p className="mt-3 text-sm text-brand-deep">{state.error}</p> : null}
+      {state.emailedTo ? (
+        <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-success">
+          <Check size={15} /> Code sent to {state.emailedTo}
+        </p>
+      ) : null}
+      {state.emailWarning ? <p className="mt-3 text-sm text-brand-deep">{state.emailWarning}</p> : null}
 
       {state.ok && state.codes && state.codes.length > 0 ? (
         <div className="mt-5 rounded-xl border border-rule bg-[#fafafa] p-4">

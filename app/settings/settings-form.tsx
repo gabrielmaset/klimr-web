@@ -130,7 +130,7 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
             />
           </div>
           <p className="mt-3 text-xs text-faint">
-            Need to stop a specific player? Block them from their profile — they&rsquo;ll appear under Blocked players below.
+            Need to stop a specific player? Block them from their profile — they&rsquo;ll appear under Blocked players in your settings.
           </p>
         </section>
       </div>
@@ -145,7 +145,7 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
       <input type="hidden" name="location_precision" value={p.location_precision} />
       <input type="hidden" name="who_can_invite" value={p.who_can_invite} />
 
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-5 flex items-center gap-3 border-t border-rule pt-5">
         <button
           type="submit"
           disabled={pending}

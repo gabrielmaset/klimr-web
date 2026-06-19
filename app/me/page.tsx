@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, MapPin, Pencil, Trophy, CalendarClock, Swords, ArrowUpRight, ShieldCheck, Users, CalendarDays, Crown } from "lucide-react";
+import { BadgeCheck, MapPin, Pencil, Trophy, CalendarClock, Swords, ArrowUpRight, ShieldCheck, Users, CalendarDays, Crown, Plus } from "lucide-react";
 import { displayAge } from "@/lib/age";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
@@ -101,29 +101,28 @@ export default async function MyProfilePage() {
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
       <CoverUploader initialUrl={coverUrl} hue={hue} />
 
-      {/* Identity header — avatar overlaps the cover (z-10 so it sits on top) */}
+      {/* Identity header — avatar overlaps the cover; name sits BELOW it so nothing bleeds onto the cover */}
       <div className="relative z-10 px-1 sm:px-4">
-        <div className="-mt-14 flex flex-col gap-4 sm:-mt-16 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex items-end gap-4">
-            <div className="rounded-full ring-4 ring-bg">
-              <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={112} />
-            </div>
-            <div className="pb-1">
-              <div className="flex items-center gap-2">
-                <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{profile.display_name}</h1>
-                {verified ? <BadgeCheck size={22} className="text-brand" aria-label="Identity verified" /> : null}
-              </div>
-              <p className="mt-1.5 flex items-center gap-1.5 text-sm text-mute">
-                <MapPin size={14} className="shrink-0 text-faint" /> {place}
-              </p>
-            </div>
+        <div className="-mt-12 flex items-end justify-between sm:-mt-14">
+          <div className="rounded-full ring-4 ring-bg">
+            <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={112} />
           </div>
           <Link
             href="/account"
-            className="press inline-flex items-center justify-center gap-1.5 self-start rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg sm:self-auto"
+            className="press mb-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
           >
             <Pencil size={14} /> Edit profile
           </Link>
+        </div>
+
+        <div className="mt-3">
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{profile.display_name}</h1>
+            {verified ? <BadgeCheck size={22} className="shrink-0 text-brand" aria-label="Identity verified" /> : null}
+          </div>
+          <p className="mt-1.5 flex items-center gap-1.5 text-sm text-mute">
+            <MapPin size={14} className="shrink-0 text-faint" /> {place}
+          </p>
         </div>
 
         {/* meta row */}
@@ -284,8 +283,15 @@ export default async function MyProfilePage() {
           </Link>
         </div>
         {recent.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-6 text-center text-sm text-mute">
-            No matches yet. <Link href="/play/new" className="font-semibold text-ink underline underline-offset-2">Organize one</Link> and it&rsquo;ll show up here.
+          <div className="rounded-2xl border border-dashed border-rule bg-surface px-6 py-10 text-center">
+            <Swords size={22} className="mx-auto text-faint" />
+            <p className="mx-auto mt-3 max-w-xs text-sm text-mute">No matches yet — organize one and it&rsquo;ll show up here.</p>
+            <Link
+              href="/play/new"
+              className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+            >
+              <Plus size={15} /> Organize a match
+            </Link>
           </div>
         ) : (
           <div className="space-y-2">

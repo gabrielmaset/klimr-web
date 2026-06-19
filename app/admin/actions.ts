@@ -153,6 +153,8 @@ export type GenerateCodesState = {
   error?: string;
   codeType?: "invite" | "investor";
   codes?: string[];
+  emailedTo?: string;
+  emailWarning?: string;
 };
 
 export async function generateCodes(
@@ -161,9 +163,18 @@ export async function generateCodes(
 ): Promise<GenerateCodesState> {
   const { userId } = await requireAdmin("admin");
   const codeType = String(formData.get("codeType")) === "investor" ? "investor" : "invite";
+
+  // Optional: email the code to one recipient. When set, exactly one code is minted.
+  const emailRaw = String(formData.get("email") ?? "").trim();
+  const email = emailRaw || null;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Enter a valid email address, or leave it blank.", codeType };
+  }
+
   let count = parseInt(String(formData.get("count") ?? ""), 10);
   if (!Number.isFinite(count) || count < 1) count = 1;
   count = Math.min(count, 200); // safety cap
+  if (email) count = 1; // emailing a code mints exactly one
   const note = String(formData.get("note") ?? "").trim() || null;
 
   const admin = createAdminClient();
@@ -189,9 +200,96 @@ export async function generateCodes(
     .map((r) => (typeof r === "string" ? r : String(Object.values(r as Record<string, unknown>)[0] ?? "")))
     .filter(Boolean);
 
-  await logAdminAction(userId, `codes:generate:${codeType}`, null, `${codes.length} code(s)`);
+  // If an email was provided, attach it to the (single) code and send it.
+  let emailedTo: string | undefined;
+  let emailWarning: string | undefined;
+  if (email && codes.length === 1) {
+    const code = codes[0];
+    const table = codeType === "investor" ? "investor_codes" : "invite_codes";
+    const { error: updErr } = await admin.from(table).update({ sent_to_email: email }).eq("code", code);
+    if (updErr) console.error("[codes] could not attach email to code", updErr.code, updErr.message);
+
+    const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "https://klimr.com";
+    const sent = await sendAccessCodeEmail(email, code, codeType, origin || "https://klimr.com");
+    if (sent) emailedTo = email;
+    else emailWarning = "The code was created but the email didn't send — copy it below and share it manually.";
+  }
+
+  await logAdminAction(
+    userId,
+    `codes:generate:${codeType}`,
+    null,
+    `${codes.length} code(s)${emailedTo ? ` · emailed to ${emailedTo}` : ""}`,
+  );
   revalidatePath("/admin/codes");
-  return { ok: true, codeType, codes };
+  return { ok: true, codeType, codes, emailedTo, emailWarning };
+}
+
+/** Email a single access code to a recipient via Resend. Returns success. */
+async function sendAccessCodeEmail(
+  to: string,
+  code: string,
+  codeType: "invite" | "investor",
+  origin: string,
+): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error("[codes] RESEND_API_KEY is not set");
+    return false;
+  }
+
+  const isInvestor = codeType === "investor";
+  const link = isInvestor ? `${origin}/gate` : `${origin}/signup?code=${encodeURIComponent(code)}`;
+  const subject = isInvestor ? "Your Klimr investor preview code" : "You're invited to Klimr";
+  const lead = isInvestor
+    ? "Here's your access code for the Klimr investor preview."
+    : "You've been invited to Klimr — the ranked ladder for racquet sports. Use the code below to claim your spot.";
+  const cta = isInvestor ? "Open the preview" : "Join Klimr";
+
+  const text = [
+    lead,
+    "",
+    `Access code: ${code}`,
+    "",
+    `${cta}: ${link}`,
+    "",
+    "If you didn't expect this, you can ignore this email.",
+    "— Klimr",
+  ].join("\n");
+
+  const html = `<!doctype html><html><body style="margin:0;background:#fafafa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0a0a0b">
+  <div style="max-width:480px;margin:0 auto;padding:32px 24px">
+    <div style="font-weight:800;font-size:20px;letter-spacing:-.01em">Klimr</div>
+    <p style="margin:20px 0 0;font-size:15px;line-height:1.6;color:#3f3f46">${lead}</p>
+    <div style="margin:24px 0;padding:18px;border:1px solid #e4e4e7;border-radius:14px;background:#fff;text-align:center">
+      <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#a1a1aa">Access code</div>
+      <div style="margin-top:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:24px;font-weight:700;letter-spacing:.06em;color:#0a0a0b">${code}</div>
+    </div>
+    <a href="${link}" style="display:inline-block;background:#0a0a0b;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:9999px">${cta}</a>
+    <p style="margin:28px 0 0;font-size:12px;line-height:1.6;color:#a1a1aa">If you didn't expect this, you can ignore this email.</p>
+  </div></body></html>`;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "Klimr <invites@notifications.klimr.com>",
+        to: [to],
+        subject,
+        text,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      console.error("[codes] resend failed", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("[codes] resend threw", e);
+    return false;
+  }
 }
 
 export async function setInviteCodeActive(formData: FormData) {

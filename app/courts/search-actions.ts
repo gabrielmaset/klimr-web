@@ -33,6 +33,7 @@ export type CourtResult = {
   distanceKm: number;
   private: boolean;
   sport: string;
+  website: string | null;
 };
 
 export type SearchStatus = "ok" | "empty" | "not_configured" | "capped" | "bad_input" | "no_location" | "error";
@@ -97,6 +98,7 @@ type RawPlace = {
   types: string[];
   primaryType: string | null;
   distanceKm: number;
+  website: string | null;
 };
 
 /* Google Places (New) text search, biased to the search circle. */
@@ -113,7 +115,7 @@ async function placesSearch(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": key,
       "X-Goog-FieldMask":
-        "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.businessStatus,places.types,places.primaryType",
+        "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.businessStatus,places.types,places.primaryType,places.websiteUri",
     },
     body: JSON.stringify({
       textQuery: query,
@@ -143,6 +145,7 @@ async function placesSearch(
       types: Array.isArray(p?.types) ? p.types : [],
       primaryType: p?.primaryType ?? null,
       distanceKm,
+      website: typeof p?.websiteUri === "string" ? p.websiteUri : null,
     });
   }
   // De-dupe + keep the closest first; cap candidates for the AI pass.
@@ -327,6 +330,7 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
         distanceKm: Math.round(c.distanceKm * 10) / 10,
         private: verdicts?.get(c.id)?.private === true,
         sport,
+        website: c.website,
       }))
       .sort((a, b) => a.distanceKm - b.distanceKm);
   }
@@ -388,6 +392,7 @@ export type PickerCourt = {
   private: boolean;
   sport: string;
   distanceKm: number | null;
+  website: string | null;
 };
 
 export type PickerResponse = {
@@ -407,6 +412,7 @@ export type GoogleCourtInput = {
   ratingCount?: number | null;
   private?: boolean;
   sport: string;
+  website?: string | null;
 };
 
 /* FREE court list for the match picker: the directory (seeds + courts anyone has
@@ -438,7 +444,7 @@ export async function courtsNearZip(input: { zip: string; sport: string }): Prom
   // 1) Directory courts for this sport.
   const { data: dirRows } = await admin
     .from("courts")
-    .select("id, name, sports, address, neighborhood, city, lat, lng, rating, rating_count, is_private, google_place_id")
+    .select("id, name, sports, address, neighborhood, city, lat, lng, rating, rating_count, is_private, google_place_id, website")
     .contains("sports", [sport]);
   for (const c of dirRows ?? []) {
     const dist =
@@ -460,6 +466,7 @@ export async function courtsNearZip(input: { zip: string; sport: string }): Prom
       private: c.is_private === true,
       sport,
       distanceKm: dist,
+      website: c.website ?? null,
     });
     if (c.google_place_id) placeIds.add(c.google_place_id);
   }
@@ -489,6 +496,7 @@ export async function courtsNearZip(input: { zip: string; sport: string }): Prom
         private: c.private,
         sport,
         distanceKm: c.distanceKm ?? null,
+        website: c.website ?? null,
       });
     }
   }
@@ -525,6 +533,7 @@ export async function upsertGoogleCourt(input: GoogleCourtInput): Promise<{ cour
     rating: typeof input.rating === "number" ? input.rating : null,
     rating_count: typeof input.ratingCount === "number" ? input.ratingCount : null,
     is_private: input.private === true,
+    website: input.website ?? null,
   };
 
   const { data: existing, error: selErr } = await admin

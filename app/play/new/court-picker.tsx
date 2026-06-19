@@ -76,6 +76,7 @@ export function CourtPicker({
         private: c.private,
         sport,
         distanceKm: c.distanceKm ?? null,
+        website: c.website ?? null,
       }));
       setList((prev) => {
         const seen = new Set(prev.map((p) => p.placeId ?? p.key));

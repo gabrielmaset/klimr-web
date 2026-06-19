@@ -156,6 +156,7 @@ export interface Database {
           note: string | null;
           owner_id: string | null;
           active: boolean;
+          sent_to_email: string | null;
           created_at: string;
           last_used_at: string | null;
         };
@@ -166,6 +167,7 @@ export interface Database {
           note?: string | null;
           owner_id?: string | null;
           active?: boolean;
+          sent_to_email?: string | null;
         };
         Update: {
           max_uses?: number;
@@ -173,6 +175,7 @@ export interface Database {
           note?: string | null;
           owner_id?: string | null;
           active?: boolean;
+          sent_to_email?: string | null;
           last_used_at?: string | null;
         };
         Relationships: [];
@@ -183,6 +186,7 @@ export interface Database {
           label: string | null;
           active: boolean;
           expires_at: string | null;
+          sent_to_email: string | null;
           created_at: string;
           last_used_at: string | null;
         };
@@ -191,11 +195,13 @@ export interface Database {
           label?: string | null;
           active?: boolean;
           expires_at?: string | null;
+          sent_to_email?: string | null;
         };
         Update: {
           label?: string | null;
           active?: boolean;
           expires_at?: string | null;
+          sent_to_email?: string | null;
           last_used_at?: string | null;
         };
         Relationships: [];
@@ -777,6 +783,7 @@ export interface Database {
           rating: number | null;
           rating_count: number | null;
           is_private: boolean;
+          website: string | null;
           created_at: string;
         };
         Insert: {
@@ -795,6 +802,7 @@ export interface Database {
           rating?: number | null;
           rating_count?: number | null;
           is_private?: boolean;
+          website?: string | null;
           created_at?: string;
         };
         Update: {
@@ -812,6 +820,7 @@ export interface Database {
           rating?: number | null;
           rating_count?: number | null;
           is_private?: boolean;
+          website?: string | null;
         };
         Relationships: [];
       };

@@ -19,6 +19,7 @@ type Invite = {
   uses: number;
   note: string | null;
   active: boolean;
+  sent_to_email: string | null;
   created_at: string;
   last_used_at: string | null;
 };
@@ -27,6 +28,7 @@ type Investor = {
   label: string | null;
   active: boolean;
   expires_at: string | null;
+  sent_to_email: string | null;
   created_at: string;
   last_used_at: string | null;
 };
@@ -46,12 +48,12 @@ export default async function AdminCodesPage() {
   const [{ data: invitesData }, { data: investorsData }] = await Promise.all([
     admin
       .from("invite_codes")
-      .select("code, max_uses, uses, note, active, created_at, last_used_at")
+      .select("code, max_uses, uses, note, active, sent_to_email, created_at, last_used_at")
       .order("created_at", { ascending: false })
       .limit(200),
     admin
       .from("investor_codes")
-      .select("code, label, active, expires_at, created_at, last_used_at")
+      .select("code, label, active, expires_at, sent_to_email, created_at, last_used_at")
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
@@ -83,12 +85,13 @@ export default async function AdminCodesPage() {
         <p className="mt-2 text-sm text-mute">No invite codes yet.</p>
       ) : (
         <div className="mt-2 max-h-[28rem] overflow-auto rounded-2xl border border-rule bg-surface">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-rule text-left text-faint">
                 <th className={th}>Code</th>
                 <th className={th}>Status</th>
                 <th className={th}>Label</th>
+                <th className={th}>Email</th>
                 <th className={th}>Created</th>
                 <th className={th}>Last used</th>
                 <th className={`${th} text-right`}>Actions</th>
@@ -115,6 +118,7 @@ export default async function AdminCodesPage() {
                       <span className={tone}>{status}</span>
                     </td>
                     <td className={`${td} text-mute`}>{c.note ?? "—"}</td>
+                    <td className={`${td} whitespace-nowrap text-mute`}>{c.sent_to_email ?? "—"}</td>
                     <td className={`${td} whitespace-nowrap text-mute`}>{fmt(c.created_at)}</td>
                     <td className={`${td} whitespace-nowrap text-mute`}>{fmt(c.last_used_at)}</td>
                     <td className={td}>
@@ -153,12 +157,13 @@ export default async function AdminCodesPage() {
         <p className="mt-2 text-sm text-mute">No investor codes yet.</p>
       ) : (
         <div className="mt-2 max-h-[28rem] overflow-auto rounded-2xl border border-rule bg-surface">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-rule text-left text-faint">
                 <th className={th}>Code</th>
                 <th className={th}>Status</th>
                 <th className={th}>Label</th>
+                <th className={th}>Email</th>
                 <th className={th}>Created</th>
                 <th className={th}>Last used</th>
                 <th className={`${th} text-right`}>Actions</th>
@@ -192,6 +197,7 @@ export default async function AdminCodesPage() {
                       <span className={tone}>{status}</span>
                     </td>
                     <td className={`${td} text-mute`}>{c.label ?? "—"}</td>
+                    <td className={`${td} whitespace-nowrap text-mute`}>{c.sent_to_email ?? "—"}</td>
                     <td className={`${td} whitespace-nowrap text-mute`}>{fmt(c.created_at)}</td>
                     <td className={`${td} whitespace-nowrap text-mute`}>{fmt(c.last_used_at)}</td>
                     <td className={td}>

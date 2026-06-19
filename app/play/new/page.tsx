@@ -23,6 +23,7 @@ export default async function NewMatchPage({
     rating?: string;
     ratingCount?: string;
     private?: string;
+    website?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -54,7 +55,7 @@ export default async function NewMatchPage({
   if (courtId) {
     const { data: c } = await supabase
       .from("courts")
-      .select("id, name, sports, address, neighborhood, city, lat, lng, rating, rating_count, is_private, google_place_id")
+      .select("id, name, sports, address, neighborhood, city, lat, lng, rating, rating_count, is_private, google_place_id, website")
       .eq("id", courtId)
       .maybeSingle();
     if (c) {
@@ -72,6 +73,7 @@ export default async function NewMatchPage({
         private: c.is_private === true,
         sport: defaultSport || c.sports?.[0] || "",
         distanceKm: null,
+        website: c.website ?? null,
       };
     }
   } else if (sp.placeId && sp.name) {
@@ -89,6 +91,7 @@ export default async function NewMatchPage({
       private: sp.private === "1",
       sport: defaultSport,
       distanceKm: null,
+      website: sp.website || null,
     };
   }
 

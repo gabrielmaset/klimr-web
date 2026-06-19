@@ -35,6 +35,7 @@ export function CreateMatchForm({
         ratingCount: court.ratingCount,
         private: court.private,
         sport: court.sport,
+        website: court.website,
       })
     : "";
 

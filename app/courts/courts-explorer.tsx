@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, CalendarPlus, Check } from "lucide-react";
+import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, CalendarPlus, Check, Globe } from "lucide-react";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { CourtsMap } from "./courts-map";
 import { searchCourts, suggestCities, checkZip, type CourtResult, type SearchResponse, type CitySuggestion } from "./search-actions";
@@ -13,7 +13,13 @@ const PAGE = 5;
 
 function CourtRow({ c, n }: { c: CourtResult; n: number }) {
   const mi = (c.distanceKm / KM_PER_MI).toFixed(1);
-  const maps = `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`;
+  // Land on the actual business listing (name + address) rather than a bare
+  // coordinate pin. When we have the Google place id, pin it exactly.
+  const mapsQuery = encodeURIComponent([c.name, c.address].filter(Boolean).join(", ") || `${c.lat},${c.lng}`);
+  const looksLikePlaceId = typeof c.id === "string" && /^[A-Za-z0-9_-]{20,}$/.test(c.id) && !/^[0-9a-f-]{36}$/i.test(c.id);
+  const maps = looksLikePlaceId
+    ? `https://www.google.com/maps/search/?api=1&query=${mapsQuery}&query_place_id=${c.id}`
+    : `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
   const [creating, setCreating] = useState(false);
   const router = useRouter();
 
@@ -30,6 +36,7 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
     if (typeof c.rating === "number") p.set("rating", String(c.rating));
     if (typeof c.ratingCount === "number") p.set("ratingCount", String(c.ratingCount));
     if (c.private) p.set("private", "1");
+    if (c.website) p.set("website", c.website);
     setCreating(true);
     router.push(`/play/new?${p.toString()}`);
   }
@@ -38,7 +45,7 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
     <div>
       <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-sm font-bold text-surface">{n}</span>
-        <a href={maps} target="_blank" rel="noopener noreferrer" className="press min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate text-sm font-bold text-ink">{c.name}</span>
             {c.private ? (
@@ -48,7 +55,7 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
             ) : null}
           </span>
           {c.address ? <span className="block truncate text-xs text-mute">{c.address}</span> : null}
-          <span className="mt-0.5 flex items-center gap-2 text-xs text-faint">
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-faint">
             {c.rating != null ? (
               <span className="inline-flex items-center gap-1">
                 <Star size={12} className="fill-pop text-pop" /> {c.rating.toFixed(1)}
@@ -56,9 +63,18 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
               </span>
             ) : null}
             <span>· {mi} mi away</span>
-            <ExternalLink size={11} className="text-faint" />
           </span>
-        </a>
+          <span className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+            <a href={maps} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1 font-semibold text-brand-deep hover:underline">
+              <ExternalLink size={12} /> Open in Maps
+            </a>
+            {c.website ? (
+              <a href={c.website} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1 font-semibold text-brand-deep hover:underline">
+                <Globe size={12} /> Website
+              </a>
+            ) : null}
+          </span>
+        </div>
         <button
           type="button"
           onClick={scheduleHere}

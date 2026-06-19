@@ -22,8 +22,8 @@ export default async function AdminHome() {
     { label: "Players", value: users.count ?? 0, href: "/admin/users" },
     { label: "Posts live", value: posts.count ?? 0 },
     { label: "Open matches", value: openMatches.count ?? 0 },
-    { label: "Pending verification", value: pendingVerif.count ?? 0 },
-    { label: "Suspended / banned", value: restricted.count ?? 0, accent: (restricted.count ?? 0) > 0 },
+    { label: "Pending verification", value: pendingVerif.count ?? 0, href: "/admin/users?verification=pending", accent: (pendingVerif.count ?? 0) > 0 },
+    { label: "Suspended / banned", value: restricted.count ?? 0, href: "/admin/users?status=restricted", accent: (restricted.count ?? 0) > 0 },
   ];
 
   let recentActions: { id: string; action: string; created_at: string; detail: string | null; actor_id: string | null }[] = [];
