@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS } from "@/lib/sports";
@@ -169,12 +168,25 @@ async function aiFilter(
     rating: c.rating,
     ratingCount: c.ratingCount,
     address: c.address,
+    lat: Math.round(c.lat * 1e5) / 1e5,
+    lng: Math.round(c.lng * 1e5) / 1e5,
   }));
   const system =
-    `You verify whether map search results are genuine, currently-operating, publicly-bookable ${sport} courts. ` +
-    `Drop false positives: sporting-goods stores, unrelated gyms with no ${sport} courts, equipment brands, ` +
-    `permanently closed venues, and results that are clearly not ${sport} facilities. Keep real ${sport} courts ` +
-    `(public parks, rec centers, dedicated clubs). Mark members-only or private clubs with "private": true but still keep them. ` +
+    `You screen raw map-search results and return only genuine, currently-operating ${sport} courts a player could realistically show up to and play at. ` +
+    `Each candidate has: id, name, primaryType, types, rating, ratingCount, address, lat, lng. For each, decide keep (true/false) and private (true/false).\n\n` +
+    `DROP (keep:false):\n` +
+    `- Not a ${sport} facility: sporting-goods or retail stores, equipment/apparel brands, general gyms or fitness studios with no ${sport} courts, trampoline parks, restaurants, hotels, offices, or anything you wouldn't play ${sport} at.\n` +
+    `- Closed or defunct: names containing "closed", "permanently closed", "temporarily closed", "former", or otherwise clearly not operating.\n` +
+    `- Not a place to play: governing bodies, associations, leagues, academies/coaching or lesson businesses with no actual courts, stringing or pro-shop services, tournament listings.\n` +
+    `- Duplicates of a venue already kept (see DEDUPE).\n\n` +
+    `KEEP (keep:true):\n` +
+    `- Real, playable ${sport} courts: public parks and recreation/community centers that have ${sport} courts, dedicated ${sport} clubs, and school/university courts that are open to the public.\n\n` +
+    `PRIVATE (private:true, but still keep): members-only or private clubs, country clubs, gated-community / HOA / apartment courts.\n\n` +
+    `DEDUPE — return AT MOST ONE result per physical venue:\n` +
+    `- Treat candidates as the same venue when they share an address, sit within ~150 m of each other (compare lat/lng), or when one name is the other plus a qualifier (e.g. "Mar Vista Recreation Center" vs "Mar Vista Recreation Center Tennis Courts").\n` +
+    `- Among same-venue candidates keep EXACTLY ONE and set keep:false on the rest. Prefer the entry that most specifically represents the bookable ${sport} courts — a "... ${sport} Courts" / "... Courts" entry over the generic parent park or rec-center. If none is sport-specific, keep the one with the most ratings. The generic parent should be dropped when a court-specific entry for the same place is present.\n` +
+    `- Never return two results that point to the same place.\n\n` +
+    `Be decisive but not overly strict: when a candidate is plausibly a real ${sport} court, keep it. ` +
     `Reply with ONLY a JSON object, no prose: {"results":[{"id":"<id>","keep":true,"private":false}]}. Include every input id exactly once.`;
   try {
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -546,9 +558,9 @@ export async function upsertGoogleCourt(input: GoogleCourtInput): Promise<{ cour
 
 /* Courts page "Create a match" button: persist the court, then drop the
  * organizer into the create flow with it pre-filled. */
-export async function startMatchAtCourt(input: GoogleCourtInput): Promise<{ error?: string }> {
+export async function startMatchAtCourt(input: GoogleCourtInput): Promise<{ url?: string; error?: string }> {
   const { courtId, error } = await upsertGoogleCourt(input);
   if (error || !courtId) return { error: error ?? "Could not start a match here." };
   const sport = SPORT_KEYS.includes(input.sport) ? input.sport : "";
-  redirect(`/play/new?court=${courtId}${sport ? `&sport=${sport}` : ""}`);
+  return { url: `/play/new?court=${courtId}${sport ? `&sport=${sport}` : ""}` };
 }

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, logAdminAction } from "@/lib/admin";
 import { SPORT_KEYS } from "@/lib/sports";
@@ -21,6 +23,36 @@ export async function resolveReport(formData: FormData) {
   await logAdminAction(userId, `report:${status}`, null, resolution ?? undefined, reportId);
   revalidatePath("/admin/reports");
   revalidatePath("/admin");
+}
+
+/** Passwordless account recovery: email the user a fresh magic sign-in link
+ *  (Klimr has no passwords, so this is the equivalent of a password reset). */
+export async function sendSignInLink(
+  _prev: { ok?: boolean; error?: string } | null,
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  const { userId } = await requireAdmin("admin");
+  const target = String(formData.get("userId") ?? "");
+  if (!target) return { error: "Missing user." };
+
+  const admin = createAdminClient();
+  const { data: authData, error: getErr } = await admin.auth.admin.getUserById(target);
+  const email = authData?.user?.email;
+  if (getErr || !email) return { error: "Couldn't find that account's email." };
+
+  // Same flow as /login: token-hash magic link → /auth/confirm.
+  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const anon = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { error: otpErr } = await anon.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false, emailRedirectTo: `${origin}/auth/confirm?next=/account` },
+  });
+  if (otpErr) return { error: "Couldn't send the sign-in link. Try again." };
+
+  await logAdminAction(userId, "auth:signin_link", target);
+  return { ok: true };
 }
 
 export async function setVerification(formData: FormData) {

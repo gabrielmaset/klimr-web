@@ -12,6 +12,7 @@ type Row = {
   state: string | null;
   verification_status: string;
   account_status: string;
+  last_seen_at: string | null;
 };
 
 const STATUS_TONE: Record<string, string> = { active: "#16a34a", suspended: "#b8860b", banned: "#d63a0f" };
@@ -23,12 +24,14 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
 
   const query = admin
     .from("profiles")
-    .select("id, display_name, city, state, verification_status, account_status")
+    .select("id, display_name, city, state, verification_status, account_status, last_seen_at")
     .neq("account_status", "archived");
   const { data } = q
     ? await query.ilike("display_name", `%${q}%`).limit(40)
     : await query.order("created_at", { ascending: false }).limit(25);
   const rows = (data as Row[] | null) ?? [];
+  // eslint-disable-next-line react-hooks/purity
+  const onlineCutoff = Date.now() - 5 * 60_000;
 
   return (
     <div>
@@ -66,6 +69,11 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
                 <div className="truncate text-xs text-faint">{[u.city, u.state].filter(Boolean).join(", ") || "—"}</div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {u.last_seen_at && Date.parse(u.last_seen_at) > onlineCutoff ? (
+                  <span className="inline-flex items-center gap-1 kicker rounded-full bg-[#16a34a]/10 px-2 py-0.5 text-[9px]" style={{ color: "#16a34a" }}>
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#16a34a" }} /> online
+                  </span>
+                ) : null}
                 {u.verification_status === "verified" ? <span className="kicker rounded-full bg-tint-brand px-2 py-0.5 text-[9px] text-brand-deep">verified</span> : null}
                 {u.account_status !== "active" ? (
                   <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "#f4f4f5", color: STATUS_TONE[u.account_status] }}>{u.account_status}</span>

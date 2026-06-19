@@ -36,6 +36,24 @@ export default async function AdminHome() {
     recentActions = data ?? [];
   }
 
+  // Currently / recently active players — proxied by a last-seen heartbeat the
+  // app shell writes on page load (Klimr has no live socket presence).
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+  const since = new Date(now - 15 * 60_000).toISOString();
+  const { data: activeRows } = await admin
+    .from("profiles")
+    .select("id, display_name, last_seen_at")
+    .gte("last_seen_at", since)
+    .order("last_seen_at", { ascending: false })
+    .limit(16);
+  const active = (activeRows as { id: string; display_name: string; last_seen_at: string }[] | null) ?? [];
+  const rel = (iso: string) => {
+    const m = Math.round((now - Date.parse(iso)) / 60_000);
+    return m < 1 ? "online now" : m === 1 ? "1 min ago" : `${m} min ago`;
+  };
+  const isOnline = (iso: string) => now - Date.parse(iso) < 5 * 60_000;
+
   return (
     <div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -61,16 +79,28 @@ export default async function AdminHome() {
         })}
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        <Link href="/admin/reports" className="press rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
-          Reports
-        </Link>
-        <Link href="/admin/users" className="press rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
-          Players
-        </Link>
-        <Link href="/admin/updates" className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
-          Post an update
-        </Link>
+      <div className="mt-7">
+        <div className="kicker mb-3 flex items-center gap-2 text-faint">
+          <span className="h-2 w-2 rounded-full" style={{ background: active.some((u) => isOnline(u.last_seen_at)) ? "#16a34a" : "#a1a1aa" }} />
+          Active now · {active.length}
+        </div>
+        {active.length === 0 ? (
+          <p className="text-sm text-mute">No players active in the last 15 minutes.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {active.map((u) => (
+              <Link
+                key={u.id}
+                href={`/admin/users/${u.id}`}
+                className="lift flex items-center gap-2 rounded-full border border-rule bg-surface px-3 py-1.5 text-sm"
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: isOnline(u.last_seen_at) ? "#16a34a" : "#d4d4d8" }} />
+                <span className="font-semibold text-ink">{u.display_name || "Player"}</span>
+                <span className="text-xs text-faint">{rel(u.last_seen_at)}</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {role === "superadmin" ? (

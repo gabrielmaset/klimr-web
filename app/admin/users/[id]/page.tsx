@@ -7,6 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
 import { setVerification, setAccountStatus, removePost, recoverUser } from "../../actions";
 import { ArchiveUserButton } from "./ArchiveUserButton";
+import { SendSignInLinkButton } from "./SendSignInLinkButton";
 
 export const metadata = { title: "User · Admin" };
 
@@ -56,12 +57,14 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
   const p = profileRow as Profile;
   const canVerifyOrBan = atLeast(role, "admin");
 
-  const [{ data: psRows }, { data: repRows }, { data: postRows }, { data: targetAdminRow }] = await Promise.all([
+  const [{ data: psRows }, { data: repRows }, { data: postRows }, { data: targetAdminRow }, { data: authData }] = await Promise.all([
     admin.from("player_sports").select("sport_key, points, matches_played, wins").eq("user_id", id),
     admin.from("reports").select("id, reporter_id, reason, status, created_at").eq("reported_id", id).order("created_at", { ascending: false }).limit(20),
     admin.from("posts").select("id, body, moderation_status, created_at").eq("author_id", id).order("created_at", { ascending: false }).limit(10),
     admin.from("admin_users").select("role").eq("user_id", id).maybeSingle(),
+    admin.auth.admin.getUserById(id),
   ]);
+  const email = authData?.user?.email ?? null;
   const sports = (psRows as PS[] | null) ?? [];
   const reports = (repRows as Rep[] | null) ?? [];
   const posts = (postRows as PostRow[] | null) ?? [];
@@ -159,6 +162,20 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
+
+      {/* email & passwordless access (admin+) */}
+      {canVerifyOrBan ? (
+        <div className="mt-4 rounded-2xl border border-rule bg-surface p-5">
+          <div className="kicker mb-2 text-faint">Email &amp; access</div>
+          <p className="text-sm text-ink">{email ?? "—"}</p>
+          <p className="mt-1 text-xs text-faint">
+            Klimr sign-in is passwordless — send a fresh magic sign-in link, the equivalent of a password reset. It goes to the account&rsquo;s own inbox.
+          </p>
+          <div className="mt-3">
+            <SendSignInLinkButton userId={p.id} />
+          </div>
+        </div>
+      ) : null}
 
       {/* reports against */}
       <div className="mt-6">

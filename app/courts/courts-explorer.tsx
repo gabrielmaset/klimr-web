@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, CalendarPlus, Check } from "lucide-react";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { CourtsMap } from "./courts-map";
@@ -14,6 +15,7 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
   const mi = (c.distanceKm / KM_PER_MI).toFixed(1);
   const maps = `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}`;
   const [creating, setCreating] = useState(false);
+  const router = useRouter();
   const [err, setErr] = useState<string | null>(null);
 
   async function createMatchHere() {
@@ -32,11 +34,12 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
         private: c.private,
         sport: c.sport,
       });
-      // On success the action redirects; we only get here on failure.
-      if (res?.error) {
-        setErr(res.error);
-        setCreating(false);
+      if (res?.url) {
+        router.push(res.url); // keep the spinner while navigating
+        return;
       }
+      setErr(res?.error ?? "Couldn't start a match. Try again.");
+      setCreating(false);
     } catch {
       setErr("Couldn't start a match. Try again.");
       setCreating(false);
