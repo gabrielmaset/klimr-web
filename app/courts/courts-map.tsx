@@ -28,6 +28,7 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
   const markersRef = useRef<Marker[]>([]);
   const mbRef = useRef<(typeof import("mapbox-gl"))["default"] | null>(null);
   const [ready, setReady] = useState(false);
+  const [errored, setErrored] = useState(false);
 
   // Initialise the map once (client-only, dynamic import keeps mapbox-gl out of SSR).
   useEffect(() => {
@@ -47,6 +48,11 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
         attributionControl: false,
       });
       map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      map.on("error", (e: { error?: { status?: number; message?: string } }) => {
+        const status = e?.error?.status;
+        console.warn("[courts map] tile/style error", status ?? "", e?.error?.message ?? "");
+        if (status === 401 || status === 403) setErrored(true);
+      });
       map.on("load", () => {
         if (cancelled) return;
         mapRef.current = map;
@@ -128,5 +134,14 @@ export function CourtsMap({ token, courts }: { token: string | null; courts: Map
     );
   }
 
-  return <div ref={containerRef} className="h-80 w-full overflow-hidden rounded-3xl border border-rule lg:h-[560px]" />;
+  return (
+    <div className="relative h-80 w-full overflow-hidden rounded-3xl border border-rule lg:h-[560px]">
+      <div ref={containerRef} className="absolute inset-0" />
+      {errored ? (
+        <div className="absolute inset-0 grid place-items-center bg-surface/85 px-6 text-center backdrop-blur-sm">
+          <p className="max-w-xs text-xs text-mute">Map couldn&rsquo;t load right now — the court list still works.</p>
+        </div>
+      ) : null}
+    </div>
+  );
 }

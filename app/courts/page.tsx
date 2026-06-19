@@ -28,7 +28,7 @@ export default async function CourtsPage() {
       <div className="mb-5">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Courts</h1>
         <p className="mt-1 text-sm text-mute">
-          Find courts near any ZIP — screened by Klimr so you get real, active places to play.
+          Find courts anywhere by ZIP or city — screened by Klimr so you get real, active places to play.
         </p>
       </div>
       <CourtsExplorer defaultZip={defaultZip} defaultSport={defaultSport} mapboxToken={mapboxToken} />
