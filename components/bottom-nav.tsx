@@ -13,7 +13,7 @@ const TABS = [
 ];
 
 // Secondary destinations all live under the "You" tab (account screen).
-const YOU = ["/account", "/settings", "/sponsorships", "/teams", "/courts", "/challenges", "/events", "/marketplace", "/resources", "/discover", "/invite"];
+const YOU = ["/me", "/account", "/settings", "/sponsorships", "/teams", "/courts", "/challenges", "/events", "/marketplace", "/resources", "/discover", "/invite", "/network", "/invites"];
 
 export function BottomNav({
   avatarUrl,
@@ -73,7 +73,7 @@ export function BottomNav({
             );
           })}
           <Link
-            href="/account"
+            href="/me"
             aria-current={youActive ? "page" : undefined}
             className="relative z-10 flex flex-col items-center gap-0.5 pb-2 pt-2.5 text-[11px] font-semibold"
           >

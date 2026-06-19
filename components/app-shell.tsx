@@ -3,6 +3,8 @@ import { SideNav } from "@/components/side-nav";
 import { MobileTopBar } from "@/components/mobile-top-bar";
 import { BottomNav } from "@/components/bottom-nav";
 import { SiteFooter } from "@/components/site-footer";
+import { KlimrLogo } from "@/components/logo";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
@@ -10,6 +12,24 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // MFA pending (signed in at aal1 but a step-up is required): show ONLY the
+  // 2FA challenge — no sidebar, no name, no account chrome.
+  if (user) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+      return (
+        <div className="flex min-h-dvh flex-col">
+          <header className="px-5 py-5 sm:px-8">
+            <Link href="/" aria-label="Klimr home">
+              <KlimrLogo />
+            </Link>
+          </header>
+          <main className="flex flex-1 items-start justify-center px-5">{children}</main>
+        </div>
+      );
+    }
+  }
 
   let avatarUrl: string | null = null;
   let avatarHue = 200;

@@ -26,6 +26,18 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      friendships: {
+        Row: { id: string; requester_id: string; addressee_id: string; status: string; created_at: string; responded_at: string | null };
+        Insert: { id?: string; requester_id: string; addressee_id: string; status?: string; created_at?: string; responded_at?: string | null };
+        Update: { id?: string; requester_id?: string; addressee_id?: string; status?: string; created_at?: string; responded_at?: string | null };
+        Relationships: [];
+      };
+      follows: {
+        Row: { follower_id: string; followee_id: string; created_at: string };
+        Insert: { follower_id: string; followee_id: string; created_at?: string };
+        Update: { follower_id?: string; followee_id?: string; created_at?: string };
+        Relationships: [];
+      };
       sports: {
         Row: { key: string; name: string; skill_system: string };
         Insert: { key: string; name: string; skill_system: string };
@@ -42,6 +54,8 @@ export interface Database {
         Row: {
           id: string;
           display_name: string;
+          first_name: string | null;
+          last_name: string | null;
           home_zip: string | null;
           neighborhood: string | null;
           city: string | null;
@@ -52,9 +66,11 @@ export interface Database {
           reliability: number;
           avatar_hue: number;
           avatar_path: string | null;
+          cover_path: string | null;
           bio: string | null;
           gender: string | null;
           birth_year: number | null;
+          date_of_birth: string | null;
           availability: { day: string; start: string; end: string }[];
           preferred_format: string;
           play_style: string;
@@ -69,6 +85,8 @@ export interface Database {
         Insert: {
           id: string;
           display_name?: string;
+          first_name?: string | null;
+          last_name?: string | null;
           home_zip?: string | null;
           neighborhood?: string | null;
           city?: string | null;
@@ -79,9 +97,11 @@ export interface Database {
           reliability?: number;
           avatar_hue?: number;
           avatar_path?: string | null;
+          cover_path?: string | null;
           bio?: string | null;
           gender?: string | null;
           birth_year?: number | null;
+          date_of_birth?: string | null;
           availability?: { day: string; start: string; end: string }[];
           preferred_format?: string;
           play_style?: string;
@@ -94,6 +114,8 @@ export interface Database {
         };
         Update: {
           display_name?: string;
+          first_name?: string | null;
+          last_name?: string | null;
           home_zip?: string | null;
           neighborhood?: string | null;
           city?: string | null;
@@ -104,9 +126,11 @@ export interface Database {
           reliability?: number;
           avatar_hue?: number;
           avatar_path?: string | null;
+          cover_path?: string | null;
           bio?: string | null;
           gender?: string | null;
           birth_year?: number | null;
+          date_of_birth?: string | null;
           availability?: { day: string; start: string; end: string }[];
           preferred_format?: string;
           play_style?: string;
@@ -219,6 +243,7 @@ export interface Database {
           total_slots: number;
           status: MatchStatus;
           recurring: boolean;
+          recurrence: string | null;
           result: Json | null;
           result_status: ResultStatus;
           created_at: string;
@@ -234,6 +259,7 @@ export interface Database {
           total_slots?: number;
           status?: MatchStatus;
           recurring?: boolean;
+          recurrence?: string | null;
           result?: Json | null;
           result_status?: ResultStatus;
           created_at?: string;
@@ -247,6 +273,7 @@ export interface Database {
           total_slots?: number;
           status?: MatchStatus;
           recurring?: boolean;
+          recurrence?: string | null;
           result?: Json | null;
           result_status?: ResultStatus;
         };
@@ -698,9 +725,9 @@ export interface Database {
         Relationships: [];
       };
       team_members: {
-        Row: { team_id: string; user_id: string; role: string; joined_at: string };
-        Insert: { team_id: string; user_id: string; role?: string; joined_at?: string };
-        Update: { role?: string };
+        Row: { team_id: string; user_id: string; role: string; designation: string | null; joined_at: string };
+        Insert: { team_id: string; user_id: string; role?: string; designation?: string | null; joined_at?: string };
+        Update: { role?: string; designation?: string | null };
         Relationships: [];
       };
       team_invites: {

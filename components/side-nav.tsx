@@ -6,16 +6,19 @@ import { usePathname } from "next/navigation";
 import {
   Newspaper, MessageCircle, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut, Bell,
   Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
-  User, MessageSquare, HelpCircle, ChevronsUpDown,
+  User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox,
 } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
 
 const MAIN = [
+  { href: "/me", label: "My profile", Icon: User },
   { href: "/feed", label: "Feed", Icon: Newspaper },
   { href: "/chats", label: "Chats", Icon: MessageCircle },
   { href: "/notifications", label: "Notifications", Icon: Bell },
+  { href: "/network", label: "Network", Icon: Contact },
+  { href: "/invites", label: "Invites", Icon: Inbox },
   { href: "/play", label: "Play", Icon: Swords },
   { href: "/discover", label: "Discover", Icon: Radar },
   { href: "/rankings", label: "Rankings", Icon: Trophy },
