@@ -18,7 +18,7 @@ export default async function VerificationSettingsPage() {
   const v = profile?.verification_status ?? "unverified";
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
       <Link href="/settings" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink">
         <ChevronLeft size={16} /> Settings
       </Link>

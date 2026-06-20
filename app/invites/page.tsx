@@ -89,7 +89,7 @@ export default async function InvitesPage({ searchParams }: { searchParams: Prom
     (!showMatches || matchCards.length === 0);
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
       <div className="mb-5">
         <p className="kicker text-faint">Invites</p>
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Matches &amp; friends</h1>

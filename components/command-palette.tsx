@@ -45,21 +45,14 @@ export function CommandPalette() {
     setActive(0);
   }, []);
 
-  // Open via ⌘K / Ctrl+K, or a custom event dispatched by the search buttons.
+  // Opened only by the mobile search icon (custom event). Desktop uses the
+  // inline TopSearch with its own ⌘K handling, so this dialog has no shortcut.
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-    }
     function onOpen() {
       setOpen(true);
     }
-    window.addEventListener("keydown", onKey);
     window.addEventListener("klimr:open-search", onOpen);
     return () => {
-      window.removeEventListener("keydown", onKey);
       window.removeEventListener("klimr:open-search", onOpen);
     };
   }, []);

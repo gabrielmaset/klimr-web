@@ -26,6 +26,30 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      error_logs: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          level: string;
+          message: string;
+          detail: string | null;
+          url: string | null;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          level?: string;
+          message: string;
+          detail?: string | null;
+          url?: string | null;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: { detail?: string | null };
+        Relationships: [];
+      };
       match_invites: {
         Row: { id: string; match_id: string; invited_user_id: string; invited_by: string; status: string; created_at: string };
         Insert: { id?: string; match_id: string; invited_user_id: string; invited_by: string; status?: string; created_at?: string };

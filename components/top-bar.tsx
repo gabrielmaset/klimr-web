@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Search, CalendarClock, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, ChevronRight } from "lucide-react";
+import { CalendarClock, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, ChevronRight } from "lucide-react";
 import { setPresenceMode } from "@/app/account/presence-actions";
 import type { PresenceMode } from "@/app/account/presence";
+import { TopSearch } from "@/components/top-search";
 
 const SPORT_LABEL: Record<string, string> = {
   tennis: "Tennis",
@@ -87,7 +88,6 @@ export function TopBar({
   const [mode, setMode] = useState<PresenceMode>(presenceMode);
   const [seenProp, setSeenProp] = useState<PresenceMode>(presenceMode);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isMac, setIsMac] = useState(true);
   const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -98,12 +98,6 @@ export function TopBar({
     setSeenProp(presenceMode);
     setMode(presenceMode);
   }
-
-  useEffect(() => {
-    const p = navigator.userAgent || navigator.platform || "";
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time platform read on mount
-    setIsMac(/Mac|iPhone|iPad|iPod/i.test(p));
-  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -139,21 +133,8 @@ export function TopBar({
   return (
     <header className="sticky top-3 z-30 mx-3 mt-3 hidden rounded-2xl border border-rule/70 bg-surface/80 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.22)] backdrop-blur-2xl backdrop-saturate-150 md:block">
       <div className="flex items-center gap-3 px-3.5 py-2.5">
-        {/* Search → opens the ⌘K command palette */}
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event("klimr:open-search"))}
-          aria-haspopup="dialog"
-          aria-keyshortcuts="Meta+K Control+K"
-          className="press group flex h-9 w-72 max-w-[32vw] items-center gap-2.5 rounded-xl border border-rule bg-bg px-3 text-sm text-mute transition-colors hover:bg-surface"
-        >
-          <Search size={16} className="shrink-0 text-faint transition-colors group-hover:text-mute" />
-          <span className="truncate">Search players, courts, teams…</span>
-          <span className="ml-auto hidden items-center gap-1 lg:flex">
-            <kbd className="rounded-md border border-rule bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-faint">{isMac ? "⌘" : "Ctrl"}</kbd>
-            <kbd className="rounded-md border border-rule bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-faint">K</kbd>
-          </span>
-        </button>
+        {/* Inline search — type here, results drop down below (no modal) */}
+        <TopSearch />
 
         {/* Next scheduled match — only when there is one */}
         {nextMatch ? (

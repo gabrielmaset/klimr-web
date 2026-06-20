@@ -33,7 +33,7 @@ export default async function AdminHome() {
       .from("admin_actions")
       .select("id, action, created_at, detail, actor_id")
       .order("created_at", { ascending: false })
-      .limit(12);
+      .limit(100);
     recentActions = data ?? [];
     const ids = [...new Set(recentActions.map((a) => a.actor_id).filter((x): x is string => !!x))];
     if (ids.length) {
@@ -111,11 +111,14 @@ export default async function AdminHome() {
 
       {role === "superadmin" ? (
         <div className="mt-8">
-          <div className="kicker mb-3 text-faint">Recent staff actions</div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="kicker text-faint">Recent staff actions</div>
+            <Link href="/admin/actions" className="text-xs font-semibold text-brand-deep transition-colors hover:underline">View all &rarr;</Link>
+          </div>
           {recentActions.length === 0 ? (
             <p className="text-sm text-mute">No actions recorded yet.</p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="max-h-[28rem] space-y-1.5 overflow-y-auto rounded-2xl border border-rule/60 bg-bg/30 p-2">
               {recentActions.map((a) => (
                 <div key={a.id} className="rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm">
                   <div className="flex items-center justify-between gap-3">

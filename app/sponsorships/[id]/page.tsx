@@ -45,7 +45,7 @@ export default async function SponsorDetailPage({ params }: { params: Promise<{ 
   const hue = s.hue ?? 18;
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
       <Link href="/sponsorships" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
         <ChevronLeft size={15} /> Sponsorships
       </Link>

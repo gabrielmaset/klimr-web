@@ -24,7 +24,7 @@ export default async function SecurityPage() {
     }));
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-12 lg:py-16">
+    <div className="mx-auto max-w-3xl px-5 py-12 lg:py-16">
       <Link href="/account" className="text-sm text-mute transition-colors hover:text-ink">
         ← Account
       </Link>

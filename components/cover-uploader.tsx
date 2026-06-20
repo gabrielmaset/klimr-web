@@ -2,33 +2,59 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import { Camera, Loader2, Trash2, CircleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { createCoverUploadUrl, commitCover, removeCover } from "@/app/account/avatar-actions";
+import { CoverCropper, type CoverCropResult } from "@/components/cover-cropper";
+import { logger } from "@/lib/logger";
 
 export function CoverUploader({ initialUrl, hue }: { initialUrl: string | null; hue: number }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [rawSrc, setRawSrc] = useState<string | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
 
-  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+  function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = "";
-    if (!f || !f.type.startsWith("image/")) return;
+    if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      setErr("Please choose an image file.");
+      return;
+    }
+    setErr(null);
+    const r = new FileReader();
+    r.onload = () => {
+      setRawSrc(String(r.result));
+      setCropOpen(true);
+    };
+    r.onerror = () => {
+      setErr("Couldn't read that file.");
+      logger.error("Cover photo read failed", `${f.name} (${f.type})`);
+    };
+    r.readAsDataURL(f);
+  }
+
+  async function onCropConfirm(result: CoverCropResult) {
+    setCropOpen(false);
+    setRawSrc(null);
     setBusy(true);
-    setErr(false);
+    setErr(null);
     try {
       const supabase = createClient();
-      const { path, token } = await createCoverUploadUrl(f.type);
-      const { error } = await supabase.storage.from("avatars").uploadToSignedUrl(path, token, f, { contentType: f.type });
+      const { path, token } = await createCoverUploadUrl(result.type);
+      const { error } = await supabase.storage.from("avatars").uploadToSignedUrl(path, token, result.blob, { contentType: result.type });
       if (error) throw error;
       const { url: pub } = await commitCover(path);
       setUrl(`${pub}?v=${Date.now()}`);
       router.refresh();
-    } catch {
-      setErr(true);
+    } catch (e) {
+      const msg = e instanceof Error && e.message ? e.message : "Couldn't upload the cover photo. Please try again.";
+      setErr(msg);
+      logger.error("Cover photo upload failed", e);
     } finally {
       setBusy(false);
     }
@@ -36,11 +62,12 @@ export function CoverUploader({ initialUrl, hue }: { initialUrl: string | null; 
 
   async function remove() {
     setUrl(null);
+    setErr(null);
     try {
       await removeCover();
       router.refresh();
-    } catch {
-      /* non-fatal */
+    } catch (e) {
+      logger.warn("Cover photo removal failed", e);
     }
   }
 
@@ -54,9 +81,16 @@ export function CoverUploader({ initialUrl, hue }: { initialUrl: string | null; 
         <img src={url} alt="Your cover photo" className="h-full w-full object-cover" />
       ) : null}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pick} />
-      {/* z-20 keeps these controls above the identity header (z-10), which is
-          pulled up over the cover with a negative margin and would otherwise
-          sit on top of this button and swallow the click. */}
+
+      {/* Error banner sits at the TOP (z-30) so it's never hidden behind the
+          avatar/identity header, which overlaps the bottom-left of the cover. */}
+      {err ? (
+        <div className="absolute left-3 right-3 top-3 z-30 flex items-start gap-2 rounded-xl bg-black/70 px-3 py-2 text-xs text-white backdrop-blur">
+          <CircleAlert size={14} className="mt-0.5 shrink-0" />
+          <span className="flex-1">{err}</span>
+        </div>
+      ) : null}
+
       <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2">
         {url ? (
           <button
@@ -77,9 +111,8 @@ export function CoverUploader({ initialUrl, hue }: { initialUrl: string | null; 
           {url ? "Change cover" : "Add cover photo"}
         </button>
       </div>
-      {err ? (
-        <p className="absolute bottom-3 left-3 rounded-full bg-black/55 px-3 py-1 text-xs text-white">Couldn&rsquo;t upload — try again.</p>
-      ) : null}
+
+      {cropOpen && rawSrc ? <CoverCropper src={rawSrc} onCancel={() => { setCropOpen(false); setRawSrc(null); }} onConfirm={onCropConfirm} /> : null}
     </div>
   );
 }
