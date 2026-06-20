@@ -11,6 +11,7 @@ import {
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
+import { sportMeta } from "@/lib/sports";
 import type { PresenceMode } from "@/app/account/presence";
 
 const MAIN = [
@@ -42,6 +43,7 @@ export function SideNav({
   email,
   adminRole,
   presenceMode,
+  teams,
 }: {
   avatarUrl: string | null;
   avatarHue: number;
@@ -49,6 +51,7 @@ export function SideNav({
   email: string | null;
   adminRole: boolean;
   presenceMode: PresenceMode;
+  teams: { id: string; name: string; sport_key: string }[];
 }) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -175,6 +178,22 @@ export function SideNav({
                   <Link href="/settings" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
                     <Settings size={15} className="text-mute" /> Settings
                   </Link>
+                </div>
+                {/* Switch to a team account */}
+                <div className="border-t border-rule py-1">
+                  <p className="kicker px-3.5 pb-1 pt-1.5 text-faint">Switch to a team</p>
+                  {teams.length > 0 ? (
+                    teams.map((t) => (
+                      <Link key={t.id} href={`/team/${t.id}`} role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
+                        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[#f4f4f5] text-[11px]">{sportMeta(t.sport_key).emoji}</span>
+                        <span className="truncate">{t.name}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <Link href="/settings/teams" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
+                      <Users size={15} className="text-mute" /> Create a team
+                    </Link>
+                  )}
                 </div>
                 <div className="border-t border-rule py-1">
                   <a href="mailto:hello@klimr.com?subject=Klimr%20feedback" role="menuitem" className={menuItem}>

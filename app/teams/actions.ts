@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { accountActive } from "@/lib/guards";
 import { createNotification } from "@/lib/notify";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
+import type { TeamCard } from "./types";
 
 async function me() {
   const supabase = await createClient();
@@ -28,6 +29,51 @@ async function teamRole(
 
 const canManageRoster = (role: string | null) => role === "owner" || role === "manager";
 const canInvite = (role: string | null) => role === "owner" || role === "manager" || role === "staff";
+
+type TeamRow = { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null };
+
+/** Add member counts + whether the viewer is already on each team. */
+async function decorate(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  teams: TeamRow[],
+): Promise<TeamCard[]> {
+  const ids = teams.map((t) => t.id);
+  if (!ids.length) return [];
+  const [{ data: counts }, { data: mine }] = await Promise.all([
+    supabase.from("team_members").select("team_id").in("team_id", ids),
+    supabase.from("team_members").select("team_id").eq("user_id", userId).in("team_id", ids),
+  ]);
+  const countMap = new Map<string, number>();
+  for (const c of counts ?? []) countMap.set(c.team_id, (countMap.get(c.team_id) ?? 0) + 1);
+  const joined = new Set((mine ?? []).map((m) => m.team_id));
+  return teams.map((t) => ({ ...t, memberCount: countMap.get(t.id) ?? 0, joined: joined.has(t.id) }));
+}
+
+/**
+ * Discover teams. With no query, returns teams near the viewer (their city when
+ * we have one); with a query, matches name / city / neighborhood. Powers the
+ * Teams discovery page. Read-only.
+ */
+export async function searchTeams(qRaw: string): Promise<TeamCard[]> {
+  const { supabase, user } = await me();
+  if (!user) return [];
+
+  const q = (qRaw ?? "").trim().replace(/[%_\\(),"']/g, "");
+  let builder = supabase.from("teams").select("id, name, sport_key, city, neighborhood");
+  if (q.length >= 1) {
+    const like = `%${q}%`;
+    builder = builder.or(`name.ilike.${like},city.ilike.${like},neighborhood.ilike.${like}`);
+  } else {
+    const { data: prof } = await supabase.from("profiles").select("city").eq("id", user.id).maybeSingle();
+    if (prof?.city) builder = builder.ilike("city", prof.city);
+  }
+
+  const { data: teams } = await builder.order("created_at", { ascending: false }).limit(24);
+  const cards = await decorate(supabase, user.id, (teams ?? []) as TeamRow[]);
+  cards.sort((a, b) => b.memberCount - a.memberCount); // busiest first
+  return cards;
+}
 
 export type TeamFormState = { ok?: boolean; error?: string } | undefined;
 

@@ -14,7 +14,16 @@ const matches = (path: string, list: string[]) =>
   list.some((p) => path === p || path.startsWith(p + "/"));
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Forward the pathname so server components (AppShell) can tell when a request
+  // is inside the team workspace. Rebuilt on each NextResponse.next so refreshed
+  // auth cookies still propagate to the downstream request.
+  const forwarded = () => {
+    const h = new Headers(request.headers);
+    h.set("x-pathname", request.nextUrl.pathname);
+    return h;
+  };
+
+  let response = NextResponse.next({ request: { headers: forwarded() } });
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +37,7 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          response = NextResponse.next({ request });
+          response = NextResponse.next({ request: { headers: forwarded() } });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );

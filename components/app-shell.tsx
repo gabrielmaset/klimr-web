@@ -7,6 +7,7 @@ import { KlimrLogo } from "@/components/logo";
 import { TopBar, type NextMatch } from "@/components/top-bar";
 import { CommandPalette } from "@/components/command-palette";
 import type { PresenceMode } from "@/app/account/presence";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
@@ -34,6 +35,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // The team workspace (/team/[id]/*) renders its own chrome — see
+  // app/team/[teamId]/layout.tsx — so the personal shell steps aside here.
+  // (MFA gating above still applies before we get here.)
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  if (user && pathname.startsWith("/team/")) {
+    return <>{children}</>;
+  }
+
   let avatarUrl: string | null = null;
   let avatarHue = 200;
   let avatarName = user?.email ?? "You";
@@ -42,6 +51,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let chatUnread = 0;
   let presenceMode: PresenceMode = "auto";
   let nextMatch: NextMatch = null;
+  let teams: { id: string; name: string; sport_key: string }[] = [];
   if (user) {
     const { data: p } = await supabase
       .from("profiles")
@@ -65,6 +75,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     // migration 0047 hasn't been applied yet (missing column → defaults to "auto").
     const { data: pm } = await supabase.from("profiles").select("presence_mode").eq("id", user.id).maybeSingle();
     if (pm?.presence_mode) presenceMode = pm.presence_mode as PresenceMode;
+
+    // Teams the user belongs to → the account switcher.
+    const { data: tm } = await supabase.from("team_members").select("team_id").eq("user_id", user.id);
+    const tIds = [...new Set((tm ?? []).map((r) => r.team_id))];
+    if (tIds.length) {
+      const { data: ts } = await supabase.from("teams").select("id, name, sport_key").in("id", tIds);
+      teams = (ts as { id: string; name: string; sport_key: string }[] | null) ?? [];
+    }
 
     const { data: r } = await supabase.rpc("current_admin_role");
     adminRole = typeof r === "string" ? r : null;
@@ -115,7 +133,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   // Signed-in: glassy left sidebar (desktop) + bottom tab bar (mobile).
   return (
     <div className="flex min-h-dvh">
-      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} email={user?.email ?? null} adminRole={!!adminRole} presenceMode={presenceMode} />
+      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} email={user?.email ?? null} adminRole={!!adminRole} presenceMode={presenceMode} teams={teams} />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar unreadCount={unread} />
         <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} />

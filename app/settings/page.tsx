@@ -138,7 +138,7 @@ export default async function SettingsPage() {
           <Section
             title="Teams"
             rows={[
-              { Icon: Users, title: "My teams", desc: "Crews and squads you're on", href: "/teams" },
+              { Icon: Users, title: "My teams", desc: "Teams you're on, and create new ones", href: "/settings/teams" },
               { Icon: Send, title: "Team invitations", desc: "Invites waiting on you", href: "/invites?tab=received&kind=teams" },
               { Icon: ShieldCheck, title: "Team notifications", desc: "Invites and roster changes", soon: true },
             ]}
