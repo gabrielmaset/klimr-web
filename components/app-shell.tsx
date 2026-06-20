@@ -4,6 +4,9 @@ import { MobileTopBar } from "@/components/mobile-top-bar";
 import { BottomNav } from "@/components/bottom-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { KlimrLogo } from "@/components/logo";
+import { TopBar, type NextMatch } from "@/components/top-bar";
+import { CommandPalette } from "@/components/command-palette";
+import type { PresenceMode } from "@/app/account/presence";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,6 +40,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let adminRole: string | null = null;
   let unread = 0;
   let chatUnread = 0;
+  let presenceMode: PresenceMode = "auto";
+  let nextMatch: NextMatch = null;
   if (user) {
     const { data: p } = await supabase
       .from("profiles")
@@ -55,6 +60,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         await supabase.from("profiles").update({ last_seen_at: new Date(nowMs).toISOString() }).eq("id", user.id);
       }
     }
+
+    // Presence preference — read separately so the shell still loads if
+    // migration 0047 hasn't been applied yet (missing column → defaults to "auto").
+    const { data: pm } = await supabase.from("profiles").select("presence_mode").eq("id", user.id).maybeSingle();
+    if (pm?.presence_mode) presenceMode = pm.presence_mode as PresenceMode;
+
     const { data: r } = await supabase.rpc("current_admin_role");
     adminRole = typeof r === "string" ? r : null;
     const { count } = await supabase
@@ -65,6 +76,29 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     unread = count ?? 0;
     const { data: cu } = await supabase.rpc("chat_unread_count");
     chatUnread = typeof cu === "number" ? cu : 0;
+
+    // Next scheduled match → top-bar reminder chip.
+    const { data: parts } = await supabase.from("match_participants").select("match_id").eq("user_id", user.id);
+    const mIds = [...new Set((parts ?? []).map((x) => x.match_id))];
+    if (mIds.length) {
+      const { data: nm } = await supabase
+        .from("matches")
+        .select("id, sport_key, scheduled_at, location_text, court_id")
+        .in("id", mIds)
+        .in("status", ["open", "scheduled"])
+        .gte("scheduled_at", new Date().toISOString())
+        .order("scheduled_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (nm) {
+        let place: string | null = nm.location_text ?? null;
+        if (nm.court_id) {
+          const { data: c } = await supabase.from("courts").select("name").eq("id", nm.court_id).maybeSingle();
+          if (c?.name) place = c.name;
+        }
+        nextMatch = { id: nm.id, sportKey: nm.sport_key, scheduledAt: nm.scheduled_at, place };
+      }
+    }
   }
 
   // Logged-out: simple top bar + content + footer (marketing / auth pages).
@@ -81,13 +115,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   // Signed-in: glassy left sidebar (desktop) + bottom tab bar (mobile).
   return (
     <div className="flex min-h-dvh">
-      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} email={user?.email ?? null} adminRole={!!adminRole} unreadCount={unread} chatUnread={chatUnread} />
+      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} email={user?.email ?? null} adminRole={!!adminRole} presenceMode={presenceMode} />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar unreadCount={unread} />
+        <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} />
         <main className="flex-1">{children}</main>
         <SiteFooter authed />
         <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
       </div>
+      <CommandPalette />
     </div>
   );
 }

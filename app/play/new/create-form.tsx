@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { createMatch } from "./actions";
 import { SPORTS } from "@/lib/sports";
 import { CourtPicker } from "./court-picker";
+import { DateTimePicker } from "./datetime-picker";
 import type { PickerCourt } from "@/app/courts/search-actions";
 
 export function CreateMatchForm({
@@ -94,16 +95,13 @@ export function CreateMatchForm({
           {/* when + slots */}
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label htmlFor="scheduled_at" className="kicker text-faint">
+              <label className="kicker text-faint">
                 When <span className="font-sans normal-case tracking-normal text-faint">(optional)</span>
               </label>
-              <input
-                id="scheduled_at"
-                name="scheduled_at"
-                type="datetime-local"
-                className="mt-2 w-full rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand"
-              />
-              <p className="mt-1.5 text-xs text-faint">Leave blank for open / anytime play.</p>
+              <div className="mt-2">
+                <DateTimePicker />
+              </div>
+              <p className="mt-1.5 text-xs text-faint">Leave blank for open / anytime play. Times are in 15-minute steps.</p>
             </div>
             <div>
               <label htmlFor="slots" className="kicker text-faint">Players needed</label>

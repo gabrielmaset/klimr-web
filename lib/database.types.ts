@@ -87,6 +87,7 @@ export interface Database {
           signup_code: string | null;
           created_at: string;
           last_seen_at: string | null;
+          presence_mode: string;
         };
         Insert: {
           id: string;
@@ -117,6 +118,7 @@ export interface Database {
           suspended_until?: string | null;
           created_at?: string;
           last_seen_at?: string | null;
+          presence_mode?: string;
         };
         Update: {
           display_name?: string;
@@ -145,6 +147,7 @@ export interface Database {
           archived_at?: string | null;
           suspended_until?: string | null;
           last_seen_at?: string | null;
+          presence_mode?: string;
         };
         Relationships: [];
       };

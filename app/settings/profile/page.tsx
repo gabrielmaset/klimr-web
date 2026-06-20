@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { ChevronLeft, ImageIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileBasicsForm, type ProfileInitial } from "./profile-form";
+import { PresenceControl } from "../presence-control";
+import type { PresenceMode } from "@/app/account/presence";
 
 export const metadata: Metadata = { title: "Profile & bio · Settings" };
 
@@ -28,6 +30,9 @@ export default async function EditProfilePage() {
     dob: p?.date_of_birth ?? "",
     zip: p?.home_zip ?? "",
   };
+  // Separate read so this page still works before migration 0047 is applied.
+  const { data: pm } = await supabase.from("profiles").select("presence_mode").eq("id", user.id).maybeSingle();
+  const presenceMode = (pm?.presence_mode as PresenceMode) ?? "auto";
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
@@ -48,6 +53,14 @@ export default async function EditProfilePage() {
 
       <div className="mt-6 rounded-2xl border border-rule bg-surface p-5 sm:p-6">
         <ProfileBasicsForm initial={initial} />
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-rule bg-surface p-5 sm:p-6">
+        <h2 className="text-sm font-semibold text-ink">Online status</h2>
+        <p className="mt-1 text-xs text-mute">Sets the status dot others see. You can also switch it anytime from the status pill in your top bar.</p>
+        <div className="mt-4">
+          <PresenceControl initialMode={presenceMode} />
+        </div>
       </div>
     </div>
   );

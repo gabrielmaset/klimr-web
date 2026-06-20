@@ -4,19 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Newspaper, MessageCircle, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut, Bell,
+  Newspaper, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut,
   Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
   User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox,
 } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
+import type { PresenceMode } from "@/app/account/presence";
 
 const MAIN = [
   { href: "/me", label: "My profile", Icon: User },
   { href: "/feed", label: "Feed", Icon: Newspaper },
-  { href: "/chats", label: "Chats", Icon: MessageCircle },
-  { href: "/notifications", label: "Notifications", Icon: Bell },
   { href: "/network", label: "Network", Icon: Contact },
   { href: "/invites", label: "Invites", Icon: Inbox },
   { href: "/play", label: "Play", Icon: Swords },
@@ -42,20 +41,19 @@ export function SideNav({
   avatarName,
   email,
   adminRole,
-  unreadCount,
-  chatUnread,
+  presenceMode,
 }: {
   avatarUrl: string | null;
   avatarHue: number;
   avatarName: string;
   email: string | null;
   adminRole: boolean;
-  unreadCount: number;
-  chatUnread: number;
+  presenceMode: PresenceMode;
 }) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const activeIndex = MAIN.findIndex((i) => isActive(i.href));
+  const presenceDot = presenceMode === "away" ? "#f59e0b" : presenceMode === "offline" ? "#a1a1aa" : "#16a34a";
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -102,7 +100,6 @@ export function SideNav({
           />
           {MAIN.map(({ href, label, Icon }) => {
             const active = isActive(href);
-            const badge = href === "/chats" ? chatUnread : href === "/notifications" ? unreadCount : 0;
             return (
               <Link
                 key={href}
@@ -114,11 +111,6 @@ export function SideNav({
               >
                 <Icon size={18} className={active ? "text-brand" : "text-mute"} />
                 {label}
-                {badge > 0 ? (
-                  <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
-                    {badge > 99 ? "99+" : badge}
-                  </span>
-                ) : null}
               </Link>
             );
           })}
@@ -209,7 +201,14 @@ export function SideNav({
               aria-expanded={menuOpen}
               className="lift flex w-full items-center gap-2.5 rounded-2xl bg-black/[0.04] p-2 transition-colors hover:bg-black/[0.07]"
             >
-              <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={30} ring />
+              <span className="relative shrink-0">
+                <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={30} ring />
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface"
+                  style={{ background: presenceDot }}
+                  aria-hidden
+                />
+              </span>
               <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-ink">{avatarName}</span>
               <ChevronsUpDown size={15} className="shrink-0 text-faint" />
             </button>

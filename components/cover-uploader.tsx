@@ -54,7 +54,10 @@ export function CoverUploader({ initialUrl, hue }: { initialUrl: string | null; 
         <img src={url} alt="Your cover photo" className="h-full w-full object-cover" />
       ) : null}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pick} />
-      <div className="absolute bottom-3 right-3 flex items-center gap-2">
+      {/* z-20 keeps these controls above the identity header (z-10), which is
+          pulled up over the cover with a negative margin and would otherwise
+          sit on top of this button and swallow the click. */}
+      <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2">
         {url ? (
           <button
             type="button"
