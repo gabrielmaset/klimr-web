@@ -170,7 +170,9 @@ export async function createTournament(formData: FormData) {
     .single();
   if (error || !created) {
     console.error("[tournaments] create failed", error?.code, error?.message);
-    redirect(`/tournaments/new?error=create${error?.code ? `&code=${encodeURIComponent(error.code)}` : ""}`);
+    const code = error?.code ? `&code=${encodeURIComponent(error.code)}` : "";
+    const msg = error?.message ? `&msg=${encodeURIComponent(error.message.slice(0, 180))}` : "";
+    redirect(`/tournaments/new?error=create${code}${msg}`);
   }
 
   redirect(`/tournament/${created.id}`);

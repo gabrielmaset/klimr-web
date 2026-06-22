@@ -18,8 +18,8 @@ const field =
   "w-full rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand";
 const labelCls = "mb-1.5 block text-xs font-semibold text-mute";
 
-export default async function NewTournamentPage({ searchParams }: { searchParams: Promise<{ error?: string; code?: string }> }) {
-  const { error, code } = await searchParams;
+export default async function NewTournamentPage({ searchParams }: { searchParams: Promise<{ error?: string; code?: string; msg?: string }> }) {
+  const { error, code, msg } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -143,6 +143,7 @@ export default async function NewTournamentPage({ searchParams }: { searchParams
           <p className="mt-3 rounded-xl bg-tint-brand px-3.5 py-2.5 text-sm text-brand-deep">
             {ERROR_COPY[error]}
             {error === "create" && code ? <span className="mt-1 block font-mono text-xs text-mute">Error code: {code}</span> : null}
+            {error === "create" && msg ? <span className="mt-0.5 block font-mono text-[11px] text-faint">{msg}</span> : null}
           </p>
         ) : null}
 
