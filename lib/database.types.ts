@@ -15,6 +15,24 @@ export type ReportReason =
   | "other";
 export type ModerationStatus = "pending" | "approved" | "rejected" | "flagged";
 
+export type TournamentStatus =
+  | "draft"
+  | "published"
+  | "registration_open"
+  | "registration_closed"
+  | "in_progress"
+  | "completed"
+  | "archived"
+  | "cancelled";
+export type TournamentEntryType = "individual" | "team";
+export type TournamentVisibility = "public" | "unlisted";
+export type RegistrationStatus = "pending" | "confirmed" | "waitlisted" | "withdrawn" | "declined";
+export type PaymentStatus = "unpaid" | "proof_submitted" | "confirmed" | "denied";
+export type PaymentSubmissionStatus = "submitted" | "confirmed" | "denied";
+export type CustomFieldType = "short_text" | "long_text" | "single_select" | "multi_select" | "number" | "date";
+export type FeeBasis = "per_team" | "per_player";
+export type FieldScope = "per_team" | "per_player";
+
 export type Json =
   | string
   | number
@@ -758,9 +776,15 @@ export interface Database {
         Relationships: [];
       };
       teams: {
-        Row: { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null; created_by: string; created_at: string };
-        Insert: { id?: string; name: string; sport_key: string; city?: string | null; neighborhood?: string | null; created_by: string; created_at?: string };
-        Update: { name?: string; city?: string | null; neighborhood?: string | null; created_by?: string };
+        Row: { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null; category: string; created_by: string; created_at: string };
+        Insert: { id?: string; name: string; sport_key: string; city?: string | null; neighborhood?: string | null; category?: string; created_by: string; created_at?: string };
+        Update: { name?: string; city?: string | null; neighborhood?: string | null; category?: string; created_by?: string };
+        Relationships: [];
+      };
+      login_events: {
+        Row: { id: string; user_id: string; created_at: string; ip: string | null; user_agent: string | null; device: string | null; browser: string | null; os: string | null; city: string | null; region: string | null; country: string | null };
+        Insert: { id?: string; user_id: string; created_at?: string; ip?: string | null; user_agent?: string | null; device?: string | null; browser?: string | null; os?: string | null; city?: string | null; region?: string | null; country?: string | null };
+        Update: { ip?: string | null };
         Relationships: [];
       };
       team_members: {
@@ -773,6 +797,167 @@ export interface Database {
         Row: { id: string; team_id: string; invited_user_id: string; invited_by: string; status: string; created_at: string };
         Insert: { id?: string; team_id: string; invited_user_id: string; invited_by: string; status?: string; created_at?: string };
         Update: { status?: string };
+        Relationships: [];
+      };
+      tournaments: {
+        Row: {
+          id: string;
+          owner_id: string;
+          code: string;
+          title: string;
+          sport_key: string;
+          status: string;
+          entry_type: string;
+          visibility: string;
+          summary: string | null;
+          description: string | null;
+          starts_at: string | null;
+          ends_at: string | null;
+          timezone: string | null;
+          location_name: string | null;
+          location_address: string | null;
+          location_lat: number | null;
+          location_lng: number | null;
+          location_place_id: string | null;
+          registration_opens_at: string | null;
+          registration_deadline: string | null;
+          capacity: number | null;
+          min_women: number;
+          min_men: number;
+          reserves_allowed: number;
+          cover_path: string | null;
+          logo_path: string | null;
+          weather_enabled: boolean;
+          format_config: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          code: string;
+          title: string;
+          sport_key: string;
+          status?: string;
+          entry_type?: string;
+          visibility?: string;
+          summary?: string | null;
+          description?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          timezone?: string | null;
+          location_name?: string | null;
+          location_address?: string | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_place_id?: string | null;
+          registration_opens_at?: string | null;
+          registration_deadline?: string | null;
+          capacity?: number | null;
+          min_women?: number;
+          min_men?: number;
+          reserves_allowed?: number;
+          cover_path?: string | null;
+          logo_path?: string | null;
+          weather_enabled?: boolean;
+          format_config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          sport_key?: string;
+          status?: string;
+          entry_type?: string;
+          visibility?: string;
+          summary?: string | null;
+          description?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          timezone?: string | null;
+          location_name?: string | null;
+          location_address?: string | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_place_id?: string | null;
+          registration_opens_at?: string | null;
+          registration_deadline?: string | null;
+          capacity?: number | null;
+          min_women?: number;
+          min_men?: number;
+          reserves_allowed?: number;
+          cover_path?: string | null;
+          logo_path?: string | null;
+          weather_enabled?: boolean;
+          format_config?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      tournament_managers: {
+        Row: { tournament_id: string; user_id: string; role: string; created_at: string };
+        Insert: { tournament_id: string; user_id: string; role?: string; created_at?: string };
+        Update: { role?: string };
+        Relationships: [];
+      };
+      tournament_divisions: {
+        Row: { id: string; tournament_id: string; name: string; description: string | null; fee_cents: number; fee_basis: string; capacity: number | null; sort_order: number; created_at: string; updated_at: string };
+        Insert: { id?: string; tournament_id: string; name: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; sort_order?: number; created_at?: string; updated_at?: string };
+        Update: { name?: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; sort_order?: number; updated_at?: string };
+        Relationships: [];
+      };
+      tournament_groups: {
+        Row: { id: string; tournament_id: string; division_id: string; name: string; sort_order: number; created_at: string };
+        Insert: { id?: string; tournament_id: string; division_id: string; name: string; sort_order?: number; created_at?: string };
+        Update: { name?: string; sort_order?: number };
+        Relationships: [];
+      };
+      tournament_draws: {
+        Row: { id: string; tournament_id: string; division_id: string; draw_number: number; drawn_by: string | null; drawn_at: string };
+        Insert: { id?: string; tournament_id: string; division_id: string; draw_number: number; drawn_by?: string | null; drawn_at?: string };
+        Update: { draw_number?: number };
+        Relationships: [];
+      };
+      tournament_group_entries: {
+        Row: { id: string; group_id: string; tournament_id: string; division_id: string; registration_id: string; seed: number | null; sort_order: number };
+        Insert: { id?: string; group_id: string; tournament_id: string; division_id: string; registration_id: string; seed?: number | null; sort_order?: number };
+        Update: { seed?: number | null; sort_order?: number; group_id?: string };
+        Relationships: [];
+      };
+      tournament_points: {
+        Row: { id: string; user_id: string; sport_key: string; tournament_id: string; division_id: string; registration_id: string | null; points: number; place: number | null; field_size: number | null; played: boolean; earned_at: string; created_at: string };
+        Insert: { id?: string; user_id: string; sport_key: string; tournament_id: string; division_id: string; registration_id?: string | null; points?: number; place?: number | null; field_size?: number | null; played?: boolean; earned_at?: string; created_at?: string };
+        Update: { points?: number; place?: number | null; field_size?: number | null; played?: boolean; earned_at?: string };
+        Relationships: [];
+      };
+      tournament_matches: {
+        Row: { id: string; tournament_id: string; division_id: string; group_id: string | null; bracket: string; round: number; slot: number; entry_a: string | null; entry_b: string | null; score_a: number | null; score_b: number | null; winner_id: string | null; status: string; scheduled_at: string | null; court: string | null; next_match_id: string | null; next_slot: string | null; sort_order: number; created_at: string; updated_at: string };
+        Insert: { id?: string; tournament_id: string; division_id: string; group_id?: string | null; bracket?: string; round?: number; slot?: number; entry_a?: string | null; entry_b?: string | null; score_a?: number | null; score_b?: number | null; winner_id?: string | null; status?: string; scheduled_at?: string | null; court?: string | null; next_match_id?: string | null; next_slot?: string | null; sort_order?: number; created_at?: string; updated_at?: string };
+        Update: { group_id?: string | null; bracket?: string; round?: number; slot?: number; entry_a?: string | null; entry_b?: string | null; score_a?: number | null; score_b?: number | null; winner_id?: string | null; status?: string; scheduled_at?: string | null; court?: string | null; next_match_id?: string | null; next_slot?: string | null; sort_order?: number; updated_at?: string };
+        Relationships: [];
+      };
+      tournament_custom_fields: {
+        Row: { id: string; tournament_id: string; label: string; description: string | null; field_type: string; options: Json; required: boolean; scope: string; sort_order: number; created_at: string };
+        Insert: { id?: string; tournament_id: string; label: string; description?: string | null; field_type?: string; options?: Json; required?: boolean; scope?: string; sort_order?: number; created_at?: string };
+        Update: { label?: string; description?: string | null; field_type?: string; options?: Json; required?: boolean; scope?: string; sort_order?: number };
+        Relationships: [];
+      };
+      tournament_registrations: {
+        Row: { id: string; tournament_id: string; division_id: string | null; team_id: string | null; registrant_id: string; status: string; payment_status: string; team_answers: Json; waitlist_position: number | null; created_at: string; updated_at: string };
+        Insert: { id?: string; tournament_id: string; division_id?: string | null; team_id?: string | null; registrant_id: string; status?: string; payment_status?: string; team_answers?: Json; waitlist_position?: number | null; created_at?: string; updated_at?: string };
+        Update: { division_id?: string | null; team_id?: string | null; status?: string; payment_status?: string; team_answers?: Json; waitlist_position?: number | null; updated_at?: string };
+        Relationships: [];
+      };
+      tournament_registration_players: {
+        Row: { id: string; registration_id: string; tournament_id: string; user_id: string; is_reserve: boolean; played: boolean | null; waiver_accepted_at: string | null; waiver_version: string | null; rules_accepted_at: string | null; rules_version: string | null; player_answers: Json; confirmed_at: string | null; created_at: string };
+        Insert: { id?: string; registration_id: string; tournament_id: string; user_id: string; is_reserve?: boolean; played?: boolean | null; waiver_accepted_at?: string | null; waiver_version?: string | null; rules_accepted_at?: string | null; rules_version?: string | null; player_answers?: Json; confirmed_at?: string | null; created_at?: string };
+        Update: { is_reserve?: boolean; played?: boolean | null; waiver_accepted_at?: string | null; waiver_version?: string | null; rules_accepted_at?: string | null; rules_version?: string | null; player_answers?: Json; confirmed_at?: string | null };
+        Relationships: [];
+      };
+      tournament_payments: {
+        Row: { id: string; registration_id: string; tournament_id: string; submitted_by: string; proof_path: string | null; amount_cents: number | null; status: string; deny_reason: string | null; reviewed_by: string | null; reviewed_at: string | null; created_at: string };
+        Insert: { id?: string; registration_id: string; tournament_id: string; submitted_by: string; proof_path?: string | null; amount_cents?: number | null; status?: string; deny_reason?: string | null; reviewed_by?: string | null; reviewed_at?: string | null; created_at?: string };
+        Update: { proof_path?: string | null; amount_cents?: number | null; status?: string; deny_reason?: string | null; reviewed_by?: string | null; reviewed_at?: string | null };
         Relationships: [];
       };
       court_search_cache: {
@@ -1003,6 +1188,7 @@ export interface Database {
       claim_live_search: { Args: { p_month: string; p_cap: number }; Returns: boolean };
       generate_invite_codes: { Args: { p_count: number; p_max_uses?: number; p_note?: string | null }; Returns: string[] };
       generate_investor_codes: { Args: { p_count: number; p_note?: string | null }; Returns: string[] };
+      check_rate_limit: { Args: { p_key: string; p_max: number; p_window_seconds: number }; Returns: boolean };
     };
     Enums: {
       verification_status: VerificationStatus;

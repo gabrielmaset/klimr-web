@@ -16,8 +16,11 @@ export default async function TeamLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/team/${teamId}`);
 
-  const { data: team } = await supabase.from("teams").select("id, name, sport_key").eq("id", teamId).maybeSingle();
+  const { data: team } = await supabase.from("teams").select("id, name, sport_key, category").eq("id", teamId).maybeSingle();
   if (!team) notFound();
+
+  // Recreational teams use the basic in-shell page, not the full Pro workspace.
+  if (team.category !== "pro") redirect(`/teams/${teamId}`);
 
   // Only members enter the workspace; everyone else gets the public team page.
   const { data: membership } = await supabase
@@ -37,10 +40,10 @@ export default async function TeamLayout({
 
   const { data: tm } = await supabase.from("team_members").select("team_id").eq("user_id", user.id);
   const ids = [...new Set((tm ?? []).map((r) => r.team_id))];
-  let teams: { id: string; name: string; sport_key: string }[] = [];
+  let teams: { id: string; name: string; sport_key: string; category: string }[] = [];
   if (ids.length) {
-    const { data } = await supabase.from("teams").select("id, name, sport_key").in("id", ids);
-    teams = (data as { id: string; name: string; sport_key: string }[] | null) ?? [];
+    const { data } = await supabase.from("teams").select("id, name, sport_key, category").in("id", ids);
+    teams = (data as { id: string; name: string; sport_key: string; category: string }[] | null) ?? [];
   }
 
   return (

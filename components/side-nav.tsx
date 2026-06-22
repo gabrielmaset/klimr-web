@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Newspaper, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut,
   Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
-  User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox,
+  User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox, Medal, IdCard,
 } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
@@ -14,27 +14,44 @@ import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
 import type { PresenceMode } from "@/app/account/presence";
 
-const MAIN = [
-  { href: "/me", label: "My profile", Icon: User },
-  { href: "/feed", label: "Feed", Icon: Newspaper },
-  { href: "/network", label: "Network", Icon: Contact },
-  { href: "/invites", label: "Invites", Icon: Inbox },
-  { href: "/play", label: "Play", Icon: Swords },
-  { href: "/discover", label: "Discover", Icon: Radar },
-  { href: "/rankings", label: "Rankings", Icon: Trophy },
-];
+type Item = { href: string; label: string; Icon: typeof Newspaper };
 
-const EXPLORE = [
-  { href: "/challenges", label: "Challenges", Icon: Flag },
-  { href: "/teams", label: "Teams", Icon: Users },
-  { href: "/courts", label: "Courts", Icon: MapPin },
-  { href: "/events", label: "Events", Icon: CalendarDays },
-  { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
-  { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
-  { href: "/resources", label: "Resources", Icon: BookOpen },
+// Grouped by intent — Home essentials, then Compete, Community, and Discover.
+const GROUPS: { header?: string; items: Item[] }[] = [
+  {
+    items: [
+      { href: "/feed", label: "Feed", Icon: Newspaper },
+      { href: "/play", label: "Play", Icon: Swords },
+      { href: "/rankings", label: "Rankings", Icon: Trophy },
+    ],
+  },
+  {
+    header: "Compete",
+    items: [
+      { href: "/challenges", label: "Challenges", Icon: Flag },
+      { href: "/tournaments", label: "Tournaments", Icon: Medal },
+      { href: "/events", label: "Events", Icon: CalendarDays },
+    ],
+  },
+  {
+    header: "Community",
+    items: [
+      { href: "/network", label: "Network", Icon: Contact },
+      { href: "/invites", label: "Invites", Icon: Inbox },
+      { href: "/teams", label: "Teams", Icon: Users },
+    ],
+  },
+  {
+    header: "Discover",
+    items: [
+      { href: "/discover", label: "Players", Icon: Radar },
+      { href: "/courts", label: "Courts", Icon: MapPin },
+      { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
+      { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
+      { href: "/resources", label: "Resources", Icon: BookOpen },
+    ],
+  },
 ];
-
-const SLOT = 48; // 44px item (h-11) + 4px gap
 
 export function SideNav({
   avatarUrl,
@@ -51,11 +68,10 @@ export function SideNav({
   email: string | null;
   adminRole: boolean;
   presenceMode: PresenceMode;
-  teams: { id: string; name: string; sport_key: string }[];
+  teams: { id: string; name: string; sport_key: string; category?: string }[];
 }) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
-  const activeIndex = MAIN.findIndex((i) => isActive(i.href));
   const presenceDot = presenceMode === "away" ? "#f59e0b" : presenceMode === "offline" ? "#a1a1aa" : "#16a34a";
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -80,83 +96,57 @@ export function SideNav({
     };
   }, [menuOpen]);
 
+  const navLink = (active: boolean) =>
+    `flex h-11 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
+      active ? "bg-rail-activebg text-rail-active" : "text-rail-fg hover:bg-rail-hover hover:text-white"
+    }`;
   const footerLink = (active: boolean) =>
     `flex h-10 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
-      active ? "bg-tint-brand text-brand-deep" : "text-ink hover:text-brand-deep"
+      active ? "bg-rail-activebg text-rail-active" : "text-rail-fg hover:bg-rail-hover hover:text-white"
     }`;
   const menuItem = "flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-ink transition-colors hover:bg-bg";
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
-      <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-rule/60 bg-white/70 px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.2)] backdrop-blur-2xl backdrop-saturate-150">
+      <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
         <Link href="/" aria-label="Klimr home" className="px-3">
-          <KlimrLogo />
+          <KlimrLogo tone="light" />
         </Link>
 
-        <p className="kicker mb-1 mt-7 px-3 text-faint">Main</p>
-        <nav className="relative flex flex-col gap-1" aria-label="Main">
-          {/* highlight that slides to the active item */}
-          <span
-            className="pointer-events-none absolute left-0 right-0 h-11 rounded-2xl bg-tint-brand transition-all duration-300 ease-out"
-            style={{ top: activeIndex * SLOT, opacity: activeIndex < 0 ? 0 : 1 }}
-            aria-hidden
-          />
-          {MAIN.map(({ href, label, Icon }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`relative z-10 flex h-11 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
-                  active ? "text-brand-deep" : "text-ink hover:text-brand-deep"
-                }`}
-              >
-                <Icon size={18} className={active ? "text-brand" : "text-mute"} />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <p className="kicker mb-1 mt-6 px-3 text-faint">Explore</p>
-        <nav className="flex flex-col gap-1" aria-label="Explore">
-          {EXPLORE.map(({ href, label, Icon }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`flex h-11 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
-                  active ? "bg-tint-brand text-brand-deep" : "text-ink hover:text-brand-deep"
-                }`}
-              >
-                <Icon size={18} className={active ? "text-brand" : "text-mute"} />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+        {GROUPS.map((g, gi) => (
+          <div key={g.header ?? "primary"} className={gi === 0 ? "mt-7" : "mt-6"}>
+            {g.header ? <p className="kicker mb-1 px-3 text-rail-muted">{g.header}</p> : null}
+            <nav className="flex flex-col gap-1" aria-label={g.header ?? "Main"}>
+              {g.items.map(({ href, label, Icon }) => {
+                const active = isActive(href);
+                return (
+                  <Link key={href} href={href} aria-current={active ? "page" : undefined} className={navLink(active)}>
+                    <Icon size={18} className={active ? "text-brand" : "text-rail-muted"} />
+                    {label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        ))}
 
         <div className="flex-1" />
 
-        {/* Admin — a special destination, on its own line above the account
-            divider, with guaranteed space from Explore on short screens. */}
+        {/* Admin — special destination above the account divider. */}
         {adminRole ? (
           <Link href="/admin" aria-current={isActive("/admin") ? "page" : undefined} className={`mt-6 ${footerLink(isActive("/admin"))}`}>
-            <ShieldCheck size={17} className={isActive("/admin") ? "text-brand" : "text-mute"} />
+            <ShieldCheck size={17} className={isActive("/admin") ? "text-brand" : "text-rail-muted"} />
             Admin
           </Link>
         ) : null}
 
         {/* Account / footer */}
-        <div className="mt-3 border-t border-rule/60 pt-3">
-          <p className="kicker mb-1 px-3 text-faint">Account</p>
+        <div className="mt-3 border-t border-rail-border pt-3">
+          <p className="kicker mb-1 px-3 text-rail-muted">Account</p>
           <Link href="/invite" aria-current={isActive("/invite") ? "page" : undefined} className={footerLink(isActive("/invite"))}>
-            <Gift size={17} className={isActive("/invite") ? "text-brand" : "text-mute"} />
+            <Gift size={17} className={isActive("/invite") ? "text-brand" : "text-rail-muted"} />
             Invite friends
-            <span className="ml-auto rounded-full bg-[#f4f4f5] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
+            <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rail-muted">Soon</span>
           </Link>
 
           {/* User menu — opens upward, Claude-style */}
@@ -172,6 +162,9 @@ export function SideNav({
                   {email ? <p className="truncate text-xs text-faint">{email}</p> : null}
                 </div>
                 <div className="py-1">
+                  <Link href="/me" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
+                    <IdCard size={15} className="text-mute" /> My profile
+                  </Link>
                   <Link href="/account" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
                     <User size={15} className="text-mute" /> Your account
                   </Link>
@@ -184,7 +177,7 @@ export function SideNav({
                   <p className="kicker px-3.5 pb-1 pt-1.5 text-faint">Switch to a team</p>
                   {teams.length > 0 ? (
                     teams.map((t) => (
-                      <Link key={t.id} href={`/team/${t.id}`} role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
+                      <Link key={t.id} href={t.category === "pro" ? `/team/${t.id}` : `/teams/${t.id}`} role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
                         <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[#f4f4f5] text-[11px]">{sportMeta(t.sport_key).emoji}</span>
                         <span className="truncate">{t.name}</span>
                       </Link>
@@ -218,7 +211,7 @@ export function SideNav({
               onClick={() => setMenuOpen((o) => !o)}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              className="lift flex w-full items-center gap-2.5 rounded-2xl bg-black/[0.04] p-2 transition-colors hover:bg-black/[0.07]"
+              className="lift flex w-full items-center gap-2.5 rounded-2xl bg-white/[0.06] p-2 transition-colors hover:bg-white/[0.10]"
             >
               <span className="relative shrink-0">
                 <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={30} ring />
@@ -228,8 +221,8 @@ export function SideNav({
                   aria-hidden
                 />
               </span>
-              <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-ink">{avatarName}</span>
-              <ChevronsUpDown size={15} className="shrink-0 text-faint" />
+              <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-rail-fg">{avatarName}</span>
+              <ChevronsUpDown size={15} className="shrink-0 text-rail-muted" />
             </button>
           </div>
         </div>

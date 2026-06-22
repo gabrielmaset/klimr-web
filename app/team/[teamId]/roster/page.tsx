@@ -1,15 +1,15 @@
 import { redirect } from "next/navigation";
-import { Users, Crown } from "lucide-react";
+import { Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
+import { TeamSticker } from "@/components/team-sticker";
 import { InviteSearch } from "@/app/teams/[id]/InviteSearch";
 import { MemberControls } from "@/app/teams/[id]/MemberControls";
 
-const ROLE_LABEL: Record<string, string> = { owner: "Owner", manager: "Manager", staff: "Staff", member: "Member" };
-const DESIG_LABEL: Record<string, string> = { captain: "Captain", co_captain: "Co-captain", sub: "Sub" };
-
-type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null };
+type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null };
 type FriendForInvite = { id: string; display_name: string; avatar_hue: number; avatar_url: string | null; city: string | null };
+type Stat = { points: number; skill: string | null; matches: number; wins: number };
+type PsRow = { user_id: string; points: number; skill_level: string; matches_played: number; wins: number };
 
 export default async function TeamRoster({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
@@ -19,7 +19,7 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/team/${teamId}/roster`);
 
-  const { data: team } = await supabase.from("teams").select("id, name").eq("id", teamId).maybeSingle();
+  const { data: team } = await supabase.from("teams").select("id, name, sport_key").eq("id", teamId).maybeSingle();
   if (!team) redirect("/teams");
 
   const { data: memberRows } = await supabase.from("team_members").select("user_id, role, designation, joined_at").eq("team_id", teamId).order("joined_at");
@@ -32,10 +32,19 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
 
   const profById = new Map<string, Prof>();
   if (memberIds.length) {
-    const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path").in("id", memberIds);
+    const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path, city").in("id", memberIds);
     for (const p of (profs as Prof[] | null) ?? []) profById.set(p.id, p);
   }
   const avatarUrl = (p: Prof | undefined) => (p?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null);
+
+  // Per-member record for this team's sport — powers the sticker stat line.
+  const statById = new Map<string, Stat>();
+  if (memberIds.length) {
+    const { data: ps } = await supabase.from("player_sports").select("user_id, points, skill_level, matches_played, wins").eq("sport_key", team.sport_key).in("user_id", memberIds);
+    for (const r of (ps as PsRow[] | null) ?? []) {
+      statById.set(r.user_id, { points: r.points ?? 0, skill: r.skill_level ?? null, matches: r.matches_played ?? 0, wins: r.wins ?? 0 });
+    }
+  }
 
   // Inviters: friends eligible to add + already-pending invites.
   let friendsForInvite: FriendForInvite[] = [];
@@ -51,8 +60,7 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
     const lookupIds = [...new Set([...candidateIds, ...pendingIds])];
     if (lookupIds.length) {
       const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path, city").in("id", lookupIds);
-      type FullProf = Prof & { city: string | null };
-      const map = new Map(((profs as FullProf[] | null) ?? []).map((p) => [p.id, p]));
+      const map = new Map(((profs as Prof[] | null) ?? []).map((p) => [p.id, p]));
       friendsForInvite = candidateIds
         .map((cid) => map.get(cid))
         .filter(Boolean)
@@ -68,7 +76,7 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
       <div className="mb-5 flex items-end justify-between gap-3">
         <div>
           <p className="kicker mb-1 text-brand-deep">Roster</p>
@@ -101,29 +109,33 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
         </section>
       ) : null}
 
-      {/* members */}
+      {/* squad */}
       <section>
-        <h2 className="kicker mb-2 text-faint">Members</h2>
-        <div className="space-y-2">
+        <h2 className="kicker mb-3 text-faint">Squad</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {members.map((m) => {
             const p = profById.get(m.user_id);
+            const s = statById.get(m.user_id);
             const isMe = m.user_id === user.id;
             return (
-              <div key={m.user_id} className="flex items-center gap-3 rounded-2xl border border-rule bg-surface p-3.5">
-                <Avatar url={avatarUrl(p)} hue={p?.avatar_hue ?? 200} name={p?.display_name ?? "Player"} size={40} />
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 truncate text-sm font-bold text-ink">
-                    {p?.display_name ?? "Player"}
-                    {m.role === "owner" ? <Crown size={13} className="shrink-0 text-pop" aria-label="Owner" /> : null}
-                    {isMe ? <span className="text-xs font-normal text-faint">· you</span> : null}
-                  </p>
-                  <p className="text-xs text-mute">
-                    {ROLE_LABEL[m.role] ?? m.role}
-                    {m.designation ? ` · ${DESIG_LABEL[m.designation] ?? m.designation}` : ""}
-                  </p>
-                </div>
+              <div key={m.user_id} className="relative">
+                <TeamSticker
+                  name={p?.display_name ?? "Player"}
+                  avatarUrl={avatarUrl(p)}
+                  hue={p?.avatar_hue ?? 200}
+                  role={m.role}
+                  designation={m.designation}
+                  city={p?.city ?? null}
+                  skillLevel={s?.skill ?? null}
+                  points={s ? s.points : null}
+                  wins={s ? s.wins : null}
+                  matches={s ? s.matches : null}
+                  isMe={isMe}
+                />
                 {canManage && !isMe ? (
-                  <MemberControls teamId={team.id} userId={m.user_id} name={p?.display_name ?? "Player"} role={m.role} designation={m.designation} viewerIsOwner={isOwner} />
+                  <div className="absolute right-2 top-9 z-20">
+                    <MemberControls teamId={team.id} userId={m.user_id} name={p?.display_name ?? "Player"} role={m.role} designation={m.designation} viewerIsOwner={isOwner} />
+                  </div>
                 ) : null}
               </div>
             );

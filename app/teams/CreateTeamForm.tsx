@@ -38,6 +38,25 @@ export function CreateTeamForm({
       </h2>
       <form action={action} className="mt-3 space-y-3">
         <input name="name" required maxLength={60} placeholder="Team name" className={field} />
+        <fieldset className="space-y-2">
+          <legend className="kicker text-faint">Team type</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-rule bg-bg p-3 has-[:checked]:border-brand has-[:checked]:bg-tint-brand">
+              <input type="radio" name="category" value="recreational" defaultChecked className="mt-0.5 accent-[#ff4e1b]" />
+              <span>
+                <span className="block text-sm font-semibold text-ink">Recreational</span>
+                <span className="block text-xs leading-snug text-mute">For fun, still ranked. A simple team page.</span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-rule bg-bg p-3 has-[:checked]:border-brand has-[:checked]:bg-tint-brand">
+              <input type="radio" name="category" value="pro" className="mt-0.5 accent-[#ff4e1b]" />
+              <span>
+                <span className="block text-sm font-semibold text-ink">Pro</span>
+                <span className="block text-xs leading-snug text-mute">School, club, or competitive team. Full profile workspace.</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
         <div className="grid gap-3 sm:grid-cols-2">
           <select name="sport_key" defaultValue="" required className={field}>
             <option value="" disabled>

@@ -1,9 +1,11 @@
-/** The four Klimr sports. Keys match the DB `sports` table; emoji is presentation. */
+/** The Klimr sports. Keys match the DB `sports` table; emoji is presentation.
+ *  Beach volleyball joins the four racquet sports as a fully ranked sport. */
 export const SPORTS = [
   { key: "tennis", name: "Tennis", emoji: "🎾" },
   { key: "pickleball", name: "Pickleball", emoji: "🏓" },
   { key: "padel", name: "Padel", emoji: "🟡" },
   { key: "racquetball", name: "Racquetball", emoji: "🟦" },
+  { key: "beach_volleyball", name: "Beach Volleyball", emoji: "🏐" },
 ] as const;
 
 export type SportKey = (typeof SPORTS)[number]["key"];

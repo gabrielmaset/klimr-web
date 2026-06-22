@@ -35,14 +35,17 @@ export function KlimrMark({
 export function KlimrLogo({
   markSize = 26,
   textClassName = "text-[26px]",
+  tone = "ink",
 }: {
   markSize?: number;
   textClassName?: string;
+  tone?: "ink" | "light";
 }) {
+  const color = tone === "light" ? "text-white" : "text-ink";
   return (
     <span className="inline-flex items-end gap-2">
-      <KlimrMark size={markSize} className="text-ink" />
-      <span className={`logotype leading-none text-ink ${textClassName}`}>
+      <KlimrMark size={markSize} className={color} />
+      <span className={`logotype leading-none ${color} ${textClassName}`}>
         klimr
       </span>
     </span>

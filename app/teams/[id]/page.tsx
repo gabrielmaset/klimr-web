@@ -27,10 +27,11 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
 
   const { data: team } = await supabase
     .from("teams")
-    .select("id, name, sport_key, city, neighborhood, created_by")
+    .select("id, name, sport_key, city, neighborhood, category, created_by")
     .eq("id", id)
     .maybeSingle();
   if (!team) notFound();
+  const isPro = team.category === "pro";
 
   const meta = sportMeta(team.sport_key);
 
@@ -110,15 +111,24 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         <span className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl bg-tint-brand text-3xl">{meta.emoji}</span>
         <div className="min-w-0">
           <h1 className="truncate font-display text-3xl leading-tight text-ink sm:text-4xl">{team.name}</h1>
-          <p className="flex flex-wrap items-center gap-x-2 text-sm text-mute">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-mute">
             <span>{meta.name}</span>
             <span className="flex items-center gap-1"><Users size={13} /> {members.length}</span>
             {team.city || team.neighborhood ? (
               <span className="flex items-center gap-1"><MapPin size={13} /> {[team.neighborhood, team.city].filter(Boolean).join(", ")}</span>
             ) : null}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${isPro ? "bg-ink text-surface" : "bg-[#f4f4f5] text-ink-soft"}`}>
+              {isPro ? "Pro" : "Recreational"}
+            </span>
           </p>
         </div>
       </div>
+
+      {isPro && amMember ? (
+        <Link href={`/team/${team.id}`} className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+          Open team workspace →
+        </Link>
+      ) : null}
 
       {canManage ? (
         <div className="mt-4">

@@ -16,6 +16,14 @@
   --color-tint-brand: #fff1ed;
   --color-tint-success: #f0fdf4;
 
+  /* Tideline — deep-ocean left navigation rail */
+  --color-rail-fg: #dce9ee;
+  --color-rail-muted: #7e9aa6;
+  --color-rail-border: #143a48;
+  --color-rail-active: #ff8557;
+  --color-rail-activebg: rgba(255, 78, 27, 0.16);
+  --color-rail-hover: rgba(255, 255, 255, 0.06);
+
   /* Type roles — Inter for UI + display, JetBrains Mono for data/codes */
   --font-display: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-kicker: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;

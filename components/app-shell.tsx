@@ -35,11 +35,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // The team workspace (/team/[id]/*) renders its own chrome — see
-  // app/team/[teamId]/layout.tsx — so the personal shell steps aside here.
+  // The team (/team/[id]/*) and tournament (/tournament/[id]/*) workspaces render
+  // their own chrome — see their layouts — so the personal shell steps aside here.
   // (MFA gating above still applies before we get here.)
   const pathname = (await headers()).get("x-pathname") ?? "";
-  if (user && pathname.startsWith("/team/")) {
+  if (user && (pathname.startsWith("/team/") || pathname.startsWith("/tournament/"))) {
     return <>{children}</>;
   }
 
@@ -51,7 +51,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let chatUnread = 0;
   let presenceMode: PresenceMode = "auto";
   let nextMatch: NextMatch = null;
-  let teams: { id: string; name: string; sport_key: string }[] = [];
+  let teams: { id: string; name: string; sport_key: string; category: string }[] = [];
   if (user) {
     const { data: p } = await supabase
       .from("profiles")
@@ -80,8 +80,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     const { data: tm } = await supabase.from("team_members").select("team_id").eq("user_id", user.id);
     const tIds = [...new Set((tm ?? []).map((r) => r.team_id))];
     if (tIds.length) {
-      const { data: ts } = await supabase.from("teams").select("id, name, sport_key").in("id", tIds);
-      teams = (ts as { id: string; name: string; sport_key: string }[] | null) ?? [];
+      const { data: ts } = await supabase.from("teams").select("id, name, sport_key, category").in("id", tIds);
+      teams = (ts as { id: string; name: string; sport_key: string; category: string }[] | null) ?? [];
     }
 
     const { data: r } = await supabase.rpc("current_admin_role");

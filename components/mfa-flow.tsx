@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Check, Copy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { signOutAction } from "@/app/auth/actions";
+import { signOutAction, recordLogin } from "@/app/auth/actions";
 import { factorName } from "@/lib/mfa";
 
 type Phase = "loading" | "enroll" | "challenge" | "done" | "error";
@@ -85,6 +85,7 @@ export function MfaFlow({ next }: { next: string }) {
         setBusy(false);
         return;
       }
+      await recordLogin().catch(() => {});
       setPhase("done");
       router.refresh();
       router.replace(next);

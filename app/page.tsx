@@ -133,7 +133,7 @@ const MARQUEE = [
 ];
 
 const FLOWS: { title: string; body: string; status: "live" | "build" | "soon" }[] = [
-  { title: "Accounts & profile", body: "Email + password or a magic link, required two-factor, home ZIP, primary sport.", status: "live" },
+  { title: "Accounts & profile", body: "A magic link plus required two-factor — no passwords — with home ZIP and primary sport.", status: "live" },
   { title: "Identity verification", body: "Every player verified — the trust floor. Stubbed today, KYC provider next.", status: "live" },
   { title: "Rankings + geo zoom", body: "Per sport, ZIP → neighborhood → city → world. The engine is live; the screen is next.", status: "build" },
   { title: "Match · confirm · void", body: "Two-sided confirmation. A disputed match counts for no one.", status: "soon" },

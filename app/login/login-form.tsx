@@ -1,16 +1,56 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { MailCheck } from "lucide-react";
-import { sendMagicLink, type LoginState } from "./actions";
-
-const initial: LoginState = {};
+import { createClient } from "@/lib/supabase/client";
+import { Turnstile, CAPTCHA_ENABLED } from "@/components/turnstile";
 
 export function LoginForm({ next, linkError }: { next: string; linkError: boolean }) {
   const [email, setEmail] = useState("");
-  const [state, action, pending] = useActionState(sendMagicLink, initial);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [sentEmail, setSentEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  // Magic link dispatched — uniform confirmation (never reveals if the account exists).
-  if (state.sent) {
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const value = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    if (CAPTCHA_ENABLED && !captchaToken) {
+      setError("Please complete the verification challenge.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+
+    const supabase = createClient();
+    const origin = window.location.origin;
+    const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/account";
+    // shouldCreateUser:false — sign-IN only; new accounts go through /signup with an invite.
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: value,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(safeNext)}`,
+        ...(captchaToken ? { captchaToken } : {}),
+      },
+    });
+    // Only surface a CAPTCHA failure; otherwise respond uniformly whether or not the
+    // account exists (never reveal which emails are registered).
+    if (err && /captcha/i.test(err.message)) {
+      setError("Verification failed. Please try the challenge again.");
+      setPending(false);
+      return;
+    }
+    setSentEmail(value);
+    setSent(true);
+    setPending(false);
+  }
+
+  if (sent) {
     return (
       <div className="rise">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-tint-success">
@@ -19,7 +59,7 @@ export function LoginForm({ next, linkError }: { next: string; linkError: boolea
         <h2 className="mt-4 font-display text-2xl text-ink">Check your inbox.</h2>
         <p className="mt-2 text-sm leading-relaxed text-mute">
           If an account exists for{" "}
-          <span className="font-mono text-[13px] text-ink">{state.email}</span>, a sign-in link is on its way.
+          <span className="font-mono text-[13px] text-ink">{sentEmail}</span>, a sign-in link is on its way.
           Open it on this device. If it doesn&apos;t arrive in a minute, check spam.
         </p>
       </div>
@@ -27,13 +67,12 @@ export function LoginForm({ next, linkError }: { next: string; linkError: boolea
   }
 
   return (
-    <form action={action} className="space-y-3">
+    <form onSubmit={submit} className="space-y-3">
       {linkError ? (
         <div role="alert" className="rounded-xl border border-pop bg-pop/25 px-3.5 py-3 text-sm leading-snug text-ink">
           That sign-in link expired or was already used. Request a fresh one below.
         </div>
       ) : null}
-      <input type="hidden" name="next" value={next} />
       <label className="block">
         <span className="kicker text-faint">Email</span>
         <input
@@ -47,6 +86,7 @@ export function LoginForm({ next, linkError }: { next: string; linkError: boolea
           className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
         />
       </label>
+      <Turnstile onToken={setCaptchaToken} />
       <button
         type="submit"
         disabled={pending}
@@ -54,7 +94,7 @@ export function LoginForm({ next, linkError }: { next: string; linkError: boolea
       >
         {pending ? "Sending…" : "Email me a sign-in link"}
       </button>
-      {state.error ? <p role="alert" className="text-sm text-brand-deep">{state.error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-brand-deep">{error}</p> : null}
       <p className="text-xs leading-relaxed text-mute">
         No password needed. You&apos;ll do a quick two-factor check right after the link.
       </p>

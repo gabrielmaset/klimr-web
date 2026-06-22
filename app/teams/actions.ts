@@ -88,12 +88,13 @@ export async function createTeam(_prev: TeamFormState, formData: FormData): Prom
   const sport_key = SPORT_KEYS.includes(sportRaw) ? sportRaw : null;
   const city = String(formData.get("city") ?? "").trim().slice(0, 80) || null;
   const neighborhood = String(formData.get("neighborhood") ?? "").trim().slice(0, 80) || null;
+  const category = String(formData.get("category") ?? "recreational") === "pro" ? "pro" : "recreational";
   if (!name) return { error: "Give your team a name." };
   if (!sport_key) return { error: "Pick a sport." };
 
   const { data: team, error } = await supabase
     .from("teams")
-    .insert({ name, sport_key, city, neighborhood, created_by: user.id })
+    .insert({ name, sport_key, city, neighborhood, category, created_by: user.id })
     .select("id")
     .single();
   if (error || !team) {
@@ -107,7 +108,8 @@ export async function createTeam(_prev: TeamFormState, formData: FormData): Prom
   if (mErr) console.error("[teams] owner membership failed", mErr.code, mErr.message);
 
   revalidatePath("/teams");
-  redirect(`/teams/${team.id}`);
+  // Pro teams get the full workspace; recreational teams use the basic team page.
+  redirect(category === "pro" ? `/team/${team.id}` : `/teams/${team.id}`);
 }
 
 /** Captain edits the team's name and location (sport stays fixed). */

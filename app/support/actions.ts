@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit } from "@/lib/ratelimit";
 
 export type SupportState = { ok?: boolean; error?: string } | undefined;
 
@@ -14,6 +15,10 @@ export async function sendSupportMessage(_prev: SupportState, formData: FormData
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Please sign in first." };
+
+  // Throttle to curb spam/abuse of the outbound mailer.
+  const allowed = await rateLimit(`support:${user.id}`, 5, 600); // 5 / 10 min
+  if (!allowed) return { error: "You've sent several messages just now — please wait a few minutes before sending another." };
 
   const categoryRaw = String(formData.get("category") ?? "question");
   const category = CATEGORIES.includes(categoryRaw) ? categoryRaw : "other";

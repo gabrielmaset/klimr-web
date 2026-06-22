@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { KeyRound, LogOut, ShieldCheck } from "lucide-react";
+import { LogOut, ShieldCheck, Monitor, Smartphone, MapPin, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOutEverywhere } from "./actions";
+import { summarizeUA } from "@/lib/useragent";
 
 export const metadata: Metadata = { title: "Security" };
 
@@ -23,6 +24,16 @@ export default async function SecurityPage() {
       createdAt: f.created_at ?? "",
     }));
 
+  const { data: loginRows } = await supabase
+    .from("login_events")
+    .select("id, created_at, ip, device, browser, os, city, region, country")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const logins = loginRows ?? [];
+  const placeOf = (e: { city: string | null; region: string | null; country: string | null }) =>
+    [e.city, e.region, e.country].filter(Boolean).join(", ");
+
   return (
     <div className="mx-auto max-w-3xl px-5 py-12 lg:py-16">
       <Link href="/account" className="text-sm text-mute transition-colors hover:text-ink">
@@ -30,25 +41,20 @@ export default async function SecurityPage() {
       </Link>
       <h1 className="mt-3 font-display text-4xl text-ink sm:text-5xl">Security</h1>
       <p className="mt-2 text-sm leading-relaxed text-mute">
-        Your password, two-factor authentication, and active sessions.
+        Your sign-in, two-factor authentication, and active sessions.
       </p>
 
       <div className="mt-8 space-y-5">
-        {/* Password */}
+        {/* Sign-in method */}
         <div className="rounded-3xl border border-rule bg-surface p-6">
           <div className="flex items-center gap-2">
-            <KeyRound size={17} className="text-brand" aria-hidden />
-            <span className="kicker text-faint">Password</span>
+            <ShieldCheck size={17} className="text-brand" aria-hidden />
+            <span className="kicker text-faint">Sign-in</span>
           </div>
           <p className="mt-2 text-sm leading-relaxed text-mute">
-            <span className="font-mono text-[13px] text-ink">{user.email}</span>
+            Klimr is passwordless. You sign in with a one-time magic link sent to{" "}
+            <span className="font-mono text-[13px] text-ink">{user.email}</span>, then confirm with your authenticator app — there&apos;s no password to manage or leak.
           </p>
-          <Link
-            href="/reset-password"
-            className="press mt-4 inline-block rounded-full border border-ink px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-ink hover:text-surface"
-          >
-            Change password
-          </Link>
         </div>
 
         {/* Two-factor — read-only status */}
@@ -90,6 +96,52 @@ export default async function SecurityPage() {
         </div>
 
         {/* Sessions */}
+        <div className="rounded-3xl border border-rule bg-surface p-6">
+          <div className="flex items-center gap-2">
+            <Clock size={17} className="text-brand" aria-hidden />
+            <span className="kicker text-faint">Recent sign-ins</span>
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-mute">
+            The most recent times your account completed sign-in, with the device and approximate location.
+            See something you don&apos;t recognize? Sign out of all devices below and email{" "}
+            <a href="mailto:hello@klimr.com?subject=Klimr%20security" className="underline underline-offset-2 hover:text-ink">hello@klimr.com</a>.
+          </p>
+          {logins.length > 0 ? (
+            <ul className="mt-4 space-y-2">
+              {logins.map((e, i) => {
+                const place = placeOf(e);
+                const isMobile = e.device === "Mobile";
+                return (
+                  <li key={e.id} className="flex items-start gap-3 rounded-2xl border border-rule bg-bg px-3.5 py-3">
+                    {isMobile ? <Smartphone size={16} className="mt-0.5 shrink-0 text-mute" aria-hidden /> : <Monitor size={16} className="mt-0.5 shrink-0 text-mute" aria-hidden />}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="text-sm font-semibold text-ink">{summarizeUA(e)}</span>
+                        {e.device ? <span className="text-[12px] text-faint">· {e.device}</span> : null}
+                        {i === 0 ? <span className="rounded-full bg-tint-success px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-success">Most recent</span> : null}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-mute">
+                        {place ? (
+                          <span className="flex items-center gap-1"><MapPin size={12} aria-hidden /> {place}</span>
+                        ) : (
+                          <span>Location unavailable</span>
+                        )}
+                        {e.ip ? <span className="font-mono text-faint">{e.ip}</span> : null}
+                      </div>
+                      <div className="mt-0.5 text-[12px] text-faint">
+                        {new Date(e.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-4 rounded-2xl border border-rule bg-bg px-3.5 py-3 text-sm text-mute">No sign-ins recorded yet — they&apos;ll appear here after your next sign-in.</p>
+          )}
+        </div>
+
+        {/* Active sessions */}
         <div className="rounded-3xl border border-rule bg-surface p-6">
           <div className="flex items-center gap-2">
             <LogOut size={17} className="text-brand" aria-hidden />

@@ -11,16 +11,17 @@ import type { NextConfig } from "next";
  */
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  // Cloudflare Turnstile (bot/abuse protection on auth) loads a script + iframe.
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   // Mapbox GL decodes tiles in a worker created from a blob: URL.
   "worker-src 'self' blob:",
   "child-src blob:",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com",
   "font-src 'self' data:",
-  // Supabase (auth/storage/realtime) + Mapbox (styles, tiles, glyphs, telemetry).
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com",
-  "frame-src https://www.openstreetmap.org",
+  // Supabase (auth/storage/realtime) + Mapbox (styles, tiles, glyphs, telemetry) + Turnstile verify.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com https://challenges.cloudflare.com",
+  "frame-src https://www.openstreetmap.org https://challenges.cloudflare.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -1,14 +1,78 @@
 "use client";
-import { useActionState } from "react";
+import { useState, type FormEvent } from "react";
 import { MailCheck } from "lucide-react";
-import { signUpWithInvite, type SignupState } from "./signup-actions";
-
-const initial: SignupState = {};
+import { createClient } from "@/lib/supabase/client";
+import { precheckInvite } from "./signup-actions";
+import { Turnstile, CAPTCHA_ENABLED } from "@/components/turnstile";
 
 export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
-  const [state, action, pending] = useActionState(signUpWithInvite, initial);
+  const [first, setFirst] = useState("");
+  const [last, setLast] = useState("");
+  const [code, setCode] = useState(initialCode);
+  const [email, setEmail] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [sentEmail, setSentEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  if (state.ok) {
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const f = first.trim().slice(0, 40);
+    const l = last.trim().slice(0, 40);
+    const c = code.trim().toUpperCase();
+    const em = email.trim();
+    if (!f || !l) {
+      setError("Enter your first and last name.");
+      return;
+    }
+    if (!/^[A-Z0-9-]{8,40}$/.test(c)) {
+      setError("Enter your invite code.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    if (CAPTCHA_ENABLED && !captchaToken) {
+      setError("Please complete the verification challenge.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+
+    const pre = await precheckInvite(c);
+    if (!pre.ok) {
+      setError(pre.error);
+      setPending(false);
+      return;
+    }
+
+    const supabase = createClient();
+    const origin = window.location.origin;
+    // The invite + name ride in the signup metadata (the trigger consumes them).
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: em,
+      options: {
+        shouldCreateUser: true,
+        data: { invite_code: c, first_name: f, last_name: l, display_name: f },
+        emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent("/onboarding")}`,
+        ...(captchaToken ? { captchaToken } : {}),
+      },
+    });
+    if (err) {
+      if (/captcha/i.test(err.message)) setError("Verification failed. Please try the challenge again.");
+      else if (/invite|database error/i.test(err.message)) setError("We couldn't complete signup with that invite — it may have just been used. Write hello@klimr.com.");
+      else setError("We couldn't start your signup. Try again in a moment.");
+      setPending(false);
+      return;
+    }
+    setSentEmail(em);
+    setSent(true);
+    setPending(false);
+  }
+
+  if (sent) {
     return (
       <div className="rise rounded-2xl border border-rule bg-surface p-6">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-tint-success">
@@ -17,39 +81,39 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
         <h2 className="mt-4 font-display text-2xl text-ink">Check your email.</h2>
         <p className="mt-2 text-sm leading-relaxed text-mute">
           We sent a confirmation link to{" "}
-          <span className="font-mono text-[13px] text-ink">{state.email}</span>.
-          Open it on this device to confirm your address — then you&apos;ll
-          create a password, set up two-factor, and build your profile. If it
-          does not arrive in a minute, check spam.
+          <span className="font-mono text-[13px] text-ink">{sentEmail}</span>.
+          Open it on this device to confirm your address — then you&apos;ll set up
+          two-factor security and build your profile. If it does not arrive in a
+          minute, check spam.
         </p>
       </div>
     );
   }
 
   return (
-    <form action={action} className="space-y-3">
+    <form onSubmit={submit} className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="kicker text-faint">First name</span>
           <input
-            name="first_name"
             required
             autoComplete="given-name"
             maxLength={40}
             placeholder="Alex"
-            defaultValue={state.first_name ?? ""}
+            value={first}
+            onChange={(e) => setFirst(e.target.value)}
             className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
           />
         </label>
         <label className="block">
           <span className="kicker text-faint">Last name</span>
           <input
-            name="last_name"
             required
             autoComplete="family-name"
             maxLength={40}
             placeholder="Rivera"
-            defaultValue={state.last_name ?? ""}
+            value={last}
+            onChange={(e) => setLast(e.target.value)}
             className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
           />
         </label>
@@ -57,13 +121,13 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
       <label className="block">
         <span className="kicker text-faint">Invite code</span>
         <input
-          name="code"
           required
           autoCapitalize="characters"
           autoComplete="off"
           spellCheck={false}
           placeholder="X7QM-K2NF-B9G3"
-          defaultValue={state.code ?? initialCode}
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
           className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 font-mono text-[15px] uppercase tracking-[0.12em] text-ink outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-faint focus:border-brand"
         />
       </label>
@@ -71,14 +135,15 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
         <span className="kicker text-faint">Email</span>
         <input
           type="email"
-          name="email"
           required
           autoComplete="email"
           placeholder="you@example.com"
-          defaultValue={state.email}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
         />
       </label>
+      <Turnstile onToken={setCaptchaToken} />
       <button
         type="submit"
         disabled={pending}
@@ -86,13 +151,13 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
       >
         {pending ? "Checking…" : "Send my confirmation link"}
       </button>
-      {state.error ? (
+      {error ? (
         <p role="alert" className="text-sm text-brand-deep">
-          {state.error}
+          {error}
         </p>
       ) : null}
       <p className="pt-1 text-xs leading-relaxed text-mute">
-        You&apos;ll create your password after confirming your email. Klimr is
+        After confirming your email you&apos;ll set up two-factor security. Klimr is
         invite-only during the Mar Vista beta.
       </p>
     </form>

@@ -3,12 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
 // Reachable without a session. Everything else redirects to /login.
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/auth", "/gate"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/gate"];
 
 // Reachable with a session that has NOT yet cleared 2FA (AAL1). These are the
 // pages a signed-in user needs *in order to* complete or recover 2FA, so the
 // AAL gate must not bounce them.
-const AAL_EXEMPT = ["/mfa", "/auth", "/create-password", "/reset-password"];
+const AAL_EXEMPT = ["/mfa", "/auth"];
 
 const matches = (path: string, list: string[]) =>
   list.some((p) => path === p || path.startsWith(p + "/"));
@@ -58,19 +58,6 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
-    return NextResponse.redirect(url);
-  }
-
-  // 1.5) Signed in but no password set yet → set one before anything else.
-  //      This is what guarantees the wizard is never reached password-less.
-  if (
-    user &&
-    !matches(path, PUBLIC_PATHS) &&
-    !matches(path, ["/create-password", "/reset-password"]) &&
-    !user.user_metadata?.password_set
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/create-password";
     return NextResponse.redirect(url);
   }
 
