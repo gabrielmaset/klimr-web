@@ -3,7 +3,7 @@ export type TeamCard = {
   name: string;
   sport_key: string;
   city: string | null;
-  neighborhood: string | null;
+  state: string | null;
   memberCount: number;
   joined: boolean;
 };

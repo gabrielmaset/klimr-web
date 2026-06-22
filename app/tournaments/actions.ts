@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { lookupZip } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
 import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, TournamentFormatConfig } from "@/lib/tournament";
@@ -145,10 +146,13 @@ export async function createTournament(formData: FormData) {
   const { data: prof } = await supabase.from("profiles").select("verification_status").eq("id", user.id).maybeSingle();
   if (prof?.verification_status !== "verified") redirect("/settings/verification?need=host");
 
+  // The organizer must accept the host terms/disclaimer on /tournaments/new.
+  if (String(formData.get("agree") ?? "") !== "on") redirect("/tournaments/new?error=agree");
+
   const title = String(formData.get("title") ?? "").trim();
   const sport = String(formData.get("sport_key") ?? "").trim();
   const entryRaw = String(formData.get("entry_type") ?? "team").trim();
-  if (!title || !SPORT_KEYS.includes(sport)) redirect("/tournaments?error=invalid");
+  if (!title || !SPORT_KEYS.includes(sport)) redirect("/tournaments/new?error=invalid");
   const entry_type = entryRaw === "individual" ? "individual" : "team";
 
   // Unique code with a few collision retries (widen on repeated clashes).
@@ -164,7 +168,7 @@ export async function createTournament(formData: FormData) {
     .insert({ owner_id: user.id, code, title, sport_key: sport, entry_type, status: "draft" })
     .select("id")
     .single();
-  if (error || !created) redirect("/tournaments?error=create");
+  if (error || !created) redirect("/tournaments/new?error=create");
 
   redirect(`/tournament/${created.id}`);
 }
@@ -191,6 +195,14 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   if (patch.timezone !== undefined) u.timezone = patch.timezone;
   if (patch.location_name !== undefined) u.location_name = patch.location_name;
   if (patch.location_address !== undefined) u.location_address = patch.location_address;
+  // A ZIP places the event for local discovery; resolve to coordinates (blank = keep existing).
+  if (patch.zip && /^\d{5}$/.test(patch.zip)) {
+    const z = lookupZip(patch.zip);
+    if (z) {
+      u.location_lat = z.lat;
+      u.location_lng = z.lng;
+    }
+  }
   if (patch.weather_enabled !== undefined) u.weather_enabled = patch.weather_enabled;
   if (patch.capacity !== undefined) u.capacity = patch.capacity;
   if (patch.reserves_allowed !== undefined) u.reserves_allowed = patch.reserves_allowed;

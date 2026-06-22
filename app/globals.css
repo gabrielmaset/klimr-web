@@ -61,6 +61,17 @@ body {
   border-radius: 4px;
 }
 
+/* Text fields show focus through their own border/background change (and a
+   focus-within ring on their wrapper). The offset outline above would double up
+   and overflow those styled containers — e.g. the top search box appearing larger
+   than its pill — so suppress it on the field itself. Buttons, links, and other
+   controls keep the branded outline. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
 /* ---------- motion ---------- */
 @keyframes rise {
   from { opacity: 0; transform: translateY(14px); }
@@ -139,3 +150,8 @@ body {
   .lift, .press { transition: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Hidden scrollbar — used by the sidebar nav so a short viewport scrolls
+   cleanly without an ugly scrollbar, while the logo and account stay pinned. */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

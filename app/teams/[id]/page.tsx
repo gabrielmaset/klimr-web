@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { ChevronLeft, Crown, Users, MapPin, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, teamSizeFor } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
 import { leaveTeam } from "../actions";
 import { EditTeamForm } from "./EditTeamForm";
@@ -27,13 +27,15 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
 
   const { data: team } = await supabase
     .from("teams")
-    .select("id, name, sport_key, city, neighborhood, category, created_by")
+    .select("id, name, sport_key, city, state, zip, max_size, category, created_by")
     .eq("id", id)
     .maybeSingle();
   if (!team) notFound();
   const isPro = team.category === "pro";
 
   const meta = sportMeta(team.sport_key);
+  const sz = teamSizeFor(team.sport_key);
+  const cap = team.max_size ?? sz.max;
 
   const { data: memberRows } = await supabase.from("team_members").select("user_id, role, designation, joined_at").eq("team_id", id).order("joined_at");
   const members = memberRows ?? [];
@@ -101,7 +103,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
       <Link href="/teams" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
         <ChevronLeft size={15} /> Teams
       </Link>
@@ -113,9 +115,9 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
           <h1 className="truncate font-display text-3xl leading-tight text-ink sm:text-4xl">{team.name}</h1>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-mute">
             <span>{meta.name}</span>
-            <span className="flex items-center gap-1"><Users size={13} /> {members.length}</span>
-            {team.city || team.neighborhood ? (
-              <span className="flex items-center gap-1"><MapPin size={13} /> {[team.neighborhood, team.city].filter(Boolean).join(", ")}</span>
+            <span className="flex items-center gap-1"><Users size={13} /> {members.length} / {cap}</span>
+            {team.city || team.state ? (
+              <span className="flex items-center gap-1"><MapPin size={13} /> {[team.city, team.state].filter(Boolean).join(", ")}</span>
             ) : null}
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${isPro ? "bg-ink text-surface" : "bg-[#f4f4f5] text-ink-soft"}`}>
               {isPro ? "Pro" : "Recreational"}
@@ -123,6 +125,13 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
           </p>
         </div>
       </div>
+
+      {members.length < sz.min ? (
+        <div className="mt-4 flex items-start gap-2 rounded-2xl border border-brand/30 bg-tint-brand px-4 py-3 text-sm text-brand-deep">
+          <Users size={16} className="mt-0.5 shrink-0" />
+          <span>This team is still forming — add at least {sz.min - members.length} more {sz.min - members.length === 1 ? "teammate" : "teammates"} (minimum {sz.min}) to start competing and entering tournaments.</span>
+        </div>
+      ) : null}
 
       {isPro && amMember ? (
         <Link href={`/team/${team.id}`} className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
@@ -135,8 +144,12 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
           <EditTeamForm
             teamId={team.id}
             name={team.name}
+            zip={team.zip ?? ""}
             city={team.city ?? ""}
-            neighborhood={team.neighborhood ?? ""}
+            state={team.state ?? ""}
+            sportKey={team.sport_key}
+            maxSize={team.max_size ?? sz.default}
+            memberCount={members.length}
           />
         </div>
       ) : null}
@@ -202,13 +215,20 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
       {canInviteMembers ? (
         <section className="mt-6">
           <h2 className="kicker mb-2 text-faint">Add players</h2>
-          <InviteSearch teamId={team.id} friends={friendsForInvite} />
-
-          {pendingInvitees.length > 0 ? (
-            <p className="mt-3 text-xs text-mute">
-              Invited &amp; pending: {pendingInvitees.map((p) => p.display_name).join(", ")}
+          {members.length + pendingInvitees.length >= cap ? (
+            <p className="rounded-2xl border border-rule bg-bg/40 px-4 py-4 text-sm text-mute">
+              This team is full — all {cap} spots are taken. Remove a player, or raise the squad size in <span className="font-semibold text-ink">Edit team</span>, to add more.
             </p>
-          ) : null}
+          ) : (
+            <>
+              <InviteSearch teamId={team.id} friends={friendsForInvite} />
+              {pendingInvitees.length > 0 ? (
+                <p className="mt-3 text-xs text-mute">
+                  Invited &amp; pending: {pendingInvitees.map((p) => p.display_name).join(", ")}
+                </p>
+              ) : null}
+            </>
+          )}
         </section>
       ) : null}
 

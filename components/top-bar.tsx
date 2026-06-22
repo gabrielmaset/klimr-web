@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { CalendarClock, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, ChevronRight } from "lucide-react";
+import { CalendarClock, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, ChevronRight, Users } from "lucide-react";
 import { setPresenceMode } from "@/app/account/presence-actions";
 import type { PresenceMode } from "@/app/account/presence";
 import { TopSearch } from "@/components/top-search";
+import { sportMeta } from "@/lib/sports";
 
 const SPORT_LABEL: Record<string, string> = {
   tennis: "Tennis",
@@ -57,6 +58,89 @@ function whenShort(iso: string | null): string {
 
 export type NextMatch = { id: string; sportKey: string; scheduledAt: string | null; place: string | null } | null;
 
+function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key: string }[] }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t) || btnRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (teams.length === 0) return null;
+
+  // Exactly one Pro team → switch straight in.
+  if (teams.length === 1) {
+    const t = teams[0];
+    return (
+      <Link
+        href={`/team/${t.id}`}
+        aria-label={`Switch to ${t.name}`}
+        className="press ml-0.5 flex h-9 items-center gap-2 rounded-full border border-rule bg-bg pl-2 pr-3 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
+      >
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#f4f4f5] text-[12px]">{sportMeta(t.sport_key).emoji}</span>
+        <span className="hidden max-w-[7rem] truncate lg:inline">{t.name}</span>
+      </Link>
+    );
+  }
+
+  // Multiple Pro teams → a picker.
+  return (
+    <div className="relative ml-0.5">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Switch to a team"
+        className="press flex h-9 items-center gap-2 rounded-full border border-rule bg-bg pl-2.5 pr-2 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
+      >
+        <Users size={16} className="shrink-0 text-mute" />
+        <span className="hidden lg:inline">Teams</span>
+        <ChevronDown size={15} className={`text-faint transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? (
+        <div
+          ref={menuRef}
+          role="menu"
+          className="absolute right-0 top-11 w-64 origin-top-right animate-[fade_0.12s_ease-out] overflow-hidden rounded-2xl border border-rule bg-surface shadow-[0_18px_50px_-12px_rgba(10,10,11,0.4)]"
+        >
+          <p className="kicker px-3.5 pb-1 pt-3 text-faint">Switch to a team</p>
+          <div className="p-1">
+            {teams.map((t) => (
+              <Link
+                key={t.id}
+                href={`/team/${t.id}`}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-bg"
+              >
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#f4f4f5] text-sm">{sportMeta(t.sport_key).emoji}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{t.name}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function IconLink({ href, label, badge, children }: { href: string; label: string; badge: number; children: React.ReactNode }) {
   return (
     <Link
@@ -79,11 +163,13 @@ export function TopBar({
   unreadCount,
   presenceMode,
   nextMatch,
+  teams,
 }: {
   chatUnread: number;
   unreadCount: number;
   presenceMode: PresenceMode;
   nextMatch: NextMatch;
+  teams: { id: string; name: string; sport_key: string; category: string }[];
 }) {
   const [mode, setMode] = useState<PresenceMode>(presenceMode);
   const [seenProp, setSeenProp] = useState<PresenceMode>(presenceMode);
@@ -129,6 +215,7 @@ export function TopBar({
   }
 
   const pill = pillFor(mode);
+  const proTeams = teams.filter((t) => t.category === "pro");
 
   return (
     <header className="sticky top-3 z-30 mx-3 mt-3 hidden rounded-2xl border border-rule/70 bg-surface/80 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.22)] backdrop-blur-2xl backdrop-saturate-150 md:block">
@@ -173,6 +260,9 @@ export function TopBar({
           <IconLink href="/notifications" label="Notifications" badge={unreadCount}>
             <Bell size={18} />
           </IconLink>
+
+          {/* Switch into a team workspace (Pro teams only) */}
+          <TeamSwitcher teams={proTeams} />
 
           {/* Presence */}
           <div className="relative ml-0.5">

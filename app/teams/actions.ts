@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { accountActive } from "@/lib/guards";
 import { createNotification } from "@/lib/notify";
-import { SPORT_KEYS, sportMeta } from "@/lib/sports";
+import { SPORT_KEYS, sportMeta, teamSizeFor } from "@/lib/sports";
+import { lookupZip } from "@/lib/us-places";
 import type { TeamCard } from "./types";
 
 async function me() {
@@ -30,7 +31,7 @@ async function teamRole(
 const canManageRoster = (role: string | null) => role === "owner" || role === "manager";
 const canInvite = (role: string | null) => role === "owner" || role === "manager" || role === "staff";
 
-type TeamRow = { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null };
+type TeamRow = { id: string; name: string; sport_key: string; city: string | null; state: string | null };
 
 /** Add member counts + whether the viewer is already on each team. */
 async function decorate(
@@ -60,10 +61,10 @@ export async function searchTeams(qRaw: string): Promise<TeamCard[]> {
   if (!user) return [];
 
   const q = (qRaw ?? "").trim().replace(/[%_\\(),"']/g, "");
-  let builder = supabase.from("teams").select("id, name, sport_key, city, neighborhood");
+  let builder = supabase.from("teams").select("id, name, sport_key, city, state");
   if (q.length >= 1) {
     const like = `%${q}%`;
-    builder = builder.or(`name.ilike.${like},city.ilike.${like},neighborhood.ilike.${like}`);
+    builder = builder.or(`name.ilike.${like},city.ilike.${like},state.ilike.${like}`);
   } else {
     const { data: prof } = await supabase.from("profiles").select("city").eq("id", user.id).maybeSingle();
     if (prof?.city) builder = builder.ilike("city", prof.city);
@@ -77,6 +78,12 @@ export async function searchTeams(qRaw: string): Promise<TeamCard[]> {
 
 export type TeamFormState = { ok?: boolean; error?: string } | undefined;
 
+/** Live ZIP -> city/state for the create & edit forms (offline lookup, no network). */
+export async function resolveTeamZip(zip: string): Promise<{ city: string; state: string } | null> {
+  const hit = lookupZip(String(zip ?? ""));
+  return hit ? { city: hit.city, state: hit.state } : null;
+}
+
 
 export async function createTeam(_prev: TeamFormState, formData: FormData): Promise<TeamFormState> {
   const { supabase, user } = await me();
@@ -86,15 +93,22 @@ export async function createTeam(_prev: TeamFormState, formData: FormData): Prom
   const name = String(formData.get("name") ?? "").trim().slice(0, 60);
   const sportRaw = String(formData.get("sport_key") ?? "");
   const sport_key = SPORT_KEYS.includes(sportRaw) ? sportRaw : null;
-  const city = String(formData.get("city") ?? "").trim().slice(0, 80) || null;
-  const neighborhood = String(formData.get("neighborhood") ?? "").trim().slice(0, 80) || null;
   const category = String(formData.get("category") ?? "recreational") === "pro" ? "pro" : "recreational";
   if (!name) return { error: "Give your team a name." };
   if (!sport_key) return { error: "Pick a sport." };
 
+  // Squad size: the chosen cap, clamped to the sport's allowed range (min is 2).
+  const sz = teamSizeFor(sport_key);
+  const rawSize = parseInt(String(formData.get("max_size") ?? ""), 10);
+  const max_size = Number.isFinite(rawSize) ? Math.min(Math.max(rawSize, sz.min), sz.max) : sz.default;
+
+  // Location is captured as a ZIP; we resolve city/state from it server-side.
+  const hit = lookupZip(String(formData.get("zip") ?? ""));
+  if (!hit) return { error: "Enter a valid 5-digit US ZIP for your team's home area." };
+
   const { data: team, error } = await supabase
     .from("teams")
-    .insert({ name, sport_key, city, neighborhood, category, created_by: user.id })
+    .insert({ name, sport_key, zip: hit.zip, city: hit.city, state: hit.state, max_size, category, created_by: user.id })
     .select("id")
     .single();
   if (error || !team) {
@@ -118,14 +132,24 @@ export async function updateTeam(_prev: TeamFormState, formData: FormData): Prom
   if (!user) return { error: "Please sign in." };
   const teamId = String(formData.get("teamId") ?? "");
   const name = String(formData.get("name") ?? "").trim().slice(0, 60);
-  const city = String(formData.get("city") ?? "").trim().slice(0, 80) || null;
-  const neighborhood = String(formData.get("neighborhood") ?? "").trim().slice(0, 80) || null;
   if (!teamId) return { error: "Missing team." };
   if (!name) return { error: "Give your team a name." };
 
   if (!canManageRoster(await teamRole(supabase, teamId, user.id))) return { error: "Only the owner or a manager can edit the team." };
 
-  const { error } = await supabase.from("teams").update({ name, city, neighborhood }).eq("id", teamId);
+  const hit = lookupZip(String(formData.get("zip") ?? ""));
+  if (!hit) return { error: "Enter a valid 5-digit US ZIP." };
+
+  // Squad size: clamp to the sport range, but never below the current roster.
+  const { data: t } = await supabase.from("teams").select("sport_key").eq("id", teamId).maybeSingle();
+  const sz = teamSizeFor(t?.sport_key ?? "");
+  const { count: mc } = await supabase.from("team_members").select("user_id", { count: "exact", head: true }).eq("team_id", teamId);
+  const floor = Math.max(sz.min, mc ?? sz.min);
+  const rawSize = parseInt(String(formData.get("max_size") ?? ""), 10);
+  const patch: { name: string; zip: string; city: string; state: string; max_size?: number } = { name, zip: hit.zip, city: hit.city, state: hit.state };
+  if (Number.isFinite(rawSize)) patch.max_size = Math.min(Math.max(rawSize, floor), sz.max);
+
+  const { error } = await supabase.from("teams").update(patch).eq("id", teamId);
   if (error) {
     console.error("[teams] update failed", error.code, error.message);
     return { error: `Couldn't save${error.code ? ` (${error.code})` : ""}.` };
@@ -185,7 +209,7 @@ export async function inviteToTeam(formData: FormData) {
   const inviteeId = String(formData.get("userId"));
   if (!teamId || !inviteeId) return;
 
-  const { data: team } = await supabase.from("teams").select("id, name, sport_key, created_by").eq("id", teamId).maybeSingle();
+  const { data: team } = await supabase.from("teams").select("id, name, sport_key, created_by, max_size").eq("id", teamId).maybeSingle();
   if (!team) return;
   if (!canInvite(await teamRole(supabase, teamId, user.id))) return; // owner / manager / staff invite
 
@@ -207,6 +231,17 @@ export async function inviteToTeam(formData: FormData) {
     .eq("user_id", inviteeId)
     .maybeSingle();
   if (existingMember) return;
+
+  // Respect the squad-size cap (confirmed members + outstanding invites).
+  {
+    const sz = teamSizeFor(team.sport_key);
+    const cap = team.max_size ?? sz.max;
+    const [{ count: mc }, { count: pc }] = await Promise.all([
+      admin.from("team_members").select("user_id", { count: "exact", head: true }).eq("team_id", teamId),
+      admin.from("team_invites").select("invited_user_id", { count: "exact", head: true }).eq("team_id", teamId).eq("status", "pending"),
+    ]);
+    if ((mc ?? 0) + (pc ?? 0) >= cap) return;
+  }
 
   const { error } = await admin
     .from("team_invites")
@@ -239,10 +274,20 @@ export async function respondTeamInvite(formData: FormData) {
 
   if (decision === "accept") {
     const admin = createAdminClient();
+    const { data: team } = await supabase.from("teams").select("name, created_by, sport_key, max_size").eq("id", invite.team_id).maybeSingle();
+    // Enforce the squad-size cap at accept time (backstop against races / over-invites).
+    if (team) {
+      const sz = teamSizeFor(team.sport_key);
+      const cap = team.max_size ?? sz.max;
+      const { count: mc } = await admin.from("team_members").select("user_id", { count: "exact", head: true }).eq("team_id", invite.team_id);
+      if ((mc ?? 0) >= cap) {
+        revalidatePath("/teams");
+        return;
+      }
+    }
     await admin.from("team_members").upsert({ team_id: invite.team_id, user_id: user.id, role: "member" }, { onConflict: "team_id,user_id" });
     await supabase.from("team_invites").update({ status: "accepted" }).eq("id", inviteId);
     // Notify the captain.
-    const { data: team } = await supabase.from("teams").select("name, created_by").eq("id", invite.team_id).maybeSingle();
     const { data: prof } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
     if (team?.created_by && team.created_by !== user.id) {
       await createNotification({

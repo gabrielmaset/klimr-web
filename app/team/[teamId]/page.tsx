@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Users, MapPin, IdCard, CalendarClock, MessageCircle, UserPlus, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, teamSizeFor } from "@/lib/sports";
 import { TeamSticker } from "@/components/team-sticker";
 
 type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null };
@@ -17,9 +17,11 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/team/${teamId}`);
 
-  const { data: team } = await supabase.from("teams").select("id, name, sport_key, city, neighborhood").eq("id", teamId).maybeSingle();
+  const { data: team } = await supabase.from("teams").select("id, name, sport_key, city, state, max_size").eq("id", teamId).maybeSingle();
   if (!team) redirect("/teams");
   const meta = sportMeta(team.sport_key);
+  const sz = teamSizeFor(team.sport_key);
+  const cap = team.max_size ?? sz.max;
   const base = `/team/${teamId}`;
 
   const { data: memberRows } = await supabase.from("team_members").select("user_id, role, designation").eq("team_id", teamId).order("joined_at");
@@ -47,7 +49,7 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
     }
   }
   const winRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : null;
-  const place = [team.neighborhood, team.city].filter(Boolean).join(", ");
+  const place = [team.city, team.state].filter(Boolean).join(", ");
 
   const tiles = [
     { href: `${base}/profile`, label: "Team profile", desc: "Name, sport, area & bio", Icon: IdCard },
@@ -57,7 +59,7 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
   ];
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
       {/* cover hero */}
       <div className="relative overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(135deg,#0e2c3a,#0a212c)] p-5 sm:p-7">
         <span aria-hidden className="pointer-events-none absolute -right-4 -top-8 select-none text-[150px] leading-none opacity-[0.07]">{meta.emoji}</span>
@@ -70,7 +72,7 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-rail-fg/80">
               <span>{meta.name}</span>
               <span className="flex items-center gap-1">
-                <Users size={13} /> {members.length}
+                <Users size={13} /> {members.length} / {cap}
               </span>
               {place ? (
                 <span className="flex items-center gap-1">
@@ -85,7 +87,7 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
       {/* stats */}
       <div className="mt-6 grid grid-cols-3 gap-3">
         {[
-          { k: "Members", v: String(members.length) },
+          { k: "Members", v: `${members.length} / ${cap}` },
           { k: `${meta.name} matches`, v: String(totalMatches) },
           { k: "Win rate", v: winRate === null ? "—" : `${winRate}%` },
         ].map((s) => (

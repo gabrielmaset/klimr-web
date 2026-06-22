@@ -4,6 +4,7 @@ import { MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { precheckInvite } from "./signup-actions";
 import { Turnstile, CAPTCHA_ENABLED } from "@/components/turnstile";
+import { normalizeInviteCode, isValidInviteCode } from "@/lib/invite";
 
 export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
   const [first, setFirst] = useState("");
@@ -20,14 +21,14 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
     e.preventDefault();
     const f = first.trim().slice(0, 40);
     const l = last.trim().slice(0, 40);
-    const c = code.trim().toUpperCase();
+    const c = normalizeInviteCode(code);
     const em = email.trim();
     if (!f || !l) {
       setError("Enter your first and last name.");
       return;
     }
-    if (!/^[A-Z0-9-]{8,40}$/.test(c)) {
-      setError("Enter your invite code.");
+    if (!isValidInviteCode(c)) {
+      setError("Enter a valid invite code.");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {

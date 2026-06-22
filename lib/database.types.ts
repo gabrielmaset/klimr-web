@@ -776,9 +776,9 @@ export interface Database {
         Relationships: [];
       };
       teams: {
-        Row: { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null; category: string; created_by: string; created_at: string };
-        Insert: { id?: string; name: string; sport_key: string; city?: string | null; neighborhood?: string | null; category?: string; created_by: string; created_at?: string };
-        Update: { name?: string; city?: string | null; neighborhood?: string | null; category?: string; created_by?: string };
+        Row: { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null; zip: string | null; state: string | null; max_size: number | null; category: string; created_by: string; created_at: string };
+        Insert: { id?: string; name: string; sport_key: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by: string; created_at?: string };
+        Update: { name?: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by?: string };
         Relationships: [];
       };
       login_events: {
@@ -828,6 +828,7 @@ export interface Database {
           cover_path: string | null;
           logo_path: string | null;
           weather_enabled: boolean;
+          promoted: boolean;
           format_config: Json;
           created_at: string;
           updated_at: string;
@@ -860,6 +861,7 @@ export interface Database {
           cover_path?: string | null;
           logo_path?: string | null;
           weather_enabled?: boolean;
+          promoted?: boolean;
           format_config?: Json;
           created_at?: string;
           updated_at?: string;
@@ -889,6 +891,7 @@ export interface Database {
           cover_path?: string | null;
           logo_path?: string | null;
           weather_enabled?: boolean;
+          promoted?: boolean;
           format_config?: Json;
           updated_at?: string;
         };
@@ -1189,6 +1192,9 @@ export interface Database {
       generate_invite_codes: { Args: { p_count: number; p_max_uses?: number; p_note?: string | null }; Returns: string[] };
       generate_investor_codes: { Args: { p_count: number; p_note?: string | null }; Returns: string[] };
       check_rate_limit: { Args: { p_key: string; p_max: number; p_window_seconds: number }; Returns: boolean };
+      code_lock_seconds: { Args: { p_bucket: string }; Returns: number };
+      note_code_failure: { Args: { p_bucket: string; p_max: number; p_window_seconds: number; p_lock_seconds: number }; Returns: number };
+      clear_code_attempts: { Args: { p_bucket: string }; Returns: undefined };
     };
     Enums: {
       verification_status: VerificationStatus;

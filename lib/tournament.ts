@@ -44,6 +44,7 @@ export type TournamentDraftPatch = {
   timezone?: string | null;
   location_name?: string | null;
   location_address?: string | null;
+  zip?: string; // transient — resolved server-side to location_lat/lng for local discovery
   weather_enabled?: boolean;
   capacity?: number | null;
   reserves_allowed?: number;

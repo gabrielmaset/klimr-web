@@ -11,7 +11,6 @@ import {
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
-import { sportMeta } from "@/lib/sports";
 import type { PresenceMode } from "@/app/account/presence";
 
 type Item = { href: string; label: string; Icon: typeof Newspaper };
@@ -60,7 +59,6 @@ export function SideNav({
   email,
   adminRole,
   presenceMode,
-  teams,
 }: {
   avatarUrl: string | null;
   avatarHue: number;
@@ -68,7 +66,6 @@ export function SideNav({
   email: string | null;
   adminRole: boolean;
   presenceMode: PresenceMode;
-  teams: { id: string; name: string; sport_key: string; category?: string }[];
 }) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -108,40 +105,42 @@ export function SideNav({
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
-      <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
-        <Link href="/" aria-label="Klimr home" className="px-3">
+      <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
+        <Link href="/" aria-label="Klimr home" className="shrink-0 px-3">
           <KlimrLogo tone="light" />
         </Link>
 
-        {GROUPS.map((g, gi) => (
-          <div key={g.header ?? "primary"} className={gi === 0 ? "mt-7" : "mt-6"}>
-            {g.header ? <p className="kicker mb-1 px-3 text-rail-muted">{g.header}</p> : null}
-            <nav className="flex flex-col gap-1" aria-label={g.header ?? "Main"}>
-              {g.items.map(({ href, label, Icon }) => {
-                const active = isActive(href);
-                return (
-                  <Link key={href} href={href} aria-current={active ? "page" : undefined} className={navLink(active)}>
-                    <Icon size={18} className={active ? "text-brand" : "text-rail-muted"} />
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        ))}
-
-        <div className="flex-1" />
+        {/* Nav scrolls only when the window is too short; the scrollbar is hidden and
+            the account block below stays pinned and reachable at any height. */}
+        <div className="no-scrollbar mt-7 min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain">
+          {GROUPS.map((g) => (
+            <div key={g.header ?? "primary"}>
+              {g.header ? <p className="kicker mb-1 px-3 text-rail-muted">{g.header}</p> : null}
+              <nav className="flex flex-col gap-1" aria-label={g.header ?? "Main"}>
+                {g.items.map(({ href, label, Icon }) => {
+                  const active = isActive(href);
+                  return (
+                    <Link key={href} href={href} aria-current={active ? "page" : undefined} className={navLink(active)}>
+                      <Icon size={18} className={active ? "text-brand" : "text-rail-muted"} />
+                      {label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          ))}
+        </div>
 
         {/* Admin — special destination above the account divider. */}
         {adminRole ? (
-          <Link href="/admin" aria-current={isActive("/admin") ? "page" : undefined} className={`mt-6 ${footerLink(isActive("/admin"))}`}>
+          <Link href="/admin" aria-current={isActive("/admin") ? "page" : undefined} className={`shrink-0 mt-4 ${footerLink(isActive("/admin"))}`}>
             <ShieldCheck size={17} className={isActive("/admin") ? "text-brand" : "text-rail-muted"} />
             Admin
           </Link>
         ) : null}
 
         {/* Account / footer */}
-        <div className="mt-3 border-t border-rail-border pt-3">
+        <div className="shrink-0 mt-3 border-t border-rail-border pt-3">
           <p className="kicker mb-1 px-3 text-rail-muted">Account</p>
           <Link href="/invite" aria-current={isActive("/invite") ? "page" : undefined} className={footerLink(isActive("/invite"))}>
             <Gift size={17} className={isActive("/invite") ? "text-brand" : "text-rail-muted"} />
@@ -171,22 +170,6 @@ export function SideNav({
                   <Link href="/settings" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
                     <Settings size={15} className="text-mute" /> Settings
                   </Link>
-                </div>
-                {/* Switch to a team account */}
-                <div className="border-t border-rule py-1">
-                  <p className="kicker px-3.5 pb-1 pt-1.5 text-faint">Switch to a team</p>
-                  {teams.length > 0 ? (
-                    teams.map((t) => (
-                      <Link key={t.id} href={t.category === "pro" ? `/team/${t.id}` : `/teams/${t.id}`} role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
-                        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[#f4f4f5] text-[11px]">{sportMeta(t.sport_key).emoji}</span>
-                        <span className="truncate">{t.name}</span>
-                      </Link>
-                    ))
-                  ) : (
-                    <Link href="/settings/teams" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
-                      <Users size={15} className="text-mute" /> Create a team
-                    </Link>
-                  )}
                 </div>
                 <div className="border-t border-rule py-1">
                   <a href="mailto:hello@klimr.com?subject=Klimr%20feedback" role="menuitem" className={menuItem}>

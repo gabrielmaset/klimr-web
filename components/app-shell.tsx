@@ -1,13 +1,9 @@
 import { SiteHeader } from "@/components/site-header";
-import { SideNav } from "@/components/side-nav";
-import { MobileTopBar } from "@/components/mobile-top-bar";
-import { BottomNav } from "@/components/bottom-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { KlimrLogo } from "@/components/logo";
-import { TopBar, type NextMatch } from "@/components/top-bar";
-import { CommandPalette } from "@/components/command-palette";
+import { type NextMatch } from "@/components/top-bar";
+import { AppChrome } from "@/components/app-chrome";
 import type { PresenceMode } from "@/app/account/presence";
-import { headers } from "next/headers";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,14 +29,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       );
     }
-  }
-
-  // The team (/team/[id]/*) and tournament (/tournament/[id]/*) workspaces render
-  // their own chrome — see their layouts — so the personal shell steps aside here.
-  // (MFA gating above still applies before we get here.)
-  const pathname = (await headers()).get("x-pathname") ?? "";
-  if (user && (pathname.startsWith("/team/") || pathname.startsWith("/tournament/"))) {
-    return <>{children}</>;
   }
 
   let avatarUrl: string | null = null;
@@ -130,18 +118,21 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Signed-in: glassy left sidebar (desktop) + bottom tab bar (mobile).
+  // Signed-in: chrome decided client-side (so it updates across in-app navigation).
   return (
-    <div className="flex min-h-dvh">
-      <SideNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} email={user?.email ?? null} adminRole={!!adminRole} presenceMode={presenceMode} teams={teams} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <MobileTopBar unreadCount={unread} />
-        <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} />
-        <main className="flex-1">{children}</main>
-        <SiteFooter authed />
-        <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
-      </div>
-      <CommandPalette />
-    </div>
+    <AppChrome
+      avatarUrl={avatarUrl}
+      avatarHue={avatarHue}
+      avatarName={avatarName}
+      email={user?.email ?? null}
+      adminRole={!!adminRole}
+      presenceMode={presenceMode}
+      teams={teams}
+      chatUnread={chatUnread}
+      unread={unread}
+      nextMatch={nextMatch}
+    >
+      {children}
+    </AppChrome>
   );
 }

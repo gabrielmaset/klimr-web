@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { teamSizeFor } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
 import { TeamSticker } from "@/components/team-sticker";
 import { InviteSearch } from "@/app/teams/[id]/InviteSearch";
@@ -19,8 +20,10 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/team/${teamId}/roster`);
 
-  const { data: team } = await supabase.from("teams").select("id, name, sport_key").eq("id", teamId).maybeSingle();
+  const { data: team } = await supabase.from("teams").select("id, name, sport_key, max_size").eq("id", teamId).maybeSingle();
   if (!team) redirect("/teams");
+  const sz = teamSizeFor(team.sport_key);
+  const cap = team.max_size ?? sz.max;
 
   const { data: memberRows } = await supabase.from("team_members").select("user_id, role, designation, joined_at").eq("team_id", teamId).order("joined_at");
   const members = memberRows ?? [];
@@ -76,14 +79,14 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
       <div className="mb-5 flex items-end justify-between gap-3">
         <div>
           <p className="kicker mb-1 text-brand-deep">Roster</p>
           <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{team.name}</h1>
         </div>
         <span className="flex items-center gap-1.5 rounded-full border border-rule bg-surface px-3 py-1.5 text-sm font-semibold text-ink">
-          <Users size={15} className="text-mute" /> {members.length}
+          <Users size={15} className="text-mute" /> {members.length} / {cap}
         </span>
       </div>
 
@@ -91,8 +94,14 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
       {canInviteMembers ? (
         <section className="mb-6 rounded-2xl border border-rule bg-surface p-5">
           <h2 className="mb-2 text-sm font-bold text-ink">Add players</h2>
-          <p className="mb-3 text-xs text-mute">You can invite players you&rsquo;re connected with on Klimr.</p>
-          <InviteSearch teamId={team.id} friends={friendsForInvite} />
+          {members.length + pendingInvitees.length >= cap ? (
+            <p className="text-sm text-mute">This team is full — all {cap} spots are taken. Remove a player, or raise the squad size on the Team profile, to add more.</p>
+          ) : (
+            <>
+              <p className="mb-3 text-xs text-mute">You can invite players you&rsquo;re connected with on Klimr.</p>
+              <InviteSearch teamId={team.id} friends={friendsForInvite} />
+            </>
+          )}
           {pendingInvitees.length > 0 ? (
             <div className="mt-4">
               <p className="kicker mb-2 text-faint">Pending invites</p>

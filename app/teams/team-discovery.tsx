@@ -58,7 +58,7 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {list.map((t) => {
             const meta = sportMeta(t.sport_key);
-            const place = [t.neighborhood, t.city].filter(Boolean).join(", ");
+            const place = [t.city, t.state].filter(Boolean).join(", ");
             return (
               <Link
                 key={t.id}

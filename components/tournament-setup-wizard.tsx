@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, ChevronLeft, ChevronRight, Loader2, Globe, Rocket } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, Globe, Rocket, MapPin } from "lucide-react";
 import { Toggle, Segmented, OptionCards } from "@/components/form-kit";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { FORMAT_LABEL, isoToLocalInput, localInputToIso, type FormatType, type TournamentDraftPatch } from "@/lib/tournament";
 import { updateTournamentDraft, publishTournament, unpublishTournament } from "@/app/tournaments/actions";
+import { resolveTeamZip } from "@/app/teams/actions";
 
 type Init = {
   id: string;
@@ -66,6 +67,15 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
   const [tz, setTz] = useState(init.timezone ?? "");
   const [locName, setLocName] = useState(init.location_name ?? "");
   const [locAddr, setLocAddr] = useState(init.location_address ?? "");
+  const [locZip, setLocZip] = useState("");
+  const [locResolved, setLocResolved] = useState<{ city: string; state: string } | null>(null);
+  const [, startZip] = useTransition();
+  const onLocZip = (v: string) => {
+    const z = v.replace(/\D/g, "").slice(0, 5);
+    setLocZip(z);
+    setLocResolved(null);
+    if (z.length === 5) startZip(async () => setLocResolved(await resolveTeamZip(z)));
+  };
   const [weather, setWeather] = useState(init.weather_enabled);
   const [formatType, setFormatType] = useState<FormatType>(init.format_type);
   const [poolCount, setPoolCount] = useState(String(init.pool_count || 2));
@@ -99,6 +109,7 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
       timezone: tz.trim() || null,
       location_name: locName.trim() || null,
       location_address: locAddr.trim() || null,
+      zip: locZip.trim() || undefined,
       weather_enabled: weather,
       capacity: capacity.trim() === "" ? null : n(capacity),
       reserves_allowed: Math.min(n(reserves), reserveMax),
@@ -296,6 +307,24 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
                   <div>
                     <label className={labelCls}>Address</label>
                     <input className={inputCls} value={locAddr} onChange={(e) => setLocAddr(e.target.value)} placeholder="Street, city, state" />
+                  </div>
+                </div>
+                <div className="grid gap-5 sm:grid-cols-[10rem_1fr]">
+                  <div>
+                    <label className={labelCls}>ZIP code</label>
+                    <input className={`${inputCls} font-mono tracking-wider`} value={locZip} onChange={(e) => onLocZip(e.target.value)} inputMode="numeric" placeholder="90066" />
+                  </div>
+                  <div className="flex items-end">
+                    <p className={`${hintCls} flex items-center gap-1.5`}>
+                      <MapPin size={13} className="shrink-0 text-faint" />
+                      {locResolved ? (
+                        <>Places this event near <span className="font-semibold text-ink">{locResolved.city}, {locResolved.state}</span> so players find it in local listings.</>
+                      ) : init.location_name || init.location_address ? (
+                        <>Set a ZIP to (re)place this event for local discovery. Leave blank to keep the current location.</>
+                      ) : (
+                        <>Set the event ZIP so it appears in players&rsquo; local tournament listings.</>
+                      )}
+                    </p>
                   </div>
                 </div>
                 <Toggle checked={weather} onChange={setWeather} label="Show a weather forecast" description="Display the venue's forecast on the public page, powered by Open-Meteo." />

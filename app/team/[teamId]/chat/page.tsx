@@ -26,7 +26,7 @@ export default async function TeamChat({ params }: { params: Promise<{ teamId: s
   const avatarUrl = (p: Prof | undefined) => (p?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null);
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-4xl px-5 py-8 sm:py-10">
       <p className="kicker mb-1 text-brand-deep">Team chat</p>
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{team.name}</h1>
 
