@@ -15,7 +15,7 @@ export default async function SupportPage() {
   if (!user) redirect("/login?next=/support");
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <Link href="/settings" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
         <ChevronLeft size={15} /> Settings
       </Link>

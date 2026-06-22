@@ -112,7 +112,7 @@ export default async function AccountPage({
             : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-12 lg:py-16">
+    <div className="mx-auto max-w-page px-5 py-12 lg:py-16">
       {sp.welcome === "1" ? (
         <div className="rise mb-5 rounded-2xl border border-brand bg-tint-brand px-4 py-3.5 text-sm leading-relaxed text-ink">
           <span className="font-bold">Welcome to the board, {firstName}.</span>{" "}

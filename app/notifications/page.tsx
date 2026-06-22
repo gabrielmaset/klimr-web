@@ -54,7 +54,7 @@ export default async function NotificationsPage() {
   const unread = items.filter((n) => !n.read_at).length;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Notifications</h1>

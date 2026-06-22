@@ -117,7 +117,7 @@ export default async function MarketplacePage({
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Marketplace</h1>

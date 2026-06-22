@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, Users, Trophy, Minus, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, LocateFixed, Users, Trophy, Minus, Plus } from "lucide-react";
 import { createTeam, resolveTeamZip } from "@/app/teams/actions";
 import { SPORTS, sportMeta, teamSizeFor } from "@/lib/sports";
 
@@ -29,13 +29,14 @@ const TYPES = [
 
 const STEPS = ["Type", "Basics", "Location", "Review"];
 
-export function TeamCreateWizard({ defaultZip }: { defaultZip: string }) {
+export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
   const [step, setStep] = useState(0);
   const [category, setCategory] = useState("recreational");
   const [name, setName] = useState("");
   const [sport, setSport] = useState("");
   const [size, setSize] = useState(2);
-  const [zip, setZip] = useState(/^\d{5}$/.test(defaultZip) ? defaultZip : "");
+  const [zip, setZip] = useState("");
+  const homeZipValid = /^\d{5}$/.test(homeZip);
   const [resolved, setResolved] = useState<{ city: string; state: string } | null>(null);
   const [zipError, setZipError] = useState<string | null>(null);
   const [resolving, startResolve] = useTransition();
@@ -68,7 +69,7 @@ export function TeamCreateWizard({ defaultZip }: { defaultZip: string }) {
   const typeLabel = TYPES.find((t) => t.value === category)?.title ?? "";
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Link href="/teams" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink">
         <ArrowLeft size={16} /> Teams
       </Link>
@@ -223,6 +224,15 @@ export function TeamCreateWizard({ defaultZip }: { defaultZip: string }) {
                 </div>
               </div>
             </div>
+            {homeZipValid && zip !== homeZip ? (
+              <button
+                type="button"
+                onClick={() => onZip(homeZip)}
+                className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-bg"
+              >
+                <LocateFixed size={13} className="text-brand" /> Use my location
+              </button>
+            ) : null}
             {zipError ? <p className="text-sm text-brand-deep">{zipError}</p> : null}
           </div>
         ) : null}

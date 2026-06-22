@@ -193,7 +193,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {blocked ? (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rule bg-surface px-4 py-3">
           <p className="text-sm text-mute">You&rsquo;ve blocked this player.</p>

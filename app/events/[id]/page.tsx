@@ -80,7 +80,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     `&location=${encodeURIComponent(where ?? "")}`;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Link href="/events" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
         <ChevronLeft size={15} /> Events
       </Link>

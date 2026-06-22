@@ -134,7 +134,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
   const tournaments = mine ?? [];
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {/* Header with a discreet host button */}
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">

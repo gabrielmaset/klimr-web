@@ -40,7 +40,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
   const completed = setup.filter((s) => s.done).length;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {/* hero */}
       <div className="relative overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(135deg,#0e2c3a,#0a212c)] p-5 sm:p-7">
         <span aria-hidden className="pointer-events-none absolute -right-4 -top-8 select-none text-[150px] leading-none opacity-[0.07]">{meta.emoji}</span>

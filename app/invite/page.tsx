@@ -16,7 +16,7 @@ export default async function InvitePage() {
   if (!user) redirect("/login?next=/invite");
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5 flex items-center gap-3">
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-tint-brand">
           <Gift size={22} className="text-brand-deep" />

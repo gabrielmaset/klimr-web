@@ -53,7 +53,7 @@ const SECTIONS: { h: string; items: { q: string; a: string }[] }[] = [
 
 export default function HelpPage() {
   return (
-    <div className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
+    <div className="mx-auto max-w-page-narrow px-5 py-10 sm:py-14">
       <div className="flex items-center gap-3">
         <span className="grid h-11 w-11 place-items-center rounded-2xl bg-tint-brand text-brand-deep">
           <LifeBuoy size={20} />

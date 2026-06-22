@@ -81,7 +81,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
     : `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Link href="/courts" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
         <ChevronLeft size={15} /> Courts
       </Link>

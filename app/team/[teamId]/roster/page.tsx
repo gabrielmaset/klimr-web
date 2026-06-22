@@ -79,7 +79,7 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5 flex items-end justify-between gap-3">
         <div>
           <p className="kicker mb-1 text-brand-deep">Roster</p>

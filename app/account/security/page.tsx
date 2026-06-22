@@ -35,7 +35,7 @@ export default async function SecurityPage() {
     [e.city, e.region, e.country].filter(Boolean).join(", ");
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-12 lg:py-16">
+    <div className="mx-auto max-w-page-narrow px-5 py-12 lg:py-16">
       <Link href="/account" className="text-sm text-mute transition-colors hover:text-ink">
         ← Account
       </Link>

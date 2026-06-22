@@ -55,7 +55,7 @@ export default async function SponsorshipsPage() {
   const primaryMeta = primary ? sportMeta(primary) : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Sponsorships</h1>
         <p className="mt-1 text-sm text-mute">Local businesses backing the best players in your area.</p>

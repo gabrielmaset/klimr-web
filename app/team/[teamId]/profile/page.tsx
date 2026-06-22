@@ -39,7 +39,7 @@ export default async function TeamProfile({ params }: { params: Promise<{ teamId
   const winRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <p className="kicker mb-1 text-brand-deep">Team profile</p>
       <div className="flex items-center gap-4">
         <span className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl bg-tint-brand text-3xl">{meta.emoji}</span>

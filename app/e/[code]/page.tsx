@@ -132,7 +132,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
     });
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       {/* hero */}
       <div className="relative overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(135deg,#0e2c3a,#0a212c)] p-6 sm:p-8">
         <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none text-[170px] leading-none opacity-[0.07]">{meta.emoji}</span>

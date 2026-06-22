@@ -88,7 +88,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
   const others = rows.filter((r) => r.paymentStatus !== "proof_submitted");
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
         <p className="kicker text-brand-deep">Registration</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Payments</h1>

@@ -161,7 +161,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="kicker text-brand-deep">Competition</p>

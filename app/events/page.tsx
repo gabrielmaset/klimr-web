@@ -67,7 +67,7 @@ export default async function EventsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Events</h1>
         <p className="mt-1 text-sm text-mute">Open play, ladder nights, clinics, and tournaments near you. Times shown in PT.</p>

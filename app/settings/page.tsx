@@ -93,7 +93,7 @@ export default async function SettingsPage() {
   const place = [profile?.neighborhood, profile?.city].filter(Boolean).join(", ");
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Settings</h1>
         <p className="mt-1 text-sm text-mute">Manage your account, play, notifications, teams, and privacy.</p>

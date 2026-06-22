@@ -32,7 +32,7 @@ export default async function SignupFormPage({ params }: { params: Promise<{ id:
   }));
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
         <p className="kicker text-brand-deep">Registration</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Sign-up form</h1>

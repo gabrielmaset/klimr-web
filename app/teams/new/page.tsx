@@ -16,5 +16,5 @@ export default async function NewTeamPage() {
 
   const { data: profile } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
 
-  return <TeamCreateWizard defaultZip={profile?.home_zip ?? ""} />;
+  return <TeamCreateWizard homeZip={profile?.home_zip ?? ""} />;
 }

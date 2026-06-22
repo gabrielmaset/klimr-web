@@ -121,7 +121,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   const paidCount = entries.filter((e) => e.paymentStatus === "confirmed").length;
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="kicker text-brand-deep">Registration</p>

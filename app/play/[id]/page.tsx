@@ -139,7 +139,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Link href="/play" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
         <ArrowLeft size={15} /> All matches
       </Link>

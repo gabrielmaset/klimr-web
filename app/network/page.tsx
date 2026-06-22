@@ -73,7 +73,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
         : "No followers yet. As you play and post, players will follow you.";
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5">
         <p className="kicker text-faint">Network</p>
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Friends &amp; followers</h1>

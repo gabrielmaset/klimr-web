@@ -30,7 +30,7 @@ export default async function NewTournamentPage({ searchParams }: { searchParams
   const verified = prof?.verification_status === "verified";
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <Link href="/tournaments" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink">
         <ArrowLeft size={16} /> Tournaments
       </Link>
@@ -149,7 +149,7 @@ export default async function NewTournamentPage({ searchParams }: { searchParams
             disabled={!verified}
             className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-50"
           >
-            Create draft & continue
+            Continue to setup
           </button>
           <Link href="/tournaments" className="press rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
             Cancel

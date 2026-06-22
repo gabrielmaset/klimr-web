@@ -19,7 +19,7 @@ export default async function TeamMatches({ params }: { params: Promise<{ teamId
   const canManage = membership?.role === "owner" || membership?.role === "manager" || membership?.role === "staff";
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <p className="kicker mb-1 text-brand-deep">Matches</p>
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{team.name}</h1>
 

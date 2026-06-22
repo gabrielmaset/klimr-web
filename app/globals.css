@@ -1,6 +1,13 @@
 @import "tailwindcss";
 
 @theme {
+  /* ---- Page width: the single knob for how wide pages are. ----
+     `max-w-page` is the standard content width used by nearly every page;
+     `max-w-page-narrow` is for focused reading/forms. Change these two values
+     to re-flow the whole site — no need to touch individual pages. */
+  --container-page: 80rem;        /* standard content pages (was a mix of 4xl–7xl) */
+  --container-page-narrow: 48rem; /* legal text, settings forms, registration */
+
   /* Klimr palette — canonical with the investor demo */
   --color-bg: #fafafa;
   --color-surface: #ffffff;

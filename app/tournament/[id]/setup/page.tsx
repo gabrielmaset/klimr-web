@@ -57,7 +57,7 @@ export default async function SetupPage({
   const startStep = step ? Math.max(0, Math.min(parseInt(step, 10) || 0, 5)) : undefined;
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
         <p className="kicker text-brand-deep">Set up</p>
         <h1 className="truncate font-display text-3xl leading-none text-ink sm:text-4xl">{t.title || "Your tournament"}</h1>

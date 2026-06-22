@@ -91,7 +91,7 @@ export default async function ConfirmPage({ params }: { params: Promise<{ code: 
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <div className="mb-6">
         <p className="kicker text-brand-deep">{meta.name} · Confirm your spot</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{t.title}</h1>

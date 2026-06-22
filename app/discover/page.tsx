@@ -32,7 +32,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
 
   if (mySports.length === 0) {
     return (
-      <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+      <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Match Intelligence</h1>
         <div className="mt-5 rounded-2xl border border-rule bg-surface p-8 text-center">
           <Radar className="mx-auto text-faint" size={26} />
@@ -106,7 +106,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-1 flex items-center gap-2">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Match Intelligence</h1>
       </div>

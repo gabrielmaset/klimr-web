@@ -53,7 +53,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
   const drawnDivs = divs.filter((d) => allGroups.some((g) => g.division_id === d.id));
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
         <p className="kicker text-brand-deep">Competition</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Schedule &amp; scores</h1>

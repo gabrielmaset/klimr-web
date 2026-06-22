@@ -271,7 +271,7 @@ export default async function Home() {
       </section>
 
       {/* ---------------- Build status ---------------- */}
-      <section className="mx-auto max-w-6xl px-5 py-20">
+      <section className="mx-auto max-w-page px-5 py-20">
         <p className="kicker text-brand-deep">Built in the open</p>
         <h2 className="mt-3 max-w-2xl font-display text-4xl leading-[0.98] text-ink sm:text-5xl">
           Six flows. Shipping <span className="italic">one by one.</span>
@@ -336,7 +336,7 @@ export default async function Home() {
           <rect x="240" y="150" width="720" height="300" fill="none" stroke="white" strokeWidth="2" />
           <line x1="240" y1="300" x2="960" y2="300" stroke="white" strokeWidth="2" />
         </svg>
-        <div className="relative mx-auto max-w-6xl px-5">
+        <div className="relative mx-auto max-w-page px-5">
           <p className="kicker text-brand">The trust floor</p>
           <h2 className="mt-3 max-w-2xl font-display text-4xl leading-[0.98] sm:text-5xl">
             Rankings you can <span className="italic text-brand">actually believe.</span>
@@ -356,7 +356,7 @@ export default async function Home() {
       </section>
 
       {/* ---------------- CTA ---------------- */}
-      <section className="mx-auto max-w-6xl px-5 py-20">
+      <section className="mx-auto max-w-page px-5 py-20">
         <div className="rounded-[2rem] bg-brand px-7 py-14 text-center text-white sm:px-12">
           <h2 className="font-display text-4xl leading-[0.95] sm:text-6xl">
             Climb the <span className="italic">block.</span>
