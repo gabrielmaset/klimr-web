@@ -168,7 +168,10 @@ export async function createTournament(formData: FormData) {
     .insert({ owner_id: user.id, code, title, sport_key: sport, entry_type, status: "draft" })
     .select("id")
     .single();
-  if (error || !created) redirect("/tournaments/new?error=create");
+  if (error || !created) {
+    console.error("[tournaments] create failed", error?.code, error?.message);
+    redirect(`/tournaments/new?error=create${error?.code ? `&code=${encodeURIComponent(error.code)}` : ""}`);
+  }
 
   redirect(`/tournament/${created.id}`);
 }

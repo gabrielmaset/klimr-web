@@ -18,8 +18,8 @@ const field =
   "w-full rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand";
 const labelCls = "mb-1.5 block text-xs font-semibold text-mute";
 
-export default async function NewTournamentPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+export default async function NewTournamentPage({ searchParams }: { searchParams: Promise<{ error?: string; code?: string }> }) {
+  const { error, code } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -140,7 +140,10 @@ export default async function NewTournamentPage({ searchParams }: { searchParams
         </div>
 
         {error && ERROR_COPY[error] ? (
-          <p className="mt-3 rounded-xl bg-tint-brand px-3.5 py-2.5 text-sm text-brand-deep">{ERROR_COPY[error]}</p>
+          <p className="mt-3 rounded-xl bg-tint-brand px-3.5 py-2.5 text-sm text-brand-deep">
+            {ERROR_COPY[error]}
+            {error === "create" && code ? <span className="mt-1 block font-mono text-xs text-mute">Error code: {code}</span> : null}
+          </p>
         ) : null}
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -149,7 +152,7 @@ export default async function NewTournamentPage({ searchParams }: { searchParams
             disabled={!verified}
             className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-50"
           >
-            Continue to setup
+            Continue
           </button>
           <Link href="/tournaments" className="press rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
             Cancel
