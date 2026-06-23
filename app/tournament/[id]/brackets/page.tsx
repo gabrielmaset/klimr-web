@@ -58,7 +58,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/tournament/${id}/brackets`);
 
-  const { data: t } = await supabase.from("tournaments").select("id, format_config").eq("id", id).maybeSingle();
+  const { data: t } = await supabase.from("tournaments").select("id, capacity, format_config").eq("id", id).maybeSingle();
   if (!t) notFound();
   const fc = (t.format_config ?? {}) as TournamentFormatConfig;
   const formatType = fc.format_type ?? "pools_knockout";
@@ -74,6 +74,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
   const divs = divisions ?? [];
 
   let body: React.ReactNode;
+  let scheduleReady = false;
 
   if (divs.length === 0) {
     body = (
@@ -121,6 +122,14 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
     const allMatches = matches ?? [];
 
     if (formatType === "single_elim") {
+      scheduleReady =
+        list.length > 0 &&
+        allMatches.length > 0 &&
+        divs.every((d) => {
+          const dRegs = list.filter((r) => r.division_id === d.id);
+          if (dRegs.length === 0) return true;
+          return allMatches.some((m) => m.division_id === d.id && m.group_id === null);
+        });
       body = (
         <div className="grid gap-5">
           {divs.map((d) => {
@@ -137,6 +146,17 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
       const allGe = ge ?? [];
       const defaultPools = formatType === "pools_knockout" ? fc.pool_count ?? 2 : 1;
       const isKnockout = formatType === "pools_knockout";
+
+      scheduleReady =
+        list.length > 0 &&
+        allMatches.length > 0 &&
+        divs.every((d) => {
+          const dRegs = list.filter((r) => r.division_id === d.id);
+          if (dRegs.length === 0) return true;
+          const dGroups = allGroups.filter((g) => g.division_id === d.id);
+          if (dGroups.length === 0) return false;
+          return dGroups.every((g) => allGe.some((e) => e.group_id === g.id));
+        });
 
       body = (
         <div className="grid gap-5">
@@ -155,10 +175,26 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
                 .map((m) => ({ a: nm(m.entry_a), b: nm(m.entry_b), scoreA: m.score_a, scoreB: m.score_b, status: m.status, court: m.court })),
             }));
             const knockoutMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id === null);
+            const resultsStarted = allMatches.some((m) => m.division_id === d.id && m.status === "completed");
+            const previewEntries = dRegs.map((r) => nameByReg.get(r.id) ?? "Team");
+            const poolMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id !== null);
+            const poolsComplete = poolMatches.length > 0 && poolMatches.every((m) => m.status === "completed");
             return (
               <div key={d.id} className="grid gap-3">
-                <DivisionGroups tournamentId={id} divisionId={d.id} name={d.name} participantCount={dRegs.length} defaultPools={defaultPools} pools={pools} format={formatType} draws={drawsFor(d.id)} />
-                {isKnockout ? <DivisionKnockout tournamentId={id} divisionId={d.id} defaultAdvancers={2} rounds={buildRounds(knockoutMatches, nm)} poolsReady={dGroups.length > 0} /> : null}
+                <DivisionGroups
+                  tournamentId={id}
+                  divisionId={d.id}
+                  name={d.name}
+                  participantCount={dRegs.length}
+                  defaultPools={defaultPools}
+                  pools={pools}
+                  format={formatType}
+                  draws={drawsFor(d.id)}
+                  previewEntries={previewEntries}
+                  capacity={t.capacity ?? null}
+                  resultsStarted={resultsStarted}
+                />
+                {isKnockout ? <DivisionKnockout tournamentId={id} divisionId={d.id} defaultAdvancers={2} rounds={buildRounds(knockoutMatches, nm)} poolsComplete={poolsComplete} /> : null}
               </div>
             );
           })}
@@ -181,12 +217,23 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         </div>
         {divs.length > 0 ? (
           <div className="flex flex-col items-start gap-2 sm:items-end">
-            <Link
-              href={`/tournament/${id}/schedule`}
-              className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition hover:bg-ink-soft"
-            >
-              Send to schedule <ArrowRight size={15} />
-            </Link>
+            {scheduleReady ? (
+              <Link
+                href={`/tournament/${id}/schedule`}
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition hover:bg-ink-soft"
+              >
+                Send to schedule <ArrowRight size={15} />
+              </Link>
+            ) : (
+              <span
+                aria-disabled
+                title="Add entries and draw every pool first"
+                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full bg-ink/40 px-4 py-2 text-sm font-semibold text-surface"
+              >
+                Send to schedule <ArrowRight size={15} />
+              </span>
+            )}
+            {!scheduleReady ? <p className="text-[11px] text-mute sm:text-right">Available once entries are in and every pool is filled.</p> : null}
             <AwardPointsButton tournamentId={id} awarded={awardedCount ?? 0} ready={allResultsIn} />
           </div>
         ) : null}

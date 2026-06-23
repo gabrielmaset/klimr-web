@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, MapPin, Users, Trophy, Check, Dices } from "lucide-react";
+import { CalendarClock, MapPin, Users, Trophy, Check, Dices, Images } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { formatFee, type TournamentFormatConfig, type PublishedScheduleRow } from "@/lib/tournament";
@@ -40,6 +40,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   if (!t) notFound();
 
   const fc = (t.format_config ?? {}) as TournamentFormatConfig;
+  const photos = Array.isArray(fc.gallery) ? fc.gallery : [];
   const pubSchedule = fc.schedule_published && fc.published_schedule?.rows?.length ? fc.published_schedule : null;
   const courtNumOf = (c: string) => {
     const m = /Court (\d+)/.exec(c);
@@ -153,7 +154,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
     });
 
   return (
-    <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {/* hero */}
       <div className="relative overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(135deg,#0e2c3a,#0a212c)] p-6 sm:p-8">
         <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none text-[170px] leading-none opacity-[0.07]">{meta.emoji}</span>
@@ -368,6 +369,29 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
                   ))}
                 </ul>
               </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {photos.length ? (
+        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Images size={18} className="text-brand-deep" />
+            <h2 className="text-base font-bold text-ink">Gallery</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+            {photos.map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="group relative block aspect-[4/3] overflow-hidden rounded-xl border border-rule bg-bg"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`${t.title} photo ${i + 1}`} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy" />
+              </a>
             ))}
           </div>
         </section>

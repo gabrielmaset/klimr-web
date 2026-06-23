@@ -6,6 +6,7 @@ import { Loader2, CalendarClock, Printer, Globe } from "lucide-react";
 import { Segmented } from "@/components/form-kit";
 import { buildSchedule, publishSchedule, unpublishSchedule } from "@/app/tournaments/actions";
 import { isoToLocalInput, localInputToIso } from "@/lib/tournament";
+import { DateTimeField } from "@/components/date-time-field";
 
 export type ScheduleRow = {
   court: string;
@@ -37,6 +38,7 @@ export function ScheduleBuilder({
   initMode,
   initLength,
   initCourts,
+  courtNames,
   built,
   published,
   rows,
@@ -47,6 +49,7 @@ export function ScheduleBuilder({
   initMode: "timed" | "ordered";
   initLength: number;
   initCourts: number;
+  courtNames: string[];
   built: boolean;
   published: boolean;
   rows: ScheduleRow[];
@@ -80,7 +83,7 @@ export function ScheduleBuilder({
       startAt: mode === "timed" && startAt ? localInputToIso(startAt) : null,
       mode,
       matchLengthMin: Number(length) || 30,
-      courtCount: Number(courts) || 1,
+      courtCount: courtNames.length || Number(courts) || 1,
     });
     if (res.ok) {
       setDone(`Schedule built — ${res.count} ${res.count === 1 ? "match" : "matches"} placed across courts.`);
@@ -187,16 +190,29 @@ export function ScheduleBuilder({
         </div>
 
         <div>
-          <label className={labelCls}>Available courts</label>
-          <input inputMode="numeric" value={courts} onChange={(e) => setCourts(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))} className={inputCls} placeholder="e.g. 4" />
-          <p className="mt-1.5 text-xs text-faint">Matches run in parallel across Court 1…{Math.max(1, Number(courts) || 1)}.</p>
+          <label className={labelCls}>Courts</label>
+          {courtNames.length ? (
+            <>
+              <div className="flex flex-wrap gap-1.5">
+                {courtNames.map((c) => (
+                  <span key={c} className="rounded-full border border-rule bg-bg px-2.5 py-1 text-xs font-semibold text-ink">{c}</span>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-faint">{courtNames.length} {courtNames.length === 1 ? "court" : "courts"} from your event setup — matches run in parallel across them. Edit in Settings.</p>
+            </>
+          ) : (
+            <>
+              <input inputMode="numeric" value={courts} onChange={(e) => setCourts(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))} className={inputCls} placeholder="e.g. 4" />
+              <p className="mt-1.5 text-xs text-faint">Matches run in parallel across Court 1…{Math.max(1, Number(courts) || 1)}.</p>
+            </>
+          )}
         </div>
 
         {mode === "timed" ? (
           <>
             <div>
               <label className={labelCls}>Matches start time</label>
-              <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={inputCls} />
+              <DateTimeField value={startAt} onChange={setStartAt} ariaLabel="Matches start" />
               <p className="mt-1.5 text-xs text-faint">When the first matches begin (separate from the event start).</p>
             </div>
             <div>

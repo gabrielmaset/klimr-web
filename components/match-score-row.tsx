@@ -36,6 +36,7 @@ export function MatchScoreRow({
   const [a, setA] = useState(scoreA == null ? "" : String(scoreA));
   const [b, setB] = useState(scoreB == null ? "" : String(scoreB));
   const [busy, setBusy] = useState<null | "save" | "clear">(null);
+  const [confirming, setConfirming] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const aWon = completed && scoreA != null && scoreB != null && scoreA > scoreB;
@@ -59,15 +60,21 @@ export function MatchScoreRow({
     );
   }
 
-  async function save() {
+  function requestSave() {
     if (a.trim() === "" || b.trim() === "") {
       setErr("Enter both scores.");
       return;
     }
+    setErr(null);
+    setConfirming(true);
+  }
+
+  async function doSave() {
     setBusy("save");
     setErr(null);
     const res = await recordMatchScore(matchId, Number(a), Number(b));
     if (res.ok) {
+      setConfirming(false);
       setEditing(false);
       router.refresh();
     } else {
@@ -115,17 +122,30 @@ export function MatchScoreRow({
           </button>
         ) : (
           <span className="flex shrink-0 items-center gap-1">
-            <button type="button" onClick={save} disabled={!!busy} className="press inline-flex items-center gap-1 rounded-lg bg-success px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50" aria-label="Save score">
+            <button type="button" onClick={requestSave} disabled={!!busy || confirming} className="press inline-flex items-center gap-1 rounded-lg bg-success px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50" aria-label="Save score">
               {busy === "save" ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
             </button>
             {completed ? (
-              <button type="button" onClick={() => setEditing(false)} className="text-mute hover:text-ink" aria-label="Cancel">
+              <button type="button" onClick={() => { setEditing(false); setConfirming(false); }} className="text-mute hover:text-ink" aria-label="Cancel">
                 <X size={15} />
               </button>
             ) : null}
           </span>
         )}
       </div>
+      {confirming ? (
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-2 rounded-lg bg-tint-brand/50 px-2.5 py-2 text-xs">
+          <span className="mr-auto font-medium text-ink-soft">
+            Save <span className="font-bold text-ink">{a}&ndash;{b}</span>? Standings update right away.
+          </span>
+          <button type="button" onClick={doSave} disabled={busy === "save"} className="press inline-flex items-center gap-1 rounded-lg bg-success px-2.5 py-1.5 font-semibold text-white hover:opacity-90 disabled:opacity-50">
+            {busy === "save" ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Confirm
+          </button>
+          <button type="button" onClick={() => setConfirming(false)} className="font-medium text-mute hover:text-ink">
+            Cancel
+          </button>
+        </div>
+      ) : null}
       {completed && !editing ? (
         <div className="mt-1 text-right">
           <button type="button" onClick={clear} disabled={!!busy} className="text-[11px] font-medium text-faint hover:text-mute disabled:opacity-50">

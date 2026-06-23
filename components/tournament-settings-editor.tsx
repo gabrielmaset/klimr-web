@@ -9,6 +9,7 @@ import { SPORTS, sportMeta } from "@/lib/sports";
 import { isoToLocalInput, localInputToIso, type FormatType, type TournamentDraftPatch } from "@/lib/tournament";
 import { updateTournamentDraft, publishTournament, unpublishTournament } from "@/app/tournaments/actions";
 import { resolveTeamZip } from "@/app/teams/actions";
+import { DateTimeField } from "@/components/date-time-field";
 
 export type SettingsInit = {
   id: string;
@@ -35,6 +36,7 @@ export type SettingsInit = {
   format_type: FormatType;
   pool_count: number;
   roster_size: number;
+  courts: string[] | null;
   waiver_text: string;
   rules_text: string;
   require_waiver: boolean;
@@ -152,7 +154,6 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
   // Date & location
   const [startsAt, setStartsAt] = useState(isoToLocalInput(init.starts_at));
   const [endsAt, setEndsAt] = useState(isoToLocalInput(init.ends_at));
-  const [tz, setTz] = useState(init.timezone ?? "");
   const [locName, setLocName] = useState(init.location_name ?? "");
   const [locAddr, setLocAddr] = useState(init.location_address ?? "");
   const [locZip, setLocZip] = useState("");
@@ -170,6 +171,15 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
   const [formatType, setFormatType] = useState<FormatType>(init.format_type);
   const [poolCount, setPoolCount] = useState(String(init.pool_count || 2));
   const [rosterSize, setRosterSize] = useState(String(init.roster_size || 2));
+  const [courtList, setCourtList] = useState<string[]>(init.courts && init.courts.length ? init.courts : ["Court 1", "Court 2"]);
+  const setCourtCount = (nStr: string) => {
+    const k = Math.max(1, Math.min(50, parseInt(nStr || "1", 10) || 1));
+    setCourtList((prev) => {
+      const next = prev.slice(0, k);
+      for (let i = prev.length; i < k; i++) next.push(`Court ${i + 1}`);
+      return next;
+    });
+  };
   const [capacity, setCapacity] = useState(init.capacity != null ? String(init.capacity) : "");
   const [reserves, setReserves] = useState(String(init.reserves_allowed ?? 0));
   const [genderRule, setGenderRule] = useState<"open" | "min_women" | "min_men">(
@@ -257,7 +267,6 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
           save({
             starts_at: localInputToIso(startsAt),
             ends_at: localInputToIso(endsAt),
-            timezone: tz.trim() || null,
             location_name: locName.trim() || null,
             location_address: locAddr.trim() || null,
             zip: locZip.trim() || undefined,
@@ -268,16 +277,12 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Starts</label>
-            <input type="datetime-local" className={inputCls} value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+            <DateTimeField value={startsAt} onChange={setStartsAt} ariaLabel="Start" />
           </div>
           <div>
-            <label className={labelCls}>Ends</label>
-            <input type="datetime-local" className={inputCls} value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+            <label className={labelCls}>Ends <span className="font-normal normal-case text-faint">(optional)</span></label>
+            <DateTimeField value={endsAt} onChange={setEndsAt} optional ariaLabel="End" />
           </div>
-        </div>
-        <div className="sm:max-w-xs">
-          <label className={labelCls}>Time zone</label>
-          <input className={inputCls} value={tz} onChange={(e) => setTz(e.target.value)} placeholder="America/Los_Angeles" />
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -320,7 +325,7 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
             reserves_allowed: Math.min(n(reserves), reserveMax),
             min_women: genderRule === "min_women" ? n(minCount) : 0,
             min_men: genderRule === "min_men" ? n(minCount) : 0,
-            format_config: { format_type: formatType, pool_count: n(poolCount) || 2, roster_size: n(rosterSize) || 2 },
+            format_config: { format_type: formatType, pool_count: n(poolCount) || 2, roster_size: n(rosterSize) || 2, courts: courtList.map((c, i) => c.trim() || `Court ${i + 1}`) },
           })
         }
       >
@@ -350,6 +355,25 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
             <p className={hintCls}>Each team&rsquo;s main roster must match this exactly to enter.</p>
           </div>
         ) : null}
+        <div className="rounded-2xl border border-rule bg-bg/40 p-4">
+          <div className="sm:max-w-xs">
+            <label className={labelCls}>Number of courts</label>
+            <input type="number" min={1} max={50} className={inputCls} value={courtList.length} onChange={(e) => setCourtCount(e.target.value)} />
+          </div>
+          <p className={hintCls}>Name or number each court — these label the matches when you build the schedule.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {courtList.map((label, i) => (
+              <input
+                key={i}
+                className={inputCls}
+                value={label}
+                aria-label={`Court ${i + 1} name`}
+                onChange={(e) => { const next = [...courtList]; next[i] = e.target.value; setCourtList(next); }}
+                placeholder={`Court ${i + 1}`}
+              />
+            ))}
+          </div>
+        </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Capacity</label>
@@ -395,11 +419,11 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Registration opens</label>
-            <input type="datetime-local" className={inputCls} value={regOpens} onChange={(e) => setRegOpens(e.target.value)} />
+            <DateTimeField value={regOpens} onChange={setRegOpens} optional ariaLabel="Registration opens" />
           </div>
           <div>
             <label className={labelCls}>Registration deadline</label>
-            <input type="datetime-local" className={inputCls} value={regDeadline} onChange={(e) => setRegDeadline(e.target.value)} />
+            <DateTimeField value={regDeadline} onChange={setRegDeadline} optional ariaLabel="Registration deadline" />
           </div>
         </div>
         <div className="rounded-2xl border border-dashed border-rule bg-bg/40 p-4 text-sm text-mute">

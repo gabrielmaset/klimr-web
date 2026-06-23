@@ -21,13 +21,13 @@ export function DivisionKnockout({
   divisionId,
   defaultAdvancers,
   rounds,
-  poolsReady,
+  poolsComplete,
 }: {
   tournamentId: string;
   divisionId: string;
   defaultAdvancers: number;
   rounds: Match[][];
-  poolsReady: boolean;
+  poolsComplete: boolean;
 }) {
   const router = useRouter();
   const [adv, setAdv] = useState(String(defaultAdvancers || 2));
@@ -69,7 +69,7 @@ export function DivisionKnockout({
             Advance per pool
             <input type="number" min={1} max={8} value={adv} onChange={(e) => setAdv(e.target.value)} className="w-14 rounded-lg border border-rule bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand" />
           </label>
-          <button type="button" onClick={gen} disabled={!!busy || !poolsReady} className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white hover:bg-ink-soft disabled:opacity-50">
+          <button type="button" onClick={gen} disabled={!!busy || !poolsComplete} className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white hover:bg-ink-soft disabled:opacity-50">
             {busy === "gen" ? <Loader2 size={15} className="animate-spin" /> : <Trophy size={15} />} {hasKnockout ? "Rebuild" : "Generate knockout"}
           </button>
           {hasKnockout ? (
@@ -85,7 +85,7 @@ export function DivisionKnockout({
       </p>
 
       {err ? <p className="mt-2 text-xs font-semibold text-brand-deep">{err}</p> : null}
-      {!poolsReady ? <p className="mt-2 text-xs text-mute">Draw the pools first to enable the knockout.</p> : null}
+      {!poolsComplete ? <p className="mt-2 text-xs text-mute">Enter every pool result first — the knockout is built (and seeded) from the final pool standings.</p> : null}
 
       {hasKnockout ? (
         <div className="mt-3 overflow-x-auto pb-2">

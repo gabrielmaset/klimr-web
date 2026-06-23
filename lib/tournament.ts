@@ -27,12 +27,16 @@ export type TournamentFormatConfig = {
   pool_count?: number;
   roster_size?: number;
   court_count?: number;
+  courts?: string[];
   matches_start_at?: string | null;
   schedule_mode?: "timed" | "ordered";
   match_length_min?: number;
   schedule_built_at?: string | null;
   schedule_published?: boolean;
   published_schedule?: PublishedSchedule;
+  gallery?: string[];
+  capacity_mode?: "pooled" | "per_division";
+  capacity_unit?: "team" | "person";
   legal?: {
     waiver_text?: string;
     rules_text?: string;

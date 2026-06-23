@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DivisionsEditor } from "@/components/tournament-divisions-editor";
-import type { DivisionRow } from "@/lib/tournament";
+import type { DivisionRow, TournamentFormatConfig } from "@/lib/tournament";
 
 export default async function DivisionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,7 +11,7 @@ export default async function DivisionsPage({ params }: { params: Promise<{ id: 
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/tournament/${id}/divisions`);
 
-  const { data: t } = await supabase.from("tournaments").select("id, title, entry_type").eq("id", id).maybeSingle();
+  const { data: t } = await supabase.from("tournaments").select("id, title, entry_type, capacity, format_config").eq("id", id).maybeSingle();
   if (!t) notFound();
 
   const { data: divs } = await supabase
@@ -20,6 +20,9 @@ export default async function DivisionsPage({ params }: { params: Promise<{ id: 
     .eq("tournament_id", id)
     .order("sort_order");
   const entryType = t.entry_type === "individual" ? "individual" : "team";
+  const fc = (t.format_config ?? {}) as TournamentFormatConfig;
+  const capMode: "pooled" | "per_division" = fc.capacity_mode === "per_division" ? "per_division" : "pooled";
+  const capUnit: "team" | "person" = fc.capacity_unit === "person" ? "person" : "team";
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
@@ -28,7 +31,14 @@ export default async function DivisionsPage({ params }: { params: Promise<{ id: 
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Divisions &amp; fees</h1>
         <p className="mt-2 text-sm text-mute">Set the categories players enter and what each costs. {entryType === "team" ? "Teams" : "Players"} pick a division when they sign up.</p>
       </div>
-      <DivisionsEditor tournamentId={t.id} entryType={entryType} initial={(divs as DivisionRow[]) ?? []} />
+      <DivisionsEditor
+        tournamentId={t.id}
+        entryType={entryType}
+        initial={(divs as DivisionRow[]) ?? []}
+        initialMode={capMode}
+        initialUnit={capUnit}
+        totalCapacity={t.capacity ?? null}
+      />
     </div>
   );
 }

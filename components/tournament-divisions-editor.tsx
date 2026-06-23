@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2, Loader2, Check } from "lucide-react";
 import { Segmented } from "@/components/form-kit";
-import { saveDivisions } from "@/app/tournaments/actions";
+import { saveDivisions, updateTournamentDraft } from "@/app/tournaments/actions";
 import { formatFee, type DivisionRow } from "@/lib/tournament";
 
 type Row = { id?: string; name: string; description: string; fee: string; basis: "per_team" | "per_player"; capacity: string };
@@ -24,8 +24,24 @@ function toRow(d: DivisionRow): Row {
 
 const blank = (entryType: "team" | "individual"): Row => ({ name: "", description: "", fee: "", basis: entryType === "individual" ? "per_player" : "per_team", capacity: "" });
 
-export function DivisionsEditor({ tournamentId, entryType, initial }: { tournamentId: string; entryType: "team" | "individual"; initial: DivisionRow[] }) {
+export function DivisionsEditor({
+  tournamentId,
+  entryType,
+  initial,
+  initialMode,
+  initialUnit,
+  totalCapacity,
+}: {
+  tournamentId: string;
+  entryType: "team" | "individual";
+  initial: DivisionRow[];
+  initialMode: "pooled" | "per_division";
+  initialUnit: "team" | "person";
+  totalCapacity: number | null;
+}) {
   const [rows, setRows] = useState<Row[]>(initial.length ? initial.map(toRow) : [blank(entryType)]);
+  const [mode, setMode] = useState<"pooled" | "per_division">(initialMode);
+  const [unit, setUnit] = useState<"team" | "person">(initialUnit);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -38,6 +54,7 @@ export function DivisionsEditor({ tournamentId, entryType, initial }: { tourname
     setSaving(true);
     setErr(null);
     try {
+      await updateTournamentDraft(tournamentId, { format_config: { capacity_mode: mode, capacity_unit: entryType === "individual" ? "person" : unit } });
       const payload = rows
         .filter((r) => r.name.trim() || r.fee.trim() || r.description.trim())
         .map((r, i) => ({
@@ -63,6 +80,45 @@ export function DivisionsEditor({ tournamentId, entryType, initial }: { tourname
 
   return (
     <div>
+      <div className="mb-4 rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+        <h2 className="text-sm font-bold text-ink">Capacity</h2>
+        <p className="mt-0.5 text-xs text-mute">How registration limits work across your divisions.</p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Limit by</label>
+            <Segmented
+              ariaLabel="Capacity mode"
+              value={mode}
+              onChange={(v) => setMode(v)}
+              options={[
+                { value: "pooled", label: "Shared total" },
+                { value: "per_division", label: "Per division" },
+              ]}
+            />
+            <p className="mt-1.5 text-xs text-faint">
+              {mode === "pooled"
+                ? `Divisions share one event total${totalCapacity != null ? ` of ${totalCapacity}` : ""} — set it in Settings. Sign-ups fill any division until the total is reached.`
+                : "Each division has its own cap below, adjustable as entries come in."}
+            </p>
+          </div>
+          {entryType === "team" ? (
+            <div>
+              <label className={labelCls}>Count by</label>
+              <Segmented
+                ariaLabel="Capacity unit"
+                value={unit}
+                onChange={(v) => setUnit(v)}
+                options={[
+                  { value: "team", label: "Teams" },
+                  { value: "person", label: "Players" },
+                ]}
+              />
+              <p className="mt-1.5 text-xs text-faint">{unit === "person" ? "Counts on-court players toward the cap." : "Counts entered teams toward the cap."}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
       <div className="grid gap-3">
         {rows.map((r, i) => (
           <div key={r.id ?? `new-${i}`} className="rounded-2xl border border-rule bg-surface p-4">
@@ -92,10 +148,16 @@ export function DivisionsEditor({ tournamentId, entryType, initial }: { tourname
                       />
                     </div>
                   ) : null}
-                  <div>
-                    <label className={labelCls}>Capacity</label>
-                    <input type="number" min={0} className={inputCls} placeholder="Unlimited" value={r.capacity} onChange={(e) => update(i, { capacity: e.target.value })} />
-                  </div>
+                  {mode === "per_division" ? (
+                    <div>
+                      <label className={labelCls}>Capacity</label>
+                      <input type="number" min={0} className={inputCls} placeholder="Unlimited" value={r.capacity} onChange={(e) => update(i, { capacity: e.target.value })} />
+                    </div>
+                  ) : (
+                    <div className="flex items-end pb-2.5">
+                      <p className="text-xs text-faint">Shares the event total.</p>
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-mute">
                   {r.name.trim() || "This division"} · {formatFee(Math.max(Math.round((parseFloat(r.fee) || 0) * 100), 0), entryType === "individual" ? "per_player" : r.basis)}

@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TournamentSettingsEditor, type SettingsInit } from "@/components/tournament-settings-editor";
+import { GalleryEditor } from "@/components/gallery-editor";
 import { DeleteEvent } from "@/components/tournament-delete";
 import type { TournamentFormatConfig, FormatType } from "@/lib/tournament";
 
@@ -44,6 +45,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
     format_type: (fc.format_type ?? "pools_knockout") as FormatType,
     pool_count: fc.pool_count ?? 2,
     roster_size: fc.roster_size ?? 2,
+    courts: Array.isArray(fc.courts) ? fc.courts : null,
     waiver_text: legal.waiver_text ?? "",
     rules_text: legal.rules_text ?? "",
     require_waiver: !!legal.require_waiver,
@@ -59,6 +61,12 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
       </div>
 
       <TournamentSettingsEditor init={init} />
+
+      <section className="mt-4 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <h2 className="text-base font-bold text-ink">Event photos</h2>
+        <p className="mb-4 mt-0.5 text-sm text-mute">A gallery on your public page — add shots from past tournaments, the venue, or the crowd.</p>
+        <GalleryEditor tournamentId={t.id} initial={Array.isArray(fc.gallery) ? fc.gallery : []} />
+      </section>
 
       <div className="mt-4">
         {isOwner ? (

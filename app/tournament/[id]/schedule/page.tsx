@@ -98,6 +98,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
             initMode={fc.schedule_mode ?? "timed"}
             initLength={fc.match_length_min ?? 30}
             initCourts={fc.court_count ?? 1}
+            courtNames={Array.isArray(fc.courts) ? fc.courts : []}
             built={built}
             published={!!fc.schedule_published}
             rows={scheduleRows}

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { lookupZip } from "@/lib/us-places";
+import { lookupZip, tzFromStateLng } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
 import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig } from "@/lib/tournament";
@@ -11,7 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
 import { placementPoints, bracketPlaces, ROLLING_WEEKS, ROLLING_BEST, RESERVE_FACTOR } from "@/lib/ranking";
 import { notifyRegistration, notifyPayment } from "@/lib/emails/notify";
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 
 /** Cryptographically unbiased Fisher–Yates shuffle (randomInt uses rejection
  *  sampling, so there's no modulo bias and no way to steer the result). */
@@ -184,6 +184,7 @@ export async function createTournamentFromWizard(
     if (z) {
       row.location_lat = z.lat;
       row.location_lng = z.lng;
+      row.timezone = tzFromStateLng(z.state, z.lng);
     }
   }
   if (patch.weather_enabled !== undefined) row.weather_enabled = patch.weather_enabled;
@@ -248,6 +249,7 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
     if (z) {
       u.location_lat = z.lat;
       u.location_lng = z.lng;
+      u.timezone = tzFromStateLng(z.state, z.lng);
     }
   }
   if (patch.weather_enabled !== undefined) u.weather_enabled = patch.weather_enabled;
@@ -443,6 +445,56 @@ export async function closeRegistration(id: string) {
 }
 
 /** Individual entry: the signed-in player registers themselves, answering the
+/** Capacity gate shared by both sign-up paths. Returns an error string if adding
+ *  the entry would exceed the configured cap, else null. Mode + unit live in
+ *  format_config: pooled caps the tournament total, per_division caps each
+ *  division's own capacity; the unit decides whether we count teams or players. */
+async function capacityBlock(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tournamentId: string,
+  t: { capacity: number | null; format_config: Json | null },
+  divisionId: string | null,
+  add: { teams: number; persons: number },
+): Promise<string | null> {
+  const fc = (t.format_config ?? {}) as TournamentFormatConfig;
+  const mode = fc.capacity_mode === "per_division" ? "per_division" : "pooled";
+  const unit = fc.capacity_unit === "person" ? "person" : "team";
+  const inc = unit === "person" ? add.persons : add.teams;
+
+  const countUsed = async (divScope: string | null): Promise<number> => {
+    if (unit === "team") {
+      const base = supabase
+        .from("tournament_registrations")
+        .select("id", { count: "exact", head: true })
+        .eq("tournament_id", tournamentId)
+        .not("status", "in", "(withdrawn,declined)");
+      const { count } = divScope ? await base.eq("division_id", divScope) : await base;
+      return count ?? 0;
+    }
+    const base = supabase.from("tournament_registrations").select("id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined)");
+    const { data: regs } = divScope ? await base.eq("division_id", divScope) : await base;
+    const ids = (regs ?? []).map((r) => r.id);
+    if (!ids.length) return 0;
+    const { count } = await supabase.from("tournament_registration_players").select("id", { count: "exact", head: true }).in("registration_id", ids).eq("is_reserve", false);
+    return count ?? 0;
+  };
+
+  if (mode === "per_division") {
+    if (!divisionId) return null;
+    const { data: div } = await supabase.from("tournament_divisions").select("capacity").eq("id", divisionId).maybeSingle();
+    const cap = div?.capacity ?? null;
+    if (cap == null) return null;
+    const used = await countUsed(divisionId);
+    return used + inc > cap ? "This division is full." : null;
+  }
+
+  const cap = t.capacity ?? null;
+  if (cap == null) return null;
+  const used = await countUsed(null);
+  return used + inc > cap ? "Registration is full — the event is at capacity." : null;
+}
+
+/** Individual entry: a player enters themselves into an optional division, answering
  *  per-player questions and accepting the waiver/rules in one step (no separate
  *  confirmation needed since they're the only participant). */
 export async function signUpIndividual(
@@ -457,7 +509,7 @@ export async function signUpIndividual(
 
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, entry_type, status, registration_deadline")
+    .select("id, entry_type, status, registration_deadline, capacity, format_config")
     .eq("id", tournamentId)
     .maybeSingle();
   if (!t) return { ok: false as const, error: "Event not found." };
@@ -481,6 +533,9 @@ export async function signUpIndividual(
     if (!div) return { ok: false as const, error: "Pick a valid division." };
     divisionId = div.id;
   }
+
+  const full = await capacityBlock(supabase, tournamentId, t, divisionId, { teams: 1, persons: 1 });
+  if (full) return { ok: false as const, error: full };
 
   const { data: reg, error } = await supabase
     .from("tournament_registrations")
@@ -522,7 +577,7 @@ export async function signUpTeam(
 
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, sport_key, entry_type, status, registration_deadline, reserves_allowed, min_women, min_men, format_config")
+    .select("id, capacity, sport_key, entry_type, status, registration_deadline, reserves_allowed, min_women, min_men, format_config")
     .eq("id", tournamentId)
     .maybeSingle();
   if (!t) return { ok: false as const, error: "Event not found." };
@@ -573,6 +628,9 @@ export async function signUpTeam(
     if (!div) return { ok: false as const, error: "Pick a valid division." };
     divisionId = div.id;
   }
+
+  const full = await capacityBlock(supabase, tournamentId, t, divisionId, { teams: 1, persons: main.length });
+  if (full) return { ok: false as const, error: full };
 
   const { data: reg, error } = await supabase
     .from("tournament_registrations")
@@ -862,7 +920,14 @@ export async function buildSchedule(
   }
   if (!staff) return { ok: false as const, error: "Not allowed." };
 
-  const courts = Math.max(1, Math.min(50, Math.floor(opts.courtCount) || 1));
+  const fcCur = (to.format_config ?? {}) as Record<string, unknown>;
+  const configuredCourts = Array.isArray(fcCur.courts)
+    ? (fcCur.courts as unknown[]).map((c) => String(c).trim()).filter(Boolean)
+    : [];
+  const courtLabels = configuredCourts.length
+    ? configuredCourts
+    : Array.from({ length: Math.max(1, Math.min(50, Math.floor(opts.courtCount) || 1)) }, (_, i) => `Court ${i + 1}`);
+  const courts = courtLabels.length;
   const mode = opts.mode === "ordered" ? "ordered" : "timed";
   const lengthMin = Math.max(5, Math.min(240, Math.floor(opts.matchLengthMin) || 30));
   const startAt = opts.startAt ? new Date(opts.startAt) : null;
@@ -897,7 +962,7 @@ export async function buildSchedule(
   for (let i = 0; i < ordered.length; i++) {
     const courtIdx = i % courts;
     const slot = perCourt[courtIdx]++;
-    const court = `Court ${courtIdx + 1}`;
+    const court = courtLabels[courtIdx];
     const scheduled_at = mode === "timed" ? new Date(startMs + slot * lengthMin * 60000).toISOString() : null;
     const status = mode === "timed" ? "scheduled" : "pending";
     await supabase
@@ -1351,4 +1416,82 @@ export async function awardTournamentPoints(tournamentId: string) {
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   revalidatePath("/rankings");
   return { ok: true as const, awarded: userIds.length };
+}
+
+/* ---------- public event photo gallery (bucket: tournament-gallery) ---------- */
+
+const GALLERY_BUCKET = "tournament-gallery";
+const GALLERY_TYPES = new Set(["image/webp", "image/jpeg", "image/png"]);
+const GALLERY_MAX = 5;
+
+async function galleryStaffGuard(tournamentId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+  return { ok: true as const, to };
+}
+
+/** Mint a single-use signed upload URL for an event gallery photo. Staff-only;
+ *  the path is built server-side and the upload runs through the service role. */
+export async function createGalleryUploadUrl(tournamentId: string, contentType: string) {
+  if (!GALLERY_TYPES.has(contentType)) return { ok: false as const, error: "Use a JPG, PNG, or WebP image." };
+  const guard = await galleryStaffGuard(tournamentId);
+  if (!guard.ok) return { ok: false as const, error: guard.error };
+  const ext = contentType === "image/jpeg" ? "jpg" : contentType === "image/png" ? "png" : "webp";
+  const path = `${tournamentId}/${randomUUID()}.${ext}`;
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from(GALLERY_BUCKET).createSignedUploadUrl(path);
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const, path, token: data.token };
+}
+
+/** Append a freshly uploaded photo's public URL to the event gallery. Staff-only. */
+export async function commitGalleryPhoto(tournamentId: string, path: string) {
+  const guard = await galleryStaffGuard(tournamentId);
+  if (!guard.ok) return { ok: false as const, error: guard.error };
+  if (!path.startsWith(`${tournamentId}/`)) return { ok: false as const, error: "Invalid path." };
+  const admin = createAdminClient();
+  const { data: pub } = admin.storage.from(GALLERY_BUCKET).getPublicUrl(path);
+  const url = pub.publicUrl;
+  const fc = (guard.to.format_config ?? {}) as Record<string, unknown>;
+  const current = Array.isArray(fc.gallery) ? (fc.gallery as unknown[]).map(String) : [];
+  if (current.length >= GALLERY_MAX) return { ok: false as const, error: `You can add up to ${GALLERY_MAX} photos.` };
+  const gallery = [...current, url];
+  const supabase = await createClient();
+  const { error } = await supabase.from("tournaments").update({ format_config: { ...fc, gallery } as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath(`/tournament/${tournamentId}/settings`);
+  if (guard.to.code) revalidatePath(`/e/${guard.to.code}`);
+  return { ok: true as const, url };
+}
+
+/** Remove a photo from the gallery and delete the underlying object. Staff-only. */
+export async function removeGalleryPhoto(tournamentId: string, url: string) {
+  const guard = await galleryStaffGuard(tournamentId);
+  if (!guard.ok) return { ok: false as const, error: guard.error };
+  const fc = (guard.to.format_config ?? {}) as Record<string, unknown>;
+  const current = Array.isArray(fc.gallery) ? (fc.gallery as unknown[]).map(String) : [];
+  const gallery = current.filter((u) => u !== url);
+  const supabase = await createClient();
+  const { error } = await supabase.from("tournaments").update({ format_config: { ...fc, gallery } as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+  const marker = `/${GALLERY_BUCKET}/`;
+  const idx = url.indexOf(marker);
+  if (idx !== -1) {
+    const admin = createAdminClient();
+    await admin.storage.from(GALLERY_BUCKET).remove([url.slice(idx + marker.length)]);
+  }
+  revalidatePath(`/tournament/${tournamentId}/settings`);
+  if (guard.to.code) revalidatePath(`/e/${guard.to.code}`);
+  return { ok: true as const };
 }

@@ -23,6 +23,37 @@ export function lookupZip(zip: string): ZipHit | null {
   return { zip: r.zip, lat: r.latitude, lng: r.longitude, city: r.city, state: r.state };
 }
 
+// Single-zone states; the rest (TX, KS, NE, the Dakotas, ID, KY) straddle a zone
+// line and are resolved by longitude instead.
+const TZ_EASTERN = new Set(["CT","DE","DC","FL","GA","ME","MD","MA","MI","NH","NJ","NY","NC","OH","PA","RI","SC","VT","VA","WV","IN"]);
+const TZ_CENTRAL = new Set(["AL","AR","IL","IA","LA","MN","MS","MO","OK","WI","TN"]);
+const TZ_MOUNTAIN = new Set(["CO","MT","NM","UT","WY"]);
+const TZ_PACIFIC = new Set(["CA","WA","NV","OR"]);
+
+/** Best-effort IANA timezone for a US state + longitude. Used so we can default
+ *  an event's time zone from its ZIP without asking the organizer. Approximate
+ *  near zone borders; times are stored as absolute timestamps regardless. */
+export function tzFromStateLng(state: string, lng: number): string {
+  const s = (state || "").toUpperCase();
+  if (s === "AK") return "America/Anchorage";
+  if (s === "HI") return "Pacific/Honolulu";
+  if (s === "AZ") return "America/Phoenix"; // most of Arizona observes no DST
+  if (TZ_PACIFIC.has(s)) return "America/Los_Angeles";
+  if (TZ_MOUNTAIN.has(s)) return "America/Denver";
+  if (TZ_CENTRAL.has(s)) return "America/Chicago";
+  if (TZ_EASTERN.has(s)) return "America/New_York";
+  if (lng >= -87.5) return "America/New_York";
+  if (lng >= -101.0) return "America/Chicago";
+  if (lng >= -115.0) return "America/Denver";
+  return "America/Los_Angeles";
+}
+
+/** Resolve a ZIP straight to an IANA timezone (null if not a real ZIP). */
+export function zipTimezone(zip: string): string | null {
+  const z = lookupZip(zip);
+  return z ? tzFromStateLng(z.state, z.lng) : null;
+}
+
 type CityAcc = { key: string; city: string; state: string; cityLower: string; sumLat: number; sumLng: number; n: number };
 
 // Built once, lazily, then cached for the life of the process.
