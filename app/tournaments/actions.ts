@@ -170,9 +170,18 @@ export async function createTournament(formData: FormData) {
     .single();
   if (error || !created) {
     console.error("[tournaments] create failed", error?.code, error?.message);
+    // Ask the DB who it thinks we are on this connection (diagnoses null auth.uid()).
+    let who = "";
+    try {
+      const probe = supabase.rpc as unknown as (fn: string) => Promise<{ data: unknown }>;
+      const { data: w } = await probe("debug_whoami");
+      if (w) who = `&who=${encodeURIComponent(JSON.stringify(w))}`;
+    } catch {
+      /* function may not be installed; ignore */
+    }
     const code = error?.code ? `&code=${encodeURIComponent(error.code)}` : "";
     const msg = error?.message ? `&msg=${encodeURIComponent(error.message.slice(0, 180))}` : "";
-    redirect(`/tournaments/new?error=create${code}${msg}`);
+    redirect(`/tournaments/new?error=create${code}${msg}${who}`);
   }
 
   redirect(`/tournament/${created.id}`);
