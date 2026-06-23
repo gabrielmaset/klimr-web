@@ -62,7 +62,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       header: "Setup",
       items: [
         { href: `${base}/legal`, label: "Legal", Icon: FileText, soon: true },
-        { href: `${base}/settings`, label: "Settings", Icon: Settings, soon: true },
+        { href: `${base}/settings`, label: "Settings", Icon: Settings },
       ],
     },
   ];

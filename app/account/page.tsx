@@ -179,7 +179,7 @@ export default async function AccountPage({
           <div className="flex items-start justify-between gap-3">
             <AvatarUploader initialPhotoUrl={photoUrl} hue={hue} name={name} />
             <Link
-              href="/onboarding"
+              href="/settings/profile"
               className="press flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink"
             >
               <Pencil size={12} aria-hidden /> Edit profile

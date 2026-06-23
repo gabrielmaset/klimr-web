@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Medal, Check } from "lucide-react";
 import { awardTournamentPoints } from "@/app/tournaments/actions";
 
-export function AwardPointsButton({ tournamentId, awarded }: { tournamentId: string; awarded: number }) {
+export function AwardPointsButton({ tournamentId, awarded, ready = true }: { tournamentId: string; awarded: number; ready?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -23,6 +23,17 @@ export function AwardPointsButton({ tournamentId, awarded }: { tournamentId: str
       setErr(res.error ?? "Failed.");
     }
     setBusy(false);
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex flex-col items-start gap-1 sm:items-end">
+        <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-xl border border-rule bg-bg px-3.5 py-2 text-sm font-semibold text-faint">
+          <Medal size={15} /> Award ranking points
+        </button>
+        <p className="text-[11px] text-faint">Available once all results are in</p>
+      </div>
+    );
   }
 
   return (

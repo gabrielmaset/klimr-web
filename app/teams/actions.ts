@@ -373,6 +373,9 @@ export async function setMemberRole(formData: FormData) {
   if ((await teamRole(supabase, teamId, user.id)) !== "owner") return;
 
   const admin = createAdminClient();
+  // Manager/staff roles exist only for Pro teams; recreational teams are owner + members.
+  const { data: team } = await admin.from("teams").select("category").eq("id", teamId).maybeSingle();
+  if (team?.category !== "pro") return;
   await admin.from("team_members").update({ role }).eq("team_id", teamId).eq("user_id", memberId).neq("role", "owner");
   revalidatePath(`/teams/${teamId}`);
 }

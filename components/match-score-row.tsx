@@ -15,6 +15,8 @@ export function MatchScoreRow({
   bye = false,
   byeName,
   locked = false,
+  court = null,
+  time = null,
 }: {
   matchId: string;
   aName: string;
@@ -25,6 +27,8 @@ export function MatchScoreRow({
   bye?: boolean;
   byeName?: string;
   locked?: boolean;
+  court?: string | null;
+  time?: string | null;
 }) {
   const router = useRouter();
   const completed = status === "completed";
@@ -36,6 +40,7 @@ export function MatchScoreRow({
 
   const aWon = completed && scoreA != null && scoreB != null && scoreA > scoreB;
   const bWon = completed && scoreA != null && scoreB != null && scoreB > scoreA;
+  const timeLabel = time ? new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
 
   if (bye) {
     return (
@@ -88,6 +93,7 @@ export function MatchScoreRow({
 
   return (
     <div className="rounded-xl border border-rule bg-bg/40 px-3 py-2.5">
+      {court || timeLabel ? <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-faint">{[court, timeLabel].filter(Boolean).join(" · ")}</p> : null}
       <div className="flex items-center gap-2">
         <span className={`flex-1 truncate text-right text-sm ${aWon ? "font-bold text-ink" : "text-ink-soft"}`}>{aName}</span>
         {completed && !editing ? (

@@ -53,8 +53,13 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
+  // The public event AD page (/e/<code>) is viewable with no account — it's the
+  // event's advertisement. Its sub-routes (/e/<code>/signup, /confirm) stay
+  // protected: registering requires a signed-in, 2FA-cleared account.
+  const isPublicEventPage = /^\/e\/[^/]+\/?$/.test(path);
+
   // 1) No session on a protected page → sign in.
-  if (!user && !matches(path, PUBLIC_PATHS)) {
+  if (!user && !matches(path, PUBLIC_PATHS) && !isPublicEventPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
@@ -63,7 +68,7 @@ export async function updateSession(request: NextRequest) {
 
   // 2) Signed in but two-factor not yet satisfied → complete 2FA first.
   //    Required on every protected page; marketing/auth pages are exempt.
-  if (user && !matches(path, PUBLIC_PATHS) && !matches(path, AAL_EXEMPT)) {
+  if (user && !matches(path, PUBLIC_PATHS) && !matches(path, AAL_EXEMPT) && !isPublicEventPage) {
     try {
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aal?.currentLevel && aal.currentLevel !== "aal2") {

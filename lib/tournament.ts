@@ -19,10 +19,20 @@ export const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+export type PublishedScheduleRow = { court: string; time: string | null; division: string; pool: string | null; a: string; b: string };
+export type PublishedSchedule = { builtAt: string; mode: string; rows: PublishedScheduleRow[] };
+
 export type TournamentFormatConfig = {
   format_type?: FormatType;
   pool_count?: number;
   roster_size?: number;
+  court_count?: number;
+  matches_start_at?: string | null;
+  schedule_mode?: "timed" | "ordered";
+  match_length_min?: number;
+  schedule_built_at?: string | null;
+  schedule_published?: boolean;
+  published_schedule?: PublishedSchedule;
   legal?: {
     waiver_text?: string;
     rules_text?: string;
@@ -132,6 +142,37 @@ export function fieldTypeHasOptions(type: string): boolean {
 }
 
 // ---- Competition: pool standings ----------------------------------------
+
+export const PLAN_KINDS = ["general", "games", "food", "sponsor", "music", "setup", "ceremony", "staff"] as const;
+export type PlanKind = (typeof PLAN_KINDS)[number];
+export const PLAN_KIND_LABEL: Record<string, string> = {
+  general: "General",
+  games: "Games",
+  food: "Food & drink",
+  sponsor: "Sponsors",
+  music: "Music / DJ",
+  setup: "Setup",
+  ceremony: "Ceremony",
+  staff: "Staff",
+};
+export type PlanItemRow = {
+  id: string;
+  title: string;
+  kind: string;
+  starts_at: string;
+  ends_at: string | null;
+  notes: string | null;
+  sort_order: number;
+};
+export type PlanItemInput = {
+  id?: string;
+  title: string;
+  kind: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  notes: string | null;
+  sort_order: number;
+};
 
 export type StandingRow = {
   regId: string;

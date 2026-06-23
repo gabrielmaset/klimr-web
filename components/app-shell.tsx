@@ -7,8 +7,15 @@ import type { PresenceMode } from "@/app/account/presence";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getTopBarData } from "@/lib/chrome-data";
+import { headers } from "next/headers";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
+  // The public event (advertisement) page renders fully standalone — no app
+  // sidebar, top bar, or footer — in both auth states; its own layout supplies a
+  // slim header. Path comes from the x-pathname header set in middleware.
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  if (pathname.startsWith("/e/")) return <>{children}</>;
+
   const supabase = await createClient();
   const {
     data: { user },

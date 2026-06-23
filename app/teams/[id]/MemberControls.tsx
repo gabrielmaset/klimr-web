@@ -23,6 +23,7 @@ export function MemberControls({
   role,
   designation,
   viewerIsOwner,
+  isPro,
 }: {
   teamId: string;
   userId: string;
@@ -30,6 +31,7 @@ export function MemberControls({
   role: string;
   designation: string | null;
   viewerIsOwner: boolean;
+  isPro: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -61,7 +63,7 @@ export function MemberControls({
         <div className="absolute right-0 top-9 z-10 w-56 rounded-2xl border border-rule bg-surface p-3 shadow-lg">
           <p className="mb-2 truncate text-xs font-bold text-ink">{name}</p>
 
-          {viewerIsOwner ? (
+          {viewerIsOwner && isPro ? (
             <label className="mb-2 block">
               <span className="kicker text-faint">Role</span>
               <select

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, LifeBuoy } from "lucide-react";
+import { LifeBuoy } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { SupportForm } from "./SupportForm";
 
@@ -16,9 +16,7 @@ export default async function SupportPage() {
 
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
-      <Link href="/settings" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-        <ChevronLeft size={15} /> Settings
-      </Link>
+      <BackButton fallback="/settings" label="Settings" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <div className="mb-6 flex items-start gap-3">
         <span className="mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-tint-brand text-brand-deep">

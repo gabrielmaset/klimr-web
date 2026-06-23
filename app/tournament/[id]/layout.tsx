@@ -18,7 +18,7 @@ export default async function TournamentLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/tournament/${id}`);
 
-  const { data: t } = await supabase.from("tournaments").select("id, code, title, sport_key, status, owner_id").eq("id", id).maybeSingle();
+  const { data: t } = await supabase.from("tournaments").select("id, code, title, sport_key, status, owner_id, suspended_at, suspended_reason").eq("id", id).maybeSingle();
   if (!t) notFound();
 
   // Only the owner and managers enter the workspace; everyone else gets the public page.
@@ -45,6 +45,15 @@ export default async function TournamentLayout({
       <TournamentNav tournament={{ id: t.id, code: t.code, title: t.title, sport_key: t.sport_key, status: t.status }} role={role} personal={personal} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar chatUnread={bar.chatUnread} unreadCount={bar.unread} presenceMode={bar.presenceMode} nextMatch={bar.nextMatch} teams={bar.teams} />
+        {t.suspended_at ? (
+          <div className="border-b border-brand/30 bg-tint-brand px-5 py-3">
+            <p className="mx-auto max-w-page text-sm font-semibold text-brand-deep">
+              This event is suspended for review and isn&rsquo;t visible to the public.
+              {t.suspended_reason ? <span className="font-normal text-ink-soft"> Reason: {t.suspended_reason}.</span> : null}
+              <span className="font-normal text-ink-soft"> Contact support@klimr.com with any questions.</span>
+            </p>
+          </div>
+        ) : null}
         <main className="flex-1">{children}</main>
       </div>
     </div>

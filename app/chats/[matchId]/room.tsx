@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { ChevronLeft, Lock, Send, ShieldCheck } from "lucide-react";
+import { Lock, Send, ShieldCheck } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
@@ -281,9 +281,7 @@ export function ChatRoom({
     <div className="mx-auto flex h-dvh max-w-2xl flex-col px-0 sm:px-5">
       {/* header */}
       <div className="flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 sm:rounded-b-2xl sm:border sm:border-t-0">
-        <Link href="/chats" aria-label="Back to chats" className="press text-mute hover:text-ink">
-          <ChevronLeft size={20} />
-        </Link>
+        <BackButton fallback="/chats" label="" ariaLabel="Back to chats" className="press text-mute hover:text-ink" size={20} />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold text-ink">
             {meta.emoji} {meta.name} · {match.format}

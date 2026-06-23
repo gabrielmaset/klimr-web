@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ChevronLeft, Crown, Users, MapPin, Trophy } from "lucide-react";
+import { Crown, Users, MapPin, Trophy } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta, teamSizeFor } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
@@ -104,9 +105,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <Link href="/teams" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-        <ChevronLeft size={15} /> Teams
-      </Link>
+      <BackButton fallback="/teams" label="Teams" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       {/* header */}
       <div className="flex items-center gap-4">
@@ -187,7 +186,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
                     {m.user_id === user.id ? <span className="text-xs text-faint">· you</span> : null}
                   </span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-1">
-                    {ROLE_LABEL[m.role] ? (
+                    {isPro && ROLE_LABEL[m.role] ? (
                       <span className="rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-soft">{ROLE_LABEL[m.role]}</span>
                     ) : null}
                     {m.designation && DESIG_LABEL[m.designation] ? (
@@ -203,6 +202,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
                     role={m.role}
                     designation={m.designation}
                     viewerIsOwner={isOwner}
+                    isPro={isPro}
                   />
                 ) : null}
               </div>

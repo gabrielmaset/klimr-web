@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Shuffle, Trash2, Dices, TriangleAlert } from "lucide-react";
 import { generateGroups, clearGroups } from "@/app/tournaments/actions";
 
-type Match = { a: string; b: string; scoreA: number | null; scoreB: number | null; status: string };
+type Match = { a: string; b: string; scoreA: number | null; scoreB: number | null; status: string; court: string | null };
 type Pool = { name: string; entries: { name: string; seed: number | null }[]; matches: Match[] };
 type Draw = { number: number; at: string };
 
@@ -148,10 +148,13 @@ export function DivisionGroups({
                   <ul className="grid gap-1">
                     {p.matches.map((m, k) => (
                       <li key={k} className="flex items-center justify-between gap-2 text-xs">
-                        <span className="truncate text-ink-soft">
+                        <span className="min-w-0 truncate text-ink-soft">
                           {m.a} <span className="text-faint">vs</span> {m.b}
                         </span>
-                        {m.status === "completed" ? <span className="shrink-0 font-mono text-[11px] font-semibold text-ink">{m.scoreA}&ndash;{m.scoreB}</span> : <span className="shrink-0 text-[10px] text-faint">&mdash;</span>}
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          {m.court ? <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-mute">{m.court}</span> : null}
+                          {m.status === "completed" ? <span className="font-mono text-[11px] font-semibold text-ink">{m.scoreA}&ndash;{m.scoreB}</span> : <span className="text-[10px] text-faint">&mdash;</span>}
+                        </span>
                       </li>
                     ))}
                   </ul>

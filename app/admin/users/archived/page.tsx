@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ChevronLeft, RotateCcw, Trash2 } from "lucide-react";
+import { RotateCcw, Trash2 } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 import { recoverUser, purgeUserNow } from "../../actions";
@@ -39,12 +40,7 @@ export default async function ArchivedAccountsPage() {
 
   return (
     <div>
-      <Link
-        href="/admin/users"
-        className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink"
-      >
-        <ChevronLeft size={15} /> Users
-      </Link>
+      <BackButton fallback="/admin/users" label="Users" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <h1 className="font-display text-3xl text-ink sm:text-4xl">Archived accounts</h1>
       <p className="mt-1 text-sm text-mute">

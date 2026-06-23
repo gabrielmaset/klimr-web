@@ -45,7 +45,7 @@ export function AppChrome({
   nextMatch: NextMatch;
 }) {
   const pathname = usePathname();
-  if (pathname.startsWith("/team/") || pathname.startsWith("/tournament/")) {
+  if (pathname.startsWith("/team/") || pathname.startsWith("/tournament/") || pathname.startsWith("/e/")) {
     return <>{children}</>;
   }
 

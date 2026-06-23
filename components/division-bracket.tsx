@@ -6,7 +6,7 @@ import { Loader2, Shuffle, Trash2, Dices, TriangleAlert } from "lucide-react";
 import { generateBracket, clearBracket } from "@/app/tournaments/actions";
 import { MatchScoreRow } from "@/components/match-score-row";
 
-type Match = { matchId: string; aName: string; bName: string; scoreA: number | null; scoreB: number | null; status: string; bye: boolean; byeName?: string; locked: boolean };
+type Match = { matchId: string; aName: string; bName: string; scoreA: number | null; scoreB: number | null; status: string; bye: boolean; byeName?: string; locked: boolean; court: string | null };
 type Draw = { number: number; at: string };
 
 function roundLabel(i: number, total: number): string {
@@ -122,7 +122,7 @@ export function DivisionBracket({
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-mute">{roundLabel(r, rounds.length)}</p>
                 <div className="grid gap-2">
                   {round.map((m) => (
-                    <MatchScoreRow key={m.matchId} matchId={m.matchId} aName={m.aName} bName={m.bName} scoreA={m.scoreA} scoreB={m.scoreB} status={m.status} bye={m.bye} byeName={m.byeName} locked={m.locked} />
+                    <MatchScoreRow key={m.matchId} matchId={m.matchId} aName={m.aName} bName={m.bName} scoreA={m.scoreA} scoreB={m.scoreB} status={m.status} bye={m.bye} byeName={m.byeName} locked={m.locked} court={m.court} />
                   ))}
                 </div>
               </div>

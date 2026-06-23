@@ -1,12 +1,11 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { lookupZip } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
-import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, TournamentFormatConfig } from "@/lib/tournament";
+import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig } from "@/lib/tournament";
 import { computePoolStandings } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
@@ -54,6 +53,7 @@ function seedOrder(size: number): number[] {
  *  pick up any byes), every round is created, byes auto-advance, and advancement
  *  links are set. Used for both the random single-elim draw and the merit-seeded
  *  knockout stage. */
+
 async function buildBracketFromSeeds(supabase: Awaited<ReturnType<typeof createClient>>, tournamentId: string, divisionId: string, seeds: string[]) {
   await supabase.from("tournament_matches").delete().eq("division_id", divisionId).is("group_id", null);
   const n = seeds.length;
@@ -130,32 +130,30 @@ function makeCode(len = 6) {
   return s;
 }
 
-/**
- * Create a draft tournament and drop the organizer into its workspace.
- * Hosting is a verified-only capability (product rule, enforced here so it can be
- * tuned without touching RLS). Owner identity + the no-draft visibility boundary
- * are enforced by RLS in migration 0049.
- */
-export async function createTournament(formData: FormData) {
+/** Create a tournament from the full create-at-end wizard. Nothing is written
+ *  until the organizer finishes setup, so abandoning the wizard leaves no row.
+ *  Returns the new id (the client then routes into the workspace). */
+export async function createTournamentFromWizard(
+  patch: TournamentDraftPatch,
+  agree: boolean,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/tournaments");
+  if (!user) return { ok: false, error: "Not signed in." };
 
   const { data: prof } = await supabase.from("profiles").select("verification_status").eq("id", user.id).maybeSingle();
-  if (prof?.verification_status !== "verified") redirect("/settings/verification?need=host");
+  if (prof?.verification_status !== "verified") return { ok: false, error: "Get verified to host." };
+  if (!agree) return { ok: false, error: "Please accept the organizer terms." };
 
-  // The organizer must accept the host terms/disclaimer on /tournaments/new.
-  if (String(formData.get("agree") ?? "") !== "on") redirect("/tournaments/new?error=agree");
+  const title = (patch.title ?? "").trim();
+  const sport = patch.sport_key ?? "";
+  if (!title) return { ok: false, error: "Add a tournament name." };
+  if (!SPORT_KEYS.includes(sport)) return { ok: false, error: "Pick a sport." };
+  const entry_type = patch.entry_type === "individual" ? "individual" : "team";
 
-  const title = String(formData.get("title") ?? "").trim();
-  const sport = String(formData.get("sport_key") ?? "").trim();
-  const entryRaw = String(formData.get("entry_type") ?? "team").trim();
-  if (!title || !SPORT_KEYS.includes(sport)) redirect("/tournaments/new?error=invalid");
-  const entry_type = entryRaw === "individual" ? "individual" : "team";
-
-  // Unique code with a few collision retries (widen on repeated clashes).
+  // Unique code with a few collision retries.
   let code = makeCode();
   for (let i = 0; i < 5; i++) {
     const { data: clash } = await supabase.from("tournaments").select("id").eq("code", code).maybeSingle();
@@ -163,30 +161,63 @@ export async function createTournament(formData: FormData) {
     code = makeCode(i >= 2 ? 7 : 6);
   }
 
-  const { data: created, error } = await supabase
-    .from("tournaments")
-    .insert({ owner_id: user.id, code, title, sport_key: sport, entry_type, status: "draft" })
-    .select("id")
-    .single();
-  if (error || !created) {
-    console.error("[tournaments] create failed", error?.code, error?.message);
-    // Ask the DB who it thinks we are on this connection (diagnoses null auth.uid()).
-    let who = "";
-    try {
-      const probe = supabase.rpc as unknown as (fn: string) => Promise<{ data: unknown }>;
-      const { data: w } = await probe("debug_whoami");
-      if (w) who = `&who=${encodeURIComponent(JSON.stringify(w))}`;
-    } catch {
-      /* function may not be installed; ignore */
+  // Build the row from the wizard patch (same whitelist as updateTournamentDraft),
+  // forcing a private draft — the organizer publishes manually afterwards.
+  const row: Database["public"]["Tables"]["tournaments"]["Insert"] = {
+    owner_id: user.id,
+    code,
+    title,
+    sport_key: sport,
+    entry_type,
+    status: "draft",
+  };
+  if (patch.summary !== undefined) row.summary = patch.summary;
+  if (patch.description !== undefined) row.description = patch.description;
+  if (patch.visibility === "public" || patch.visibility === "unlisted") row.visibility = patch.visibility;
+  if (patch.starts_at !== undefined) row.starts_at = patch.starts_at;
+  if (patch.ends_at !== undefined) row.ends_at = patch.ends_at;
+  if (patch.timezone !== undefined) row.timezone = patch.timezone;
+  if (patch.location_name !== undefined) row.location_name = patch.location_name;
+  if (patch.location_address !== undefined) row.location_address = patch.location_address;
+  if (patch.zip && /^\d{5}$/.test(patch.zip)) {
+    const z = lookupZip(patch.zip);
+    if (z) {
+      row.location_lat = z.lat;
+      row.location_lng = z.lng;
     }
-    const code = error?.code ? `&code=${encodeURIComponent(error.code)}` : "";
-    const msg = error?.message ? `&msg=${encodeURIComponent(error.message.slice(0, 180))}` : "";
-    redirect(`/tournaments/new?error=create${code}${msg}${who}`);
   }
+  if (patch.weather_enabled !== undefined) row.weather_enabled = patch.weather_enabled;
+  if (patch.capacity !== undefined) row.capacity = patch.capacity;
+  if (patch.reserves_allowed !== undefined) row.reserves_allowed = patch.reserves_allowed;
+  if (patch.min_women !== undefined) row.min_women = patch.min_women;
+  if (patch.min_men !== undefined) row.min_men = patch.min_men;
+  if (patch.registration_opens_at !== undefined) row.registration_opens_at = patch.registration_opens_at;
+  if (patch.registration_deadline !== undefined) row.registration_deadline = patch.registration_deadline;
+  if (patch.format_config !== undefined) row.format_config = patch.format_config as Json;
 
-  // Drop the organizer straight into the setup wizard (Basics → … → Publish).
-  // The dashboard is where they land after finishing/publishing.
-  redirect(`/tournament/${created.id}/setup`);
+  const { data: created, error } = await supabase.from("tournaments").insert(row).select("id").single();
+  if (error || !created) {
+    console.error("[tournaments] create-from-wizard failed", error?.code, error?.message);
+    return { ok: false, error: error?.message ?? "Couldn't create the event." };
+  }
+  return { ok: true, id: created.id };
+}
+
+/** Permanently delete a tournament (owner only). Cascades to registrations,
+ *  divisions, payments, etc. Used by the event Settings page. */
+export async function deleteTournament(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: t } = await supabase.from("tournaments").select("owner_id").eq("id", id).maybeSingle();
+  if (!t) return { ok: false, error: "Not found." };
+  if (t.owner_id !== user.id) return { ok: false, error: "Only the owner can delete this event." };
+
+  const { error } = await supabase.from("tournaments").delete().eq("id", id);
+  return error ? { ok: false, error: error.message } : { ok: true };
 }
 
 /** Save a slice of the draft. RLS restricts writes to the owner / managers; this
@@ -226,7 +257,14 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   if (patch.min_men !== undefined) u.min_men = patch.min_men;
   if (patch.registration_opens_at !== undefined) u.registration_opens_at = patch.registration_opens_at;
   if (patch.registration_deadline !== undefined) u.registration_deadline = patch.registration_deadline;
-  if (patch.format_config !== undefined) u.format_config = patch.format_config as Json;
+  // Merge format_config (don't clobber): callers may patch just their slice
+  // (e.g. only `legal`, or only the format fields), and we must preserve the
+  // rest — schedule settings, published snapshot, court count, etc.
+  if (patch.format_config !== undefined) {
+    const { data: cur } = await supabase.from("tournaments").select("format_config").eq("id", id).maybeSingle();
+    const base = (cur?.format_config ?? {}) as Record<string, unknown>;
+    u.format_config = { ...base, ...(patch.format_config as Record<string, unknown>) } as Json;
+  }
 
   const { error } = await supabase.from("tournaments").update(u).eq("id", id);
   return error ? { ok: false as const, error: error.message } : { ok: true as const };
@@ -339,6 +377,47 @@ export async function saveCustomFields(tournamentId: string, fields: CustomField
     .eq("tournament_id", tournamentId)
     .order("sort_order");
   return { ok: true as const, fields: fresh ?? [] };
+}
+
+/** Replace the full run-of-show plan (upsert + delete removed). Writes gated to
+ *  staff by RLS. Returns the canonical list ordered by time. */
+export async function saveTournamentPlan(tournamentId: string, items: PlanItemInput[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const KINDS = ["general", "games", "food", "sponsor", "music", "setup", "ceremony", "staff"];
+  const { data: existing } = await supabase.from("tournament_plan_items").select("id").eq("tournament_id", tournamentId);
+  const existingIds = new Set((existing ?? []).map((r) => r.id));
+  const keepIds = new Set<string>();
+
+  for (const it of items) {
+    if (!it.starts_at) continue; // an item needs a time to live on the timeline
+    const title = (it.title ?? "").trim() || "Untitled";
+    const kind = KINDS.includes(it.kind) ? it.kind : "general";
+    const ends_at = it.ends_at || null;
+    const notes = it.notes?.toString().trim() || null;
+    const sort_order = Number.isFinite(it.sort_order) ? it.sort_order : 0;
+    if (it.id && existingIds.has(it.id)) {
+      keepIds.add(it.id);
+      await supabase.from("tournament_plan_items").update({ title, kind, starts_at: it.starts_at, ends_at, notes, sort_order }).eq("id", it.id);
+    } else {
+      const { data: ins } = await supabase.from("tournament_plan_items").insert({ tournament_id: tournamentId, title, kind, starts_at: it.starts_at, ends_at, notes, sort_order }).select("id").single();
+      if (ins) keepIds.add(ins.id);
+    }
+  }
+
+  const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
+  if (toDelete.length) await supabase.from("tournament_plan_items").delete().in("id", toDelete);
+
+  const { data: fresh } = await supabase
+    .from("tournament_plan_items")
+    .select("id, title, kind, starts_at, ends_at, notes, sort_order")
+    .eq("tournament_id", tournamentId)
+    .order("starts_at");
+  return { ok: true as const, items: fresh ?? [] };
 }
 
 /** Open sign-ups (published → registration_open). Owner/managers only (RLS). */
@@ -742,7 +821,8 @@ export async function generateGroups(tournamentId: string, divisionId: string, p
   for (const [groupId, regs] of byGroup) {
     for (let a = 0; a < regs.length; a++) {
       for (let b = a + 1; b < regs.length; b++) {
-        matchRows.push({ tournament_id: tournamentId, division_id: divisionId, group_id: groupId, round: 0, slot: 0, entry_a: regs[a], entry_b: regs[b], status: "pending", sort_order: so++ });
+        matchRows.push({ tournament_id: tournamentId, division_id: divisionId, group_id: groupId, round: 0, slot: 0, entry_a: regs[a], entry_b: regs[b], status: "pending", sort_order: so });
+        so++;
       }
     }
   }
@@ -754,6 +834,160 @@ export async function generateGroups(tournamentId: string, divisionId: string, p
   await supabase.from("tournament_draws").insert({ tournament_id: tournamentId, division_id: divisionId, draw_number: (priorDraws ?? 0) + 1, drawn_by: user.id });
 
   revalidatePath(`/tournament/${tournamentId}/brackets`);
+  return { ok: true as const };
+}
+
+/** Build the match schedule: stamp every un-played match with a court (Court 1..N)
+ *  and, in timed mode, a clock time derived from the matches start time + slot
+ *  length. Matches are dealt round-robin across courts so all courts run in
+ *  parallel; each court then advances one slot at a time. Settings ride in
+ *  format_config (no migration). Already-completed matches (byes / finished
+ *  games) keep their place and don't burn a slot. Staff-only. */
+export async function buildSchedule(
+  tournamentId: string,
+  opts: { startAt: string | null; mode: "timed" | "ordered"; matchLengthMin: number; courtCount: number },
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const courts = Math.max(1, Math.min(50, Math.floor(opts.courtCount) || 1));
+  const mode = opts.mode === "ordered" ? "ordered" : "timed";
+  const lengthMin = Math.max(5, Math.min(240, Math.floor(opts.matchLengthMin) || 30));
+  const startAt = opts.startAt ? new Date(opts.startAt) : null;
+  if (mode === "timed" && (!startAt || Number.isNaN(startAt.getTime()))) {
+    return { ok: false as const, error: "Set a matches start time for timed slots." };
+  }
+
+  const { data: divs } = await supabase.from("tournament_divisions").select("id, sort_order").eq("tournament_id", tournamentId);
+  const divOrder = new Map((divs ?? []).map((d) => [d.id, d.sort_order ?? 0]));
+
+  const { data: matches } = await supabase
+    .from("tournament_matches")
+    .select("id, division_id, group_id, sort_order, status")
+    .eq("tournament_id", tournamentId);
+  const playable = (matches ?? []).filter((m) => m.status !== "completed");
+  if (playable.length === 0) return { ok: false as const, error: "No matches to schedule yet. Draw the pools or bracket first." };
+
+  // Order: division order, pool matches before bracket matches, then existing order.
+  const ordered = playable.slice().sort((a, b) => {
+    const da = divOrder.get(a.division_id ?? "") ?? 0;
+    const db = divOrder.get(b.division_id ?? "") ?? 0;
+    if (da !== db) return da - db;
+    const pa = a.group_id ? 0 : 1;
+    const pb = b.group_id ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+  });
+
+  const perCourt = new Array(courts).fill(0) as number[];
+  const startMs = startAt ? startAt.getTime() : 0;
+  const now = new Date().toISOString();
+  for (let i = 0; i < ordered.length; i++) {
+    const courtIdx = i % courts;
+    const slot = perCourt[courtIdx]++;
+    const court = `Court ${courtIdx + 1}`;
+    const scheduled_at = mode === "timed" ? new Date(startMs + slot * lengthMin * 60000).toISOString() : null;
+    const status = mode === "timed" ? "scheduled" : "pending";
+    await supabase
+      .from("tournament_matches")
+      .update({ court, scheduled_at, status, sort_order: i, updated_at: now })
+      .eq("id", ordered[i].id);
+  }
+
+  const fc = {
+    ...((to.format_config ?? {}) as Record<string, unknown>),
+    court_count: courts,
+    matches_start_at: startAt ? startAt.toISOString() : null,
+    schedule_mode: mode,
+    match_length_min: lengthMin,
+    schedule_built_at: now,
+  };
+  await supabase.from("tournaments").update({ format_config: fc as Json, updated_at: now }).eq("id", tournamentId);
+
+  revalidatePath(`/tournament/${tournamentId}/schedule`);
+  return { ok: true as const, count: ordered.length };
+}
+
+/** Publish the built schedule to the public event page. The client passes the
+ *  fully-resolved rows (court, wall-clock time, names) it already rendered, so
+ *  times stay in the event's local timezone for every viewer. We snapshot them
+ *  into format_config.published_schedule — anon already reads format_config, so
+ *  no extra RLS is needed. Staff-only. */
+export async function publishSchedule(
+  tournamentId: string,
+  snapshot: { mode: string; rows: { court: string; time: string | null; division: string; pool: string | null; a: string; b: string }[] },
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const rows = (snapshot.rows ?? []).slice(0, 2000).map((r) => ({
+    court: String(r.court ?? "").slice(0, 40),
+    time: r.time ? String(r.time).slice(0, 40) : null,
+    division: String(r.division ?? "").slice(0, 120),
+    pool: r.pool ? String(r.pool).slice(0, 60) : null,
+    a: String(r.a ?? "").slice(0, 120),
+    b: String(r.b ?? "").slice(0, 120),
+  }));
+  if (rows.length === 0) return { ok: false as const, error: "Build the schedule before publishing." };
+
+  const published_schedule = { builtAt: new Date().toISOString(), mode: snapshot.mode === "ordered" ? "ordered" : "timed", rows };
+  const fc = { ...((to.format_config ?? {}) as Record<string, unknown>), schedule_published: true, published_schedule };
+  const { error } = await supabase.from("tournaments").update({ format_config: fc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath(`/tournament/${tournamentId}/schedule`);
+  if (to.code) revalidatePath(`/e/${to.code}`);
+  return { ok: true as const };
+}
+
+/** Take the schedule down from the public event page (keeps the snapshot so it
+ *  can be re-published instantly). Staff-only. */
+export async function unpublishSchedule(tournamentId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const fc = { ...((to.format_config ?? {}) as Record<string, unknown>), schedule_published: false };
+  const { error } = await supabase.from("tournaments").update({ format_config: fc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath(`/tournament/${tournamentId}/schedule`);
+  if (to.code) revalidatePath(`/e/${to.code}`);
   return { ok: true as const };
 }
 
@@ -1039,6 +1273,10 @@ export async function awardTournamentPoints(tournamentId: string) {
     .select("id, division_id, group_id, round, entry_a, entry_b, winner_id, status, score_a, score_b")
     .eq("tournament_id", tournamentId);
   const matchList = matches ?? [];
+  // Gate: ranking points can only be awarded once every match has a result.
+  if (matchList.length === 0 || matchList.some((m) => m.status !== "completed")) {
+    return { ok: false as const, error: "Award ranking points once all results are in." };
+  }
   const { data: ge } = await admin.from("tournament_group_entries").select("division_id, group_id, registration_id").eq("tournament_id", tournamentId);
   const geList = ge ?? [];
 

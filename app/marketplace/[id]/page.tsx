@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { ChevronLeft, GraduationCap, ShoppingBag, MapPin, Mail, ShieldCheck, Heart, Flag, Clock } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
@@ -54,9 +55,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <Link href={`/marketplace?tab=${l.kind}`} className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-        <ChevronLeft size={15} /> Marketplace
-      </Link>
+      <BackButton fallback={`/marketplace?tab=${l.kind}`} label="Marketplace" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <span className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink">
         {isCoaching ? <GraduationCap size={12} /> : <ShoppingBag size={12} />}

@@ -830,6 +830,9 @@ export interface Database {
           weather_enabled: boolean;
           promoted: boolean;
           format_config: Json;
+          suspended_at: string | null;
+          suspended_by: string | null;
+          suspended_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -863,6 +866,9 @@ export interface Database {
           weather_enabled?: boolean;
           promoted?: boolean;
           format_config?: Json;
+          suspended_at?: string | null;
+          suspended_by?: string | null;
+          suspended_reason?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -893,6 +899,9 @@ export interface Database {
           weather_enabled?: boolean;
           promoted?: boolean;
           format_config?: Json;
+          suspended_at?: string | null;
+          suspended_by?: string | null;
+          suspended_reason?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -901,6 +910,39 @@ export interface Database {
         Row: { tournament_id: string; user_id: string; role: string; created_at: string };
         Insert: { tournament_id: string; user_id: string; role?: string; created_at?: string };
         Update: { role?: string };
+        Relationships: [];
+      };
+      tournament_plan_items: {
+        Row: {
+          id: string;
+          tournament_id: string;
+          title: string;
+          kind: string;
+          starts_at: string;
+          ends_at: string | null;
+          notes: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tournament_id: string;
+          title: string;
+          kind?: string;
+          starts_at: string;
+          ends_at?: string | null;
+          notes?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          title?: string;
+          kind?: string;
+          starts_at?: string;
+          ends_at?: string | null;
+          notes?: string | null;
+          sort_order?: number;
+        };
         Relationships: [];
       };
       tournament_divisions: {

@@ -6,6 +6,7 @@ import "@fontsource-variable/fraunces/full.css"; // logotype only — see compon
 import "./globals.css";
 import Script from "next/script";
 import { AppShell } from "@/components/app-shell";
+import { NavigationHistoryProvider } from "@/components/navigation-history";
 import { DiagnosticsInit } from "@/components/diagnostics-init";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -31,7 +32,9 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full">
         <DiagnosticsInit />
-        <AppShell>{children}</AppShell>
+        <NavigationHistoryProvider>
+          <AppShell>{children}</AppShell>
+        </NavigationHistoryProvider>
         {adsenseClient ? (
           <Script
             id="adsense-loader"

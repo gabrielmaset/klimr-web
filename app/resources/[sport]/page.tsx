@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Check, Users, Maximize } from "lucide-react";
+import { Check, Users, Maximize } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { RESOURCES } from "@/lib/resources";
 
@@ -23,9 +24,7 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <Link href="/resources" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-        <ChevronLeft size={15} /> Sport resources
-      </Link>
+      <BackButton fallback="/resources" label="Sport resources" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <div className="flex items-center gap-3">
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-3xl bg-tint-brand text-3xl">{meta.emoji}</span>

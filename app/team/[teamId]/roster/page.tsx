@@ -20,7 +20,7 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/team/${teamId}/roster`);
 
-  const { data: team } = await supabase.from("teams").select("id, name, sport_key, max_size").eq("id", teamId).maybeSingle();
+  const { data: team } = await supabase.from("teams").select("id, name, sport_key, max_size, category").eq("id", teamId).maybeSingle();
   if (!team) redirect("/teams");
   const sz = teamSizeFor(team.sport_key);
   const cap = team.max_size ?? sz.max;
@@ -143,7 +143,7 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
                 />
                 {canManage && !isMe ? (
                   <div className="absolute right-2 top-9 z-20">
-                    <MemberControls teamId={team.id} userId={m.user_id} name={p?.display_name ?? "Player"} role={m.role} designation={m.designation} viewerIsOwner={isOwner} />
+                    <MemberControls teamId={team.id} userId={m.user_id} name={p?.display_name ?? "Player"} role={m.role} designation={m.designation} viewerIsOwner={isOwner} isPro={team.category === "pro"} />
                   </div>
                 ) : null}
               </div>

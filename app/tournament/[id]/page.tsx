@@ -30,12 +30,12 @@ export default async function TournamentDashboard({ params }: { params: Promise<
   const publicUrl = `klimr.com/e/${t.code}`;
 
   const setup = [
-    { label: "Basics", note: "Name, sport & entry type", done: true, step: 0 },
-    { label: "When & where", note: "Date, time & location", done: !!t.starts_at, step: 1 },
-    { label: "Format", note: "Pools, bracket & eligibility", done: !!fc.format_type, step: 2 },
-    { label: "Registration", note: "Sign-up window", done: !!(t.registration_opens_at || t.registration_deadline), step: 3 },
-    { label: "Legal", note: "Waiver & rules", done: !!(fc.legal?.waiver_text || fc.legal?.rules_text), step: 4 },
-    { label: "Publish", note: "Go live", done: t.status !== "draft", step: 5 },
+    { label: "Basics", note: "Name, sport & entry type", done: true, anchor: "details" },
+    { label: "When & where", note: "Date, time & location", done: !!t.starts_at, anchor: "location" },
+    { label: "Format", note: "Pools, bracket & eligibility", done: !!fc.format_type, anchor: "format" },
+    { label: "Registration", note: "Sign-up window", done: !!(t.registration_opens_at || t.registration_deadline), anchor: "registration" },
+    { label: "Legal", note: "Waiver & rules", done: !!(fc.legal?.waiver_text || fc.legal?.rules_text), anchor: "legal" },
+    { label: "Publish", note: "Go live", done: t.status !== "draft", anchor: "visibility" },
   ];
   const completed = setup.filter((s) => s.done).length;
 
@@ -63,7 +63,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
               </span>
             ) : null}
           </p>
-          <Link href={`${base}/setup`} className="press relative mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep">
+          <Link href={`${base}/settings`} className="press relative mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep">
             {t.status === "draft" ? "Set up your event" : "Edit details"} <ArrowRight size={15} />
           </Link>
         </div>
@@ -113,15 +113,15 @@ export default async function TournamentDashboard({ params }: { params: Promise<
               {completed} of {setup.length} steps done
             </p>
           </div>
-          <Link href={`${base}/setup`} className="text-xs font-semibold text-brand-deep hover:underline">
-            Continue →
+          <Link href={`${base}/settings`} className="text-xs font-semibold text-brand-deep hover:underline">
+            Edit →
           </Link>
         </div>
         <ol className="grid gap-2.5">
-          {setup.map((s) => (
+          {setup.map((s, i) => (
             <li key={s.label}>
-              <Link href={`${base}/setup?step=${s.step}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-bg/40 p-3">
-                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${s.done ? "bg-success text-white" : "bg-[#f4f4f5] text-mute"}`}>{s.done ? "✓" : s.step + 1}</span>
+              <Link href={`${base}/settings#${s.anchor}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-bg/40 p-3">
+                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${s.done ? "bg-success text-white" : "bg-[#f4f4f5] text-mute"}`}>{s.done ? "✓" : i + 1}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-ink">{s.label}</span>
                   <span className="block truncate text-xs text-mute">{s.note}</span>

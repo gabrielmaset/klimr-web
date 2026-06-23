@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { CalendarClock, MapPin, Users, Trophy, Check, Dices } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { formatFee } from "@/lib/tournament";
+import { formatFee, type TournamentFormatConfig, type PublishedScheduleRow } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 
 const REG_STATUS_LABEL: Record<string, string> = { pending: "Pending", confirmed: "Confirmed", waitlisted: "Waitlisted" };
@@ -28,16 +28,33 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect(`/login?next=/e/${code}`);
 
-  // RLS: a draft/cancelled event only resolves for its owner/managers, so a null
-  // row here means "no such (visible) event" → 404.
+  // RLS: a draft/cancelled event only resolves for its owner/managers; a
+  // published event resolves for anyone (including anon). So a null row here
+  // means "no such (visible) event" → 404. The page needs no account to view.
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, capacity, registration_deadline")
+    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, capacity, registration_deadline, format_config")
     .eq("code", code)
     .maybeSingle();
   if (!t) notFound();
+
+  const fc = (t.format_config ?? {}) as TournamentFormatConfig;
+  const pubSchedule = fc.schedule_published && fc.published_schedule?.rows?.length ? fc.published_schedule : null;
+  const courtNumOf = (c: string) => {
+    const m = /Court (\d+)/.exec(c);
+    return m ? Number(m[1]) : 999;
+  };
+  const schedByCourt: [string, PublishedScheduleRow[]][] = [];
+  if (pubSchedule) {
+    const map = new Map<string, PublishedScheduleRow[]>();
+    for (const r of pubSchedule.rows) {
+      const arr = map.get(r.court) ?? [];
+      arr.push(r);
+      map.set(r.court, arr);
+    }
+    schedByCourt.push(...[...map.entries()].sort((a, b) => courtNumOf(a[0]) - courtNumOf(b[0])));
+  }
 
   const meta = sportMeta(t.sport_key);
   const dateText = t.starts_at
@@ -46,20 +63,23 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
   const deadlinePassed = !!t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now();
   const canSignUp = t.status === "registration_open" && !deadlinePassed;
+  // Signing up requires a Klimr account; logged-out visitors are routed to Join first.
+  const signupHref = user ? `/e/${t.code}/signup` : `/signup?next=${encodeURIComponent(`/e/${t.code}/signup`)}`;
 
-  // The viewer's entry, found via their player row so teammates see it too — not just the registrant.
-  const { data: myPlayerRows } = await supabase
-    .from("tournament_registration_players")
-    .select("registration_id, confirmed_at, is_reserve")
-    .eq("tournament_id", t.id)
-    .eq("user_id", user.id);
-
+  // The viewer's entry, found via their player row so teammates see it too — not
+  // just the registrant. Only relevant when signed in.
   let myEntry: { regId: string; status: string; paymentStatus: string; isTeam: boolean; iConfirmed: boolean; iAmReserve: boolean; iAmRegistrant: boolean } | null = null;
   let expectedCents = 0;
   let payDeny: string | null = null;
   let teamName: string | null = null;
   let roster: { userId: string; name: string; isReserve: boolean; confirmed: boolean }[] = [];
-  if (myPlayerRows && myPlayerRows.length) {
+  if (user) {
+    const { data: myPlayerRows } = await supabase
+      .from("tournament_registration_players")
+      .select("registration_id, confirmed_at, is_reserve")
+      .eq("tournament_id", t.id)
+      .eq("user_id", user.id);
+    if (myPlayerRows && myPlayerRows.length) {
     const regIds = myPlayerRows.map((r) => r.registration_id);
     const { data: regs } = await supabase
       .from("tournament_registrations")
@@ -106,6 +126,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           payDeny = pay?.deny_reason ?? null;
         }
       }
+    }
     }
   }
   const rosterAllConfirmed = roster.length > 0 && roster.every((r) => r.confirmed);
@@ -228,8 +249,8 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
             <p className="text-xs text-mute">{canSignUp ? "Secure your spot now." : "Follow this event to hear when sign-ups open."}</p>
           </div>
           {canSignUp ? (
-            <Link href={`/e/${t.code}/signup`} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep">
-              Sign up
+            <Link href={signupHref} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep">
+              {user ? "Sign up" : "Join to sign up"}
             </Link>
           ) : (
             <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-xl bg-bg px-4 py-2.5 text-sm font-semibold text-faint">
@@ -318,6 +339,39 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         <Fact icon={<Users size={16} />} label="Entry" value={t.entry_type === "team" ? "Teams" : "Individuals"} />
         <Fact icon={<Users size={16} />} label="Capacity" value={t.capacity ? String(t.capacity) : "Open"} />
       </section>
+
+      {pubSchedule ? (
+        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+          <div className="mb-1 flex items-center gap-2">
+            <CalendarClock size={18} className="text-brand-deep" />
+            <h2 className="text-base font-bold text-ink">Match schedule</h2>
+          </div>
+          <p className="mb-4 text-xs text-faint">{pubSchedule.mode === "ordered" ? "Play in the listed order on each court." : "Start times are approximate and may shift on the day."}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {schedByCourt.map(([court, rows]) => (
+              <div key={court} className="overflow-hidden rounded-2xl border border-rule">
+                <p className="border-b border-rule bg-bg/60 px-3 py-2 text-sm font-bold text-ink">{court}</p>
+                <ul className="divide-y divide-rule">
+                  {rows.map((r, i) => (
+                    <li key={i} className="flex items-start gap-3 px-3 py-2.5 text-sm">
+                      <span className="w-16 shrink-0 font-mono text-xs font-semibold tabular-nums text-mute">{r.time ?? `#${i + 1}`}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="text-ink">
+                          {r.a} <span className="text-faint">vs</span> {r.b}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-faint">
+                          {r.division}
+                          {r.pool ? ` · ${r.pool}` : ""}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

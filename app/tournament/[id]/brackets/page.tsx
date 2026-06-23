@@ -8,7 +8,7 @@ import { DivisionKnockout } from "@/components/division-knockout";
 import { AwardPointsButton } from "@/components/award-points-button";
 import type { TournamentFormatConfig } from "@/lib/tournament";
 
-type BracketMatch = { id: string; round: number; slot: number; entry_a: string | null; entry_b: string | null; score_a: number | null; score_b: number | null; status: string };
+type BracketMatch = { id: string; round: number; slot: number; entry_a: string | null; entry_b: string | null; score_a: number | null; score_b: number | null; status: string; court: string | null };
 
 function buildRounds(matches: BracketMatch[], nm: (id: string | null) => string) {
   const maxRound = matches.reduce((mx, m) => Math.max(mx, m.round), 0);
@@ -22,6 +22,7 @@ function buildRounds(matches: BracketMatch[], nm: (id: string | null) => string)
     bye: boolean;
     byeName?: string;
     locked: boolean;
+    court: string | null;
   }[][] = [];
   for (let r = 1; r <= maxRound; r++) {
     rounds.push(
@@ -41,6 +42,7 @@ function buildRounds(matches: BracketMatch[], nm: (id: string | null) => string)
             bye,
             byeName: bye ? (m.entry_a ? nm(m.entry_a) : nm(m.entry_b)) : undefined,
             locked: m.status !== "completed" && missing,
+            court: m.court,
           };
         }),
     );
@@ -62,6 +64,11 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
   const formatType = fc.format_type ?? "pools_knockout";
 
   const { count: awardedCount } = await supabase.from("tournament_points").select("id", { count: "exact", head: true }).eq("tournament_id", id);
+
+  // Ranking points unlock only once every match has a result (status = completed).
+  const { count: totalMatches } = await supabase.from("tournament_matches").select("id", { count: "exact", head: true }).eq("tournament_id", id);
+  const { count: openMatches } = await supabase.from("tournament_matches").select("id", { count: "exact", head: true }).eq("tournament_id", id).neq("status", "completed");
+  const allResultsIn = (totalMatches ?? 0) > 0 && (openMatches ?? 0) === 0;
 
   const { data: divisions } = await supabase.from("tournament_divisions").select("id, name, sort_order").eq("tournament_id", id).order("sort_order");
   const divs = divisions ?? [];
@@ -109,7 +116,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
     // all matches (shared)
     const { data: matches } = await supabase
       .from("tournament_matches")
-      .select("id, division_id, group_id, round, slot, entry_a, entry_b, score_a, score_b, status, sort_order")
+      .select("id, division_id, group_id, round, slot, entry_a, entry_b, score_a, score_b, status, court, sort_order")
       .eq("tournament_id", id);
     const allMatches = matches ?? [];
 
@@ -145,7 +152,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
               matches: allMatches
                 .filter((m) => m.group_id === g.id)
                 .sort((a, b) => a.sort_order - b.sort_order)
-                .map((m) => ({ a: nm(m.entry_a), b: nm(m.entry_b), scoreA: m.score_a, scoreB: m.score_b, status: m.status })),
+                .map((m) => ({ a: nm(m.entry_a), b: nm(m.entry_b), scoreA: m.score_a, scoreB: m.score_b, status: m.status, court: m.court })),
             }));
             const knockoutMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id === null);
             return (
@@ -172,7 +179,17 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
               : "Each division is drawn into balanced pools completely at random — no manual seeding. Pool matches are created automatically; the knockout is then seeded by pool finish."}
           </p>
         </div>
-        {divs.length > 0 ? <AwardPointsButton tournamentId={id} awarded={awardedCount ?? 0} /> : null}
+        {divs.length > 0 ? (
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <Link
+              href={`/tournament/${id}/schedule`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition hover:bg-ink-soft"
+            >
+              Send to schedule <ArrowRight size={15} />
+            </Link>
+            <AwardPointsButton tournamentId={id} awarded={awardedCount ?? 0} ready={allResultsIn} />
+          </div>
+        ) : null}
       </div>
       {body}
     </div>

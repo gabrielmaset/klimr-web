@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, Ban } from "lucide-react";
+import { Ban } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
 import { unblockPlayer } from "../actions";
@@ -32,9 +32,7 @@ export default async function BlockedPlayersPage() {
 
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
-      <Link href="/settings" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink">
-        <ChevronLeft size={16} /> Settings
-      </Link>
+      <BackButton fallback="/settings" label="Settings" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink" />
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Blocked players</h1>
       <p className="mt-2 text-sm text-mute">Blocking hides a player from your feed and stops them from inviting you. You can block someone from their profile, and unblock them here anytime.</p>
 

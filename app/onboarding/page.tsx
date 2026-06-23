@@ -7,9 +7,11 @@ export const metadata: Metadata = { title: "Your profile" };
 
 type RawRange = { day?: unknown; start?: unknown; end?: unknown };
 
-export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ step?: string }> }) {
-  const { step: stepRaw } = await searchParams;
-  const startStep = Number.isFinite(Number(stepRaw)) ? Math.trunc(Number(stepRaw)) : 0;
+export default async function OnboardingPage() {
+  // Onboarding is a sealed flow: the user always enters at the first step. The
+  // wizard tracks its position in its own client state and never reads it from
+  // the URL, so a typed or deep link like /onboarding?step=4 can't drop someone
+  // into the middle of the process — they land at the front door.
   const supabase = await createClient();
   const {
     data: { user },
@@ -33,6 +35,11 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     ]);
 
   const isEdit = Boolean(profile?.primary_sport && profile?.home_zip);
+
+  // One-time flow: onboarding runs only while the profile is still incomplete.
+  // Once it's set up, editing belongs on the Settings pages — so a completed
+  // profile that lands here (typed URL, old link) is sent there instead.
+  if (isEdit) redirect("/settings/profile");
 
   // availability is JSONB. New shape is an array of { day, start, end } ranges.
   // Any legacy entries (the old "mon-eve" slot ids) are dropped gracefully.
@@ -107,7 +114,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
 
         {/* right — the wizard, in a card that fills the column */}
         <div className="rounded-3xl border border-rule bg-surface p-6 shadow-[0_1px_0_rgba(10,10,11,0.02)] sm:p-8">
-          <OnboardingWizard sports={sports ?? []} initial={initial} isEdit={isEdit} startStep={startStep} />
+          <OnboardingWizard sports={sports ?? []} initial={initial} isEdit={isEdit} startStep={0} />
         </div>
       </div>
     </div>

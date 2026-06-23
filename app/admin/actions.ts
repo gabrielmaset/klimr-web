@@ -86,6 +86,44 @@ export async function setAccountStatus(formData: FormData) {
   revalidatePath("/admin");
 }
 
+/** ----- tournament moderation (Trust & Safety) ----- */
+
+/** Suspend a tournament for review: hides its public page; the organizer keeps
+ *  workspace access and sees a banner. Reversible via restoreTournament. */
+export async function suspendTournament(formData: FormData) {
+  const { userId } = await requireAdmin("support");
+  const id = String(formData.get("tournamentId"));
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+  const admin = createAdminClient();
+  await admin.from("tournaments").update({ suspended_at: new Date().toISOString(), suspended_by: userId, suspended_reason: reason }).eq("id", id);
+  await logAdminAction(userId, "tournament:suspended", null, reason ?? undefined, id);
+  revalidatePath("/admin/tournaments");
+  revalidatePath("/admin");
+}
+
+/** Lift a suspension — the event returns to exactly its prior state. */
+export async function restoreTournament(formData: FormData) {
+  const { userId } = await requireAdmin("support");
+  const id = String(formData.get("tournamentId"));
+  const admin = createAdminClient();
+  await admin.from("tournaments").update({ suspended_at: null, suspended_by: null, suspended_reason: null }).eq("id", id);
+  await logAdminAction(userId, "tournament:restored", null, undefined, id);
+  revalidatePath("/admin/tournaments");
+  revalidatePath("/admin");
+}
+
+/** Permanently delete a tournament (cascades to registrations, divisions, etc.).
+ *  Higher bar than a suspension. */
+export async function adminDeleteTournament(formData: FormData) {
+  const { userId } = await requireAdmin("admin");
+  const id = String(formData.get("tournamentId"));
+  const admin = createAdminClient();
+  await admin.from("tournaments").delete().eq("id", id);
+  await logAdminAction(userId, "tournament:deleted", null, undefined, id);
+  revalidatePath("/admin/tournaments");
+  revalidatePath("/admin");
+}
+
 export async function removePost(formData: FormData) {
   const { userId } = await requireAdmin("support");
   const postId = String(formData.get("postId"));

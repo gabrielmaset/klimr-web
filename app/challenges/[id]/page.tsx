@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ChevronLeft, Trophy, Users, Flag } from "lucide-react";
+import { Trophy, Users, Flag } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
@@ -58,9 +59,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <Link href="/challenges" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-        <ChevronLeft size={15} /> Region challenges
-      </Link>
+      <BackButton fallback="/challenges" label="Region challenges" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <div className="flex items-center gap-2 text-sm text-mute">
         <span className="rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink">{meta.emoji} {meta.name}</span>

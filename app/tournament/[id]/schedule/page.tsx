@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { MatchScoreRow } from "@/components/match-score-row";
+import { ScheduleBuilder, type ScheduleRow } from "@/components/schedule-builder";
 import { computePoolStandings, type TournamentFormatConfig } from "@/lib/tournament";
 
 export default async function SchedulePage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +14,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/tournament/${id}/schedule`);
 
-  const { data: t } = await supabase.from("tournaments").select("id, format_config").eq("id", id).maybeSingle();
+  const { data: t } = await supabase.from("tournaments").select("id, title, format_config").eq("id", id).maybeSingle();
   if (!t) notFound();
   const fc = (t.format_config ?? {}) as TournamentFormatConfig;
   const isRR = (fc.format_type ?? "pools_knockout") === "round_robin";
@@ -23,7 +24,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
   const { data: ge } = await supabase.from("tournament_group_entries").select("group_id, registration_id, seed").eq("tournament_id", id);
   const { data: matches } = await supabase
     .from("tournament_matches")
-    .select("id, division_id, group_id, entry_a, entry_b, score_a, score_b, status, sort_order")
+    .select("id, division_id, group_id, entry_a, entry_b, score_a, score_b, status, sort_order, court, scheduled_at")
     .eq("tournament_id", id)
     .order("sort_order");
 
@@ -52,12 +53,33 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
 
   const drawnDivs = divs.filter((d) => allGroups.some((g) => g.division_id === d.id));
 
+  // Resolved, court-ordered list for the builder (print + on-screen schedule).
+  const divName = new Map(divs.map((d) => [d.id, d.name]));
+  const groupName = new Map(allGroups.map((g) => [g.id, g.name]));
+  const courtNumOf = (c: string | null) => {
+    const mm = /Court (\d+)/.exec(c ?? "");
+    return mm ? Number(mm[1]) : 999;
+  };
+  const scheduleRows: ScheduleRow[] = allMatches
+    .filter((m) => m.court)
+    .sort((a, b) => courtNumOf(a.court) - courtNumOf(b.court) || (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((m) => ({
+      court: m.court as string,
+      courtNum: courtNumOf(m.court),
+      scheduledAt: m.scheduled_at,
+      division: divName.get(m.division_id ?? "") ?? "",
+      pool: m.group_id ? groupName.get(m.group_id) ?? "" : "Bracket",
+      a: nm(m.entry_a),
+      b: nm(m.entry_b),
+    }));
+  const built = !!fc.schedule_built_at;
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
         <p className="kicker text-brand-deep">Competition</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Schedule &amp; scores</h1>
-        <p className="mt-2 text-sm text-mute">Enter results as matches finish — pool standings update automatically.</p>
+        <p className="mt-2 text-sm text-mute">Build the match schedule across your courts, then enter results as matches finish — standings update automatically.</p>
       </div>
 
       {drawnDivs.length === 0 ? (
@@ -70,6 +92,18 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
         </div>
       ) : (
         <div className="grid gap-8">
+          <ScheduleBuilder
+            tournamentId={id}
+            initStartAt={fc.matches_start_at ?? null}
+            initMode={fc.schedule_mode ?? "timed"}
+            initLength={fc.match_length_min ?? 30}
+            initCourts={fc.court_count ?? 1}
+            built={built}
+            published={!!fc.schedule_published}
+            rows={scheduleRows}
+            eventTitle={t.title ?? "Tournament"}
+          />
+          <p className="-mb-3 text-[11px] font-semibold uppercase tracking-wide text-mute">Scores &amp; standings</p>
           {drawnDivs.map((d) => {
             const dGroups = allGroups.filter((g) => g.division_id === d.id);
             return (
@@ -123,7 +157,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
                             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-mute">Matches</p>
                             <div className="grid gap-2">
                               {poolMatches.map((m) => (
-                                <MatchScoreRow key={m.id} matchId={m.id} aName={nm(m.entry_a)} bName={nm(m.entry_b)} scoreA={m.score_a} scoreB={m.score_b} status={m.status} />
+                                <MatchScoreRow key={m.id} matchId={m.id} aName={nm(m.entry_a)} bName={nm(m.entry_b)} scoreA={m.score_a} scoreB={m.score_b} status={m.status} court={m.court} time={m.scheduled_at} />
                               ))}
                             </div>
                           </div>

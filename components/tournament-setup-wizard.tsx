@@ -3,17 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, ChevronLeft, ChevronRight, Loader2, Globe, Rocket, MapPin } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, MapPin, Scale } from "lucide-react";
 import { Toggle, Segmented, OptionCards } from "@/components/form-kit";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { FORMAT_LABEL, isoToLocalInput, localInputToIso, type FormatType, type TournamentDraftPatch } from "@/lib/tournament";
-import { updateTournamentDraft, publishTournament, unpublishTournament } from "@/app/tournaments/actions";
+import { createTournamentFromWizard } from "@/app/tournaments/actions";
 import { resolveTeamZip } from "@/app/teams/actions";
 
 type Init = {
-  id: string;
-  code: string;
-  status: string;
   title: string;
   summary: string;
   description: string;
@@ -48,13 +45,12 @@ const inputCls = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-
 const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-mute";
 const hintCls = "mt-1.5 text-xs text-mute";
 
-export function TournamentSetupWizard({ init, startStep }: { init: Init; startStep?: number }) {
+export function TournamentSetupWizard({ init }: { init: Init }) {
   const router = useRouter();
-  const [step, setStep] = useState(Math.min(Math.max(startStep ?? 0, 0), LAST));
+  const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [status, setStatus] = useState(init.status);
+  const [agree, setAgree] = useState(false);
 
   const [title, setTitle] = useState(init.title);
   const [summary, setSummary] = useState(init.summary);
@@ -126,56 +122,30 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
     };
   }
 
-  async function persist(): Promise<boolean> {
-    setSaving(true);
+  function go(to: number) {
+    setStep(Math.min(Math.max(to, 0), LAST));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Create-at-end: build the full row and write it once, then enter the workspace.
+  async function onCreate() {
     setErr(null);
-    try {
-      const res = await updateTournamentDraft(init.id, buildPatch());
-      if (res.ok) {
-        setSavedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
-        return true;
-      }
-      setErr(res.error ?? "Couldn't save. Try again.");
-      return false;
-    } finally {
-      setSaving(false);
+    if (!title.trim()) {
+      setErr("Add a tournament name in Basics first.");
+      setStep(0);
+      return;
     }
-  }
-
-  async function go(to: number) {
-    if (await persist()) {
-      setStep(Math.min(Math.max(to, 0), LAST));
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!agree) {
+      setErr("Please accept the organizer terms to create your event.");
+      return;
     }
-  }
-
-  async function onPublish() {
-    if (!(await persist())) return;
     setSaving(true);
     try {
-      const res = await publishTournament(init.id);
+      const res = await createTournamentFromWizard(buildPatch(), agree);
       if (res.ok) {
-        setStatus("published");
-        // Setup is complete — take the organizer to their event dashboard.
-        router.push(`/tournament/${init.id}`);
-        router.refresh();
+        router.push(`/tournament/${res.id}`);
       } else {
-        setErr(res.error ?? "Couldn't publish.");
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function onUnpublish() {
-    setSaving(true);
-    try {
-      const res = await unpublishTournament(init.id);
-      if (res.ok) {
-        setStatus("draft");
-        router.refresh();
-      } else {
-        setErr(res.error ?? "Couldn't update.");
+        setErr(res.error);
       }
     } finally {
       setSaving(false);
@@ -419,11 +389,7 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
                   </div>
                 </div>
                 <div className="rounded-2xl border border-dashed border-rule bg-bg/40 p-4 text-sm text-mute">
-                  Entry categories &amp; fees are set in{" "}
-                  <Link href={`/tournament/${init.id}/divisions`} className="font-semibold text-brand-deep hover:underline">
-                    Divisions
-                  </Link>
-                  . Custom registration fields and per-member waiver confirmations are coming next.
+                  Entry categories &amp; fees, and custom sign-up questions, are set up after you create the event — in <span className="font-semibold text-ink">Divisions</span> and <span className="font-semibold text-ink">Sign-up form</span> in your event workspace.
                 </div>
               </div>
             </div>
@@ -453,8 +419,8 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
 
           {step === 5 ? (
             <div>
-              <h2 className="font-display text-2xl text-ink">Review &amp; publish</h2>
-              <p className="mt-1 text-sm text-mute">A quick look before you go live.</p>
+              <h2 className="font-display text-2xl text-ink">Review &amp; create</h2>
+              <p className="mt-1 text-sm text-mute">A last look before your event is created.</p>
               <dl className="mt-6 grid gap-3 sm:grid-cols-2">
                 {[
                   { k: "Name", v: title || "—" },
@@ -475,60 +441,67 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
                 ))}
               </dl>
 
-              <div className="mt-6 rounded-2xl border border-rule bg-bg/40 p-5">
-                {status === "draft" ? (
-                  <>
-                    <p className="text-sm font-bold text-ink">Ready to go live?</p>
-                    <p className="mt-0.5 text-xs text-mute">Publishing makes the public page reachable at klimr.com/e/{init.code}. You can keep editing afterward.</p>
+              <div className="mt-6 space-y-4">
+                  <div className="rounded-2xl border border-rule bg-bg/40 p-4">
+                    <h3 className="flex items-center gap-1.5 text-sm font-bold text-ink">
+                      <Scale size={15} className="text-brand-deep" /> Organizer terms &amp; legal disclaimer
+                    </h3>
+                    <p className="mt-1 text-xs text-faint">Please read before creating. A summary of your responsibilities as an organizer — not legal advice.</p>
+                    <div className="mt-3 max-h-60 space-y-3 overflow-y-auto rounded-xl border border-rule bg-surface p-4 text-xs leading-relaxed text-mute">
+                      <p><strong className="text-ink">1. Klimr is a platform, not the organizer.</strong> Klimr provides software to help you create, promote, and run your event. You — the organizer — are solely responsible for the event itself, including its planning, conduct, supervision, and outcome. Klimr is not a host, promoter, sponsor, operator, or co-organizer of any event, and does not endorse, vet, or guarantee any event, organizer, venue, or participant.</p>
+                      <p><strong className="text-ink">2. Compliance with laws.</strong> You are responsible for ensuring your event complies with all applicable federal, state, provincial, and local laws, ordinances, and regulations, including those governing public gatherings, athletic competitions, amateur and youth sport, alcohol, food service, noise, accessibility, consumer protection, prize and contest rules, and the collection of any entry fees.</p>
+                      <p><strong className="text-ink">3. Permits, venue rights &amp; licenses.</strong> You must obtain — and keep current — every permit, license, reservation, and written permission your event requires, including government and municipal permits, park or facility use agreements, the right to use any courts, fields, or premises, and any sanctioning required by a governing body. You may not list a venue you are not authorized to use.</p>
+                      <p><strong className="text-ink">4. Insurance.</strong> You are responsible for carrying adequate insurance for your event, including general liability coverage and any participant accident, property, or other coverage appropriate to the activity, the venue, and the number of participants.</p>
+                      <p><strong className="text-ink">5. Participant safety &amp; waivers.</strong> You are responsible for the safety of participants, spectators, staff, and volunteers, for appropriate medical and emergency planning, and for obtaining any liability waivers, releases, and (for minors) parental or guardian consents your event and jurisdiction require. Waiver and rules text you add in Klimr is yours and is your responsibility.</p>
+                      <p><strong className="text-ink">6. Fees, payments &amp; taxes.</strong> Any entry fees, refunds, and related disputes are between you and your participants. Klimr does not currently process payments on your behalf; you are responsible for collecting fees, issuing refunds, honoring your stated refund policy, and reporting and paying all applicable taxes.</p>
+                      <p><strong className="text-ink">7. Eligibility, fair play &amp; non-discrimination.</strong> You must run your event fairly and lawfully, must not unlawfully discriminate against any participant, and are responsible for enforcing your stated eligibility, conduct, and anti-doping rules. You must comply with Klimr&rsquo;s Terms of Service and Community Guidelines at all times.</p>
+                      <p><strong className="text-ink">8. Data &amp; privacy.</strong> You must handle participant information lawfully, use it only to operate your event, and comply with applicable privacy laws. Do not export, sell, or repurpose participant data obtained through Klimr.</p>
+                      <p><strong className="text-ink">9. Intellectual property &amp; sponsorship.</strong> You are responsible for the rights to any names, logos, images, trademarks, and sponsorships used in connection with your event, and for any sponsor or governing-body obligations.</p>
+                      <p><strong className="text-ink">10. Indemnification.</strong> To the fullest extent permitted by law, you agree to indemnify, defend, and hold harmless Klimr and its affiliates, officers, employees, and agents from any claims, damages, liabilities, losses, fines, penalties, and expenses (including reasonable legal fees) arising out of or related to your event, your use of the hosting tools, or your breach of these terms.</p>
+                      <p><strong className="text-ink">11. No warranty; limitation of liability.</strong> The hosting tools are provided &ldquo;as is,&rdquo; without warranties of any kind. To the fullest extent permitted by law, Klimr is not liable for any injury, loss, or damage arising from any event, and Klimr&rsquo;s total liability relating to the hosting tools is limited as set out in the Klimr Terms of Service.</p>
+                      <p><strong className="text-ink">12. Removal &amp; enforcement.</strong> Klimr may remove, unpublish, or refuse any event or organizer, at its discretion, including for suspected illegality, safety risk, fraud, or violation of these terms or the Terms of Service.</p>
+                      <p className="text-faint"><strong className="text-mute">Not legal advice.</strong> This summary is for convenience and does not constitute legal advice. Requirements vary by location and event type. We strongly recommend consulting a qualified attorney and your insurer before hosting. Your use of the hosting tools is also governed by the Klimr <Link href="/legal" className="font-semibold text-brand-deep hover:underline">Terms of Service</Link>.</p>
+                    </div>
+                    <label className="mt-3 flex items-start gap-2.5 text-sm text-ink">
+                      <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#ff4e1b]" />
+                      <span>I have read and accept the organizer terms, and I confirm I will comply with all applicable laws and hold any required insurance, permits, and licenses for my event.</span>
+                    </label>
+                  </div>
+
+                  <div className="rounded-2xl border border-rule bg-bg/40 p-5">
+                    <p className="text-sm font-bold text-ink">Create your event</p>
+                    <p className="mt-0.5 text-xs text-mute">Saved as a private draft — hidden from the public until you publish it from the dashboard. <span className="text-brand-deep">Free during launch.</span></p>
                     <button
                       type="button"
-                      onClick={onPublish}
-                      disabled={saving || !title.trim()}
+                      onClick={onCreate}
+                      disabled={saving || !title.trim() || !agree}
                       className="press mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
                     >
-                      {saving ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />} Publish event
+                      {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Create event
                     </button>
                     {!title.trim() ? <p className="mt-2 text-xs text-brand-deep">Add a name in Basics first.</p> : null}
-                  </>
-                ) : (
-                  <>
-                    <p className="flex items-center gap-2 text-sm font-bold text-success">
-                      <Check size={16} /> Your event is published
-                    </p>
-                    <p className="mt-0.5 text-xs text-mute">It&rsquo;s live at klimr.com/e/{init.code}.</p>
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
-                      <Link href={`/tournament/${init.id}`} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
-                        Go to event dashboard <ChevronRight size={15} />
-                      </Link>
-                      <a href={`/e/${init.code}`} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink hover:border-brand">
-                        <Globe size={15} /> View public page
-                      </a>
-                      <button type="button" onClick={onUnpublish} disabled={saving} className="text-xs font-semibold text-mute hover:text-ink">
-                        Move back to draft
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
             </div>
           ) : null}
 
           {/* footer nav */}
           <div className="mt-8 flex items-center justify-between gap-3 border-t border-rule pt-5">
-            <div>
+            <div className="flex items-center gap-2">
               {step > 0 ? (
                 <button type="button" onClick={() => go(step - 1)} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:border-faint disabled:opacity-50">
                   <ChevronLeft size={16} /> Back
                 </button>
-              ) : (
-                <span />
-              )}
+              ) : null}
+              <Link href="/tournaments" className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-mute hover:text-ink">
+                Cancel
+              </Link>
             </div>
             <div className="flex items-center gap-3">
-              {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : savedAt ? <span className="text-xs text-faint">Saved {savedAt}</span> : null}
+              {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : null}
               {step < LAST ? (
                 <button type="button" onClick={() => go(step + 1)} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : null} Save &amp; continue <ChevronRight size={16} />
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : null} Continue <ChevronRight size={16} />
                 </button>
               ) : null}
             </div>

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ChevronLeft, MapPin, Star, ShieldCheck, UserCheck, Flame, Clock, BadgeCheck } from "lucide-react";
+import { MapPin, Star, ShieldCheck, UserCheck, Flame, Clock, BadgeCheck } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
@@ -82,9 +83,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <Link href="/courts" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-        <ChevronLeft size={15} /> Courts
-      </Link>
+      <BackButton fallback="/courts" label="Courts" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <h1 className="font-display text-3xl leading-tight text-ink sm:text-4xl">{court.name}</h1>
       <p className="mt-1 flex items-center gap-1.5 text-sm text-mute">

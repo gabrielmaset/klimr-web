@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ChevronLeft, Trash2, Search } from "lucide-react";
+import { Trash2, Search } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 import { SPORTS } from "@/lib/sports";
@@ -78,9 +79,7 @@ export default async function AdminUpdatesPage({
 
   return (
     <div>
-      <Link href="/admin" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-        <ChevronLeft size={15} /> Admin
-      </Link>
+      <BackButton fallback="/admin" label="Admin" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <h1 className="font-display text-3xl text-ink sm:text-4xl">Post an update</h1>
       <p className="mt-1 text-sm text-mute">Publishes to the feed for all members. Use for match results, news, and announcements.</p>
