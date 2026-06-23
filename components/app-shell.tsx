@@ -6,6 +6,7 @@ import { AppChrome } from "@/components/app-chrome";
 import type { PresenceMode } from "@/app/account/presence";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getTopBarData } from "@/lib/chrome-data";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -59,52 +60,18 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Presence preference — read separately so the shell still loads if
-    // migration 0047 hasn't been applied yet (missing column → defaults to "auto").
-    const { data: pm } = await supabase.from("profiles").select("presence_mode").eq("id", user.id).maybeSingle();
-    if (pm?.presence_mode) presenceMode = pm.presence_mode as PresenceMode;
-
-    // Teams the user belongs to → the account switcher.
-    const { data: tm } = await supabase.from("team_members").select("team_id").eq("user_id", user.id);
-    const tIds = [...new Set((tm ?? []).map((r) => r.team_id))];
-    if (tIds.length) {
-      const { data: ts } = await supabase.from("teams").select("id, name, sport_key, category").in("id", tIds);
-      teams = (ts as { id: string; name: string; sport_key: string; category: string }[] | null) ?? [];
-    }
-
+    // Admin role drives the SideNav admin link (not part of the shared bar).
     const { data: r } = await supabase.rpc("current_admin_role");
     adminRole = typeof r === "string" ? r : null;
-    const { count } = await supabase
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .is("read_at", null);
-    unread = count ?? 0;
-    const { data: cu } = await supabase.rpc("chat_unread_count");
-    chatUnread = typeof cu === "number" ? cu : 0;
 
-    // Next scheduled match → top-bar reminder chip.
-    const { data: parts } = await supabase.from("match_participants").select("match_id").eq("user_id", user.id);
-    const mIds = [...new Set((parts ?? []).map((x) => x.match_id))];
-    if (mIds.length) {
-      const { data: nm } = await supabase
-        .from("matches")
-        .select("id, sport_key, scheduled_at, location_text, court_id")
-        .in("id", mIds)
-        .in("status", ["open", "scheduled"])
-        .gte("scheduled_at", new Date().toISOString())
-        .order("scheduled_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (nm) {
-        let place: string | null = nm.location_text ?? null;
-        if (nm.court_id) {
-          const { data: c } = await supabase.from("courts").select("name").eq("id", nm.court_id).maybeSingle();
-          if (c?.name) place = c.name;
-        }
-        nextMatch = { id: nm.id, sportKey: nm.sport_key, scheduledAt: nm.scheduled_at, place };
-      }
-    }
+    // Everything the global TopBar needs (teams, unread, chat, presence, next
+    // match) comes from one shared helper so the workspaces show the same bar.
+    const bar = await getTopBarData(supabase, user.id);
+    presenceMode = bar.presenceMode;
+    teams = bar.teams;
+    unread = bar.unread;
+    chatUnread = bar.chatUnread;
+    nextMatch = bar.nextMatch;
   }
 
   // Logged-out: simple top bar + content + footer (marketing / auth pages).

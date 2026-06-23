@@ -156,6 +156,8 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
       const res = await publishTournament(init.id);
       if (res.ok) {
         setStatus("published");
+        // Setup is complete — take the organizer to their event dashboard.
+        router.push(`/tournament/${init.id}`);
         router.refresh();
       } else {
         setErr(res.error ?? "Couldn't publish.");
@@ -495,6 +497,9 @@ export function TournamentSetupWizard({ init, startStep }: { init: Init; startSt
                     </p>
                     <p className="mt-0.5 text-xs text-mute">It&rsquo;s live at klimr.com/e/{init.code}.</p>
                     <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <Link href={`/tournament/${init.id}`} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
+                        Go to event dashboard <ChevronRight size={15} />
+                      </Link>
                       <a href={`/e/${init.code}`} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink hover:border-brand">
                         <Globe size={15} /> View public page
                       </a>

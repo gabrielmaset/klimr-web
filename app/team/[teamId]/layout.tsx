@@ -1,6 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TeamNav } from "@/components/team-nav";
+import { TopBar } from "@/components/top-bar";
+import { getTopBarData } from "@/lib/chrome-data";
 
 export default async function TeamLayout({
   children,
@@ -38,18 +40,14 @@ export default async function TeamLayout({
     url: profile?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl : null,
   };
 
-  const { data: tm } = await supabase.from("team_members").select("team_id").eq("user_id", user.id);
-  const ids = [...new Set((tm ?? []).map((r) => r.team_id))];
-  let teams: { id: string; name: string; sport_key: string; category: string }[] = [];
-  if (ids.length) {
-    const { data } = await supabase.from("teams").select("id, name, sport_key, category").in("id", ids);
-    teams = (data as { id: string; name: string; sport_key: string; category: string }[] | null) ?? [];
-  }
+  // One shared fetch powers both the team switcher and the global top bar.
+  const bar = await getTopBarData(supabase, user.id);
 
   return (
     <div className="md:flex md:min-h-dvh">
-      <TeamNav team={team} role={membership.role} teams={teams} personal={personal} />
+      <TeamNav team={team} role={membership.role} teams={bar.teams} personal={personal} />
       <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar chatUnread={bar.chatUnread} unreadCount={bar.unread} presenceMode={bar.presenceMode} nextMatch={bar.nextMatch} teams={bar.teams} />
         <main className="flex-1">{children}</main>
       </div>
     </div>

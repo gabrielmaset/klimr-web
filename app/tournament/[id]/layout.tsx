@@ -1,6 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TournamentNav } from "@/components/tournament-nav";
+import { TopBar } from "@/components/top-bar";
+import { getTopBarData } from "@/lib/chrome-data";
 
 export default async function TournamentLayout({
   children,
@@ -34,10 +36,15 @@ export default async function TournamentLayout({
     url: profile?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl : null,
   };
 
+  // The workspace renders its own left sidebar but still shows the global top
+  // bar (search, presence, next match, notifications, account) across the top.
+  const bar = await getTopBarData(supabase, user.id);
+
   return (
     <div className="md:flex md:min-h-dvh">
       <TournamentNav tournament={{ id: t.id, code: t.code, title: t.title, sport_key: t.sport_key, status: t.status }} role={role} personal={personal} />
       <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar chatUnread={bar.chatUnread} unreadCount={bar.unread} presenceMode={bar.presenceMode} nextMatch={bar.nextMatch} teams={bar.teams} />
         <main className="flex-1">{children}</main>
       </div>
     </div>

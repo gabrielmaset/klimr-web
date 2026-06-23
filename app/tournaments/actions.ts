@@ -184,7 +184,9 @@ export async function createTournament(formData: FormData) {
     redirect(`/tournaments/new?error=create${code}${msg}${who}`);
   }
 
-  redirect(`/tournament/${created.id}`);
+  // Drop the organizer straight into the setup wizard (Basics → … → Publish).
+  // The dashboard is where they land after finishing/publishing.
+  redirect(`/tournament/${created.id}/setup`);
 }
 
 /** Save a slice of the draft. RLS restricts writes to the owner / managers; this
