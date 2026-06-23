@@ -22,6 +22,13 @@ export const STATUS_LABEL: Record<string, string> = {
 export type PublishedScheduleRow = { court: string; time: string | null; division: string; pool: string | null; a: string; b: string };
 export type PublishedSchedule = { builtAt: string; mode: string; rows: PublishedScheduleRow[] };
 
+export type PublishedStandingRow = { rank: number; team: string; w: number; l: number; d: number; diff: number };
+export type PublishedPool = { name: string; rows: PublishedStandingRow[] };
+export type PublishedBracketMatch = { a: string; b: string; sa: number | null; sb: number | null; done: boolean };
+export type PublishedBracketRound = { label: string; matches: PublishedBracketMatch[] };
+export type PublishedResultsDivision = { name: string; pools: PublishedPool[]; rounds: PublishedBracketRound[] };
+export type PublishedResults = { builtAt: string; format: string; divisions: PublishedResultsDivision[] };
+
 export type TournamentFormatConfig = {
   format_type?: FormatType;
   pool_count?: number;
@@ -34,6 +41,9 @@ export type TournamentFormatConfig = {
   schedule_built_at?: string | null;
   schedule_published?: boolean;
   published_schedule?: PublishedSchedule;
+  results_published?: boolean;
+  results_auto_publish?: boolean;
+  published_results?: PublishedResults;
   gallery?: string[];
   capacity_mode?: "pooled" | "per_division";
   capacity_unit?: "team" | "person";

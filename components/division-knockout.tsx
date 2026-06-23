@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Trophy, Trash2, Info } from "lucide-react";
+import { Loader2, Trophy, Trash2, Info, Printer } from "lucide-react";
 import { generateKnockout, clearBracket } from "@/app/tournaments/actions";
 import { MatchScoreRow } from "@/components/match-score-row";
+import { openPrintWindow, bracketRoundsHtml } from "@/lib/print";
 
 type Match = { matchId: string; aName: string; bName: string; scoreA: number | null; scoreB: number | null; status: string; bye: boolean; byeName?: string; locked: boolean; court: string | null };
 
@@ -19,12 +20,14 @@ function roundLabel(i: number, total: number): string {
 export function DivisionKnockout({
   tournamentId,
   divisionId,
+  name,
   defaultAdvancers,
   rounds,
   poolsComplete,
 }: {
   tournamentId: string;
   divisionId: string;
+  name: string;
   defaultAdvancers: number;
   rounds: Match[][];
   poolsComplete: boolean;
@@ -57,12 +60,20 @@ export function DivisionKnockout({
     }
   }
 
+  function printBracket() {
+    const rs = rounds.map((round, r) => ({
+      label: roundLabel(r, rounds.length),
+      matches: round.map((m) => ({ a: m.aName, b: m.bName, sa: m.scoreA, sb: m.scoreB, done: m.status === "completed" })),
+    }));
+    openPrintWindow(`${name} — knockout bracket`, "Knockout stage", bracketRoundsHtml(rs));
+  }
+
   return (
     <div className="rounded-2xl border border-rule bg-bg/40 p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-ink">Knockout stage</h3>
-          <p className="text-xs text-mute">{hasKnockout ? "Top finishers advanced from the pools." : "Build a bracket from the pool results."}</p>
+          <h3 className="text-sm font-bold text-ink">{name}</h3>
+          <p className="text-xs text-mute">{hasKnockout ? "Knockout stage — top finishers advanced from the pools." : "Knockout stage — build a bracket from the pool results."}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs font-medium text-mute">
@@ -72,6 +83,11 @@ export function DivisionKnockout({
           <button type="button" onClick={gen} disabled={!!busy || !poolsComplete} className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white hover:bg-ink-soft disabled:opacity-50">
             {busy === "gen" ? <Loader2 size={15} className="animate-spin" /> : <Trophy size={15} />} {hasKnockout ? "Rebuild" : "Generate knockout"}
           </button>
+          {hasKnockout ? (
+            <button type="button" onClick={printBracket} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-3 py-2 text-sm font-semibold text-mute hover:text-ink" aria-label="Print bracket">
+              <Printer size={15} />
+            </button>
+          ) : null}
           {hasKnockout ? (
             <button type="button" onClick={clear} disabled={!!busy} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-3 py-2 text-sm font-semibold text-mute hover:text-ink disabled:opacity-50" aria-label="Clear knockout">
               {busy === "clear" ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}

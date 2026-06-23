@@ -1,14 +1,89 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, MapPin, Users, Trophy, Check, Dices, Images } from "lucide-react";
+import { CalendarClock, Users, Trophy, Check, Dices } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { formatFee, type TournamentFormatConfig, type PublishedScheduleRow } from "@/lib/tournament";
+import { formatFee, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
+import { EventHero } from "@/components/event-hero";
 
 const REG_STATUS_LABEL: Record<string, string> = { pending: "Pending", confirmed: "Confirmed", waitlisted: "Waitlisted" };
 const PAY_STATUS_LABEL: Record<string, string> = { unpaid: "Not submitted", proof_submitted: "Under review", confirmed: "Confirmed", denied: "Needs attention" };
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+function PublicStandings({ pool }: { pool: PublishedPool }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-rule">
+      <p className="truncate bg-gradient-to-br from-brand to-brand-deep px-4 py-2.5 text-sm font-bold tracking-wide text-white">{pool.name}</p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-rule text-[10px] uppercase tracking-wide text-mute">
+            <th className="px-3 py-1.5 text-center font-semibold">#</th>
+            <th className="px-3 py-1.5 text-left font-semibold">Team</th>
+            <th className="px-2 py-1.5 text-center font-semibold">W</th>
+            <th className="px-2 py-1.5 text-center font-semibold">L</th>
+            <th className="px-3 py-1.5 text-center font-semibold">+/&minus;</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pool.rows.map((r, i) => (
+            <tr key={i} className="border-b border-rule/60 last:border-0">
+              <td className="px-3 py-1.5 text-center">
+                <span className="inline-grid h-5 w-5 place-items-center rounded-full bg-tint-brand text-[10px] font-bold text-brand-deep">{r.rank}</span>
+              </td>
+              <td className="px-3 py-1.5 text-ink">{r.team}</td>
+              <td className="px-2 py-1.5 text-center tabular-nums text-ink-soft">{r.w}</td>
+              <td className="px-2 py-1.5 text-center tabular-nums text-ink-soft">{r.l}</td>
+              <td className="px-3 py-1.5 text-center tabular-nums text-mute">{r.diff > 0 ? `+${r.diff}` : r.diff}</td>
+            </tr>
+          ))}
+          {pool.rows.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="px-3 py-3 text-center text-xs text-mute">No teams yet</td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PublicBracket({ rounds }: { rounds: PublishedBracketRound[] }) {
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-mute">
+        <Trophy size={13} /> Knockout
+      </p>
+      <div className="overflow-x-auto pb-2">
+        <div className="flex min-w-max gap-4">
+          {rounds.map((rd, r) => (
+            <div key={r} className="w-56 shrink-0">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-mute">{rd.label}</p>
+              <div className="grid gap-2">
+                {rd.matches.map((m, i) => {
+                  const aWin = m.done && m.sa != null && m.sb != null && m.sa > m.sb;
+                  const bWin = m.done && m.sa != null && m.sb != null && m.sb > m.sa;
+                  return (
+                    <div key={i} className="rounded-xl border border-rule bg-surface px-3 py-2 text-sm">
+                      <div className={`flex items-center justify-between gap-2 ${aWin ? "font-bold text-ink" : "text-ink-soft"}`}>
+                        <span className="min-w-0 truncate">{m.a}</span>
+                        <span className="shrink-0 font-mono text-xs tabular-nums">{m.sa ?? ""}</span>
+                      </div>
+                      <div className={`mt-1 flex items-center justify-between gap-2 border-t border-rule/60 pt-1 ${bWin ? "font-bold text-ink" : "text-ink-soft"}`}>
+                        <span className="min-w-0 truncate">{m.b}</span>
+                        <span className="shrink-0 font-mono text-xs tabular-nums">{m.sb ?? ""}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Fact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
@@ -42,6 +117,8 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const fc = (t.format_config ?? {}) as TournamentFormatConfig;
   const photos = Array.isArray(fc.gallery) ? fc.gallery : [];
   const pubSchedule = fc.schedule_published && fc.published_schedule?.rows?.length ? fc.published_schedule : null;
+  const pubResults = fc.results_published && fc.published_results?.divisions?.length ? fc.published_results : null;
+  const resultsUpdated = pubResults ? new Date(pubResults.builtAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null;
   const courtNumOf = (c: string) => {
     const m = /Court (\d+)/.exec(c);
     return m ? Number(m[1]) : 999;
@@ -156,29 +233,15 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {/* hero */}
-      <div className="relative overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(135deg,#0e2c3a,#0a212c)] p-6 sm:p-8">
-        <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none text-[170px] leading-none opacity-[0.07]">{meta.emoji}</span>
-        <span aria-hidden className="pointer-events-none absolute -left-12 bottom-0 h-48 w-48 rounded-full bg-brand/20 blur-3xl" />
-        <div className="relative">
-          <p className="kicker text-rail-active">
-            {meta.name} · {t.entry_type === "team" ? "Team event" : "Individual event"}
-          </p>
-          <h1 className="mt-1 font-display text-4xl leading-tight text-white sm:text-5xl">{t.title}</h1>
-          {t.summary ? <p className="mt-3 max-w-xl text-rail-fg/85">{t.summary}</p> : null}
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-rail-fg/80">
-            {dateText ? (
-              <span className="flex items-center gap-1.5">
-                <CalendarClock size={14} /> {dateText}
-              </span>
-            ) : null}
-            {t.location_name ? (
-              <span className="flex items-center gap-1.5">
-                <MapPin size={14} /> {t.location_name}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      <EventHero
+        kicker={`${meta.name} · ${t.entry_type === "team" ? "Team event" : "Individual event"}`}
+        title={t.title}
+        summary={t.summary}
+        dateText={dateText}
+        locationName={t.location_name}
+        emoji={meta.emoji}
+        photos={photos}
+      />
 
       {/* register / entry status */}
       {myEntry ? (
@@ -374,24 +437,30 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         </section>
       ) : null}
 
-      {photos.length ? (
+      {pubResults ? (
         <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <Images size={18} className="text-brand-deep" />
-            <h2 className="text-base font-bold text-ink">Gallery</h2>
+          <div className="mb-1 flex items-center gap-2">
+            <Trophy size={18} className="text-brand-deep" />
+            <h2 className="text-base font-bold text-ink">Results &amp; standings</h2>
           </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-            {photos.map((url, i) => (
-              <a
-                key={i}
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                className="group relative block aspect-[4/3] overflow-hidden rounded-xl border border-rule bg-bg"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`${t.title} photo ${i + 1}`} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy" />
-              </a>
+          <p className="mb-4 text-xs text-faint">{resultsUpdated ? `Updated ${resultsUpdated}.` : "Live from the organizer."}</p>
+          <div className="grid gap-6">
+            {pubResults.divisions.map((d, di) => (
+              <div key={di}>
+                {pubResults.divisions.length > 1 ? <h3 className="mb-3 border-b border-rule pb-2 text-sm font-bold uppercase tracking-wide text-ink">{d.name}</h3> : null}
+                {d.pools.length ? (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {d.pools.map((p, pi) => (
+                      <PublicStandings key={pi} pool={p} />
+                    ))}
+                  </div>
+                ) : null}
+                {d.rounds.length ? (
+                  <div className={d.pools.length ? "mt-4" : ""}>
+                    <PublicBracket rounds={d.rounds} />
+                  </div>
+                ) : null}
+              </div>
             ))}
           </div>
         </section>

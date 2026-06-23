@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Shuffle, Trash2, Dices, TriangleAlert } from "lucide-react";
+import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Printer } from "lucide-react";
 import { generateBracket, clearBracket } from "@/app/tournaments/actions";
 import { MatchScoreRow } from "@/components/match-score-row";
+import { openPrintWindow, bracketRoundsHtml } from "@/lib/print";
 
 type Match = { matchId: string; aName: string; bName: string; scoreA: number | null; scoreB: number | null; status: string; bye: boolean; byeName?: string; locked: boolean; court: string | null };
 type Draw = { number: number; at: string };
@@ -64,6 +65,14 @@ export function DivisionBracket({
     }
   }
 
+  function printBracket() {
+    const rs = rounds.map((round, r) => ({
+      label: roundLabel(r, rounds.length),
+      matches: round.map((m) => ({ a: m.aName, b: m.bName, sa: m.scoreA, sb: m.scoreB, done: m.status === "completed" })),
+    }));
+    openPrintWindow(`${name} — bracket`, `${participantCount} ${participantCount === 1 ? "entry" : "entries"} · single elimination`, bracketRoundsHtml(rs));
+  }
+
   return (
     <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -77,6 +86,11 @@ export function DivisionBracket({
           <button type="button" onClick={() => (hasBracket ? setConfirming(true) : gen())} disabled={!!busy || participantCount < 2} className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white hover:bg-ink-soft disabled:opacity-50">
             {busy === "gen" ? <Loader2 size={15} className="animate-spin" /> : <Shuffle size={15} />} {hasBracket ? "Redraw" : "Draw bracket"}
           </button>
+          {hasBracket ? (
+            <button type="button" onClick={printBracket} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-bg px-3 py-2 text-sm font-semibold text-mute hover:text-ink" aria-label="Print bracket">
+              <Printer size={15} />
+            </button>
+          ) : null}
           {hasBracket ? (
             <button type="button" onClick={clear} disabled={!!busy} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-bg px-3 py-2 text-sm font-semibold text-mute hover:text-ink disabled:opacity-50" aria-label="Clear bracket">
               {busy === "clear" ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}

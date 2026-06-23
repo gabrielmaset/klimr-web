@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { lookupZip, tzFromStateLng } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
-import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig } from "@/lib/tournament";
+import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig, PublishedResults } from "@/lib/tournament";
 import { computePoolStandings } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
@@ -891,6 +891,7 @@ export async function generateGroups(tournamentId: string, divisionId: string, p
   const { count: priorDraws } = await supabase.from("tournament_draws").select("id", { count: "exact", head: true }).eq("division_id", divisionId);
   await supabase.from("tournament_draws").insert({ tournament_id: tournamentId, division_id: divisionId, draw_number: (priorDraws ?? 0) + 1, drawn_by: user.id });
 
+  await republishResultsIfAuto(tournamentId);
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   return { ok: true as const };
 }
@@ -985,6 +986,189 @@ export async function buildSchedule(
   return { ok: true as const, count: ordered.length };
 }
 
+/* ---- Public results (pools + brackets) publishing ----------------------- */
+
+function snapshotRoundLabel(roundIndex: number, total: number): string {
+  const fromEnd = total - roundIndex; // roundIndex is 1-based
+  if (fromEnd === 0) return "Final";
+  if (fromEnd === 1) return "Semifinals";
+  if (fromEnd === 2) return "Quarterfinals";
+  return `Round ${roundIndex}`;
+}
+
+/** Build a public snapshot of every division's pool standings + bracket, read
+ *  with the caller's (staff) client so RLS allows the underlying tables. Anon
+ *  reads it back from format_config on the public page — no extra RLS needed. */
+async function buildResultsSnapshot(tournamentId: string): Promise<PublishedResults> {
+  const supabase = await createClient();
+
+  const { data: t } = await supabase.from("tournaments").select("format_config").eq("id", tournamentId).maybeSingle();
+  const fc = (t?.format_config ?? {}) as TournamentFormatConfig;
+  const formatType = fc.format_type ?? "pools_knockout";
+
+  const { data: regs } = await supabase.from("tournament_registrations").select("id, team_id, registrant_id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined)");
+  const list = regs ?? [];
+  const teamIds = [...new Set(list.filter((r) => r.team_id).map((r) => r.team_id as string))];
+  const teamName = new Map<string, string>();
+  if (teamIds.length) {
+    const { data } = await supabase.from("teams").select("id, name").in("id", teamIds);
+    for (const x of data ?? []) teamName.set(x.id, x.name);
+  }
+  const profIds = [...new Set(list.filter((r) => !r.team_id).map((r) => r.registrant_id))];
+  const profName = new Map<string, string>();
+  if (profIds.length) {
+    const { data } = await supabase.from("profiles").select("id, display_name").in("id", profIds);
+    for (const x of data ?? []) profName.set(x.id, x.display_name ?? "Player");
+  }
+  const nameByReg = new Map(list.map((r) => [r.id, r.team_id ? teamName.get(r.team_id) ?? "Team" : profName.get(r.registrant_id) ?? "Player"]));
+  const nm = (regId: string | null) => (regId ? nameByReg.get(regId) ?? "TBD" : "TBD");
+
+  const { data: divisions } = await supabase.from("tournament_divisions").select("id, name, sort_order").eq("tournament_id", tournamentId).order("sort_order");
+  const divs = divisions ?? [];
+
+  const { data: matches } = await supabase
+    .from("tournament_matches")
+    .select("id, division_id, group_id, round, slot, entry_a, entry_b, score_a, score_b, status, sort_order")
+    .eq("tournament_id", tournamentId);
+  const allMatches = matches ?? [];
+
+  let allGroups: { id: string; division_id: string; name: string; sort_order: number }[] = [];
+  let allGe: { group_id: string; division_id: string; registration_id: string; seed: number | null }[] = [];
+  if (formatType !== "single_elim") {
+    const { data: groups } = await supabase.from("tournament_groups").select("id, division_id, name, sort_order").eq("tournament_id", tournamentId).order("sort_order");
+    const { data: ge } = await supabase.from("tournament_group_entries").select("group_id, division_id, registration_id, seed").eq("tournament_id", tournamentId);
+    allGroups = groups ?? [];
+    allGe = ge ?? [];
+  }
+
+  const divisionsOut = divs.map((d) => {
+    const dGroups = allGroups.filter((g) => g.division_id === d.id);
+    const pools = dGroups.map((g) => {
+      const entries = allGe.filter((e) => e.group_id === g.id).map((e) => ({ regId: e.registration_id, name: nm(e.registration_id) }));
+      const ms = allMatches.filter((m) => m.group_id === g.id).map((m) => ({ entryA: m.entry_a, entryB: m.entry_b, scoreA: m.score_a, scoreB: m.score_b, status: m.status }));
+      const rows = computePoolStandings(entries, ms).map((r, i) => ({ rank: i + 1, team: r.name, w: r.wins, l: r.losses, d: r.draws, diff: r.diff }));
+      return { name: g.name, rows };
+    });
+
+    const knockout = allMatches.filter((m) => m.division_id === d.id && m.group_id === null);
+    const maxRound = knockout.reduce((mx, m) => Math.max(mx, m.round), 0);
+    const rounds: PublishedResults["divisions"][number]["rounds"] = [];
+    for (let r = 1; r <= maxRound; r++) {
+      const ms = knockout
+        .filter((m) => m.round === r)
+        .sort((a, b) => a.slot - b.slot)
+        .map((m) => ({ a: nm(m.entry_a), b: nm(m.entry_b), sa: m.score_a, sb: m.score_b, done: m.status === "completed" }));
+      rounds.push({ label: snapshotRoundLabel(r, maxRound), matches: ms });
+    }
+
+    return { name: d.name, pools, rounds };
+  });
+
+  return { builtAt: new Date().toISOString(), format: formatType, divisions: divisionsOut };
+}
+
+/** When auto-publish is on (and results are published), re-snapshot so the public
+ *  page tracks live results. Called at the end of every result-mutating action. */
+async function republishResultsIfAuto(tournamentId: string) {
+  const supabase = await createClient();
+  const { data: to } = await supabase.from("tournaments").select("code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return;
+  const fc = (to.format_config ?? {}) as TournamentFormatConfig;
+  if (!fc.results_auto_publish || !fc.results_published) return;
+  const published_results = await buildResultsSnapshot(tournamentId);
+  const next = { ...((to.format_config ?? {}) as Record<string, unknown>), published_results };
+  await supabase.from("tournaments").update({ format_config: next as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (to.code) revalidatePath(`/e/${to.code}`);
+}
+
+/** Publish (or refresh) the competition view — every division's pools and
+ *  brackets — to the public event page. Staff-only. */
+export async function publishResults(tournamentId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const published_results = await buildResultsSnapshot(tournamentId);
+  if (published_results.divisions.length === 0) return { ok: false as const, error: "Nothing to publish yet." };
+
+  const fc = { ...((to.format_config ?? {}) as Record<string, unknown>), results_published: true, published_results };
+  const { error } = await supabase.from("tournaments").update({ format_config: fc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath(`/tournament/${tournamentId}/brackets`);
+  if (to.code) revalidatePath(`/e/${to.code}`);
+  return { ok: true as const };
+}
+
+/** Take the competition view down from the public page (also turns auto-publish
+ *  off). The snapshot is left in place so re-publishing is instant. Staff-only. */
+export async function unpublishResults(tournamentId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const fc = { ...((to.format_config ?? {}) as Record<string, unknown>), results_published: false, results_auto_publish: false };
+  const { error } = await supabase.from("tournaments").update({ format_config: fc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath(`/tournament/${tournamentId}/brackets`);
+  if (to.code) revalidatePath(`/e/${to.code}`);
+  return { ok: true as const };
+}
+
+/** Toggle auto-publish. Turning it on ensures results are published with a fresh
+ *  snapshot so the public page immediately reflects live results. Staff-only. */
+export async function setResultsAutoPublish(tournamentId: string, on: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const base: Record<string, unknown> = { ...((to.format_config ?? {}) as Record<string, unknown>), results_auto_publish: on };
+  if (on) {
+    base.results_published = true;
+    base.published_results = await buildResultsSnapshot(tournamentId);
+  }
+  const { error } = await supabase.from("tournaments").update({ format_config: base as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath(`/tournament/${tournamentId}/brackets`);
+  if (to.code) revalidatePath(`/e/${to.code}`);
+  return { ok: true as const };
+}
+
 /** Publish the built schedule to the public event page. The client passes the
  *  fully-resolved rows (court, wall-clock time, names) it already rendered, so
  *  times stay in the event's local timezone for every viewer. We snapshot them
@@ -1074,6 +1258,7 @@ export async function clearGroups(tournamentId: string, divisionId: string) {
 
   await supabase.from("tournament_matches").delete().eq("division_id", divisionId).not("group_id", "is", null);
   await supabase.from("tournament_groups").delete().eq("division_id", divisionId);
+  await republishResultsIfAuto(tournamentId);
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   return { ok: true as const };
 }
@@ -1115,6 +1300,7 @@ export async function recordMatchScore(matchId: string, scoreA: number, scoreB: 
     else await supabase.from("tournament_matches").update({ entry_a: winner }).eq("id", m.next_match_id);
   }
 
+  await republishResultsIfAuto(m.tournament_id);
   revalidatePath(`/tournament/${m.tournament_id}/schedule`);
   revalidatePath(`/tournament/${m.tournament_id}/brackets`);
   return { ok: true as const };
@@ -1151,6 +1337,7 @@ export async function clearMatchScore(matchId: string) {
     else await supabase.from("tournament_matches").update({ entry_a: null }).eq("id", m.next_match_id);
   }
 
+  await republishResultsIfAuto(m.tournament_id);
   revalidatePath(`/tournament/${m.tournament_id}/schedule`);
   revalidatePath(`/tournament/${m.tournament_id}/brackets`);
   return { ok: true as const };
@@ -1191,6 +1378,7 @@ export async function generateBracket(tournamentId: string, divisionId: string) 
   const { count: priorDraws } = await supabase.from("tournament_draws").select("id", { count: "exact", head: true }).eq("division_id", divisionId);
   await supabase.from("tournament_draws").insert({ tournament_id: tournamentId, division_id: divisionId, draw_number: (priorDraws ?? 0) + 1, drawn_by: user.id });
 
+  await republishResultsIfAuto(tournamentId);
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   return { ok: true as const };
 }
@@ -1210,6 +1398,7 @@ export async function clearBracket(tournamentId: string, divisionId: string) {
   }
   if (!staff) return { ok: false as const, error: "Not allowed." };
   await supabase.from("tournament_matches").delete().eq("division_id", divisionId).is("group_id", null);
+  await republishResultsIfAuto(tournamentId);
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   return { ok: true as const };
 }
@@ -1261,6 +1450,7 @@ export async function generateKnockout(tournamentId: string, divisionId: string,
   const res = await buildBracketFromSeeds(supabase, tournamentId, divisionId, qualifiers.map((q) => q.regId));
   if (!res.ok) return res;
 
+  await republishResultsIfAuto(tournamentId);
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   return { ok: true as const };
 }

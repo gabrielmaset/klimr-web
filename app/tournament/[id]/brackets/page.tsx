@@ -6,6 +6,8 @@ import { DivisionGroups } from "@/components/division-groups";
 import { DivisionBracket } from "@/components/division-bracket";
 import { DivisionKnockout } from "@/components/division-knockout";
 import { AwardPointsButton } from "@/components/award-points-button";
+import { BracketsTabs } from "@/components/brackets-tabs";
+import { ResultsPublisher } from "@/components/results-publisher";
 import type { TournamentFormatConfig } from "@/lib/tournament";
 
 type BracketMatch = { id: string; round: number; slot: number; entry_a: string | null; entry_b: string | null; score_a: number | null; score_b: number | null; status: string; court: string | null };
@@ -58,10 +60,13 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/tournament/${id}/brackets`);
 
-  const { data: t } = await supabase.from("tournaments").select("id, capacity, format_config").eq("id", id).maybeSingle();
+  const { data: t } = await supabase.from("tournaments").select("id, code, capacity, format_config").eq("id", id).maybeSingle();
   if (!t) notFound();
   const fc = (t.format_config ?? {}) as TournamentFormatConfig;
   const formatType = fc.format_type ?? "pools_knockout";
+  const resultsBuiltAtText = fc.published_results?.builtAt
+    ? new Date(fc.published_results.builtAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+    : null;
 
   const { count: awardedCount } = await supabase.from("tournament_points").select("id", { count: "exact", head: true }).eq("tournament_id", id);
 
@@ -75,6 +80,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
 
   let body: React.ReactNode;
   let scheduleReady = false;
+  let hasContent = false;
 
   if (divs.length === 0) {
     body = (
@@ -120,6 +126,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
       .select("id, division_id, group_id, round, slot, entry_a, entry_b, score_a, score_b, status, court, sort_order")
       .eq("tournament_id", id);
     const allMatches = matches ?? [];
+    hasContent = allMatches.length > 0;
 
     if (formatType === "single_elim") {
       scheduleReady =
@@ -158,48 +165,61 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
           return dGroups.every((g) => allGe.some((e) => e.group_id === g.id));
         });
 
-      body = (
+      const perDiv = divs.map((d) => {
+        const dRegs = list.filter((r) => r.division_id === d.id);
+        const dGroups = allGroups.filter((g) => g.division_id === d.id);
+        const pools = dGroups.map((g) => ({
+          name: g.name,
+          entries: allGe
+            .filter((e) => e.group_id === g.id)
+            .sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0))
+            .map((e) => ({ name: nm(e.registration_id), seed: e.seed })),
+          matches: allMatches
+            .filter((m) => m.group_id === g.id)
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((m) => ({ a: nm(m.entry_a), b: nm(m.entry_b), scoreA: m.score_a, scoreB: m.score_b, status: m.status, court: m.court })),
+        }));
+        const knockoutMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id === null);
+        const resultsStarted = allMatches.some((m) => m.division_id === d.id && m.status === "completed");
+        const previewEntries = dRegs.map((r) => nameByReg.get(r.id) ?? "Team");
+        const poolMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id !== null);
+        const poolsComplete = poolMatches.length > 0 && poolMatches.every((m) => m.status === "completed");
+        return { d, dRegs, pools, knockoutMatches, resultsStarted, previewEntries, poolsComplete };
+      });
+
+      const groupsNode = (
         <div className="grid gap-5">
-          {divs.map((d) => {
-            const dRegs = list.filter((r) => r.division_id === d.id);
-            const dGroups = allGroups.filter((g) => g.division_id === d.id);
-            const pools = dGroups.map((g) => ({
-              name: g.name,
-              entries: allGe
-                .filter((e) => e.group_id === g.id)
-                .sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0))
-                .map((e) => ({ name: nm(e.registration_id), seed: e.seed })),
-              matches: allMatches
-                .filter((m) => m.group_id === g.id)
-                .sort((a, b) => a.sort_order - b.sort_order)
-                .map((m) => ({ a: nm(m.entry_a), b: nm(m.entry_b), scoreA: m.score_a, scoreB: m.score_b, status: m.status, court: m.court })),
-            }));
-            const knockoutMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id === null);
-            const resultsStarted = allMatches.some((m) => m.division_id === d.id && m.status === "completed");
-            const previewEntries = dRegs.map((r) => nameByReg.get(r.id) ?? "Team");
-            const poolMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id !== null);
-            const poolsComplete = poolMatches.length > 0 && poolMatches.every((m) => m.status === "completed");
-            return (
-              <div key={d.id} className="grid gap-3">
-                <DivisionGroups
-                  tournamentId={id}
-                  divisionId={d.id}
-                  name={d.name}
-                  participantCount={dRegs.length}
-                  defaultPools={defaultPools}
-                  pools={pools}
-                  format={formatType}
-                  draws={drawsFor(d.id)}
-                  previewEntries={previewEntries}
-                  capacity={t.capacity ?? null}
-                  resultsStarted={resultsStarted}
-                />
-                {isKnockout ? <DivisionKnockout tournamentId={id} divisionId={d.id} defaultAdvancers={2} rounds={buildRounds(knockoutMatches, nm)} poolsComplete={poolsComplete} /> : null}
-              </div>
-            );
-          })}
+          {perDiv.map((x) => (
+            <DivisionGroups
+              key={x.d.id}
+              tournamentId={id}
+              divisionId={x.d.id}
+              name={x.d.name}
+              participantCount={x.dRegs.length}
+              defaultPools={defaultPools}
+              pools={x.pools}
+              format={formatType}
+              draws={drawsFor(x.d.id)}
+              previewEntries={x.previewEntries}
+              capacity={t.capacity ?? null}
+              resultsStarted={x.resultsStarted}
+            />
+          ))}
         </div>
       );
+
+      if (isKnockout) {
+        const bracketsNode = (
+          <div className="grid gap-5">
+            {perDiv.map((x) => (
+              <DivisionKnockout key={x.d.id} tournamentId={id} divisionId={x.d.id} name={x.d.name} defaultAdvancers={2} rounds={buildRounds(x.knockoutMatches, nm)} poolsComplete={x.poolsComplete} />
+            ))}
+          </div>
+        );
+        body = <BracketsTabs groups={groupsNode} brackets={bracketsNode} />;
+      } else {
+        body = groupsNode;
+      }
     }
   }
 
@@ -238,6 +258,18 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
           </div>
         ) : null}
       </div>
+      {divs.length > 0 ? (
+        <div className="mb-5">
+          <ResultsPublisher
+            tournamentId={id}
+            publicCode={t.code ?? null}
+            initialPublished={!!fc.results_published}
+            initialAuto={!!fc.results_auto_publish}
+            builtAtText={resultsBuiltAtText}
+            canPublish={hasContent}
+          />
+        </div>
+      ) : null}
       {body}
     </div>
   );

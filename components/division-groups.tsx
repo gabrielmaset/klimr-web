@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Eye, Lock } from "lucide-react";
+import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Eye, Lock, Printer } from "lucide-react";
 import { generateGroups, clearGroups } from "@/app/tournaments/actions";
+import { computePoolStandings } from "@/lib/tournament";
+import { openPrintWindow, escapeHtml } from "@/lib/print";
 
 type Match = { a: string; b: string; scoreA: number | null; scoreB: number | null; status: string; court: string | null };
 type Pool = { name: string; entries: { name: string; seed: number | null }[]; matches: Match[] };
@@ -135,6 +137,21 @@ export function DivisionGroups({
     }
   }
 
+  function printPools() {
+    const tables = pools
+      .map((p) => {
+        const entries = p.entries.map((e) => ({ regId: e.name, name: e.name }));
+        const ms = p.matches.map((m) => ({ status: m.status, entryA: m.a, entryB: m.b, scoreA: m.scoreA, scoreB: m.scoreB }));
+        const rows = computePoolStandings(entries, ms);
+        const trs = rows
+          .map((r, i) => `<tr><td class="n"><span class="rank">${i + 1}</span></td><td>${escapeHtml(r.name)}</td><td class="n">${r.wins}</td><td class="n">${r.losses}</td><td class="n">${r.diff > 0 ? "+" : ""}${r.diff}</td></tr>`)
+          .join("");
+        return `<div class="pool"><h3>${escapeHtml(p.name)}</h3><table><thead><tr><th class="n">#</th><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">+/-</th></tr></thead><tbody>${trs}</tbody></table></div>`;
+      })
+      .join("");
+    openPrintWindow(`${name} — pool standings`, `${participantCount} ${participantCount === 1 ? "entry" : "entries"} · ${pools.length} ${pools.length === 1 ? "pool" : "pools"}`, `<div class="div"><div class="pools">${tables}</div></div>`);
+  }
+
   return (
     <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -169,6 +186,11 @@ export function DivisionGroups({
           >
             {busy === "gen" ? <Loader2 size={15} className="animate-spin" /> : <Shuffle size={15} />} {hasPools ? "Redraw" : isRR ? "Draw round-robin" : "Draw pools"}
           </button>
+          {hasPools ? (
+            <button type="button" onClick={printPools} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-bg px-3 py-2 text-sm font-semibold text-mute hover:text-ink" aria-label="Print pool standings">
+              <Printer size={15} />
+            </button>
+          ) : null}
           {hasPools ? (
             <button
               type="button"
