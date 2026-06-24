@@ -9,6 +9,7 @@ import { EventHero } from "@/components/event-hero";
 import { PremiumSponsorAd } from "@/components/sponsor-ad";
 import { WeatherForecastCard } from "@/components/weather-card";
 import { EventLocationMap } from "@/components/event-location-map";
+import { JoinWaitlistDialog } from "@/components/join-waitlist-dialog";
 import { getEventForecast } from "@/lib/weather";
 
 // Always render the public page fresh — see app/e/[code]/layout.tsx. Repeated
@@ -199,34 +200,88 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const closingSoon = canSignUp && msToDeadline != null && msToDeadline > 0 && msToDeadline <= 86_400_000;
   const hoursToClose = msToDeadline != null && msToDeadline > 0 ? Math.max(1, Math.ceil(msToDeadline / 3_600_000)) : null;
   const regClosed = !canSignUp && (deadlinePassed || t.status === "registration_closed");
-  // Status-card tone: green = open · amber = closing within 24h · red = closed · neutral = not yet open.
-  const regTone: "open" | "closing" | "closed" | "soon" = canSignUp ? (closingSoon ? "closing" : "open") : regClosed ? "closed" : "soon";
+
+  // Capacity fill (only meaningful while sign-ups are open). Pooled mode uses the
+  // shared total; per-division mode uses the combined cap (sum of every division's
+  // cap). Confirmed + pending hold a spot, waitlisted don't — same as the dashboard.
+  let capPct: number | null = null;
+  if (canSignUp) {
+    let effectiveCap: number | null = t.capacity ?? null;
+    if (fc.capacity_mode === "per_division") {
+      const { data: divCaps } = await supabase.from("tournament_divisions").select("capacity").eq("tournament_id", t.id);
+      const sum = (divCaps ?? []).reduce((acc, d) => acc + (d.capacity ?? 0), 0);
+      effectiveCap = sum > 0 ? sum : null;
+    }
+    if (effectiveCap && effectiveCap > 0) {
+      const [{ count: activeReg }, { count: waitReg }] = await Promise.all([
+        supabase.from("tournament_registrations").select("id", { count: "exact", head: true }).eq("tournament_id", t.id).not("status", "in", "(withdrawn,declined)"),
+        supabase.from("tournament_registrations").select("id", { count: "exact", head: true }).eq("tournament_id", t.id).eq("status", "waitlisted"),
+      ]);
+      const spotsTaken = (activeReg ?? 0) - (waitReg ?? 0);
+      capPct = Math.min(100, Math.round((spotsTaken / effectiveCap) * 100));
+    }
+  }
+  const almostFull = capPct != null && capPct >= 90 && capPct < 100;
+  const soldOut = capPct != null && capPct >= 100;
+
+  // Status-card tone: green = open · yellow = almost full / closing within 24h ·
+  // red = sold out or closed · neutral = not yet open.
+  const regTone: "open" | "warn" | "soldout" | "closed" | "soon" = canSignUp
+    ? soldOut
+      ? "soldout"
+      : almostFull || closingSoon
+        ? "warn"
+        : "open"
+    : regClosed
+      ? "closed"
+      : "soon";
+  const isRed = regTone === "soldout" || regTone === "closed";
   const regCardCls =
     regTone === "open"
       ? "border border-transparent bg-gradient-to-br from-[#198a47] to-[#13703a]"
-      : regTone === "closing"
+      : regTone === "warn"
         ? "border border-transparent bg-gradient-to-br from-[#fbbf24] to-[#f59e0b]"
-        : regTone === "closed"
+        : isRed
           ? "border border-transparent bg-gradient-to-br from-[#ef4444] to-[#c81e1e]"
           : "border border-rule bg-surface/90";
-  const regTitleCls = regTone === "closing" || regTone === "soon" ? "text-ink" : "text-white";
-  const regSubCls = regTone === "closing" ? "text-ink/70" : regTone === "soon" ? "text-mute" : "text-white/85";
-  const regTitle = canSignUp ? (closingSoon ? "Registration closes soon" : "Registration is open") : regClosed ? "Registration has closed" : "Registration isn't open yet";
-  const regSub = closingSoon
-    ? `Closing in ${hoursToClose === 1 ? "under an hour" : `~${hoursToClose} hours`} — sign up now.`
-    : canSignUp
-      ? "Secure your spot now."
-      : regClosed
-        ? "Sign-ups for this event are closed."
-        : "Follow this event to hear when sign-ups open.";
+  const regTitleCls = regTone === "warn" || regTone === "soon" ? "text-ink" : "text-white";
+  const regSubCls = regTone === "warn" ? "text-ink/70" : regTone === "soon" ? "text-mute" : "text-white/85";
+  const regMetaCls = regTone === "warn" ? "text-ink/60" : regTone === "soon" ? "text-faint" : "text-white/75";
+  const regTitle = soldOut
+    ? "Event is sold out"
+    : almostFull
+      ? "Almost sold out"
+      : closingSoon && canSignUp
+        ? "Registration closes soon"
+        : canSignUp
+          ? "Registration is open"
+          : regClosed
+            ? "Registration has closed"
+            : "Registration isn't open yet";
+  const regSub = soldOut
+    ? "All spots are taken — join the waitlist."
+    : almostFull
+      ? "Few spots left — sign up now."
+      : closingSoon && canSignUp
+        ? `Closing in ${hoursToClose === 1 ? "under an hour" : `~${hoursToClose} hours`} — sign up now.`
+        : canSignUp
+          ? "Secure your spot now."
+          : regClosed
+            ? "Sign-ups for this event are closed."
+            : "Follow this event to hear when sign-ups open.";
+  const fmtRegDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null);
+  const opensText = fmtRegDate(t.registration_opens_at);
+  const closesText = fmtRegDate(t.registration_deadline);
   const regBtnCls =
     regTone === "open"
       ? "bg-white text-[#13703a] hover:bg-white/90"
-      : regTone === "closing"
+      : regTone === "warn"
         ? "bg-ink text-white hover:bg-ink-soft"
-        : regTone === "closed"
-          ? "cursor-not-allowed bg-white/15 text-white/90 ring-1 ring-inset ring-white/25"
-          : "cursor-not-allowed bg-bg text-faint";
+        : regTone === "soldout"
+          ? "bg-white text-[#c0271d] hover:bg-white/90"
+          : regTone === "closed"
+            ? "cursor-not-allowed bg-white/15 text-white/90 ring-1 ring-inset ring-white/25"
+            : "cursor-not-allowed bg-bg text-faint";
   // Signing up requires a Klimr account; logged-out visitors are routed to Join first.
   const signupHref = user ? `/e/${t.code}/signup` : `/signup?next=${encodeURIComponent(`/e/${t.code}/signup`)}`;
 
@@ -333,7 +388,14 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
         <div className={regSpan}>
           {myEntry ? (
-        myEntry.isTeam ? (
+        myEntry.status === "waitlisted" ? (
+          <div className="flex h-full flex-col justify-center rounded-3xl border border-brand/30 bg-tint-brand p-5">
+            <p className="flex items-center gap-2 text-sm font-bold text-ink">
+              <CalendarClock size={15} className="text-brand-deep" /> You&rsquo;re on the waitlist
+            </p>
+            <p className="mt-0.5 text-xs text-mute">Your entry is complete. If a spot opens and the organizer accepts it, you&rsquo;ll just need to submit payment.</p>
+          </div>
+        ) : myEntry.isTeam ? (
           <div className="h-full rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -399,8 +461,16 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           <div>
             <p className={`text-sm font-bold ${regTitleCls}`}>{regTitle}</p>
             <p className={`text-xs ${regSubCls}`}>{regSub}</p>
+            {opensText || closesText ? (
+              <div className={`mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-medium ${regMetaCls}`}>
+                {opensText ? <span>Opens {opensText}</span> : null}
+                {closesText ? <span>Closes {closesText}</span> : null}
+              </div>
+            ) : null}
           </div>
-          {canSignUp ? (
+          {regTone === "soldout" ? (
+            <JoinWaitlistDialog tournamentId={t.id} code={t.code} loggedIn={!!user} triggerClassName={`press inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold ${regBtnCls}`} />
+          ) : canSignUp ? (
             <Link href={signupHref} className={`press inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold ${regBtnCls}`}>
               {user ? "Sign up" : "Join to sign up"}
             </Link>
@@ -428,7 +498,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
       </div>
 
       {/* payment (registrant only) */}
-      {myEntry && myEntry.iAmRegistrant ? (
+      {myEntry && myEntry.iAmRegistrant && myEntry.status !== "waitlisted" ? (
         <div className="mt-3 rounded-2xl border border-rule bg-surface/90 p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-mute">Payment</p>
           {myEntry.paymentStatus === "confirmed" ? (

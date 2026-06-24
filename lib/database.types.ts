@@ -978,6 +978,12 @@ export interface Database {
         Update: { points?: number; place?: number | null; field_size?: number | null; played?: boolean; earned_at?: string };
         Relationships: [];
       };
+      tournament_waitlist: {
+        Row: { id: string; tournament_id: string; division_id: string | null; kind: string; user_id: string | null; email: string | null; name: string | null; status: string; notified_at: string | null; created_at: string };
+        Insert: { id?: string; tournament_id: string; division_id?: string | null; kind: string; user_id?: string | null; email?: string | null; name?: string | null; status?: string; notified_at?: string | null; created_at?: string };
+        Update: { division_id?: string | null; user_id?: string | null; email?: string | null; name?: string | null; status?: string; notified_at?: string | null };
+        Relationships: [];
+      };
       tournament_matches: {
         Row: { id: string; tournament_id: string; division_id: string; group_id: string | null; bracket: string; round: number; slot: number; entry_a: string | null; entry_b: string | null; score_a: number | null; score_b: number | null; winner_id: string | null; status: string; scheduled_at: string | null; court: string | null; next_match_id: string | null; next_slot: string | null; sort_order: number; created_at: string; updated_at: string };
         Insert: { id?: string; tournament_id: string; division_id: string; group_id?: string | null; bracket?: string; round?: number; slot?: number; entry_a?: string | null; entry_b?: string | null; score_a?: number | null; score_b?: number | null; winner_id?: string | null; status?: string; scheduled_at?: string | null; court?: string | null; next_match_id?: string | null; next_slot?: string | null; sort_order?: number; created_at?: string; updated_at?: string };

@@ -6,6 +6,7 @@ import { sportMeta } from "@/lib/sports";
 import { IndividualSignupForm } from "@/components/tournament-signup-individual";
 import { TeamSignupForm } from "@/components/tournament-signup-team";
 import { isRegistrationOpen, type TournamentFormatConfig, type CustomFieldRow, type DivisionRow } from "@/lib/tournament";
+import { capacityState } from "@/lib/waitlist";
 
 function Notice({ title, sub, code, href, linkLabel }: { title: string; sub: string; code: string; href?: string; linkLabel?: string }) {
   const to = href ?? `/e/${code}`;
@@ -49,6 +50,14 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
     .eq("registrant_id", user.id)
     .not("status", "in", "(withdrawn,declined)")
     .maybeSingle();
+
+  // When the event is full, completing the form still works — it lands the entry
+  // on the waitlist (priority) instead of being refused.
+  let full = false;
+  if (open && !existing) {
+    const { cap, open: openSpots } = await capacityState(supabase, t.id);
+    full = cap != null && openSpots != null && openSpots <= 0;
+  }
 
   let body: React.ReactNode;
   if (existing) {
@@ -174,6 +183,11 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
         <p className="kicker text-brand-deep">{meta.name} · Sign up</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{t.title}</h1>
       </div>
+      {full ? (
+        <div className="mb-4 rounded-2xl border border-brand/30 bg-tint-brand px-4 py-3 text-sm text-brand-deep">
+          <span className="font-bold">This event is full.</span> Completing this form adds you to the waitlist with priority — you&rsquo;ll only be asked to pay if a spot opens and the organizer accepts your entry.
+        </div>
+      ) : null}
       {body}
     </div>
   );

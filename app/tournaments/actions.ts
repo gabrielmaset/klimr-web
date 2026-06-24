@@ -13,6 +13,18 @@ import { placementPoints, bracketPlaces, ROLLING_WEEKS, ROLLING_BEST, RESERVE_FA
 import { notifyRegistration, notifyPayment } from "@/lib/emails/notify";
 import { randomInt, randomUUID } from "node:crypto";
 
+/** Mark any email-only waitlist entry matching this email as converted, so the
+ *  person stops getting "spot opened" notifications once they've actually entered. */
+async function convertEmailWaitlist(tournamentId: string, email: string | null | undefined): Promise<void> {
+  if (!email) return;
+  try {
+    const admin = createAdminClient();
+    await admin.from("tournament_waitlist").update({ status: "converted" }).eq("tournament_id", tournamentId).ilike("email", email).in("status", ["waiting", "invited"]);
+  } catch {
+    // best-effort; never block the signup
+  }
+}
+
 /** Cryptographically unbiased Fisher–Yates shuffle (randomInt uses rejection
  *  sampling, so there's no modulo bias and no way to steer the result). */
 function shuffle<T>(input: T[]): T[] {
@@ -636,11 +648,11 @@ export async function signUpIndividual(
   }
 
   const full = await capacityBlock(supabase, tournamentId, t, divisionId, { teams: 1, persons: 1 });
-  if (full) return { ok: false as const, error: full };
+  const status = full ? "waitlisted" : "pending";
 
   const { data: reg, error } = await supabase
     .from("tournament_registrations")
-    .insert({ tournament_id: tournamentId, division_id: divisionId, team_id: null, registrant_id: user.id, status: "pending", payment_status: "unpaid" })
+    .insert({ tournament_id: tournamentId, division_id: divisionId, team_id: null, registrant_id: user.id, status, payment_status: "unpaid" })
     .select("id")
     .single();
   if (error || !reg) return { ok: false as const, error: error?.message ?? "Couldn't register." };
@@ -659,8 +671,9 @@ export async function signUpIndividual(
     confirmed_at: now,
   });
 
-  await notifyRegistration(reg.id);
-  return { ok: true as const, registrationId: reg.id };
+  await convertEmailWaitlist(tournamentId, user.email);
+  if (!full) await notifyRegistration(reg.id);
+  return { ok: true as const, registrationId: reg.id, waitlisted: !!full };
 }
 
 /** Team entry: the team owner enters one of their squads. Validates sport, roster
@@ -731,11 +744,11 @@ export async function signUpTeam(
   }
 
   const full = await capacityBlock(supabase, tournamentId, t, divisionId, { teams: 1, persons: main.length });
-  if (full) return { ok: false as const, error: full };
+  const status = full ? "waitlisted" : "pending";
 
   const { data: reg, error } = await supabase
     .from("tournament_registrations")
-    .insert({ tournament_id: tournamentId, division_id: divisionId, team_id: team.id, registrant_id: user.id, status: "pending", payment_status: "unpaid", team_answers: input.teamAnswers as Json })
+    .insert({ tournament_id: tournamentId, division_id: divisionId, team_id: team.id, registrant_id: user.id, status, payment_status: "unpaid", team_answers: input.teamAnswers as Json })
     .select("id")
     .single();
   if (error || !reg) return { ok: false as const, error: error?.message ?? "Couldn't enter the team." };
@@ -748,8 +761,9 @@ export async function signUpTeam(
   }));
   await supabase.from("tournament_registration_players").insert(playerRows);
 
-  await notifyRegistration(reg.id);
-  return { ok: true as const, registrationId: reg.id };
+  await convertEmailWaitlist(tournamentId, user.email);
+  if (!full) await notifyRegistration(reg.id);
+  return { ok: true as const, registrationId: reg.id, waitlisted: !!full };
 }
 
 /** A rostered player confirms their own spot: accepts the waiver/rules and answers
@@ -1785,4 +1799,23 @@ export async function removeGalleryPhoto(tournamentId: string, url: string) {
   revalidatePath(`/tournament/${tournamentId}/settings`);
   if (guard.to.code) revalidatePath(`/e/${guard.to.code}`);
   return { ok: true as const };
+}
+
+/** A registrant withdraws their own entry (or leaves the waitlist). Frees the
+ *  spot so the organizer can notify the waitlist that room has opened. */
+export async function withdrawRegistration(registrationId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+  const admin = createAdminClient();
+  const { data: reg } = await admin.from("tournament_registrations").select("id, registrant_id, tournament_id, status").eq("id", registrationId).maybeSingle();
+  if (!reg) return { ok: false, error: "Entry not found." };
+  if (reg.registrant_id !== user.id) return { ok: false, error: "You can only withdraw your own entry." };
+  if (reg.status === "withdrawn") return { ok: true };
+  await admin.from("tournament_registrations").update({ status: "withdrawn" }).eq("id", reg.id);
+  revalidatePath("/tournaments");
+  revalidatePath(`/tournament/${reg.tournament_id}/registrations`);
+  return { ok: true };
 }

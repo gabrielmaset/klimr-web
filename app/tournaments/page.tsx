@@ -5,6 +5,7 @@ import { Trophy, Plus, MapPin, CalendarClock, Sparkles, Search, Navigation } fro
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { lookupZip, suggestCities, milesBetween } from "@/lib/us-places";
+import { WithdrawEntryButton } from "@/components/withdraw-entry-button";
 
 export const metadata: Metadata = { title: "Tournaments" };
 
@@ -133,6 +134,27 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
 
   const tournaments = mine ?? [];
 
+  // The viewer's own entries (registered + waitlisted), newest first.
+  const { data: myRegs } = await supabase
+    .from("tournament_registrations")
+    .select("id, status, tournament_id, created_at")
+    .eq("registrant_id", user.id)
+    .not("status", "in", "(withdrawn,declined)")
+    .order("created_at", { ascending: false });
+  const myRegList = myRegs ?? [];
+  const entryTournIds = [...new Set(myRegList.map((r) => r.tournament_id))];
+  const entryTournMap = new Map<string, { code: string; title: string; sport_key: string }>();
+  if (entryTournIds.length) {
+    const { data: et } = await supabase.from("tournaments").select("id, code, title, sport_key").in("id", entryTournIds);
+    for (const x of et ?? []) entryTournMap.set(x.id, { code: x.code, title: x.title, sport_key: x.sport_key });
+  }
+  const myEntries = myRegList
+    .map((r) => {
+      const tt = entryTournMap.get(r.tournament_id);
+      return tt ? { regId: r.id, status: r.status, ...tt } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {/* Header with a discreet host button */}
@@ -214,6 +236,39 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           </div>
         )}
       </section>
+
+      {/* Your entries — registered + waitlisted, with withdraw */}
+      {myEntries.length > 0 ? (
+        <section className="mb-9">
+          <h2 className="kicker mb-3 text-faint">Your entries</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {myEntries.map((e) => {
+              const meta = sportMeta(e.sport_key);
+              const wl = e.status === "waitlisted";
+              return (
+                <div key={e.regId} className="flex flex-col rounded-2xl border border-rule bg-surface p-4">
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-lg">{meta.emoji}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${wl ? "bg-tint-brand text-brand-deep" : e.status === "confirmed" ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>
+                      {wl ? "Waitlisted" : e.status === "confirmed" ? "Confirmed" : "Pending"}
+                    </span>
+                  </div>
+                  <Link href={`/e/${e.code}`} className="mt-3 truncate text-sm font-bold text-ink hover:underline">
+                    {e.title}
+                  </Link>
+                  <p className="mt-0.5 truncate text-xs text-mute">{meta.name}</p>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <Link href={`/e/${e.code}`} className="text-xs font-semibold text-brand-deep hover:underline">
+                      View event
+                    </Link>
+                    <WithdrawEntryButton registrationId={e.regId} waitlisted={wl} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       {/* Organizing — the viewer's own tournaments (incl. drafts) */}
       {tournaments.length > 0 ? (

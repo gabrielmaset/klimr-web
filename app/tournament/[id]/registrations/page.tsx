@@ -1,6 +1,9 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { RegistrationsToolbar } from "@/components/registrations-toolbar";
+import { RegistrationsTabs } from "@/components/registrations-tabs";
+import { WaitlistManager, type WaitlistRegItem, type WaitlistEmailItem } from "@/components/waitlist-manager";
 
 const REG_LABEL: Record<string, string> = { pending: "Pending", confirmed: "Confirmed", waitlisted: "Waitlisted" };
 const PAY_LABEL: Record<string, string> = { unpaid: "Unpaid", proof_submitted: "Under review", confirmed: "Paid", denied: "Declined" };
@@ -26,7 +29,7 @@ function val(answers: Record<string, unknown> | null | undefined, id: string): s
 
 type Field = { id: string; label: string };
 type Player = { name: string; isReserve: boolean; confirmed: boolean; waiver: boolean; rules: boolean; answers: Record<string, string> };
-type Entry = { name: string; type: string; division: string | null; status: string; paymentStatus: string; registeredAt: string | null; teamAnswers: Record<string, string>; players: Player[] };
+type Entry = { regId: string; name: string; type: string; division: string | null; status: string; paymentStatus: string; registeredAt: string | null; teamAnswers: Record<string, string>; players: Player[] };
 
 export default async function RegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,8 +39,9 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/tournament/${id}/registrations`);
 
-  const { data: t } = await supabase.from("tournaments").select("id, title").eq("id", id).maybeSingle();
+  const { data: t } = await supabase.from("tournaments").select("id, title, owner_id").eq("id", id).maybeSingle();
   if (!t) notFound();
+  const isOwner = t.owner_id === user.id;
 
   const { data: regs } = await supabase
     .from("tournament_registrations")
@@ -106,6 +110,7 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
       }))
       .sort((a, b) => Number(a.isReserve) - Number(b.isReserve) || a.name.localeCompare(b.name));
     return {
+      regId: r.id,
       name: r.team_id ? teamName.get(r.team_id) ?? "Team" : personName.get(r.registrant_id) ?? "Player",
       type: r.team_id ? "Team" : "Individual",
       division: r.division_id ? divName.get(r.division_id) ?? null : null,
@@ -117,8 +122,35 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     };
   });
 
-  const playerCount = entries.reduce((n, e) => n + e.players.length, 0);
-  const paidCount = entries.filter((e) => e.paymentStatus === "confirmed").length;
+  const activeEntries = entries.filter((e) => e.status !== "waitlisted");
+  const waitlistedRegEntries = entries.filter((e) => e.status === "waitlisted");
+  const playerCount = activeEntries.reduce((n, e) => n + e.players.length, 0);
+  const paidCount = activeEntries.filter((e) => e.paymentStatus === "confirmed").length;
+
+  // Klimr waitlisters are full (waitlisted) registrations — they carry their entry data.
+  const regItems: WaitlistRegItem[] = waitlistedRegEntries.map((e) => ({
+    regId: e.regId,
+    name: e.name,
+    type: e.type,
+    division: e.division,
+    playerCount: e.players.length,
+  }));
+
+  // Email-only waitlist entries (organizer only), fetched with the service role.
+  let emailItems: WaitlistEmailItem[] = [];
+  if (isOwner) {
+    const admin = createAdminClient();
+    const { data: wl } = await admin
+      .from("tournament_waitlist")
+      .select("id, email, name, status, created_at, notified_at")
+      .eq("tournament_id", id)
+      .eq("kind", "email")
+      .neq("status", "removed")
+      .order("created_at");
+    const fmt = (s: string | null) => (s ? new Date(s).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null);
+    emailItems = (wl ?? []).map((w) => ({ id: w.id, name: w.name || "Guest", email: w.email, status: w.status, notifiedAt: fmt(w.notified_at) }));
+  }
+  const waitCount = regItems.length + emailItems.length;
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
@@ -127,17 +159,22 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
           <p className="kicker text-brand-deep">Registration</p>
           <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Registrations</h1>
           <p className="mt-2 text-sm text-mute">
-            {entries.length} {entries.length === 1 ? "entry" : "entries"} · {playerCount} {playerCount === 1 ? "player" : "players"} · {paidCount} paid
+            {activeEntries.length} {activeEntries.length === 1 ? "entry" : "entries"} · {playerCount} {playerCount === 1 ? "player" : "players"} · {paidCount} paid
           </p>
         </div>
-        {entries.length ? <RegistrationsToolbar entries={entries} perPlayerFields={perPlayerFields} perTeamFields={perTeamFields} title={t.title} /> : null}
+        {activeEntries.length ? <RegistrationsToolbar entries={activeEntries} perPlayerFields={perPlayerFields} perTeamFields={perTeamFields} title={t.title} /> : null}
       </div>
 
-      {entries.length === 0 ? (
+      <RegistrationsTabs
+        regCount={activeEntries.length}
+        waitCount={waitCount}
+        waitlist={<WaitlistManager regItems={regItems} emailItems={emailItems} tournamentId={id} />}
+        registrations={
+          activeEntries.length === 0 ? (
         <div className="rounded-3xl border border-rule bg-surface p-8 text-center text-sm text-mute">No registrations yet. Entries will appear here as people sign up.</div>
       ) : (
         <div className="grid gap-4">
-          {entries.map((e, i) => (
+          {activeEntries.map((e, i) => (
             <div key={i} className="overflow-hidden rounded-3xl border border-rule bg-surface p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -202,7 +239,9 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
             </div>
           ))}
         </div>
-      )}
+      )
+        }
+      />
     </div>
   );
 }
