@@ -8,6 +8,7 @@ import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventHero } from "@/components/event-hero";
 import { PremiumSponsorAd } from "@/components/sponsor-ad";
 import { WeatherForecastCard } from "@/components/weather-card";
+import { EventLocationMap } from "@/components/event-location-map";
 import { getEventForecast } from "@/lib/weather";
 
 // Always render the public page fresh — see app/e/[code]/layout.tsx. Repeated
@@ -142,7 +143,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // means "no such (visible) event" → 404. The page needs no account to view.
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, location_lat, location_lng, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
+    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, location_address, location_lat, location_lng, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
     .eq("code", code)
     .maybeSingle();
   if (!t) notFound();
@@ -181,6 +182,11 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const forecast = t.weather_enabled
     ? await getEventForecast({ lat: t.location_lat, lng: t.location_lng, startsAt: t.starts_at, timezone: t.timezone })
     : null;
+  // Status row is up to three columns: registration · venue map · weather. The map
+  // shows when we have a location; registration widens to fill any empty columns.
+  const hasMap = !!(t.location_address || t.location_name || (t.location_lat != null && t.location_lng != null));
+  const sideCount = (hasMap ? 1 : 0) + (forecast ? 1 : 0);
+  const regSpan = sideCount === 2 ? "lg:col-span-1" : sideCount === 1 ? "lg:col-span-2" : "lg:col-span-3";
   // Capacity shown WITH its unit so it can't be misread against per-player fees.
   const capUnit = fc.capacity_unit === "person" ? "players" : t.entry_type === "team" ? "teams" : "players";
   const capacityText =
@@ -290,9 +296,9 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         photos={photos}
       />
 
-      {/* status row: registration / entry status + venue weather, side by side on desktop */}
+      {/* status row: registration · venue map · weather, side by side on desktop */}
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        <div className={forecast ? "lg:col-span-2" : "lg:col-span-3"}>
+        <div className={regSpan}>
           {myEntry ? (
         myEntry.isTeam ? (
           <div className="h-full rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
@@ -373,6 +379,15 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         </div>
           )}
         </div>
+        {hasMap ? (
+          <EventLocationMap
+            name={t.location_name}
+            address={t.location_address}
+            lat={t.location_lat}
+            lng={t.location_lng}
+            className="lg:col-span-1"
+          />
+        ) : null}
         {forecast ? (
           <WeatherForecastCard forecast={forecast} dateText={dateText} locationName={t.location_name} className="lg:col-span-1 lg:self-start" />
         ) : null}
@@ -424,6 +439,13 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {/* featured premium sponsor — promoted up, just under announcements */}
+      {premiumSponsors.length ? (
+        <div className="mt-6">
+          <PremiumSponsorAd sponsors={premiumSponsors} />
+        </div>
       ) : null}
 
       {/* about */}
@@ -549,17 +571,14 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         </section>
       ) : null}
 
-      {/* sponsors — featured premium slot (rotates), then all partners */}
+      {/* sponsors & partners — full logo grid at the foot */}
       {sponsors.length ? (
         <section className="mt-6">
-          {premiumSponsors.length ? <PremiumSponsorAd sponsors={premiumSponsors} /> : null}
-          <div className={premiumSponsors.length ? "mt-4" : ""}>
-            <p className="kicker mb-3 text-mute">Sponsors &amp; partners</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {sponsors.map((s) => (
-                <SponsorCard key={s.id} s={s} />
-              ))}
-            </div>
+          <p className="kicker mb-3 text-mute">Sponsors &amp; partners</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {sponsors.map((s) => (
+              <SponsorCard key={s.id} s={s} />
+            ))}
           </div>
         </section>
       ) : null}

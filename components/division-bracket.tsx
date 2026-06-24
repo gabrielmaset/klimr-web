@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Printer } from "lucide-react";
 import { generateBracket, clearBracket } from "@/app/tournaments/actions";
 import { MatchScoreRow } from "@/components/match-score-row";
+import { BracketTemplate } from "@/components/bracket-template";
 import { openPrintWindow, bracketRoundsHtml } from "@/lib/print";
 
 type Match = { matchId: string; aName: string; bName: string; scoreA: number | null; scoreB: number | null; status: string; bye: boolean; byeName?: string; locked: boolean; court: string | null };
@@ -23,6 +24,7 @@ export function DivisionBracket({
   divisionId,
   name,
   participantCount,
+  capacity,
   draws,
   rounds,
 }: {
@@ -30,6 +32,7 @@ export function DivisionBracket({
   divisionId: string;
   name: string;
   participantCount: number;
+  capacity: number | null;
   draws: Draw[];
   rounds: Match[][];
 }) {
@@ -144,9 +147,16 @@ export function DivisionBracket({
           </div>
         </div>
       ) : (
-        <p className="mt-4 rounded-2xl border border-dashed border-rule bg-bg/40 px-4 py-6 text-center text-sm text-mute">
-          {participantCount < 2 ? "Need at least 2 entries to draw a bracket." : "Not drawn yet — draw the bracket to build the matchups."}
-        </p>
+        <div className="mt-4">
+          <BracketTemplate
+            entrants={participantCount > 1 ? participantCount : capacity ?? 8}
+            caption={
+              participantCount < 2
+                ? "Bracket preview — entrants seed into these slots as teams sign up. Draw the bracket once registration fills."
+                : "Bracket preview — draw the bracket to seed these matchups, then enter scores to advance winners."
+            }
+          />
+        </div>
       )}
     </section>
   );

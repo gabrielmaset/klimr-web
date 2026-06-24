@@ -54,6 +54,8 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
     require_rules: !!legal.require_rules,
     signupFormReady,
     public_bg: fc.public_bg ?? "default",
+    capacity_mode: fc.capacity_mode === "per_division" ? "per_division" : "pooled",
+    capacity_unit: fc.capacity_unit === "person" ? "person" : "team",
   };
 
   return (

@@ -22,7 +22,6 @@ export default async function DivisionsPage({ params }: { params: Promise<{ id: 
   const entryType = t.entry_type === "individual" ? "individual" : "team";
   const fc = (t.format_config ?? {}) as TournamentFormatConfig;
   const capMode: "pooled" | "per_division" = fc.capacity_mode === "per_division" ? "per_division" : "pooled";
-  const capUnit: "team" | "person" = fc.capacity_unit === "person" ? "person" : "team";
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
@@ -36,8 +35,6 @@ export default async function DivisionsPage({ params }: { params: Promise<{ id: 
         entryType={entryType}
         initial={(divs as DivisionRow[]) ?? []}
         initialMode={capMode}
-        initialUnit={capUnit}
-        totalCapacity={t.capacity ?? null}
       />
     </div>
   );

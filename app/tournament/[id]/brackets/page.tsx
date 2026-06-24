@@ -75,7 +75,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
   const { count: openMatches } = await supabase.from("tournament_matches").select("id", { count: "exact", head: true }).eq("tournament_id", id).neq("status", "completed");
   const allResultsIn = (totalMatches ?? 0) > 0 && (openMatches ?? 0) === 0;
 
-  const { data: divisions } = await supabase.from("tournament_divisions").select("id, name, sort_order").eq("tournament_id", id).order("sort_order");
+  const { data: divisions } = await supabase.from("tournament_divisions").select("id, name, sort_order, capacity").eq("tournament_id", id).order("sort_order");
   const divs = divisions ?? [];
 
   let body: React.ReactNode;
@@ -142,7 +142,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
           {divs.map((d) => {
             const dRegs = list.filter((r) => r.division_id === d.id);
             const dMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id === null);
-            return <DivisionBracket key={d.id} tournamentId={id} divisionId={d.id} name={d.name} participantCount={dRegs.length} draws={drawsFor(d.id)} rounds={buildRounds(dMatches, nm)} />;
+            return <DivisionBracket key={d.id} tournamentId={id} divisionId={d.id} name={d.name} participantCount={dRegs.length} capacity={t.capacity ?? null} draws={drawsFor(d.id)} rounds={buildRounds(dMatches, nm)} />;
           })}
         </div>
       );
@@ -153,6 +153,11 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
       const allGe = ge ?? [];
       const defaultPools = formatType === "pools_knockout" ? fc.pool_count ?? 2 : 1;
       const isKnockout = formatType === "pools_knockout";
+      // Capacity preview: in a shared (pooled) event the 32-team cap is split across
+      // divisions, so each division's placeholder pools only fill its share — no doubling.
+      const capMode: "pooled" | "per_division" = fc.capacity_mode === "per_division" ? "per_division" : "pooled";
+      const sharedTotal = capMode === "pooled" ? t.capacity ?? null : null;
+      const perDivShare = sharedTotal != null ? Math.max(1, Math.floor(sharedTotal / Math.max(1, divs.length))) : null;
 
       scheduleReady =
         list.length > 0 &&
@@ -184,7 +189,8 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         const previewEntries = dRegs.map((r) => nameByReg.get(r.id) ?? "Team");
         const poolMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id !== null);
         const poolsComplete = poolMatches.length > 0 && poolMatches.every((m) => m.status === "completed");
-        return { d, dRegs, pools, knockoutMatches, resultsStarted, previewEntries, poolsComplete };
+        const previewCapacity = capMode === "per_division" ? d.capacity ?? null : perDivShare;
+        return { d, dRegs, pools, knockoutMatches, resultsStarted, previewEntries, poolsComplete, previewCapacity };
       });
 
       const groupsNode = (
@@ -201,7 +207,9 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
               format={formatType}
               draws={drawsFor(x.d.id)}
               previewEntries={x.previewEntries}
-              capacity={t.capacity ?? null}
+              previewCapacity={x.previewCapacity}
+              sharedTotal={sharedTotal}
+              divisionCount={divs.length}
               resultsStarted={x.resultsStarted}
             />
           ))}
@@ -212,7 +220,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         const bracketsNode = (
           <div className="grid gap-5">
             {perDiv.map((x) => (
-              <DivisionKnockout key={x.d.id} tournamentId={id} divisionId={x.d.id} name={x.d.name} defaultAdvancers={2} rounds={buildRounds(x.knockoutMatches, nm)} poolsComplete={x.poolsComplete} />
+              <DivisionKnockout key={x.d.id} tournamentId={id} divisionId={x.d.id} name={x.d.name} defaultAdvancers={2} poolCount={defaultPools} rounds={buildRounds(x.knockoutMatches, nm)} poolsComplete={x.poolsComplete} />
             ))}
           </div>
         );

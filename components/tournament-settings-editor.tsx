@@ -43,10 +43,12 @@ export type SettingsInit = {
   require_rules: boolean;
   signupFormReady: boolean;
   public_bg: string;
+  capacity_mode: "pooled" | "per_division";
+  capacity_unit: "team" | "person";
 };
 
 const inputCls = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand";
-const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-mute";
+const labelCls = "mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-mute";
 const hintCls = "mt-1.5 text-xs text-mute";
 const n = (v: string) => Math.max(parseInt(v || "0", 10) || 0, 0);
 
@@ -84,8 +86,13 @@ function SectionCard({
 
   return (
     <section id={id} className="scroll-mt-24 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
-      <h2 className="text-base font-bold text-ink">{title}</h2>
-      {desc ? <p className="mt-0.5 text-sm text-mute">{desc}</p> : null}
+      <div className="flex items-start gap-2.5">
+        <span className="mt-1 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-brand to-brand-deep" />
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-ink">{title}</h2>
+          {desc ? <p className="mt-0.5 text-sm text-mute">{desc}</p> : null}
+        </div>
+      </div>
       <div className="mt-5 grid gap-5">{children}</div>
       <div className="mt-5 flex items-center gap-3">
         <button
@@ -183,6 +190,8 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
     });
   };
   const [capacity, setCapacity] = useState(init.capacity != null ? String(init.capacity) : "");
+  const [capacityMode, setCapacityMode] = useState<"pooled" | "per_division">(init.capacity_mode);
+  const [capacityUnit, setCapacityUnit] = useState<"team" | "person">(init.capacity_unit);
   const [reserves, setReserves] = useState(String(init.reserves_allowed ?? 0));
   const [genderRule, setGenderRule] = useState<"open" | "min_women" | "min_men">(
     init.min_women > 0 ? "min_women" : init.min_men > 0 ? "min_men" : "open",
@@ -330,7 +339,7 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
             reserves_allowed: Math.min(n(reserves), reserveMax),
             min_women: genderRule === "min_women" ? n(minCount) : 0,
             min_men: genderRule === "min_men" ? n(minCount) : 0,
-            format_config: { format_type: formatType, pool_count: n(poolCount) || 2, roster_size: n(rosterSize) || 2, courts: courtList.map((c, i) => c.trim() || `Court ${i + 1}`) },
+            format_config: { format_type: formatType, pool_count: n(poolCount) || 2, roster_size: n(rosterSize) || 2, courts: courtList.map((c, i) => c.trim() || `Court ${i + 1}`), capacity_mode: capacityMode, capacity_unit: entry === "team" ? capacityUnit : "person" },
           })
         }
       >
@@ -379,19 +388,56 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
             ))}
           </div>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>Capacity</label>
-            <input type="number" min={0} className={inputCls} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="Leave blank for unlimited" />
-            <p className={hintCls}>Max {entry === "team" ? "teams" : "players"} that can register.</p>
-          </div>
-          {entry === "team" ? (
+        <div className="rounded-2xl border border-rule bg-bg/40 p-4">
+          <label className={labelCls}>Capacity</label>
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelCls}>Reserves per team</label>
-              <input type="number" min={0} max={reserveMax} className={inputCls} value={reserves} onChange={(e) => setReserves(e.target.value)} />
-              <p className={hintCls}>Up to {reserveMax} for {sportMeta(sport).name}.</p>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">Limit by</p>
+              <Segmented
+                ariaLabel="Capacity mode"
+                value={capacityMode}
+                onChange={setCapacityMode}
+                options={[
+                  { value: "pooled", label: "Shared total" },
+                  { value: "per_division", label: "Per division" },
+                ]}
+              />
             </div>
-          ) : null}
+            {entry === "team" ? (
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">Count by</p>
+                <Segmented
+                  ariaLabel="Capacity unit"
+                  value={capacityUnit}
+                  onChange={setCapacityUnit}
+                  options={[
+                    { value: "team", label: "Teams" },
+                    { value: "person", label: "Players" },
+                  ]}
+                />
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {capacityMode === "pooled" ? (
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">Shared total</p>
+                <input type="number" min={0} className={inputCls} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="Unlimited" />
+                <p className={hintCls}>Max {entry === "team" ? (capacityUnit === "person" ? "players" : "teams") : "players"} across all divisions combined.</p>
+              </div>
+            ) : (
+              <div className="flex items-center rounded-xl border border-dashed border-rule bg-surface px-3.5 py-2.5">
+                <p className="text-xs text-mute">Each division has its own cap — set them on the Divisions &amp; fees page.</p>
+              </div>
+            )}
+            {entry === "team" ? (
+              <div>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">Reserves per team</p>
+                <input type="number" min={0} max={reserveMax} className={inputCls} value={reserves} onChange={(e) => setReserves(e.target.value)} />
+                <p className={hintCls}>Up to {reserveMax} for {sportMeta(sport).name}.</p>
+              </div>
+            ) : null}
+          </div>
         </div>
         <div>
           <label className={labelCls}>Gender eligibility</label>
@@ -492,8 +538,13 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
       </SectionCard>
 
       <section id="visibility" className="scroll-mt-24 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
-        <h2 className="text-base font-bold text-ink">Visibility &amp; publishing</h2>
-        <p className="mt-0.5 text-sm text-mute">Control discovery and whether your event is live.</p>
+        <div className="flex items-start gap-2.5">
+          <span className="mt-1 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-brand to-brand-deep" />
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-ink">Visibility &amp; publishing</h2>
+            <p className="mt-0.5 text-sm text-mute">Control discovery and whether your event is live.</p>
+          </div>
+        </div>
 
         <div className="mt-5">
           <VisibilityRow init={init} />

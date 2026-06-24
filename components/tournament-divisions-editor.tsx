@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Loader2, Check } from "lucide-react";
+import { Plus, Trash2, Loader2, Check, Info } from "lucide-react";
 import { Segmented } from "@/components/form-kit";
-import { saveDivisions, updateTournamentDraft } from "@/app/tournaments/actions";
+import { saveDivisions } from "@/app/tournaments/actions";
 import { formatFee, type DivisionRow } from "@/lib/tournament";
 
 type Row = { id?: string; name: string; description: string; fee: string; basis: "per_team" | "per_player"; capacity: string };
@@ -29,19 +29,14 @@ export function DivisionsEditor({
   entryType,
   initial,
   initialMode,
-  initialUnit,
-  totalCapacity,
 }: {
   tournamentId: string;
   entryType: "team" | "individual";
   initial: DivisionRow[];
   initialMode: "pooled" | "per_division";
-  initialUnit: "team" | "person";
-  totalCapacity: number | null;
 }) {
   const [rows, setRows] = useState<Row[]>(initial.length ? initial.map(toRow) : [blank(entryType)]);
-  const [mode, setMode] = useState<"pooled" | "per_division">(initialMode);
-  const [unit, setUnit] = useState<"team" | "person">(initialUnit);
+  const mode = initialMode; // capacity mode now lives in Settings → Format & eligibility
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -54,7 +49,6 @@ export function DivisionsEditor({
     setSaving(true);
     setErr(null);
     try {
-      await updateTournamentDraft(tournamentId, { format_config: { capacity_mode: mode, capacity_unit: entryType === "individual" ? "person" : unit } });
       const payload = rows
         .filter((r) => r.name.trim() || r.fee.trim() || r.description.trim())
         .map((r, i) => ({
@@ -80,43 +74,13 @@ export function DivisionsEditor({
 
   return (
     <div>
-      <div className="mb-4 rounded-2xl border border-rule bg-surface p-4 sm:p-5">
-        <h2 className="text-sm font-bold text-ink">Capacity</h2>
-        <p className="mt-0.5 text-xs text-mute">How registration limits work across your divisions.</p>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>Limit by</label>
-            <Segmented
-              ariaLabel="Capacity mode"
-              value={mode}
-              onChange={(v) => setMode(v)}
-              options={[
-                { value: "pooled", label: "Shared total" },
-                { value: "per_division", label: "Per division" },
-              ]}
-            />
-            <p className="mt-1.5 text-xs text-faint">
-              {mode === "pooled"
-                ? `Divisions share one event total${totalCapacity != null ? ` of ${totalCapacity}` : ""} — set it in Settings. Sign-ups fill any division until the total is reached.`
-                : "Each division has its own cap below, adjustable as entries come in."}
-            </p>
-          </div>
-          {entryType === "team" ? (
-            <div>
-              <label className={labelCls}>Count by</label>
-              <Segmented
-                ariaLabel="Capacity unit"
-                value={unit}
-                onChange={(v) => setUnit(v)}
-                options={[
-                  { value: "team", label: "Teams" },
-                  { value: "person", label: "Players" },
-                ]}
-              />
-              <p className="mt-1.5 text-xs text-faint">{unit === "person" ? "Counts on-court players toward the cap." : "Counts entered teams toward the cap."}</p>
-            </div>
-          ) : null}
-        </div>
+      <div className="mb-4 flex items-start gap-2 rounded-2xl border border-dashed border-rule bg-bg/40 px-4 py-3 text-xs text-mute">
+        <Info size={14} className="mt-0.5 shrink-0 text-faint" />
+        <span>
+          {mode === "pooled"
+            ? "Capacity is one shared total across all divisions — change the mode and the limit in Settings \u2192 Format & eligibility."
+            : "Each division has its own cap below. Switch to a shared total in Settings \u2192 Format & eligibility."}
+        </span>
       </div>
 
       <div className="grid gap-3">

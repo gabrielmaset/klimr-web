@@ -74,7 +74,9 @@ export function DivisionGroups({
   format,
   draws,
   previewEntries,
-  capacity,
+  previewCapacity,
+  sharedTotal,
+  divisionCount,
   resultsStarted,
 }: {
   tournamentId: string;
@@ -86,7 +88,9 @@ export function DivisionGroups({
   format: string;
   draws: Draw[];
   previewEntries: string[];
-  capacity: number | null;
+  previewCapacity: number | null;
+  sharedTotal: number | null;
+  divisionCount: number;
   resultsStarted: boolean;
 }) {
   const router = useRouter();
@@ -103,16 +107,17 @@ export function DivisionGroups({
   const redrawn = draws.length > 1;
 
   // Empty-state preview: split known entries (or generic Team N placeholders) across
-  // the chosen number of pools, so organizers can see the group structure pre-draw.
+  // the chosen number of pools. With a shared event cap the placeholder count is this
+  // division's share of the total, so two divisions never preview more than the cap.
   const previewPools = useMemo(() => {
     const groups = Math.max(1, Math.min(16, Number(count) || 1));
     const haveNames = previewEntries.length > 0;
-    const total = haveNames ? previewEntries.length : Math.min(Math.max(capacity ?? groups * 4, groups), 64);
+    const total = haveNames ? previewEntries.length : Math.min(Math.max(previewCapacity ?? groups * 4, groups), 64);
     const names = haveNames ? previewEntries : Array.from({ length: total }, (_, i) => `Team ${i + 1}`);
     const buckets: Slot[][] = Array.from({ length: groups }, () => []);
     names.forEach((nm, i) => buckets[i % groups].push({ label: nm, seed: null, placeholder: !haveNames }));
     return buckets;
-  }, [count, previewEntries, capacity]);
+  }, [count, previewEntries, previewCapacity]);
 
   async function gen() {
     setBusy("gen");
@@ -254,7 +259,9 @@ export function DivisionGroups({
             <Eye size={14} className="shrink-0" />
             {previewEntries.length
               ? `Preview — your ${participantCount} ${participantCount === 1 ? "entry" : "entries"} split evenly. Draw to lock the pools and create matches.`
-              : "Preview — the pool layout fills as teams register. Draw to lock the pools and create matches."}
+              : sharedTotal != null && divisionCount > 1
+                ? `Preview — placeholders show this division's share of the ${sharedTotal}-team shared cap (across ${divisionCount} divisions). Real team names from sign-up fill these slots; draw to lock the pools.`
+                : "Preview — placeholders fill with real team names as teams register. Draw to lock the pools and create matches."}
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {previewPools.map((slots, i) => (

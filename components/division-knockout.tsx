@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Trophy, Trash2, Info, Printer } from "lucide-react";
 import { generateKnockout, clearBracket } from "@/app/tournaments/actions";
 import { MatchScoreRow } from "@/components/match-score-row";
+import { BracketTemplate } from "@/components/bracket-template";
 import { openPrintWindow, bracketRoundsHtml } from "@/lib/print";
 
 type Match = { matchId: string; aName: string; bName: string; scoreA: number | null; scoreB: number | null; status: string; bye: boolean; byeName?: string; locked: boolean; court: string | null };
@@ -22,6 +23,7 @@ export function DivisionKnockout({
   divisionId,
   name,
   defaultAdvancers,
+  poolCount,
   rounds,
   poolsComplete,
 }: {
@@ -29,6 +31,7 @@ export function DivisionKnockout({
   divisionId: string;
   name: string;
   defaultAdvancers: number;
+  poolCount: number;
   rounds: Match[][];
   poolsComplete: boolean;
 }) {
@@ -118,7 +121,14 @@ export function DivisionKnockout({
             ))}
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-3">
+          <BracketTemplate
+            entrants={Math.max(2, poolCount * (Number(adv) || 2))}
+            caption="Bracket preview — pool finishers seed into these slots as results come in. Generate the knockout once every pool is complete."
+          />
+        </div>
+      )}
     </div>
   );
 }

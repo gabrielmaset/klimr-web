@@ -162,3 +162,38 @@ select:focus-visible {
    cleanly without an ugly scrollbar, while the logo and account stay pinned. */
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ---------- Tournament bracket tree (preview template + printed bracket) ----------
+   Flex columns with flush flex:1 cells, so each round's cell centers exactly on the
+   midpoint of its feeder pair. Connectors are pseudo-elements: a right stub out of
+   every match, a vertical line joining each pair, and a left stub leading into the
+   next round. Half-gap stubs meet the pair connector at the column midpoint. */
+.bkt { display: flex; gap: 2.25rem; align-items: stretch; }
+.bkt-col { display: flex; flex-direction: column; min-width: 11.5rem; }
+.bkt-col-label {
+  margin-bottom: 0.7rem; text-align: center;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--color-mute);
+}
+.bkt-cell { position: relative; flex: 1 1 0; display: flex; align-items: center; padding: 0.4rem 0; }
+.bkt-card { position: relative; width: 100%; }
+/* right stub — every match except the champion column */
+.bkt-col:not(:last-child) .bkt-cell::after {
+  content: ""; position: absolute; left: 100%; top: 50%;
+  width: 1.125rem; height: 2px; background: var(--color-rule);
+}
+/* vertical pair connector — drawn on the odd cell down to its even sibling
+   (skipped for a lone cell, e.g. a single Final match) */
+.bkt-col:not(:last-child) .bkt-cell:nth-child(odd):not(:last-child)::before {
+  content: ""; position: absolute; left: calc(100% + 1.125rem); top: 50%;
+  width: 2px; height: 100%; background: var(--color-rule);
+}
+/* left stub — leads into every match from round 2 onward (on the card so it
+   doesn't collide with the cell's vertical connector) */
+.bkt-col:not(:first-child) .bkt-card::before {
+  content: ""; position: absolute; right: 100%; top: 50%;
+  width: 1.125rem; height: 2px; background: var(--color-rule);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bkt-card { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+}
