@@ -143,7 +143,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // means "no such (visible) event" → 404. The page needs no account to view.
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, location_address, location_lat, location_lng, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
+    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, location_address, location_zip, location_lat, location_lng, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
     .eq("code", code)
     .maybeSingle();
   if (!t) notFound();
@@ -194,6 +194,39 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
   const deadlinePassed = !!t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now();
   const canSignUp = isRegistrationOpen(t);
+  // eslint-disable-next-line react-hooks/purity -- server component; current-time comparison is intentional
+  const msToDeadline = t.registration_deadline ? new Date(t.registration_deadline).getTime() - Date.now() : null;
+  const closingSoon = canSignUp && msToDeadline != null && msToDeadline > 0 && msToDeadline <= 86_400_000;
+  const hoursToClose = msToDeadline != null && msToDeadline > 0 ? Math.max(1, Math.ceil(msToDeadline / 3_600_000)) : null;
+  const regClosed = !canSignUp && (deadlinePassed || t.status === "registration_closed");
+  // Status-card tone: green = open · amber = closing within 24h · red = closed · neutral = not yet open.
+  const regTone: "open" | "closing" | "closed" | "soon" = canSignUp ? (closingSoon ? "closing" : "open") : regClosed ? "closed" : "soon";
+  const regCardCls =
+    regTone === "open"
+      ? "border border-transparent bg-gradient-to-br from-[#198a47] to-[#13703a]"
+      : regTone === "closing"
+        ? "border border-transparent bg-gradient-to-br from-[#fbbf24] to-[#f59e0b]"
+        : regTone === "closed"
+          ? "border border-transparent bg-gradient-to-br from-[#ef4444] to-[#c81e1e]"
+          : "border border-rule bg-surface/90";
+  const regTitleCls = regTone === "closing" || regTone === "soon" ? "text-ink" : "text-white";
+  const regSubCls = regTone === "closing" ? "text-ink/70" : regTone === "soon" ? "text-mute" : "text-white/85";
+  const regTitle = canSignUp ? (closingSoon ? "Registration closes soon" : "Registration is open") : regClosed ? "Registration has closed" : "Registration isn't open yet";
+  const regSub = closingSoon
+    ? `Closing in ${hoursToClose === 1 ? "under an hour" : `~${hoursToClose} hours`} — sign up now.`
+    : canSignUp
+      ? "Secure your spot now."
+      : regClosed
+        ? "Sign-ups for this event are closed."
+        : "Follow this event to hear when sign-ups open.";
+  const regBtnCls =
+    regTone === "open"
+      ? "bg-white text-[#13703a] hover:bg-white/90"
+      : regTone === "closing"
+        ? "bg-ink text-white hover:bg-ink-soft"
+        : regTone === "closed"
+          ? "cursor-not-allowed bg-white/15 text-white/90 ring-1 ring-inset ring-white/25"
+          : "cursor-not-allowed bg-bg text-faint";
   // Signing up requires a Klimr account; logged-out visitors are routed to Join first.
   const signupHref = user ? `/e/${t.code}/signup` : `/signup?next=${encodeURIComponent(`/e/${t.code}/signup`)}`;
 
@@ -362,18 +395,18 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           </div>
         )
       ) : (
-        <div className="flex h-full flex-wrap items-center justify-between gap-3 rounded-3xl border border-rule bg-surface/90 p-5">
+        <div className={`flex h-full flex-wrap items-center justify-between gap-3 rounded-3xl p-5 ${regCardCls}`}>
           <div>
-            <p className="text-sm font-bold text-ink">{canSignUp ? "Registration is open" : deadlinePassed ? "Registration has closed" : "Registration isn't open yet"}</p>
-            <p className="text-xs text-mute">{canSignUp ? "Secure your spot now." : "Follow this event to hear when sign-ups open."}</p>
+            <p className={`text-sm font-bold ${regTitleCls}`}>{regTitle}</p>
+            <p className={`text-xs ${regSubCls}`}>{regSub}</p>
           </div>
           {canSignUp ? (
-            <Link href={signupHref} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep">
+            <Link href={signupHref} className={`press inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold ${regBtnCls}`}>
               {user ? "Sign up" : "Join to sign up"}
             </Link>
           ) : (
-            <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-xl bg-bg px-4 py-2.5 text-sm font-semibold text-faint">
-              Follow · Soon
+            <button type="button" disabled className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold ${regBtnCls}`}>
+              {regClosed ? "Closed" : "Follow · Soon"}
             </button>
           )}
         </div>
@@ -383,6 +416,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           <EventLocationMap
             name={t.location_name}
             address={t.location_address}
+            zip={t.location_zip}
             lat={t.location_lat}
             lng={t.location_lng}
             className="lg:col-span-1"

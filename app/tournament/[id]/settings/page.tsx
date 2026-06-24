@@ -37,6 +37,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
     timezone: t.timezone,
     location_name: t.location_name,
     location_address: t.location_address,
+    location_zip: t.location_zip ?? null,
     weather_enabled: !!t.weather_enabled,
     capacity: t.capacity,
     reserves_allowed: t.reserves_allowed ?? 0,

@@ -8,6 +8,7 @@ import { MapPin, ExternalLink } from "lucide-react";
 export function EventLocationMap({
   name,
   address,
+  zip,
   lat,
   lng,
   placeId,
@@ -15,6 +16,7 @@ export function EventLocationMap({
 }: {
   name: string | null;
   address: string | null;
+  zip?: string | null;
   lat: number | null;
   lng: number | null;
   placeId?: string | null;
@@ -22,7 +24,12 @@ export function EventLocationMap({
 }) {
   const label = (name ?? "").trim();
   const addr = (address ?? "").trim();
-  const query = [label, addr].filter(Boolean).join(", ") || (lat != null && lng != null ? `${lat},${lng}` : "");
+  const zipCode = (zip ?? "").trim();
+  // Prefer the precise street address the organizer entered, plus the ZIP for
+  // accuracy; fall back to the venue name, then to coordinates. (The stored
+  // lat/lng is only a ZIP centroid, so the address + ZIP gives the best pin.)
+  const base = addr || label;
+  const query = base ? (zipCode ? `${base}, ${zipCode}` : base) : lat != null && lng != null ? `${lat},${lng}` : "";
   if (!query) return null;
 
   const embedSrc = `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=14&output=embed`;

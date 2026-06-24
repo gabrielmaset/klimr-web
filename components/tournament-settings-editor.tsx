@@ -26,6 +26,7 @@ export type SettingsInit = {
   timezone: string | null;
   location_name: string | null;
   location_address: string | null;
+  location_zip: string | null;
   weather_enabled: boolean;
   capacity: number | null;
   reserves_allowed: number;
@@ -165,7 +166,7 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
   const [endsAt, setEndsAt] = useState(isoToLocalInput(init.ends_at));
   const [locName, setLocName] = useState(init.location_name ?? "");
   const [locAddr, setLocAddr] = useState(init.location_address ?? "");
-  const [locZip, setLocZip] = useState("");
+  const [locZip, setLocZip] = useState(init.location_zip ?? "");
   const [locResolved, setLocResolved] = useState<{ city: string; state: string } | null>(null);
   const [, startZip] = useTransition();
   const onLocZip = (v: string) => {

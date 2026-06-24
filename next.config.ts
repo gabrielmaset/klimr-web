@@ -21,7 +21,8 @@ const csp = [
   "font-src 'self' data:",
   // Supabase (auth/storage/realtime) + Mapbox (styles, tiles, glyphs, telemetry) + Turnstile verify.
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com https://challenges.cloudflare.com",
-  "frame-src https://www.openstreetmap.org https://challenges.cloudflare.com",
+  // OpenStreetMap (legacy), Turnstile (auth), and Google Maps (venue map on public event pages).
+  "frame-src https://www.openstreetmap.org https://challenges.cloudflare.com https://www.google.com https://maps.google.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

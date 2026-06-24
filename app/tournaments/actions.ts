@@ -180,6 +180,7 @@ export async function createTournamentFromWizard(
   if (patch.location_name !== undefined) row.location_name = patch.location_name;
   if (patch.location_address !== undefined) row.location_address = patch.location_address;
   if (patch.zip && /^\d{5}$/.test(patch.zip)) {
+    row.location_zip = patch.zip;
     const z = lookupZip(patch.zip);
     if (z) {
       row.location_lat = z.lat;
@@ -245,6 +246,7 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   if (patch.location_address !== undefined) u.location_address = patch.location_address;
   // A ZIP places the event for local discovery; resolve to coordinates (blank = keep existing).
   if (patch.zip && /^\d{5}$/.test(patch.zip)) {
+    u.location_zip = patch.zip;
     const z = lookupZip(patch.zip);
     if (z) {
       u.location_lat = z.lat;

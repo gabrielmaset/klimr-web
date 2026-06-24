@@ -816,6 +816,7 @@ export interface Database {
           timezone: string | null;
           location_name: string | null;
           location_address: string | null;
+          location_zip: string | null;
           location_lat: number | null;
           location_lng: number | null;
           location_place_id: string | null;
@@ -852,6 +853,7 @@ export interface Database {
           timezone?: string | null;
           location_name?: string | null;
           location_address?: string | null;
+          location_zip?: string | null;
           location_lat?: number | null;
           location_lng?: number | null;
           location_place_id?: string | null;
@@ -885,6 +887,7 @@ export interface Database {
           timezone?: string | null;
           location_name?: string | null;
           location_address?: string | null;
+          location_zip?: string | null;
           location_lat?: number | null;
           location_lng?: number | null;
           location_place_id?: string | null;
