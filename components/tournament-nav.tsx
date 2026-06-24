@@ -54,14 +54,14 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
     {
       header: "Promotion",
       items: [
-        { href: `${base}/sponsors`, label: "Sponsors", Icon: Handshake, soon: true },
-        { href: `${base}/announcements`, label: "Announcements", Icon: Megaphone, soon: true },
+        { href: `${base}/sponsors`, label: "Sponsors", Icon: Handshake },
+        { href: `${base}/announcements`, label: "Announcements", Icon: Megaphone },
       ],
     },
     {
       header: "Setup",
       items: [
-        { href: `${base}/legal`, label: "Legal", Icon: FileText, soon: true },
+        { href: `${base}/legal`, label: "Legal", Icon: FileText },
         { href: `${base}/settings`, label: "Settings", Icon: Settings },
       ],
     },
@@ -103,7 +103,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-2xl">{meta.emoji}</span>
               <div className="min-w-0">
                 <p className="kicker text-rail-muted">Organizer</p>
-                <p className="truncate text-sm font-bold text-rail-fg">{tournament.title}</p>
+                <p className="text-sm font-bold leading-snug text-rail-fg line-clamp-2 [overflow-wrap:anywhere]">{tournament.title}</p>
               </div>
             </div>
             <span className="mt-2.5 inline-block rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rail-fg">

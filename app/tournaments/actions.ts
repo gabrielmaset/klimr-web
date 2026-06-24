@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { lookupZip, tzFromStateLng } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
-import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig, PublishedResults } from "@/lib/tournament";
-import { computePoolStandings } from "@/lib/tournament";
+import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig, PublishedResults, Sponsor, Announcement } from "@/lib/tournament";
+import { computePoolStandings, isRegistrationOpen, isSignupFormReady } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
 import { placementPoints, bracketPlaces, ROLLING_WEEKS, ROLLING_BEST, RESERVE_FACTOR } from "@/lib/ranking";
@@ -280,9 +280,15 @@ export async function publishTournament(id: string) {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, error: "Not signed in." };
 
-  const { data: t } = await supabase.from("tournaments").select("title").eq("id", id).maybeSingle();
+  const { data: t } = await supabase.from("tournaments").select("title, format_config").eq("id", id).maybeSingle();
   if (!t) return { ok: false as const, error: "Not found." };
   if (!t.title?.trim()) return { ok: false as const, error: "Add a title before publishing." };
+
+  const { count: fieldCount } = await supabase.from("tournament_custom_fields").select("id", { count: "exact", head: true }).eq("tournament_id", id);
+  const fc = (t.format_config ?? {}) as TournamentFormatConfig;
+  if (!isSignupFormReady(fc, fieldCount ?? 0)) {
+    return { ok: false as const, error: "Set up your sign-up form before publishing." };
+  }
 
   const { error } = await supabase.from("tournaments").update({ status: "published", updated_at: new Date().toISOString() }).eq("id", id);
   return error ? { ok: false as const, error: error.message } : { ok: true as const };
@@ -373,12 +379,105 @@ export async function saveCustomFields(tournamentId: string, fields: CustomField
   const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
   if (toDelete.length) await supabase.from("tournament_custom_fields").delete().in("id", toDelete);
 
+  // Saving the form (even with no questions) counts as a deliberate setup step,
+  // which is what publishing requires — record it on the tournament.
+  const { data: trow } = await supabase.from("tournaments").select("format_config").eq("id", tournamentId).maybeSingle();
+  if (trow) {
+    const nextFc = { ...((trow.format_config ?? {}) as Record<string, unknown>), signup_form_ready: true };
+    await supabase.from("tournaments").update({ format_config: nextFc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+    revalidatePath(`/tournament/${tournamentId}`);
+    revalidatePath(`/tournament/${tournamentId}/settings`);
+  }
+
   const { data: fresh } = await supabase
     .from("tournament_custom_fields")
     .select("id, label, description, field_type, options, required, scope, sort_order")
     .eq("tournament_id", tournamentId)
     .order("sort_order");
   return { ok: true as const, fields: fresh ?? [] };
+}
+
+/** Save the sponsor list. Rides in format_config.sponsors (anon already reads
+ *  format_config on the public page, so no extra RLS). Staff-only. */
+export async function saveSponsors(tournamentId: string, sponsors: Sponsor[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const clean: Sponsor[] = (sponsors ?? []).slice(0, 40).map((s) => {
+    const tier = s.tier === "premium" ? "premium" : "standard";
+    const raw = s.url ? String(s.url).trim() : "";
+    const url = raw ? (/^https?:\/\//i.test(raw) ? raw : `https://${raw}`).slice(0, 300) : null;
+    const photos = tier === "premium" && Array.isArray(s.photos) ? s.photos.filter((p) => typeof p === "string" && p).slice(0, 3) : [];
+    return {
+      id: typeof s.id === "string" && s.id ? s.id.slice(0, 64) : randomUUID(),
+      name: String(s.name ?? "").trim().slice(0, 120) || "Sponsor",
+      url,
+      tier,
+      logo: s.logo ? String(s.logo).slice(0, 600) : null,
+      photos,
+      blurb: tier === "premium" && s.blurb ? String(s.blurb).trim().slice(0, 400) : null,
+    };
+  });
+
+  const fc = { ...((to.format_config ?? {}) as Record<string, unknown>), sponsors: clean };
+  const { error } = await supabase.from("tournaments").update({ format_config: fc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath(`/tournament/${tournamentId}/sponsors`);
+  if (to.code) revalidatePath(`/e/${to.code}`);
+  return { ok: true as const, sponsors: clean };
+}
+
+/** Save the announcements feed. Rides in format_config.announcements (anon reads
+ *  format_config on the public page, so no extra RLS). Staff-only. */
+export async function saveAnnouncements(tournamentId: string, announcements: Announcement[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const now = new Date().toISOString();
+  const clean: Announcement[] = (announcements ?? [])
+    .slice(0, 60)
+    .map((a) => ({
+      id: typeof a.id === "string" && a.id ? a.id.slice(0, 64) : randomUUID(),
+      title: String(a.title ?? "").trim().slice(0, 160),
+      body: String(a.body ?? "").trim().slice(0, 4000),
+      pinned: !!a.pinned,
+      createdAt: a.createdAt && !Number.isNaN(Date.parse(a.createdAt)) ? a.createdAt : now,
+      updatedAt: now,
+    }))
+    .filter((a) => a.title || a.body);
+
+  const fc = { ...((to.format_config ?? {}) as Record<string, unknown>), announcements: clean };
+  const { error } = await supabase.from("tournaments").update({ format_config: fc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath(`/tournament/${tournamentId}/announcements`);
+  if (to.code) revalidatePath(`/e/${to.code}`);
+  return { ok: true as const, announcements: clean };
 }
 
 /** Replace the full run-of-show plan (upsert + delete removed). Writes gated to
@@ -509,13 +608,13 @@ export async function signUpIndividual(
 
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, entry_type, status, registration_deadline, capacity, format_config")
+    .select("id, entry_type, status, registration_opens_at, registration_deadline, capacity, format_config")
     .eq("id", tournamentId)
     .maybeSingle();
   if (!t) return { ok: false as const, error: "Event not found." };
   if (t.entry_type !== "individual") return { ok: false as const, error: "This event is team-based." };
-  if (t.status !== "registration_open") return { ok: false as const, error: "Registration isn't open." };
   if (t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now()) return { ok: false as const, error: "Registration has closed." };
+  if (!isRegistrationOpen(t)) return { ok: false as const, error: "Registration isn't open." };
 
   const { data: existing } = await supabase
     .from("tournament_registrations")
@@ -577,13 +676,13 @@ export async function signUpTeam(
 
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, capacity, sport_key, entry_type, status, registration_deadline, reserves_allowed, min_women, min_men, format_config")
+    .select("id, capacity, sport_key, entry_type, status, registration_opens_at, registration_deadline, reserves_allowed, min_women, min_men, format_config")
     .eq("id", tournamentId)
     .maybeSingle();
   if (!t) return { ok: false as const, error: "Event not found." };
   if (t.entry_type !== "team") return { ok: false as const, error: "This event is for individuals." };
-  if (t.status !== "registration_open") return { ok: false as const, error: "Registration isn't open." };
   if (t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now()) return { ok: false as const, error: "Registration has closed." };
+  if (!isRegistrationOpen(t)) return { ok: false as const, error: "Registration isn't open." };
 
   const { data: team } = await supabase.from("teams").select("id, sport_key, name").eq("id", input.teamId).maybeSingle();
   if (!team) return { ok: false as const, error: "Team not found." };

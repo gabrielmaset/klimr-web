@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Users, Trophy, Check, Dices } from "lucide-react";
+import { CalendarClock, Users, Trophy, Check, Dices, ExternalLink, FileText, Megaphone, Pin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { formatFee, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound } from "@/lib/tournament";
+import { formatFee, isRegistrationOpen, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Announcement } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventHero } from "@/components/event-hero";
+
+// Always render the public page fresh — see app/e/[code]/layout.tsx. Repeated
+// here so the page's live-feed behavior is explicit and regression-proof.
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 const REG_STATUS_LABEL: Record<string, string> = { pending: "Pending", confirmed: "Confirmed", waitlisted: "Waitlisted" };
 const PAY_STATUS_LABEL: Record<string, string> = { unpaid: "Not submitted", proof_submitted: "Under review", confirmed: "Confirmed", denied: "Needs attention" };
@@ -85,6 +91,40 @@ function PublicBracket({ rounds }: { rounds: PublishedBracketRound[] }) {
   );
 }
 
+function PremiumSponsorAd({ s }: { s: Sponsor }) {
+  const photos = Array.isArray(s.photos) ? s.photos.slice(0, 3) : [];
+  return (
+    <div className="overflow-hidden rounded-3xl border border-brand/30 bg-[linear-gradient(135deg,#ffffff,#fff6f2)] shadow-sm">
+      <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center">
+        <div className="lg:w-[38%] lg:shrink-0">
+          <p className="kicker text-brand-deep">Sponsor</p>
+          <div className="mt-1.5 flex items-center gap-3">
+            {s.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.logo} alt="" className="h-12 w-12 rounded-xl border border-rule bg-white object-contain p-1" />
+            ) : null}
+            <h3 className="font-display text-2xl leading-tight text-ink">{s.name}</h3>
+          </div>
+          {s.blurb ? <p className="mt-2 text-sm leading-relaxed text-mute">{s.blurb}</p> : null}
+          {s.url ? (
+            <a href={s.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep">
+              Visit <ExternalLink size={14} />
+            </a>
+          ) : null}
+        </div>
+        {photos.length ? (
+          <div className={`grid flex-1 gap-2 ${photos.length === 1 ? "grid-cols-1" : photos.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+            {photos.map((p, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={i} src={p} alt="" className="aspect-[4/3] w-full rounded-2xl object-cover" loading="lazy" />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function Fact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-rule bg-surface p-4">
@@ -109,7 +149,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // means "no such (visible) event" → 404. The page needs no account to view.
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, capacity, registration_deadline, format_config")
+    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, capacity, registration_opens_at, registration_deadline, format_config")
     .eq("code", code)
     .maybeSingle();
   if (!t) notFound();
@@ -118,6 +158,13 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const photos = Array.isArray(fc.gallery) ? fc.gallery : [];
   const pubSchedule = fc.schedule_published && fc.published_schedule?.rows?.length ? fc.published_schedule : null;
   const pubResults = fc.results_published && fc.published_results?.divisions?.length ? fc.published_results : null;
+  const sponsors: Sponsor[] = Array.isArray(fc.sponsors) ? fc.sponsors : [];
+  const premiumSponsors = sponsors.filter((s) => s.tier === "premium");
+  const rulesText = fc.legal?.rules_text?.trim() || null;
+  const announcements = (Array.isArray(fc.announcements) ? (fc.announcements as Announcement[]) : [])
+    .slice()
+    .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .map((a) => ({ ...a, dateText: new Date(a.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) }));
   const resultsUpdated = pubResults ? new Date(pubResults.builtAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null;
   const courtNumOf = (c: string) => {
     const m = /Court (\d+)/.exec(c);
@@ -140,7 +187,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
     : null;
   // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
   const deadlinePassed = !!t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now();
-  const canSignUp = t.status === "registration_open" && !deadlinePassed;
+  const canSignUp = isRegistrationOpen(t);
   // Signing up requires a Klimr account; logged-out visitors are routed to Join first.
   const signupHref = user ? `/e/${t.code}/signup` : `/signup?next=${encodeURIComponent(`/e/${t.code}/signup`)}`;
 
@@ -352,6 +399,26 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         </div>
       ) : null}
 
+      {announcements.length ? (
+        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+          <h2 className="mb-3 flex items-center gap-1.5 text-base font-bold text-ink">
+            <Megaphone size={16} className="text-brand-deep" /> Announcements
+          </h2>
+          <ul className="grid gap-3">
+            {announcements.map((a) => (
+              <li key={a.id} className={`rounded-2xl border p-4 ${a.pinned ? "border-brand/40 bg-tint-brand/30" : "border-rule bg-bg/40"}`}>
+                <div className="flex items-center gap-2">
+                  {a.pinned ? <Pin size={13} className="shrink-0 fill-current text-brand-deep" /> : null}
+                  {a.title ? <p className="text-sm font-bold text-ink">{a.title}</p> : null}
+                  <span className="ml-auto shrink-0 text-xs text-faint">{a.dateText}</span>
+                </div>
+                {a.body ? <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">{a.body}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* about */}
       {t.description ? (
         <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
@@ -403,6 +470,57 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         <Fact icon={<Users size={16} />} label="Entry" value={t.entry_type === "team" ? "Teams" : "Individuals"} />
         <Fact icon={<Users size={16} />} label="Capacity" value={t.capacity ? String(t.capacity) : "Open"} />
       </section>
+
+      {sponsors.length ? (
+        <section className="mt-6">
+          {premiumSponsors.length ? (
+            <div className="grid gap-4">
+              {premiumSponsors.map((s) => (
+                <PremiumSponsorAd key={s.id} s={s} />
+              ))}
+            </div>
+          ) : null}
+          <div className={`rounded-3xl border border-rule bg-surface p-5 sm:p-6 ${premiumSponsors.length ? "mt-4" : ""}`}>
+            <p className="kicker mb-3 text-mute">Sponsors &amp; partners</p>
+            <div className="-mx-1 overflow-x-auto pb-1">
+              <div className="flex min-w-max gap-3 px-1">
+                {sponsors.map((s) => {
+                  const inner = (
+                    <>
+                      {s.logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={s.logo} alt="" className="h-9 w-9 rounded-lg border border-rule bg-white object-contain p-0.5" />
+                      ) : (
+                        <span className="grid h-9 w-9 place-items-center rounded-lg bg-tint-brand text-sm font-bold text-brand-deep">{s.name.slice(0, 1).toUpperCase()}</span>
+                      )}
+                      <span className="whitespace-nowrap text-sm font-semibold text-ink">{s.name}</span>
+                      {s.tier === "premium" ? <span className="rounded-full bg-tint-brand px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-deep">Premium</span> : null}
+                    </>
+                  );
+                  return s.url ? (
+                    <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-2.5 rounded-2xl border border-rule bg-bg/50 px-4 py-3 transition hover:border-faint">
+                      {inner}
+                    </a>
+                  ) : (
+                    <span key={s.id} className="flex shrink-0 items-center gap-2.5 rounded-2xl border border-rule bg-bg/50 px-4 py-3">
+                      {inner}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {rulesText ? (
+        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+          <h2 className="mb-2 flex items-center gap-1.5 text-base font-bold text-ink">
+            <FileText size={16} className="text-brand-deep" /> Rules
+          </h2>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">{rulesText}</p>
+        </section>
+      ) : null}
 
       {pubSchedule ? (
         <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { IndividualSignupForm } from "@/components/tournament-signup-individual";
 import { TeamSignupForm } from "@/components/tournament-signup-team";
-import type { TournamentFormatConfig, CustomFieldRow, DivisionRow } from "@/lib/tournament";
+import { isRegistrationOpen, type TournamentFormatConfig, type CustomFieldRow, type DivisionRow } from "@/lib/tournament";
 
 function Notice({ title, sub, code, href, linkLabel }: { title: string; sub: string; code: string; href?: string; linkLabel?: string }) {
   const to = href ?? `/e/${code}`;
@@ -32,7 +32,7 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
 
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, entry_type, status, registration_deadline, reserves_allowed, min_women, min_men, format_config")
+    .select("id, code, title, sport_key, entry_type, status, registration_opens_at, registration_deadline, reserves_allowed, min_women, min_men, format_config")
     .eq("code", code)
     .maybeSingle();
   if (!t) notFound();
@@ -40,7 +40,7 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
 
   // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
   const deadlinePassed = !!t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now();
-  const open = t.status === "registration_open" && !deadlinePassed;
+  const open = isRegistrationOpen(t);
 
   const { data: existing } = await supabase
     .from("tournament_registrations")

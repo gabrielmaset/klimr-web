@@ -41,6 +41,7 @@ export type SettingsInit = {
   rules_text: string;
   require_waiver: boolean;
   require_rules: boolean;
+  signupFormReady: boolean;
 };
 
 const inputCls = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand";
@@ -484,13 +485,22 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
             <button
               type="button"
               onClick={togglePublish}
-              disabled={pubBusy}
+              disabled={pubBusy || (isDraft && !init.signupFormReady)}
               className={`press inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${isDraft ? "bg-brand text-white hover:bg-brand-deep" : "border border-rule bg-surface text-ink hover:bg-bg"}`}
             >
               {pubBusy ? <Loader2 size={15} className="animate-spin" /> : isDraft ? <Rocket size={15} /> : null}
               {isDraft ? "Publish event" : "Unpublish"}
             </button>
           </div>
+          {isDraft && !init.signupFormReady ? (
+            <p className="mt-2 text-xs text-mute">
+              Set up your{" "}
+              <a href={`/tournament/${init.id}/form`} className="font-semibold text-brand-deep hover:underline">
+                sign-up form
+              </a>{" "}
+              before publishing — open it and save, even if you’re not adding extra questions.
+            </p>
+          ) : null}
           {pubErr ? <p className="mt-2 text-sm font-semibold text-brand-deep">{pubErr}</p> : null}
         </div>
       </section>

@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { CalendarClock, MapPin, Link2, Globe, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { STATUS_LABEL, type TournamentFormatConfig } from "@/lib/tournament";
+import { STATUS_LABEL, isRegistrationOpen, isSignupFormReady, type TournamentFormatConfig } from "@/lib/tournament";
 import { openRegistration, closeRegistration } from "@/app/tournaments/actions";
 
 export default async function TournamentDashboard({ params }: { params: Promise<{ id: string }> }) {
@@ -29,11 +29,22 @@ export default async function TournamentDashboard({ params }: { params: Promise<
     : "Dates TBD";
   const publicUrl = `klimr.com/e/${t.code}`;
 
-  const setup = [
+  const regOpen = isRegistrationOpen(t);
+  // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
+  const regNow = Date.now();
+  const regOpensAtMs = t.registration_opens_at ? new Date(t.registration_opens_at).getTime() : null;
+  const beforeRegOpen = !regOpen && t.status === "published" && regOpensAtMs !== null && regNow < regOpensAtMs;
+  const regOpensText = t.registration_opens_at ? new Date(t.registration_opens_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null;
+
+  const { count: cfCount } = await supabase.from("tournament_custom_fields").select("id", { count: "exact", head: true }).eq("tournament_id", id);
+  const signupFormReady = isSignupFormReady(fc, cfCount ?? 0);
+
+  const setup: { label: string; note: string; done: boolean; anchor: string; href?: string }[] = [
     { label: "Basics", note: "Name, sport & entry type", done: true, anchor: "details" },
     { label: "When & where", note: "Date, time & location", done: !!t.starts_at, anchor: "location" },
     { label: "Format", note: "Pools, bracket & eligibility", done: !!fc.format_type, anchor: "format" },
     { label: "Registration", note: "Sign-up window", done: !!(t.registration_opens_at || t.registration_deadline), anchor: "registration" },
+    { label: "Sign-up form", note: "Questions asked at registration", done: signupFormReady, anchor: "form", href: `${base}/form` },
     { label: "Legal", note: "Waiver & rules", done: !!(fc.legal?.waiver_text || fc.legal?.rules_text), anchor: "legal" },
     { label: "Publish", note: "Go live", done: t.status !== "draft", anchor: "visibility" },
   ];
@@ -84,24 +95,24 @@ export default async function TournamentDashboard({ params }: { params: Promise<
       </div>
 
       {/* registration control */}
-      {t.status === "published" || t.status === "registration_closed" ? (
-        <form action={openRegistration.bind(null, t.id)} className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface p-4">
-          <div>
-            <p className="text-sm font-bold text-ink">Sign-ups are closed</p>
-            <p className="text-xs text-mute">Open registration to let players enter at your public page.</p>
-          </div>
-          <button type="submit" className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink-soft">Open registration</button>
-        </form>
-      ) : t.status === "registration_open" ? (
+      {regOpen ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-success/40 bg-tint-success p-4">
           <div>
             <p className="text-sm font-bold text-ink">Registration is open</p>
-            <p className="text-xs text-mute">Players can sign up at your public page now.</p>
+            <p className="text-xs text-mute">{t.status === "registration_open" ? "Players can sign up at your public page now." : "Opened automatically by your registration window — players can sign up now."}</p>
           </div>
           <form action={closeRegistration.bind(null, t.id)}>
             <button type="submit" className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:border-faint">Close registration</button>
           </form>
         </div>
+      ) : t.status === "published" || t.status === "registration_closed" ? (
+        <form action={openRegistration.bind(null, t.id)} className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface p-4">
+          <div>
+            <p className="text-sm font-bold text-ink">{beforeRegOpen ? "Sign-ups haven't opened yet" : "Sign-ups are closed"}</p>
+            <p className="text-xs text-mute">{beforeRegOpen && regOpensText ? `Scheduled to open ${regOpensText} — open now to start early.` : "Open registration to let players enter at your public page."}</p>
+          </div>
+          <button type="submit" className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink-soft">{beforeRegOpen ? "Open now" : "Open registration"}</button>
+        </form>
       ) : null}
 
       {/* setup roadmap */}
@@ -120,7 +131,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
         <ol className="grid gap-2.5">
           {setup.map((s, i) => (
             <li key={s.label}>
-              <Link href={`${base}/settings#${s.anchor}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-bg/40 p-3">
+              <Link href={s.href ?? `${base}/settings#${s.anchor}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-bg/40 p-3">
                 <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${s.done ? "bg-success text-white" : "bg-[#f4f4f5] text-mute"}`}>{s.done ? "✓" : i + 1}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-ink">{s.label}</span>

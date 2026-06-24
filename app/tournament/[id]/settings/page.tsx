@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { TournamentSettingsEditor, type SettingsInit } from "@/components/tournament-settings-editor";
 import { GalleryEditor } from "@/components/gallery-editor";
 import { DeleteEvent } from "@/components/tournament-delete";
-import type { TournamentFormatConfig, FormatType } from "@/lib/tournament";
+import { isSignupFormReady, type TournamentFormatConfig, type FormatType } from "@/lib/tournament";
 
 export default async function TournamentSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,6 +20,8 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
 
   const fc = (t.format_config ?? {}) as TournamentFormatConfig;
   const legal = fc.legal ?? {};
+  const { count: cfCount } = await supabase.from("tournament_custom_fields").select("id", { count: "exact", head: true }).eq("tournament_id", id);
+  const signupFormReady = isSignupFormReady(fc, cfCount ?? 0);
   const init: SettingsInit = {
     id: t.id,
     code: t.code,
@@ -50,6 +52,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
     rules_text: legal.rules_text ?? "",
     require_waiver: !!legal.require_waiver,
     require_rules: !!legal.require_rules,
+    signupFormReady,
   };
 
   return (

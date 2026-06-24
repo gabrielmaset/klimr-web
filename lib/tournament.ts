@@ -29,6 +29,25 @@ export type PublishedBracketRound = { label: string; matches: PublishedBracketMa
 export type PublishedResultsDivision = { name: string; pools: PublishedPool[]; rounds: PublishedBracketRound[] };
 export type PublishedResults = { builtAt: string; format: string; divisions: PublishedResultsDivision[] };
 
+export type Announcement = {
+  id: string;
+  title: string;
+  body: string;
+  pinned?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export type Sponsor = {
+  id: string;
+  name: string;
+  url?: string | null;
+  tier: "premium" | "standard";
+  logo?: string | null;
+  photos?: string[]; // premium only, up to 3
+  blurb?: string | null;
+};
+
 export type TournamentFormatConfig = {
   format_type?: FormatType;
   pool_count?: number;
@@ -44,6 +63,9 @@ export type TournamentFormatConfig = {
   results_published?: boolean;
   results_auto_publish?: boolean;
   published_results?: PublishedResults;
+  signup_form_ready?: boolean;
+  sponsors?: Sponsor[];
+  announcements?: Announcement[];
   gallery?: string[];
   capacity_mode?: "pooled" | "per_division";
   capacity_unit?: "team" | "person";
@@ -207,6 +229,31 @@ export type StandingMatch = {
   scoreB: number | null;
   status: string;
 };
+
+/** Whether the sign-up form has been set up enough to publish. Either the
+ *  organizer saved the form at least once (which sets signup_form_ready) or the
+ *  event already has questions (grandfathers events created before this gate). */
+export function isSignupFormReady(fc: { signup_form_ready?: boolean }, fieldCount: number): boolean {
+  return fc.signup_form_ready === true || fieldCount > 0;
+}
+
+/** Whether public sign-ups are currently open. Date-driven: a published event
+ *  opens automatically once its registration-opens time arrives and stays open
+ *  until the deadline. A manual "registration_open" status forces it open until
+ *  the deadline; any other status (draft, closed, completed…) is closed. */
+export function isRegistrationOpen(
+  t: { status: string; registration_opens_at?: string | null; registration_deadline?: string | null },
+  now: number = Date.now(),
+): boolean {
+  const deadline = t.registration_deadline ? new Date(t.registration_deadline).getTime() : null;
+  if (deadline !== null && now > deadline) return false;
+  if (t.status === "registration_open") return true;
+  if (t.status === "published") {
+    const opensAt = t.registration_opens_at ? new Date(t.registration_opens_at).getTime() : null;
+    if (opensAt !== null && now >= opensAt) return true;
+  }
+  return false;
+}
 
 /** Compute pool standings from completed matches. Ranked by wins, then point
  *  differential, then points-for, then name. Pure — safe on client or server. */
