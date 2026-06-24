@@ -15,29 +15,29 @@ type Slot = { label: string; seed: number | null; placeholder: boolean };
 function PoolCard({ name, slots, matches, preview = false }: { name: string; slots: Slot[]; matches?: Match[]; preview?: boolean }) {
   return (
     <div className={`overflow-hidden rounded-2xl border bg-surface shadow-sm ${preview ? "border-dashed border-rule" : "border-rule"}`}>
-      <div className="flex items-center justify-between gap-2 bg-gradient-to-br from-brand to-brand-deep px-4 py-2.5">
-        <p className="truncate text-sm font-bold tracking-wide text-white">{name}</p>
-        <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold text-white">
+      <div className="flex items-center justify-between gap-2 bg-gradient-to-br from-brand to-brand-deep px-3.5 py-2">
+        <p className="truncate text-[13px] font-bold tracking-wide text-white">{name}</p>
+        <span className="shrink-0 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           {slots.length} {slots.length === 1 ? "team" : "teams"}
         </span>
       </div>
       <ol className="divide-y divide-rule/70">
         {slots.map((s, j) => (
-          <li key={j} className="flex items-center gap-2.5 px-4 py-2">
+          <li key={j} className="flex items-center gap-2 px-3.5 py-1.5">
             <span
-              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
+              className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
                 s.placeholder ? "bg-bg text-faint ring-1 ring-inset ring-rule" : "bg-tint-brand text-brand-deep"
               }`}
             >
               {s.seed ?? j + 1}
             </span>
-            <span className={`min-w-0 flex-1 truncate text-sm ${s.placeholder ? "italic text-faint" : "text-ink"}`}>{s.label}</span>
+            <span className={`min-w-0 flex-1 truncate text-[13px] ${s.placeholder ? "italic text-faint" : "text-ink"}`}>{s.label}</span>
           </li>
         ))}
-        {slots.length === 0 ? <li className="px-4 py-3 text-xs text-mute">Empty</li> : null}
+        {slots.length === 0 ? <li className="px-3.5 py-2.5 text-xs text-mute">Empty</li> : null}
       </ol>
       {matches && matches.length ? (
-        <div className="border-t border-rule bg-bg/40 px-4 py-3">
+        <div className="border-t border-rule bg-bg/40 px-3.5 py-2.5">
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-mute">Matches</p>
           <ul className="grid gap-1">
             {matches.map((m, k) => (

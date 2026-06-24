@@ -90,11 +90,11 @@ export type TournamentFormatConfig = {
 export const PUBLIC_BG_DEFAULT = "#fafafa";
 export const PUBLIC_BG_OPTIONS: { key: string; label: string; hex: string }[] = [
   { key: "default", label: "Default", hex: PUBLIC_BG_DEFAULT }, // cool near-white (current)
-  { key: "slate", label: "Slate", hex: "#eef1f7" }, // cool blue-grey — calm, professional
-  { key: "sage", label: "Sage", hex: "#eef2ec" }, // soft green — fresh, outdoor
-  { key: "sand", label: "Sand", hex: "#f6f0e6" }, // warm cream — premium, beach; closest to brand
-  { key: "blush", label: "Blush", hex: "#f9eef0" }, // soft rose — warm, friendly
-  { key: "periwinkle", label: "Periwinkle", hex: "#eef0fa" }, // soft indigo — modern, creative
+  { key: "slate", label: "Slate", hex: "#e3e9f2" }, // cool steel blue-grey — calm, professional
+  { key: "sage", label: "Sage", hex: "#e4efe1" }, // soft green — fresh, outdoor
+  { key: "sand", label: "Sand", hex: "#f4ead6" }, // warm golden cream — premium, beach; closest to brand
+  { key: "blush", label: "Blush", hex: "#f9e6ec" }, // soft rose — warm, friendly
+  { key: "periwinkle", label: "Periwinkle", hex: "#eae9fb" }, // lavender violet — modern, creative
 ];
 
 /** Resolve a stored public_bg key to its hex, falling back to the default canvas. */

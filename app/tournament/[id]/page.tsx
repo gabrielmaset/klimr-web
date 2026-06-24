@@ -86,6 +86,28 @@ export default async function TournamentDashboard({ params }: { params: Promise<
   const beforeRegOpen = !regOpen && t.status === "published" && regOpensAtMs !== null && nowMs < regOpensAtMs;
   const regOpensText = t.registration_opens_at ? new Date(t.registration_opens_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null;
   const regDeadlineText = t.registration_deadline ? new Date(t.registration_deadline).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null;
+  const regDeadlineMs = t.registration_deadline ? new Date(t.registration_deadline).getTime() : null;
+  const regDeadlinePassed = regDeadlineMs !== null && nowMs > regDeadlineMs;
+  // Organizer can flip the open/closed switch only once the event is published.
+  const canControlReg = t.status === "published" || t.status === "registration_open" || t.status === "registration_closed";
+  // Situation-aware status + the exact reason registration is in that state, so
+  // "Closed" inside the open→close window is never a mystery.
+  let regState: "open" | "scheduled" | "closed";
+  let regReason: string;
+  if (regOpen) {
+    regState = "open";
+    regReason = regDeadlineText ? `Open now — closes ${regDeadlineText}.` : "Open now — no closing date set, so it stays open until you close it.";
+  } else if (beforeRegOpen) {
+    regState = "scheduled";
+    regReason = `Scheduled to open ${regOpensText}.`;
+  } else {
+    regState = "closed";
+    if (t.status === "draft") regReason = "Your event isn't published yet, so registration can't open.";
+    else if (regDeadlinePassed) regReason = `The registration deadline passed on ${regDeadlineText}.`;
+    else if (t.status === "registration_closed") regReason = "You closed registration manually — reopen it any time.";
+    else if (!t.registration_opens_at) regReason = "No opening date is set, so it hasn't opened — open it now, or set a date in Settings.";
+    else regReason = "Registration hasn't been opened yet.";
+  }
 
   // Countdown to start
   const startMs = t.starts_at ? new Date(t.starts_at).getTime() : null;
@@ -215,9 +237,6 @@ export default async function TournamentDashboard({ params }: { params: Promise<
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Link href={`/e/${t.code}`} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">
-              <Globe size={15} /> View public page
-            </Link>
             <Link href={`${base}/settings`} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
               {t.status === "draft" ? "Set up event" : "Edit details"} <ArrowRight size={15} />
             </Link>
@@ -271,15 +290,15 @@ export default async function TournamentDashboard({ params }: { params: Promise<
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg">
             <div className="h-full rounded-full bg-success transition-all" style={{ width: `${setupPct}%` }} />
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {setup.map((s) => (
               <Link
                 key={s.label}
                 href={s.href ?? `${base}/settings#${s.anchor}`}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${s.done ? "border-success/30 bg-tint-success text-success" : "border-rule bg-bg text-mute hover:border-faint hover:text-ink"}`}
+                className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-semibold transition-colors ${s.done ? "border-success/30 bg-tint-success text-success" : "border-rule bg-bg text-mute hover:border-faint hover:text-ink"}`}
               >
-                {s.done ? <Check size={12} /> : <span className="h-1.5 w-1.5 rounded-full bg-faint" />}
-                {s.label}
+                {s.done ? <Check size={12} className="shrink-0" /> : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-faint" />}
+                <span className="truncate">{s.label}</span>
               </Link>
             ))}
           </div>
@@ -339,23 +358,26 @@ export default async function TournamentDashboard({ params }: { params: Promise<
         {/* registration window + control */}
         <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
           <h2 className="mb-3 text-sm font-bold text-ink">Registration</h2>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${regOpen ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>
-            <Clock size={12} /> {regOpen ? "Open" : beforeRegOpen ? "Scheduled" : "Closed"}
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${regState === "open" ? "bg-tint-success text-success" : regState === "scheduled" ? "bg-tint-brand text-brand-deep" : "bg-bg text-mute"}`}>
+            <Clock size={12} /> {regState === "open" ? "Open" : regState === "scheduled" ? "Scheduled" : "Closed"}
           </span>
+          <p className="mt-2 text-xs leading-relaxed text-mute">{regReason}</p>
           <dl className="mt-3 space-y-1.5 text-xs">
-            <div className="flex justify-between gap-2"><dt className="text-mute">Opens</dt><dd className="text-right font-medium text-ink">{regOpensText ?? "—"}</dd></div>
-            <div className="flex justify-between gap-2"><dt className="text-mute">Closes</dt><dd className="text-right font-medium text-ink">{regDeadlineText ?? "—"}</dd></div>
+            <div className="flex justify-between gap-2"><dt className="text-mute">Opens</dt><dd className="text-right font-medium text-ink">{regOpensText ?? "Not set"}</dd></div>
+            <div className="flex justify-between gap-2"><dt className="text-mute">Closes</dt><dd className="text-right font-medium text-ink">{regDeadlineText ?? "Not set"}</dd></div>
           </dl>
           {regOpen ? (
             <form action={closeRegistration.bind(null, t.id)} className="mt-3">
               <button type="submit" className="press w-full rounded-xl border border-rule bg-bg px-3 py-2 text-sm font-semibold text-ink hover:border-faint">Close registration</button>
             </form>
-          ) : t.status === "published" || t.status === "registration_closed" ? (
+          ) : regDeadlinePassed && canControlReg ? (
+            <Link href={`${base}/settings#registration`} className="press mt-3 inline-flex w-full items-center justify-center rounded-xl border border-rule bg-bg px-3 py-2 text-sm font-semibold text-ink hover:border-faint">Extend the deadline</Link>
+          ) : canControlReg ? (
             <form action={openRegistration.bind(null, t.id)} className="mt-3">
-              <button type="submit" className="press w-full rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white hover:bg-ink-soft">{beforeRegOpen ? "Open now" : "Open registration"}</button>
+              <button type="submit" className="press w-full rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white hover:bg-ink-soft">{regState === "scheduled" ? "Open now" : "Open registration"}</button>
             </form>
           ) : (
-            <p className="mt-3 text-xs text-mute">Publish your event to open registration.</p>
+            <Link href={`${base}/settings#visibility`} className="press mt-3 inline-flex w-full items-center justify-center rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white hover:bg-ink-soft">Publish event</Link>
           )}
         </section>
 

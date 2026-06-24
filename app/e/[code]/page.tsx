@@ -73,7 +73,7 @@ function PublicBracket({ rounds }: { rounds: PublishedBracketRound[] }) {
                   const aWin = m.done && m.sa != null && m.sb != null && m.sa > m.sb;
                   const bWin = m.done && m.sa != null && m.sb != null && m.sb > m.sa;
                   return (
-                    <div key={i} className="rounded-xl border border-rule bg-surface px-3 py-2 text-sm">
+                    <div key={i} className="rounded-xl border border-rule bg-surface/90 px-3 py-2 text-sm">
                       <div className={`flex items-center justify-between gap-2 ${aWin ? "font-bold text-ink" : "text-ink-soft"}`}>
                         <span className="min-w-0 truncate">{m.a}</span>
                         <span className="shrink-0 font-mono text-xs tabular-nums">{m.sa ?? ""}</span>
@@ -96,7 +96,7 @@ function PublicBracket({ rounds }: { rounds: PublishedBracketRound[] }) {
 
 function SponsorCard({ s }: { s: Sponsor }) {
   const inner = (
-    <div className="relative flex h-full flex-col items-center gap-2.5 rounded-2xl border border-rule bg-surface p-4 text-center transition hover:border-faint">
+    <div className="relative flex h-full flex-col items-center gap-2.5 rounded-2xl border border-rule bg-surface/90 p-4 text-center transition hover:border-faint">
       {s.tier === "premium" ? (
         <span className="absolute right-2 top-2 rounded-full bg-tint-brand px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-deep">Premium</span>
       ) : null}
@@ -120,7 +120,7 @@ function SponsorCard({ s }: { s: Sponsor }) {
 
 function Fact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-rule bg-surface p-4">
+    <div className="rounded-2xl border border-rule bg-surface/90 p-4">
       <span className="flex items-center gap-1.5 text-mute">
         {icon}
         <span className="text-xs">{label}</span>
@@ -290,10 +290,12 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         photos={photos}
       />
 
-      {/* register / entry status */}
-      {myEntry ? (
+      {/* status row: registration / entry status + venue weather, side by side on desktop */}
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <div className={forecast ? "lg:col-span-2" : "lg:col-span-3"}>
+          {myEntry ? (
         myEntry.isTeam ? (
-          <div className="mt-4 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+          <div className="h-full rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="flex items-center gap-2 text-sm font-bold text-ink">
@@ -344,7 +346,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
             </div>
           </div>
         ) : (
-          <div className="mt-4 rounded-2xl border border-success/40 bg-tint-success p-4">
+          <div className="flex h-full flex-col justify-center rounded-3xl border border-success/40 bg-tint-success p-5">
             <p className="flex items-center gap-2 text-sm font-bold text-ink">
               <Check size={15} className="text-success" /> You&rsquo;re registered
             </p>
@@ -354,7 +356,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           </div>
         )
       ) : (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface p-4">
+        <div className="flex h-full flex-wrap items-center justify-between gap-3 rounded-3xl border border-rule bg-surface/90 p-5">
           <div>
             <p className="text-sm font-bold text-ink">{canSignUp ? "Registration is open" : deadlinePassed ? "Registration has closed" : "Registration isn't open yet"}</p>
             <p className="text-xs text-mute">{canSignUp ? "Secure your spot now." : "Follow this event to hear when sign-ups open."}</p>
@@ -369,11 +371,16 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
             </button>
           )}
         </div>
-      )}
+          )}
+        </div>
+        {forecast ? (
+          <WeatherForecastCard forecast={forecast} dateText={dateText} locationName={t.location_name} className="lg:col-span-1 lg:self-start" />
+        ) : null}
+      </div>
 
       {/* payment (registrant only) */}
       {myEntry && myEntry.iAmRegistrant ? (
-        <div className="mt-3 rounded-2xl border border-rule bg-surface p-4">
+        <div className="mt-3 rounded-2xl border border-rule bg-surface/90 p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-mute">Payment</p>
           {myEntry.paymentStatus === "confirmed" ? (
             <p className="flex items-center gap-1.5 text-sm font-medium text-success">
@@ -400,7 +407,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
       ) : null}
 
       {announcements.length ? (
-        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <section className="mt-6 rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
           <h2 className="mb-3 flex items-center gap-1.5 text-base font-bold text-ink">
             <Megaphone size={16} className="text-brand-deep" /> Announcements
           </h2>
@@ -421,7 +428,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
 
       {/* about */}
       {t.description ? (
-        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <section className="mt-6 rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
           <h2 className="mb-2 text-sm font-bold text-ink">About</h2>
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">{t.description}</p>
         </section>
@@ -429,7 +436,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
 
       {/* rules — collapsible, closed by default (can run long) */}
       {rulesText ? (
-        <details className="group mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <details className="group mt-6 rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
           <summary className="flex cursor-pointer list-none items-center gap-1.5 text-base font-bold text-ink [&::-webkit-details-marker]:hidden">
             <FileText size={16} className="text-brand-deep" /> Rules
             <ChevronDown size={16} className="ml-auto text-mute transition-transform group-open:rotate-180" />
@@ -440,16 +447,14 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
 
       {/* divisions */}
       {divs && divs.length ? (
-        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <section className="mt-6 rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
           <h2 className="mb-3 text-sm font-bold text-ink">Divisions &amp; fees</h2>
-          <div className="grid gap-2.5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {divs.map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-3 rounded-2xl border border-rule bg-bg/40 p-3.5">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink">{d.name}</p>
-                  {d.description ? <p className="truncate text-xs text-mute">{d.description}</p> : null}
-                </div>
-                <span className="shrink-0 text-sm font-semibold text-brand-deep">{formatFee(d.fee_cents, d.fee_basis)}</span>
+              <div key={d.id} className="flex flex-col rounded-2xl border border-rule bg-bg/40 p-4">
+                <p className="text-sm font-semibold text-ink">{d.name}</p>
+                {d.description ? <p className="mt-0.5 line-clamp-2 text-xs text-mute">{d.description}</p> : null}
+                <p className="mt-2 text-sm font-bold text-brand-deep">{formatFee(d.fee_cents, d.fee_basis)}</p>
               </div>
             ))}
           </div>
@@ -463,15 +468,9 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         <Fact icon={<Users size={16} />} label="Capacity" value={capacityText} />
       </section>
 
-      {forecast ? (
-        <div className="mt-6">
-          <WeatherForecastCard forecast={forecast} dateText={dateText} locationName={t.location_name} />
-        </div>
-      ) : null}
-
       {/* the draw (transparency) */}
       {drawnDivisions.length ? (
-        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <section className="mt-6 rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
           <h2 className="mb-1 flex items-center gap-1.5 text-sm font-bold text-ink">
             <Dices size={15} /> The draw
           </h2>
@@ -489,7 +488,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
       ) : null}
 
       {pubSchedule ? (
-        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <section className="mt-6 rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
           <div className="mb-1 flex items-center gap-2">
             <CalendarClock size={18} className="text-brand-deep" />
             <h2 className="text-base font-bold text-ink">Match schedule</h2>
@@ -522,7 +521,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
       ) : null}
 
       {pubResults ? (
-        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <section className="mt-6 rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
           <div className="mb-1 flex items-center gap-2">
             <Trophy size={18} className="text-brand-deep" />
             <h2 className="text-base font-bold text-ink">Results &amp; standings</h2>

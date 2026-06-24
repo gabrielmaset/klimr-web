@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CalendarClock, Medal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DivisionGroups } from "@/components/division-groups";
 import { DivisionBracket } from "@/components/division-bracket";
@@ -225,41 +225,66 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="kicker text-brand-deep">Competition</p>
-          <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Groups &amp; brackets</h1>
-          <p className="mt-2 max-w-2xl text-sm text-mute">
-            {formatType === "single_elim"
-              ? "Each division's bracket is drawn completely at random — no manual seeding — so it's fair and tamper-proof. Winners advance as you enter scores."
-              : "Each division is drawn into balanced pools completely at random — no manual seeding. Pool matches are created automatically; the knockout is then seeded by pool finish."}
-          </p>
-        </div>
-        {divs.length > 0 ? (
-          <div className="flex flex-col items-start gap-2 sm:items-end">
-            {scheduleReady ? (
-              <Link
-                href={`/tournament/${id}/schedule`}
-                className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition hover:bg-ink-soft"
-              >
-                Send to schedule <ArrowRight size={15} />
-              </Link>
-            ) : (
-              <span
-                aria-disabled
-                title="Add entries and draw every pool first"
-                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full bg-ink/40 px-4 py-2 text-sm font-semibold text-surface"
-              >
-                Send to schedule <ArrowRight size={15} />
-              </span>
-            )}
-            {!scheduleReady ? <p className="text-[11px] text-mute sm:text-right">Available once entries are in and every pool is filled.</p> : null}
-            <AwardPointsButton tournamentId={id} awarded={awardedCount ?? 0} ready={allResultsIn} />
-          </div>
-        ) : null}
+      {/* header */}
+      <div className="mb-6">
+        <p className="kicker text-brand-deep">Competition</p>
+        <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Groups &amp; brackets</h1>
+        <p className="mt-2 max-w-2xl text-sm text-mute">
+          {formatType === "single_elim"
+            ? "Each division's bracket is drawn completely at random — no manual seeding — so it's fair and tamper-proof. Winners advance as you enter scores."
+            : "Each division is drawn into balanced pools completely at random — no manual seeding. Pool matches are created automatically; the knockout is then seeded by pool finish."}
+        </p>
       </div>
+
+      {/* next steps — what to do with the draw, in workflow order */}
       {divs.length > 0 ? (
-        <div className="mb-5">
+        <div className="mb-6 grid gap-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* schedule */}
+            <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${scheduleReady ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>
+                    <CalendarClock size={18} />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-bold text-ink">Schedule &amp; scores</h2>
+                    <p className="max-w-md text-xs text-mute">Assign courts and start times for every match, then run scoring on the day.</p>
+                  </div>
+                </div>
+                {scheduleReady ? (
+                  <Link href={`/tournament/${id}/schedule`} className="press inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink-soft">
+                    Send to schedule <ArrowRight size={15} />
+                  </Link>
+                ) : (
+                  <div className="flex flex-col items-start gap-1 sm:items-end">
+                    <span aria-disabled className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-xl border border-rule bg-bg px-4 py-2 text-sm font-semibold text-faint">
+                      Send to schedule <ArrowRight size={15} />
+                    </span>
+                    <p className="text-[11px] text-faint">Available once every pool is filled</p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* ranking points */}
+            <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${allResultsIn ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>
+                    <Medal size={18} />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-bold text-ink">Ranking points</h2>
+                    <p className="max-w-md text-xs text-mute">Turn the final results into ranking points for every player.</p>
+                  </div>
+                </div>
+                <AwardPointsButton tournamentId={id} awarded={awardedCount ?? 0} ready={allResultsIn} />
+              </div>
+            </section>
+          </div>
+
+          {/* publish to public */}
           <ResultsPublisher
             tournamentId={id}
             publicCode={t.code ?? null}
