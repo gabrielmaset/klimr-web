@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { KlimrLogo } from "@/components/logo";
+import { publicBgHex, type TournamentFormatConfig } from "@/lib/tournament";
 
 // The public event surface is a live view of the event. Render fresh from the
 // database on every request and never store fetches in the data cache, so any
@@ -13,15 +14,21 @@ export const revalidate = 0;
 /** The public event page is the event's advertisement: a standalone page with a
  *  slim Klimr header and no left menu. It needs no account to view; the header
  *  funnels logged-out visitors into Sign in / Join so they can register. */
-export default async function PublicEventLayout({ children }: { children: React.ReactNode }) {
+export default async function PublicEventLayout({ children, params }: { children: React.ReactNode; params: Promise<{ code: string }> }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Background colour is the organiser's choice (Settings → Public page background).
+  // Read fresh each request — force-dynamic above — so a change shows on one refresh.
+  const { code } = await params;
+  const { data: t } = await supabase.from("tournaments").select("format_config").eq("code", code).maybeSingle();
+  const bg = publicBgHex((t?.format_config as TournamentFormatConfig | null)?.public_bg);
+
   return (
-    <div className="flex min-h-dvh flex-col bg-bg">
-      <header className="sticky top-0 z-30 border-b border-rule/70 bg-bg/80 backdrop-blur-xl backdrop-saturate-150">
+    <div className="flex min-h-dvh flex-col" style={{ backgroundColor: bg }}>
+      <header className="sticky top-0 z-30 border-b border-rule/70 bg-white/70 backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto flex max-w-page items-center justify-between gap-3 px-5 py-3">
           <Link href="/" aria-label="Klimr home" className="press">
             <KlimrLogo />

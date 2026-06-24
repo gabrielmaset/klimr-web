@@ -419,7 +419,7 @@ export async function saveSponsors(tournamentId: string, sponsors: Sponsor[]) {
     const tier = s.tier === "premium" ? "premium" : "standard";
     const raw = s.url ? String(s.url).trim() : "";
     const url = raw ? (/^https?:\/\//i.test(raw) ? raw : `https://${raw}`).slice(0, 300) : null;
-    const photos = tier === "premium" && Array.isArray(s.photos) ? s.photos.filter((p) => typeof p === "string" && p).slice(0, 3) : [];
+    const photos = tier === "premium" && Array.isArray(s.photos) ? s.photos.filter((p) => typeof p === "string" && p).slice(0, 1) : [];
     return {
       id: typeof s.id === "string" && s.id ? s.id.slice(0, 64) : randomUUID(),
       name: String(s.name ?? "").trim().slice(0, 120) || "Sponsor",

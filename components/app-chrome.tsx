@@ -8,16 +8,18 @@ import { SiteFooter } from "@/components/site-footer";
 import { TopBar, type NextMatch } from "@/components/top-bar";
 import { CommandPalette } from "@/components/command-palette";
 import type { PresenceMode } from "@/app/account/presence";
+import { isStandalonePath } from "@/lib/nav-chrome";
 
 type Team = { id: string; name: string; sport_key: string; category: string };
 
 /**
- * The signed-in chrome (sidebar, top bar, footer). The team (/team/[id]/*) and
- * tournament (/tournament/[id]/*) workspaces render their own chrome via their
- * own layouts, so the personal shell steps aside for them. This decision is made
- * client-side from usePathname so it updates correctly on in-app navigation
- * (e.g. switching out of a Pro workspace into a recreational team page) — doing
- * it in the shared root layout left the chrome stale after a soft navigation.
+ * The signed-in chrome (sidebar, top bar, footer). Standalone surfaces — the
+ * public event page (/e/...) and the /team/[id] and /tournament/[id] workspaces,
+ * which supply their own chrome — step aside via the shared isStandalonePath
+ * rule. The check runs client-side from usePathname so it is re-evaluated on
+ * every in-app navigation; doing it server-side in the shared root layout left
+ * the shell stale after a soft navigation (e.g. arriving at /teams from a public
+ * event page showed no sidebar).
  */
 export function AppChrome({
   children,
@@ -45,9 +47,7 @@ export function AppChrome({
   nextMatch: NextMatch;
 }) {
   const pathname = usePathname();
-  if (pathname.startsWith("/team/") || pathname.startsWith("/tournament/") || pathname.startsWith("/e/")) {
-    return <>{children}</>;
-  }
+  if (isStandalonePath(pathname)) return <>{children}</>;
 
   return (
     <div className="flex min-h-dvh">

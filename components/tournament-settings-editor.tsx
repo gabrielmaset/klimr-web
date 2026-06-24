@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Loader2, MapPin, Globe, Lock, Rocket } from "lucide-react";
 import { Toggle, Segmented, OptionCards } from "@/components/form-kit";
 import { SPORTS, sportMeta } from "@/lib/sports";
-import { isoToLocalInput, localInputToIso, type FormatType, type TournamentDraftPatch } from "@/lib/tournament";
+import { isoToLocalInput, localInputToIso, PUBLIC_BG_OPTIONS, type FormatType, type TournamentDraftPatch } from "@/lib/tournament";
 import { updateTournamentDraft, publishTournament, unpublishTournament } from "@/app/tournaments/actions";
 import { resolveTeamZip } from "@/app/teams/actions";
 import { DateTimeField } from "@/components/date-time-field";
@@ -42,6 +42,7 @@ export type SettingsInit = {
   require_waiver: boolean;
   require_rules: boolean;
   signupFormReady: boolean;
+  public_bg: string;
 };
 
 const inputCls = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand";
@@ -198,6 +199,9 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
   const [rules, setRules] = useState(init.rules_text);
   const [reqWaiver, setReqWaiver] = useState(init.require_waiver);
   const [reqRules, setReqRules] = useState(init.require_rules);
+
+  // public page appearance
+  const [publicBg, setPublicBg] = useState(init.public_bg);
 
   // Publishing
   const [pubBusy, setPubBusy] = useState(false);
@@ -456,6 +460,35 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
           <textarea className={`${inputCls} min-h-32 resize-y`} value={rules} onChange={(e) => setRules(e.target.value)} placeholder="Event rules, format details, conduct…" />
         </div>
         <Toggle checked={reqRules} onChange={setReqRules} label="Require rules acknowledgement" description="Each participant must acknowledge the rules before they're confirmed." />
+      </SectionCard>
+
+      <SectionCard
+        id="appearance"
+        title="Public page background"
+        desc="Choose a background colour for your public event page. White cards sit on top, so each option stays light and keeps text easy to read — pick the one that fits your event's vibe."
+        onSave={() => save({ format_config: { public_bg: publicBg } })}
+      >
+        <div className="flex flex-wrap gap-3">
+          {PUBLIC_BG_OPTIONS.map((o) => {
+            const active = publicBg === o.key;
+            return (
+              <button
+                key={o.key}
+                type="button"
+                onClick={() => setPublicBg(o.key)}
+                aria-pressed={active}
+                aria-label={o.label}
+                className={`flex flex-col items-center gap-1.5 rounded-2xl border p-2 transition ${active ? "border-brand ring-2 ring-brand/30" : "border-rule hover:border-faint"}`}
+              >
+                {/* swatch with a mini white "card" to preview how content floats on the colour */}
+                <span className="grid h-14 w-20 place-items-center rounded-xl border border-rule" style={{ backgroundColor: o.hex }}>
+                  <span className="h-7 w-12 rounded-md bg-white shadow-sm" />
+                </span>
+                <span className={`text-xs font-semibold ${active ? "text-ink" : "text-mute"}`}>{o.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </SectionCard>
 
       <section id="visibility" className="scroll-mt-24 rounded-3xl border border-rule bg-surface p-5 sm:p-6">

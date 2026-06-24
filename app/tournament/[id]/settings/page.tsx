@@ -53,6 +53,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
     require_waiver: !!legal.require_waiver,
     require_rules: !!legal.require_rules,
     signupFormReady,
+    public_bg: fc.public_bg ?? "default",
   };
 
   return (

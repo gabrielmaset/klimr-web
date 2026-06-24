@@ -44,7 +44,7 @@ export type Sponsor = {
   url?: string | null;
   tier: "premium" | "standard";
   logo?: string | null;
-  photos?: string[]; // premium only, up to 3
+  photos?: string[]; // premium only, a single promo image (index 0)
   blurb?: string | null;
 };
 
@@ -67,6 +67,7 @@ export type TournamentFormatConfig = {
   sponsors?: Sponsor[];
   announcements?: Announcement[];
   gallery?: string[];
+  public_bg?: string; // public-page background colour key (see PUBLIC_BG_OPTIONS); default canvas when unset
   capacity_mode?: "pooled" | "per_division";
   capacity_unit?: "team" | "person";
   legal?: {
@@ -76,6 +77,30 @@ export type TournamentFormatConfig = {
     require_rules?: boolean;
   };
 };
+
+/**
+ * Curated background colours for the public event page. White content cards
+ * (#ffffff) sit on this canvas, so every option is a light, low-saturation tint
+ * (lightness ~95%): subtle enough to keep dark text readable and let the cards
+ * float, distinct enough in hue that organisers can match an event's vibe. The
+ * choice is stored as a key in format_config.public_bg; unknown / unset maps to
+ * the default canvas. Hues are spread around the wheel and all coexist with the
+ * orange brand accent (#ff4e1b).
+ */
+export const PUBLIC_BG_DEFAULT = "#fafafa";
+export const PUBLIC_BG_OPTIONS: { key: string; label: string; hex: string }[] = [
+  { key: "default", label: "Default", hex: PUBLIC_BG_DEFAULT }, // cool near-white (current)
+  { key: "slate", label: "Slate", hex: "#eef1f7" }, // cool blue-grey — calm, professional
+  { key: "sage", label: "Sage", hex: "#eef2ec" }, // soft green — fresh, outdoor
+  { key: "sand", label: "Sand", hex: "#f6f0e6" }, // warm cream — premium, beach; closest to brand
+  { key: "blush", label: "Blush", hex: "#f9eef0" }, // soft rose — warm, friendly
+  { key: "periwinkle", label: "Periwinkle", hex: "#eef0fa" }, // soft indigo — modern, creative
+];
+
+/** Resolve a stored public_bg key to its hex, falling back to the default canvas. */
+export function publicBgHex(key?: string | null): string {
+  return PUBLIC_BG_OPTIONS.find((o) => o.key === key)?.hex ?? PUBLIC_BG_DEFAULT;
+}
 
 // Whitelisted set of editable fields the setup wizard can patch.
 export type TournamentDraftPatch = {

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, ClipboardList, CreditCard, CalendarClock, ListChecks,
-  Network, Handshake, Megaphone, FileText, Settings, Globe, ChevronLeft, Layers, Users,
+  Network, Handshake, Megaphone, Settings, Globe, ChevronLeft, Layers, Users,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
@@ -30,15 +30,23 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
   const meta = sportMeta(tournament.sport_key);
   const roleLabel = role === "owner" ? "Owner" : "Manager";
 
-  // Grouped like an event-management console: overview, then registration,
-  // competition, promotion, and setup.
+  // Grouped by what each tool is for, in event-lifecycle order: an overview,
+  // then Setup (define the event), Registration (manage entrants), Competition
+  // (run the draws & schedule), and Promotion (public-facing). Legal (waiver &
+  // rules) is a section of Settings, so it isn't a separate item.
   const groups: { header?: string; items: Item[] }[] = [
     { items: [{ href: base, label: "Dashboard", Icon: LayoutDashboard, exact: true }] },
     {
+      header: "Setup",
+      items: [
+        { href: `${base}/settings`, label: "Settings", Icon: Settings },
+        { href: `${base}/divisions`, label: "Divisions & Fees", Icon: Layers },
+        { href: `${base}/form`, label: "Sign-up form", Icon: ClipboardList },
+      ],
+    },
+    {
       header: "Registration",
       items: [
-        { href: `${base}/divisions`, label: "Divisions", Icon: Layers },
-        { href: `${base}/form`, label: "Sign-up form", Icon: ClipboardList },
         { href: `${base}/registrations`, label: "Registrations", Icon: Users },
         { href: `${base}/payments`, label: "Payments", Icon: CreditCard },
       ],
@@ -46,8 +54,8 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
     {
       header: "Competition",
       items: [
-        { href: `${base}/schedule`, label: "Schedule", Icon: CalendarClock },
         { href: `${base}/brackets`, label: "Groups & brackets", Icon: Network },
+        { href: `${base}/schedule`, label: "Schedule", Icon: CalendarClock },
         { href: `${base}/planner`, label: "Day planner", Icon: ListChecks },
       ],
     },
@@ -56,13 +64,6 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       items: [
         { href: `${base}/sponsors`, label: "Sponsors", Icon: Handshake },
         { href: `${base}/announcements`, label: "Announcements", Icon: Megaphone },
-      ],
-    },
-    {
-      header: "Setup",
-      items: [
-        { href: `${base}/legal`, label: "Legal", Icon: FileText },
-        { href: `${base}/settings`, label: "Settings", Icon: Settings },
       ],
     },
   ];

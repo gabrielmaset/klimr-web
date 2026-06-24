@@ -9,7 +9,7 @@ import type { Sponsor } from "@/lib/tournament";
 
 const BUCKET = "tournament-gallery";
 const MAX_SPONSORS = 40;
-const MAX_PHOTOS = 3;
+const MAX_PHOTOS = 1;
 
 type Row = { id: string; name: string; url: string; tier: "premium" | "standard"; logo: string | null; photos: string[]; blurb: string };
 
@@ -83,7 +83,7 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
       const current = rows.find((r) => r.id === id)?.photos ?? [];
       const room = MAX_PHOTOS - current.length;
       if (room <= 0) {
-        setErr(`Up to ${MAX_PHOTOS} photos per sponsor.`);
+        setErr("Premium sponsors can have one promo image.");
         return;
       }
       const added: string[] = [];
@@ -128,7 +128,7 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
   return (
     <div>
       <div className="mb-4 rounded-2xl border border-dashed border-rule bg-bg/40 px-4 py-3 text-xs text-mute">
-        Standard sponsors appear in a logo strip on your public page. <span className="font-semibold text-ink">Premium</span> sponsors get a featured spot with up to {MAX_PHOTOS} photos, shown like an ad.
+        All sponsors are listed in a logo grid on your public page. <span className="font-semibold text-ink">Premium</span> sponsors also rotate through a featured ad spot — with a logo, a short blurb, and one promo image.
       </div>
 
       {rows.length === 0 ? (
@@ -202,7 +202,7 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-brand-deep">Featured ad</p>
                     <label className="mb-1 block text-xs font-semibold text-mute">Short blurb</label>
                     <textarea className={`${inputCls} min-h-20 resize-y`} value={r.blurb} onChange={(e) => patch(r.id, { blurb: e.target.value })} placeholder="One or two lines about this sponsor…" />
-                    <label className="mb-1 mt-3 block text-xs font-semibold text-mute">Photos ({r.photos.length}/{MAX_PHOTOS})</label>
+                    <label className="mb-1 mt-3 block text-xs font-semibold text-mute">Promo image</label>
                     <div className="flex flex-wrap items-center gap-2.5">
                       {r.photos.map((p) => (
                         <span key={p} className="relative">
@@ -216,7 +216,7 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
                       {r.photos.length < MAX_PHOTOS ? (
                         <label className="press inline-flex h-20 w-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-rule bg-surface text-xs font-semibold text-mute transition hover:border-brand">
                           {busy ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />} Add photo
-                          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => onPhotos(r.id, e)} />
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => onPhotos(r.id, e)} />
                         </label>
                       ) : null}
                     </div>

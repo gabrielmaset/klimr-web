@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Users, Trophy, Check, Dices, ExternalLink, FileText, Megaphone, Pin } from "lucide-react";
+import { CalendarClock, Users, Trophy, Check, Dices, FileText, Megaphone, Pin, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { formatFee, isRegistrationOpen, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Announcement } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventHero } from "@/components/event-hero";
+import { PremiumSponsorAd } from "@/components/sponsor-ad";
+import { WeatherForecastCard } from "@/components/weather-card";
+import { getEventForecast } from "@/lib/weather";
 
 // Always render the public page fresh — see app/e/[code]/layout.tsx. Repeated
 // here so the page's live-feed behavior is explicit and regression-proof.
@@ -91,37 +94,27 @@ function PublicBracket({ rounds }: { rounds: PublishedBracketRound[] }) {
   );
 }
 
-function PremiumSponsorAd({ s }: { s: Sponsor }) {
-  const photos = Array.isArray(s.photos) ? s.photos.slice(0, 3) : [];
-  return (
-    <div className="overflow-hidden rounded-3xl border border-brand/30 bg-[linear-gradient(135deg,#ffffff,#fff6f2)] shadow-sm">
-      <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center">
-        <div className="lg:w-[38%] lg:shrink-0">
-          <p className="kicker text-brand-deep">Sponsor</p>
-          <div className="mt-1.5 flex items-center gap-3">
-            {s.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={s.logo} alt="" className="h-12 w-12 rounded-xl border border-rule bg-white object-contain p-1" />
-            ) : null}
-            <h3 className="font-display text-2xl leading-tight text-ink">{s.name}</h3>
-          </div>
-          {s.blurb ? <p className="mt-2 text-sm leading-relaxed text-mute">{s.blurb}</p> : null}
-          {s.url ? (
-            <a href={s.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep">
-              Visit <ExternalLink size={14} />
-            </a>
-          ) : null}
-        </div>
-        {photos.length ? (
-          <div className={`grid flex-1 gap-2 ${photos.length === 1 ? "grid-cols-1" : photos.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-            {photos.map((p, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={p} alt="" className="aspect-[4/3] w-full rounded-2xl object-cover" loading="lazy" />
-            ))}
-          </div>
-        ) : null}
-      </div>
+function SponsorCard({ s }: { s: Sponsor }) {
+  const inner = (
+    <div className="relative flex h-full flex-col items-center gap-2.5 rounded-2xl border border-rule bg-surface p-4 text-center transition hover:border-faint">
+      {s.tier === "premium" ? (
+        <span className="absolute right-2 top-2 rounded-full bg-tint-brand px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-deep">Premium</span>
+      ) : null}
+      {s.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={s.logo} alt="" className="h-20 w-full rounded-xl border border-rule bg-white object-contain p-2" />
+      ) : (
+        <span className="grid h-20 w-full place-items-center rounded-xl bg-tint-brand text-3xl font-bold text-brand-deep">{s.name.slice(0, 1).toUpperCase()}</span>
+      )}
+      <span className="text-sm font-semibold text-ink">{s.name}</span>
     </div>
+  );
+  return s.url ? (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" className="block">
+      {inner}
+    </a>
+  ) : (
+    inner
   );
 }
 
@@ -149,7 +142,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // means "no such (visible) event" → 404. The page needs no account to view.
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, capacity, registration_opens_at, registration_deadline, format_config")
+    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, location_lat, location_lng, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
     .eq("code", code)
     .maybeSingle();
   if (!t) notFound();
@@ -185,6 +178,13 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const dateText = t.starts_at
     ? new Date(t.starts_at).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" })
     : null;
+  const forecast = t.weather_enabled
+    ? await getEventForecast({ lat: t.location_lat, lng: t.location_lng, startsAt: t.starts_at, timezone: t.timezone })
+    : null;
+  // Capacity shown WITH its unit so it can't be misread against per-player fees.
+  const capUnit = fc.capacity_unit === "person" ? "players" : t.entry_type === "team" ? "teams" : "players";
+  const capacityText =
+    fc.capacity_mode === "per_division" ? "By division" : t.capacity ? `${t.capacity} ${capUnit}` : "Open";
   // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
   const deadlinePassed = !!t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now();
   const canSignUp = isRegistrationOpen(t);
@@ -427,6 +427,17 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         </section>
       ) : null}
 
+      {/* rules — collapsible, closed by default (can run long) */}
+      {rulesText ? (
+        <details className="group mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-base font-bold text-ink [&::-webkit-details-marker]:hidden">
+            <FileText size={16} className="text-brand-deep" /> Rules
+            <ChevronDown size={16} className="ml-auto text-mute transition-transform group-open:rotate-180" />
+          </summary>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">{rulesText}</p>
+        </details>
+      ) : null}
+
       {/* divisions */}
       {divs && divs.length ? (
         <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
@@ -445,6 +456,19 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         </section>
       ) : null}
 
+      {/* quick facts */}
+      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Fact icon={<Trophy size={16} />} label="Sport" value={meta.name} />
+        <Fact icon={<Users size={16} />} label="Entry" value={t.entry_type === "team" ? "Teams" : "Individuals"} />
+        <Fact icon={<Users size={16} />} label="Capacity" value={capacityText} />
+      </section>
+
+      {forecast ? (
+        <div className="mt-6">
+          <WeatherForecastCard forecast={forecast} dateText={dateText} locationName={t.location_name} />
+        </div>
+      ) : null}
+
       {/* the draw (transparency) */}
       {drawnDivisions.length ? (
         <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
@@ -461,64 +485,6 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
               </li>
             ))}
           </ul>
-        </section>
-      ) : null}
-
-      {/* quick facts */}
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Fact icon={<Trophy size={16} />} label="Sport" value={meta.name} />
-        <Fact icon={<Users size={16} />} label="Entry" value={t.entry_type === "team" ? "Teams" : "Individuals"} />
-        <Fact icon={<Users size={16} />} label="Capacity" value={t.capacity ? String(t.capacity) : "Open"} />
-      </section>
-
-      {sponsors.length ? (
-        <section className="mt-6">
-          {premiumSponsors.length ? (
-            <div className="grid gap-4">
-              {premiumSponsors.map((s) => (
-                <PremiumSponsorAd key={s.id} s={s} />
-              ))}
-            </div>
-          ) : null}
-          <div className={`rounded-3xl border border-rule bg-surface p-5 sm:p-6 ${premiumSponsors.length ? "mt-4" : ""}`}>
-            <p className="kicker mb-3 text-mute">Sponsors &amp; partners</p>
-            <div className="-mx-1 overflow-x-auto pb-1">
-              <div className="flex min-w-max gap-3 px-1">
-                {sponsors.map((s) => {
-                  const inner = (
-                    <>
-                      {s.logo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={s.logo} alt="" className="h-9 w-9 rounded-lg border border-rule bg-white object-contain p-0.5" />
-                      ) : (
-                        <span className="grid h-9 w-9 place-items-center rounded-lg bg-tint-brand text-sm font-bold text-brand-deep">{s.name.slice(0, 1).toUpperCase()}</span>
-                      )}
-                      <span className="whitespace-nowrap text-sm font-semibold text-ink">{s.name}</span>
-                      {s.tier === "premium" ? <span className="rounded-full bg-tint-brand px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-deep">Premium</span> : null}
-                    </>
-                  );
-                  return s.url ? (
-                    <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-2.5 rounded-2xl border border-rule bg-bg/50 px-4 py-3 transition hover:border-faint">
-                      {inner}
-                    </a>
-                  ) : (
-                    <span key={s.id} className="flex shrink-0 items-center gap-2.5 rounded-2xl border border-rule bg-bg/50 px-4 py-3">
-                      {inner}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {rulesText ? (
-        <section className="mt-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
-          <h2 className="mb-2 flex items-center gap-1.5 text-base font-bold text-ink">
-            <FileText size={16} className="text-brand-deep" /> Rules
-          </h2>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">{rulesText}</p>
         </section>
       ) : null}
 
@@ -580,6 +546,21 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
                 ) : null}
               </div>
             ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* sponsors — featured premium slot (rotates), then all partners */}
+      {sponsors.length ? (
+        <section className="mt-6">
+          {premiumSponsors.length ? <PremiumSponsorAd sponsors={premiumSponsors} /> : null}
+          <div className={premiumSponsors.length ? "mt-4" : ""}>
+            <p className="kicker mb-3 text-mute">Sponsors &amp; partners</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {sponsors.map((s) => (
+                <SponsorCard key={s.id} s={s} />
+              ))}
+            </div>
           </div>
         </section>
       ) : null}

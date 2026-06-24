@@ -1,29 +1,32 @@
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { KlimrLogo } from "@/components/logo";
 import { type NextMatch } from "@/components/top-bar";
 import { AppChrome } from "@/components/app-chrome";
+import { PublicChrome } from "@/components/public-chrome";
 import type { PresenceMode } from "@/app/account/presence";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getTopBarData } from "@/lib/chrome-data";
+import { isStandalonePath } from "@/lib/nav-chrome";
 import { headers } from "next/headers";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
-  // The public event (advertisement) page renders fully standalone — no app
-  // sidebar, top bar, or footer — in both auth states; its own layout supplies a
-  // slim header. Path comes from the x-pathname header set in middleware.
-  const pathname = (await headers()).get("x-pathname") ?? "";
-  if (pathname.startsWith("/e/")) return <>{children}</>;
-
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // The public event page (/e/...) and the team/tournament workspaces are
+  // "standalone" — they bring their own chrome — so they must render in every
+  // auth state, including for a user who still owes a 2FA step-up. We read the
+  // server path here only to let those surfaces skip the MFA gate below; the
+  // actual show/hide of the shell is decided client-side (AppChrome /
+  // PublicChrome) so it never goes stale on in-app navigation.
+  const serverPath = (await headers()).get("x-pathname") ?? "";
+  const standalone = isStandalonePath(serverPath);
+
   // MFA pending (signed in at aal1 but a step-up is required): show ONLY the
   // 2FA challenge — no sidebar, no name, no account chrome.
-  if (user) {
+  if (user && !standalone) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
       return (
@@ -81,15 +84,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     nextMatch = bar.nextMatch;
   }
 
-  // Logged-out: simple top bar + content + footer (marketing / auth pages).
+  // Logged-out: a client chrome that shows the slim top bar + footer on normal
+  // pages and steps aside on standalone surfaces — decided from the live path so
+  // it stays correct across soft navigation.
   if (!user) {
-    return (
-      <div className="flex min-h-full flex-col">
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter authed={false} />
-      </div>
-    );
+    return <PublicChrome>{children}</PublicChrome>;
   }
 
   // Signed-in: chrome decided client-side (so it updates across in-app navigation).
