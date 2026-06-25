@@ -67,21 +67,23 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
         <p className="mt-2 text-sm text-mute">Edit any part of your event — changes save section by section, anytime.</p>
       </div>
 
-      <TournamentSettingsEditor init={init} />
-
-      <section className="mt-4 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
-        <h2 className="text-base font-bold text-ink">Event photos</h2>
-        <p className="mb-4 mt-0.5 text-sm text-mute">A gallery on your public page — add shots from past tournaments, the venue, or the crowd.</p>
-        <GalleryEditor tournamentId={t.id} initial={Array.isArray(fc.gallery) ? fc.gallery : []} />
-      </section>
-
-      <div className="mt-4">
-        {isOwner ? (
-          <DeleteEvent id={t.id} title={t.title} />
-        ) : (
-          <section className="rounded-3xl border border-rule bg-surface p-5 text-sm text-mute">Only the event owner can delete this event.</section>
-        )}
-      </div>
+      <TournamentSettingsEditor
+        init={init}
+        gallerySlot={
+          <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+            <h2 className="text-base font-bold text-ink">Event photos</h2>
+            <p className="mb-4 mt-0.5 text-sm text-mute">A gallery on your public page — add shots from past tournaments, the venue, or the crowd.</p>
+            <GalleryEditor tournamentId={t.id} initial={Array.isArray(fc.gallery) ? fc.gallery : []} />
+          </section>
+        }
+        dangerSlot={
+          isOwner ? (
+            <DeleteEvent id={t.id} title={t.title} />
+          ) : (
+            <section className="rounded-3xl border border-rule bg-surface p-5 text-sm text-mute">Only the event owner can delete this event.</section>
+          )
+        }
+      />
     </div>
   );
 }

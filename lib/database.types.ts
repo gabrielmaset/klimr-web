@@ -949,9 +949,9 @@ export interface Database {
         Relationships: [];
       };
       tournament_divisions: {
-        Row: { id: string; tournament_id: string; name: string; description: string | null; fee_cents: number; fee_basis: string; capacity: number | null; sort_order: number; created_at: string; updated_at: string };
-        Insert: { id?: string; tournament_id: string; name: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; sort_order?: number; created_at?: string; updated_at?: string };
-        Update: { name?: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; sort_order?: number; updated_at?: string };
+        Row: { id: string; tournament_id: string; name: string; description: string | null; fee_cents: number; fee_basis: string; capacity: number | null; group_count: number | null; group_size: number | null; sort_order: number; created_at: string; updated_at: string };
+        Insert: { id?: string; tournament_id: string; name: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; group_count?: number | null; group_size?: number | null; sort_order?: number; created_at?: string; updated_at?: string };
+        Update: { name?: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; group_count?: number | null; group_size?: number | null; sort_order?: number; updated_at?: string };
         Relationships: [];
       };
       tournament_groups: {

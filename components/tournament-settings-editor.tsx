@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, MapPin, Globe, Lock, Rocket } from "lucide-react";
 import { Toggle, Segmented, OptionCards } from "@/components/form-kit";
+import { SettingsShell, type SettingsSection } from "@/components/settings-shell";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { isoToLocalInput, localInputToIso, PUBLIC_BG_OPTIONS, type FormatType, type TournamentDraftPatch } from "@/lib/tournament";
 import { updateTournamentDraft, publishTournament, unpublishTournament } from "@/app/tournaments/actions";
@@ -150,7 +152,7 @@ function VisibilityRow({ init }: { init: SettingsInit }) {
   );
 }
 
-export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
+export function TournamentSettingsEditor({ init, gallerySlot, dangerSlot }: { init: SettingsInit; gallerySlot?: ReactNode; dangerSlot?: ReactNode }) {
   const router = useRouter();
   const save = (patch: TournamentDraftPatch) => updateTournamentDraft(init.id, patch);
 
@@ -228,8 +230,11 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
     setPubBusy(false);
   }
 
-  return (
-    <div className="grid gap-4">
+  const sections: SettingsSection[] = [
+    {
+      key: "details",
+      label: "Event details",
+      content: (
       <SectionCard
         id="details"
         title="Event details"
@@ -273,7 +278,12 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
           <textarea className={`${inputCls} min-h-32 resize-y`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Format, what to bring, prizes, schedule overview…" />
         </div>
       </SectionCard>
-
+      ),
+    },
+    {
+      key: "location",
+      label: "Date & location",
+      content: (
       <SectionCard
         id="location"
         title="Date & location"
@@ -329,7 +339,12 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
         </div>
         <Toggle checked={weather} onChange={setWeather} label="Show a weather forecast" description="Display the venue's forecast on the public page, powered by Open-Meteo." />
       </SectionCard>
-
+      ),
+    },
+    {
+      key: "format",
+      label: "Format & eligibility",
+      content: (
       <SectionCard
         id="format"
         title="Format & eligibility"
@@ -461,7 +476,12 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
           <p className={hintCls}>Court count is set on the Schedule page when you build the match schedule.</p>
         </div>
       </SectionCard>
-
+      ),
+    },
+    {
+      key: "registration",
+      label: "Registration window",
+      content: (
       <SectionCard
         id="registration"
         title="Registration window"
@@ -490,7 +510,12 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
           .
         </div>
       </SectionCard>
-
+      ),
+    },
+    {
+      key: "legal",
+      label: "Legal",
+      content: (
       <SectionCard
         id="legal"
         title="Legal"
@@ -508,7 +533,12 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
         </div>
         <Toggle checked={reqRules} onChange={setReqRules} label="Require rules acknowledgement" description="Each participant must acknowledge the rules before they're confirmed." />
       </SectionCard>
-
+      ),
+    },
+    {
+      key: "appearance",
+      label: "Public page background",
+      content: (
       <SectionCard
         id="appearance"
         title="Public page background"
@@ -537,7 +567,12 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
           })}
         </div>
       </SectionCard>
-
+      ),
+    },
+    {
+      key: "visibility",
+      label: "Visibility & publishing",
+      content: (
       <section id="visibility" className="scroll-mt-24 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
         <div className="flex items-start gap-2.5">
           <span className="mt-1 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-brand to-brand-deep" />
@@ -589,6 +624,11 @@ export function TournamentSettingsEditor({ init }: { init: SettingsInit }) {
           {pubErr ? <p className="mt-2 text-sm font-semibold text-brand-deep">{pubErr}</p> : null}
         </div>
       </section>
-    </div>
-  );
+      ),
+    },
+  ];
+  if (gallerySlot) sections.push({ key: "photos", label: "Event photos", content: gallerySlot });
+  if (dangerSlot) sections.push({ key: "danger", label: "Danger zone", content: dangerSlot });
+
+  return <SettingsShell sections={sections} ariaLabel="Tournament settings" />;
 }

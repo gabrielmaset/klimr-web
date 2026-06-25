@@ -75,7 +75,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
   const { count: openMatches } = await supabase.from("tournament_matches").select("id", { count: "exact", head: true }).eq("tournament_id", id).neq("status", "completed");
   const allResultsIn = (totalMatches ?? 0) > 0 && (openMatches ?? 0) === 0;
 
-  const { data: divisions } = await supabase.from("tournament_divisions").select("id, name, sort_order, capacity").eq("tournament_id", id).order("sort_order");
+  const { data: divisions } = await supabase.from("tournament_divisions").select("id, name, sort_order, capacity, group_count, group_size").eq("tournament_id", id).order("sort_order");
   const divs = divisions ?? [];
 
   let body: React.ReactNode;
@@ -152,12 +152,11 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
       const allGroups = groups ?? [];
       const allGe = ge ?? [];
       const defaultPools = formatType === "pools_knockout" ? fc.pool_count ?? 2 : 1;
+      const defaultPerGroup = 4;
       const isKnockout = formatType === "pools_knockout";
-      // Capacity preview: in a shared (pooled) event the 32-team cap is split across
-      // divisions, so each division's placeholder pools only fill its share — no doubling.
-      const capMode: "pooled" | "per_division" = fc.capacity_mode === "per_division" ? "per_division" : "pooled";
-      const sharedTotal = capMode === "pooled" ? t.capacity ?? null : null;
-      const perDivShare = sharedTotal != null ? Math.max(1, Math.floor(sharedTotal / Math.max(1, divs.length))) : null;
+      // Each division is sized independently from its own group structure
+      // (groups × per-group) — no equal split of a shared total.
+      const unit: "team" | "person" = fc.capacity_unit === "person" ? "person" : "team";
 
       scheduleReady =
         list.length > 0 &&
@@ -189,8 +188,9 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         const previewEntries = dRegs.map((r) => nameByReg.get(r.id) ?? "Team");
         const poolMatches = allMatches.filter((m) => m.division_id === d.id && m.group_id !== null);
         const poolsComplete = poolMatches.length > 0 && poolMatches.every((m) => m.status === "completed");
-        const previewCapacity = capMode === "per_division" ? d.capacity ?? null : perDivShare;
-        return { d, dRegs, pools, knockoutMatches, resultsStarted, previewEntries, poolsComplete, previewCapacity };
+        const groupCount = d.group_count ?? defaultPools;
+        const groupSize = d.group_size ?? defaultPerGroup;
+        return { d, dRegs, pools, knockoutMatches, resultsStarted, previewEntries, poolsComplete, groupCount, groupSize };
       });
 
       const groupsNode = (
@@ -202,14 +202,13 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
               divisionId={x.d.id}
               name={x.d.name}
               participantCount={x.dRegs.length}
-              defaultPools={defaultPools}
-              pools={x.pools}
               format={formatType}
+              unit={unit}
+              initialPools={x.groupCount}
+              initialPerGroup={x.groupSize}
+              pools={x.pools}
               draws={drawsFor(x.d.id)}
               previewEntries={x.previewEntries}
-              previewCapacity={x.previewCapacity}
-              sharedTotal={sharedTotal}
-              divisionCount={divs.length}
               resultsStarted={x.resultsStarted}
             />
           ))}
@@ -220,7 +219,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         const bracketsNode = (
           <div className="grid gap-5">
             {perDiv.map((x) => (
-              <DivisionKnockout key={x.d.id} tournamentId={id} divisionId={x.d.id} name={x.d.name} defaultAdvancers={2} poolCount={defaultPools} rounds={buildRounds(x.knockoutMatches, nm)} poolsComplete={x.poolsComplete} />
+              <DivisionKnockout key={x.d.id} tournamentId={id} divisionId={x.d.id} name={x.d.name} defaultAdvancers={2} poolCount={x.groupCount} rounds={buildRounds(x.knockoutMatches, nm)} poolsComplete={x.poolsComplete} />
             ))}
           </div>
         );

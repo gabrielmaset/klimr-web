@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Eye, Lock, Printer } from "lucide-react";
-import { generateGroups, clearGroups } from "@/app/tournaments/actions";
+import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Eye, Lock, Printer, Check } from "lucide-react";
+import { generateGroups, clearGroups, saveDivisionGroupSetup } from "@/app/tournaments/actions";
 import { computePoolStandings } from "@/lib/tournament";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
 
@@ -11,14 +11,19 @@ type Match = { a: string; b: string; scoreA: number | null; scoreB: number | nul
 type Pool = { name: string; entries: { name: string; seed: number | null }[]; matches: Match[] };
 type Draw = { number: number; at: string };
 type Slot = { label: string; seed: number | null; placeholder: boolean };
+type Unit = "team" | "person";
 
-function PoolCard({ name, slots, matches, preview = false }: { name: string; slots: Slot[]; matches?: Match[]; preview?: boolean }) {
+function noun(unit: Unit, n: number) {
+  return unit === "person" ? (n === 1 ? "player" : "players") : n === 1 ? "team" : "teams";
+}
+
+function PoolCard({ name, slots, matches, preview = false, unit = "team" }: { name: string; slots: Slot[]; matches?: Match[]; preview?: boolean; unit?: Unit }) {
   return (
     <div className={`overflow-hidden rounded-2xl border bg-surface shadow-sm ${preview ? "border-dashed border-rule" : "border-rule"}`}>
       <div className="flex items-center justify-between gap-2 bg-gradient-to-br from-brand to-brand-deep px-3.5 py-2">
         <p className="truncate text-[13px] font-bold tracking-wide text-white">{name}</p>
         <span className="shrink-0 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          {slots.length} {slots.length === 1 ? "team" : "teams"}
+          {slots.length} {noun(unit, slots.length)}
         </span>
       </div>
       <ol className="divide-y divide-rule/70">
@@ -69,61 +74,79 @@ export function DivisionGroups({
   divisionId,
   name,
   participantCount,
-  defaultPools,
-  pools,
   format,
+  unit,
+  initialPools,
+  initialPerGroup,
+  pools,
   draws,
   previewEntries,
-  previewCapacity,
-  sharedTotal,
-  divisionCount,
   resultsStarted,
 }: {
   tournamentId: string;
   divisionId: string;
   name: string;
   participantCount: number;
-  defaultPools: number;
-  pools: Pool[];
   format: string;
+  unit: Unit;
+  initialPools: number;
+  initialPerGroup: number;
+  pools: Pool[];
   draws: Draw[];
   previewEntries: string[];
-  previewCapacity: number | null;
-  sharedTotal: number | null;
-  divisionCount: number;
   resultsStarted: boolean;
 }) {
   const router = useRouter();
   const isRR = format === "round_robin";
-  const [count, setCount] = useState(String(pools.length || defaultPools || (isRR ? 1 : 2)));
-  const [busy, setBusy] = useState<null | "gen" | "clear">(null);
+  const [poolsStr, setPoolsStr] = useState(String(initialPools || (isRR ? 1 : 2)));
+  const [perStr, setPerStr] = useState(String(initialPerGroup || 4));
+  const [busy, setBusy] = useState<null | "gen" | "clear" | "save">(null);
   const [confirming, setConfirming] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const hasPools = pools.length > 0;
   const locked = resultsStarted;
+
+  const groups = isRR ? 1 : Math.max(1, Math.min(16, Number(poolsStr) || 1));
+  const per = Math.max(1, Math.min(64, Number(perStr) || 1));
+  const capacity = groups * per;
+  const dirty = groups !== initialPools || per !== initialPerGroup;
 
   const firstAt = draws.length ? draws[0].at : null;
   const lastDraw = draws.length ? draws[draws.length - 1] : null;
   const redrawn = draws.length > 1;
 
-  // Empty-state preview: split known entries (or generic Team N placeholders) across
-  // the chosen number of pools. With a shared event cap the placeholder count is this
-  // division's share of the total, so two divisions never preview more than the cap.
+  // Empty-state preview reflects THIS division's own structure (groups × per) — no
+  // equal split of a shared total. Real entries fill in once they register.
   const previewPools = useMemo(() => {
-    const groups = Math.max(1, Math.min(16, Number(count) || 1));
     const haveNames = previewEntries.length > 0;
-    const total = haveNames ? previewEntries.length : Math.min(Math.max(previewCapacity ?? groups * 4, groups), 64);
-    const names = haveNames ? previewEntries : Array.from({ length: total }, (_, i) => `Team ${i + 1}`);
+    const total = haveNames ? previewEntries.length : capacity;
+    const label = unit === "person" ? "Player" : "Team";
+    const names = haveNames ? previewEntries : Array.from({ length: total }, (_, i) => `${label} ${i + 1}`);
     const buckets: Slot[][] = Array.from({ length: groups }, () => []);
     names.forEach((nm, i) => buckets[i % groups].push({ label: nm, seed: null, placeholder: !haveNames }));
     return buckets;
-  }, [count, previewEntries, previewCapacity]);
+  }, [previewEntries, groups, capacity, unit]);
+
+  async function save() {
+    setBusy("save");
+    setErr(null);
+    const res = await saveDivisionGroupSetup(tournamentId, divisionId, groups, per);
+    setBusy(null);
+    if (res.ok) {
+      setSaved(true);
+      router.refresh();
+      setTimeout(() => setSaved(false), 2500);
+    } else setErr(res.error ?? "Failed.");
+  }
 
   async function gen() {
     setBusy("gen");
     setErr(null);
     setConfirming(false);
-    const res = await generateGroups(tournamentId, divisionId, isRR ? 1 : Number(count) || 2);
+    // Persist the setup alongside the draw so the registration cap stays in sync.
+    await saveDivisionGroupSetup(tournamentId, divisionId, groups, per);
+    const res = await generateGroups(tournamentId, divisionId, groups);
     if (res.ok) router.refresh();
     else {
       setErr(res.error ?? "Failed.");
@@ -157,6 +180,8 @@ export function DivisionGroups({
     openPrintWindow(`${name} — pool standings`, `${participantCount} ${participantCount === 1 ? "entry" : "entries"} · ${pools.length} ${pools.length === 1 ? "pool" : "pools"}`, `<div class="div"><div class="pools">${tables}</div></div>`);
   }
 
+  const inputCls = "w-16 rounded-lg border border-rule bg-bg px-2 py-1.5 text-sm text-ink outline-none focus:border-brand disabled:opacity-50";
+
   return (
     <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -171,17 +196,22 @@ export function DivisionGroups({
         <div className="flex flex-wrap items-center gap-2">
           {!isRR ? (
             <label className="flex items-center gap-1.5 text-xs font-medium text-mute">
-              Pools
-              <input
-                type="number"
-                min={1}
-                max={16}
-                value={count}
-                onChange={(e) => setCount(e.target.value)}
-                disabled={locked}
-                className="w-16 rounded-lg border border-rule bg-bg px-2 py-1.5 text-sm text-ink outline-none focus:border-brand disabled:opacity-50"
-              />
+              Groups
+              <input type="number" min={1} max={16} value={poolsStr} onChange={(e) => setPoolsStr(e.target.value)} disabled={locked} className={inputCls} />
             </label>
+          ) : null}
+          <label className="flex items-center gap-1.5 text-xs font-medium text-mute">
+            {isRR ? (unit === "person" ? "Players" : "Teams") : "Per group"}
+            <input type="number" min={1} max={64} value={perStr} onChange={(e) => setPerStr(e.target.value)} disabled={locked} className={inputCls} />
+          </label>
+          {dirty && !locked ? (
+            <button type="button" onClick={save} disabled={!!busy} className="press inline-flex items-center gap-1.5 rounded-xl border border-brand/40 bg-tint-brand px-3 py-2 text-sm font-semibold text-brand-deep hover:bg-tint-brand/70 disabled:opacity-50">
+              {busy === "save" ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Save setup
+            </button>
+          ) : saved ? (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
+              <Check size={14} /> Saved
+            </span>
           ) : null}
           <button
             type="button"
@@ -209,6 +239,12 @@ export function DivisionGroups({
           ) : null}
         </div>
       </div>
+
+      <p className="mt-2 text-xs font-medium text-ink-soft">
+        Holds <span className="font-bold">{capacity}</span> {noun(unit, capacity)}
+        {isRR ? " · single round robin" : ` · ${groups} ${groups === 1 ? "group" : "groups"} × ${per}`}
+        <span className="ml-1 font-normal text-faint">— this sets the division&rsquo;s registration cap.</span>
+      </p>
 
       {locked ? (
         <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-bg px-3 py-2 text-[11px] font-medium text-ink-soft">
@@ -250,7 +286,7 @@ export function DivisionGroups({
       {hasPools ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {pools.map((p, i) => (
-            <PoolCard key={i} name={p.name} slots={p.entries.map((e) => ({ label: e.name, seed: e.seed, placeholder: false }))} matches={p.matches} />
+            <PoolCard key={i} name={p.name} slots={p.entries.map((e) => ({ label: e.name, seed: e.seed, placeholder: false }))} matches={p.matches} unit={unit} />
           ))}
         </div>
       ) : (
@@ -258,14 +294,12 @@ export function DivisionGroups({
           <div className="mb-3 flex items-center gap-2 rounded-xl border border-dashed border-brand/30 bg-tint-brand/40 px-3 py-2 text-xs font-medium text-brand-deep">
             <Eye size={14} className="shrink-0" />
             {previewEntries.length
-              ? `Preview — your ${participantCount} ${participantCount === 1 ? "entry" : "entries"} split evenly. Draw to lock the pools and create matches.`
-              : sharedTotal != null && divisionCount > 1
-                ? `Preview — placeholders show this division's share of the ${sharedTotal}-team shared cap (across ${divisionCount} divisions). Real team names from sign-up fill these slots; draw to lock the pools.`
-                : "Preview — placeholders fill with real team names as teams register. Draw to lock the pools and create matches."}
+              ? `Preview — your ${participantCount} ${participantCount === 1 ? "entry" : "entries"} split across ${groups} ${groups === 1 ? "group" : "groups"}. Draw to lock the pools and create matches.`
+              : `Preview — ${groups} ${groups === 1 ? "group" : "groups"} of ${per} (holds ${capacity} ${noun(unit, capacity)}). Real ${unit === "person" ? "names" : "team names"} from sign-up fill these slots; draw to lock the pools.`}
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {previewPools.map((slots, i) => (
-              <PoolCard key={i} name={isRR ? "Round robin" : `Pool ${String.fromCharCode(65 + i)}`} slots={slots} preview />
+              <PoolCard key={i} name={isRR ? "Round robin" : `Pool ${String.fromCharCode(65 + i)}`} slots={slots} preview unit={unit} />
             ))}
           </div>
         </div>

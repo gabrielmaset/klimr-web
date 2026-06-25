@@ -1819,3 +1819,42 @@ export async function withdrawRegistration(registrationId: string): Promise<{ ok
   revalidatePath(`/tournament/${reg.tournament_id}/registrations`);
   return { ok: true };
 }
+
+/** Per-division pool structure (groups × per-group). Derives + stores the division's
+ *  capacity and switches the event to per-division caps, so each division is sized
+ *  independently — no equal split of a shared total. Staff only. */
+export async function saveDivisionGroupSetup(tournamentId: string, divisionId: string, groupCount: number, groupSize: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+  const { data: to } = await supabase.from("tournaments").select("owner_id, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Event not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const gc = Math.max(1, Math.min(16, Math.floor(groupCount) || 1));
+  const gs = Math.max(1, Math.min(64, Math.floor(groupSize) || 1));
+  const capacity = gc * gs;
+  const { error } = await supabase
+    .from("tournament_divisions")
+    .update({ group_count: gc, group_size: gs, capacity, updated_at: new Date().toISOString() })
+    .eq("id", divisionId)
+    .eq("tournament_id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  // Per-division group structure implies per-division capacity — make sure the
+  // registration cap honors each division rather than a shared total.
+  const fc = (to.format_config ?? {}) as TournamentFormatConfig;
+  if (fc.capacity_mode !== "per_division") {
+    await supabase.from("tournaments").update({ format_config: { ...fc, capacity_mode: "per_division" }, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  }
+
+  revalidatePath(`/tournament/${tournamentId}/brackets`);
+  return { ok: true as const, capacity };
+}
