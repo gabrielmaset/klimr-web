@@ -8,7 +8,8 @@ import { DivisionKnockout } from "@/components/division-knockout";
 import { AwardPointsButton } from "@/components/award-points-button";
 import { BracketsTabs } from "@/components/brackets-tabs";
 import { ResultsPublisher } from "@/components/results-publisher";
-import type { TournamentFormatConfig } from "@/lib/tournament";
+import type { TournamentFormatConfig, GroupExtraMode } from "@/lib/tournament";
+import { effectivePoolCount } from "@/lib/tournament";
 
 type BracketMatch = { id: string; round: number; slot: number; entry_a: string | null; entry_b: string | null; score_a: number | null; score_b: number | null; status: string; court: string | null };
 
@@ -75,7 +76,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
   const { count: openMatches } = await supabase.from("tournament_matches").select("id", { count: "exact", head: true }).eq("tournament_id", id).neq("status", "completed");
   const allResultsIn = (totalMatches ?? 0) > 0 && (openMatches ?? 0) === 0;
 
-  const { data: divisions } = await supabase.from("tournament_divisions").select("id, name, sort_order, capacity, group_count, group_size").eq("tournament_id", id).order("sort_order");
+  const { data: divisions } = await supabase.from("tournament_divisions").select("id, name, sort_order, capacity, group_count, group_size, group_extra, group_extra_mode").eq("tournament_id", id).order("sort_order");
   const divs = divisions ?? [];
 
   let body: React.ReactNode;
@@ -190,7 +191,10 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         const poolsComplete = poolMatches.length > 0 && poolMatches.every((m) => m.status === "completed");
         const groupCount = d.group_count ?? defaultPools;
         const groupSize = d.group_size ?? defaultPerGroup;
-        return { d, dRegs, pools, knockoutMatches, resultsStarted, previewEntries, poolsComplete, groupCount, groupSize };
+        const groupExtra = Math.max(0, d.group_extra ?? 0);
+        const groupMode: GroupExtraMode = d.group_extra_mode === "pool" ? "pool" : "grow";
+        const poolN = effectivePoolCount(groupCount, groupExtra, groupMode);
+        return { d, dRegs, pools, knockoutMatches, resultsStarted, previewEntries, poolsComplete, groupCount, groupSize, groupExtra, groupMode, poolN };
       });
 
       const boardDivisions = perDiv.map((x) => ({
@@ -199,6 +203,8 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         participantCount: x.dRegs.length,
         groups: x.groupCount,
         per: x.groupSize,
+        extra: x.groupExtra,
+        mode: x.groupMode,
         pools: x.pools,
         draws: drawsFor(x.d.id),
         previewEntries: x.previewEntries,
@@ -211,7 +217,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         const bracketsNode = (
           <div className="grid gap-5">
             {perDiv.map((x) => (
-              <DivisionKnockout key={x.d.id} tournamentId={id} divisionId={x.d.id} name={x.d.name} defaultAdvancers={2} poolCount={x.groupCount} rounds={buildRounds(x.knockoutMatches, nm)} poolsComplete={x.poolsComplete} />
+              <DivisionKnockout key={x.d.id} tournamentId={id} divisionId={x.d.id} name={x.d.name} defaultAdvancers={2} poolCount={x.poolN} rounds={buildRounds(x.knockoutMatches, nm)} poolsComplete={x.poolsComplete} />
             ))}
           </div>
         );

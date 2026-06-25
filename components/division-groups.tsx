@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Eye, Lock, Printer } from "lucide-react";
+import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Eye, Lock, Printer, Plus, Minus } from "lucide-react";
 import { clearGroups } from "@/app/tournaments/actions";
-import { computePoolStandings } from "@/lib/tournament";
+import { computePoolStandings, poolSizes, type GroupExtraMode } from "@/lib/tournament";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
 
 type Match = { a: string; b: string; scoreA: number | null; scoreB: number | null; status: string; court: string | null };
@@ -20,6 +20,8 @@ export type DivisionData = {
   participantCount: number;
   groups: number;
   per: number;
+  extra: number;
+  mode: GroupExtraMode;
   pools: Pool[];
   draws: Draw[];
   previewEntries: string[];
@@ -96,8 +98,15 @@ export function DivisionGroups({
   unit,
   groups,
   per,
-  onGroupsChange,
+  extra,
+  mode,
   onPerChange,
+  onAddPool,
+  onRemovePool,
+  chooser,
+  onChooseGrow,
+  onChooseNewPool,
+  onCancelChooser,
   onDraw,
   pools,
   draws,
@@ -112,8 +121,15 @@ export function DivisionGroups({
   unit: Unit;
   groups: number;
   per: number;
-  onGroupsChange: (n: number) => void;
+  extra: number;
+  mode: GroupExtraMode;
   onPerChange: (n: number) => void;
+  onAddPool: () => void;
+  onRemovePool: () => void;
+  chooser: number | null;
+  onChooseGrow: () => void;
+  onChooseNewPool: () => void;
+  onCancelChooser: () => void;
   onDraw: () => Promise<void>;
   pools: Pool[];
   draws: Draw[];
@@ -128,22 +144,46 @@ export function DivisionGroups({
   const hasPools = pools.length > 0;
   const locked = resultsStarted;
 
-  const capacity = groups * per;
+  const capacity = groups * per + extra;
+  const sizes = useMemo(() => poolSizes(groups, per, extra, mode), [groups, per, extra, mode]);
+  const poolN = sizes.length;
+  const uneven = extra > 0;
 
   const firstAt = draws.length ? draws[0].at : null;
   const lastDraw = draws.length ? draws[draws.length - 1] : null;
   const redrawn = draws.length > 1;
 
-  // Empty-state preview reflects THIS division's own structure (groups × per).
+  // Empty-state preview reflects THIS division's own structure, including any
+  // uneven (remainder) pools — it deals exactly like the real draw.
   const previewPools = useMemo(() => {
+    const sz = poolSizes(groups, per, extra, mode);
     const haveNames = previewEntries.length > 0;
-    const total = haveNames ? previewEntries.length : capacity;
     const label = unit === "person" ? "Player" : "Team";
-    const names = haveNames ? previewEntries : Array.from({ length: total }, (_, i) => `${label} ${i + 1}`);
-    const buckets: Slot[][] = Array.from({ length: groups }, () => []);
-    names.forEach((nm, i) => buckets[i % groups].push({ label: nm, seed: null, placeholder: !haveNames }));
+    const buckets: Slot[][] = sz.map(() => []);
+    if (haveNames) {
+      const counts = new Array(sz.length).fill(0) as number[];
+      previewEntries.forEach((nm) => {
+        let best = 0;
+        let bestScore = -Infinity;
+        for (let p = 0; p < sz.length; p++) {
+          const room = sz[p] - counts[p];
+          const score = room > 0 ? 1_000_000 + room * 1000 - p : -counts[p] * 1000 - p;
+          if (score > bestScore) {
+            bestScore = score;
+            best = p;
+          }
+        }
+        counts[best] += 1;
+        buckets[best].push({ label: nm, seed: null, placeholder: false });
+      });
+    } else {
+      let n = 1;
+      sz.forEach((size, p) => {
+        for (let k = 0; k < size; k++) buckets[p].push({ label: `${label} ${n++}`, seed: null, placeholder: true });
+      });
+    }
     return buckets;
-  }, [previewEntries, groups, capacity, unit]);
+  }, [previewEntries, groups, per, extra, mode, unit]);
 
   async function doDraw() {
     setBusy("gen");
@@ -184,6 +224,7 @@ export function DivisionGroups({
   }
 
   const inputCls = "w-16 rounded-lg border border-rule bg-bg px-2 py-1.5 text-sm text-ink outline-none focus:border-brand disabled:opacity-50";
+  const stepBtn = "grid h-8 w-8 place-items-center rounded-lg border border-rule bg-bg text-ink transition-colors hover:border-brand hover:text-brand-deep disabled:opacity-40 disabled:hover:border-rule disabled:hover:text-ink";
 
   return (
     <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
@@ -198,21 +239,21 @@ export function DivisionGroups({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!isRR ? (
-            <label className="flex items-center gap-1.5 text-xs font-medium text-mute">
-              Groups
-              <input
-                type="number"
-                min={1}
-                max={16}
-                value={String(groups)}
-                onChange={(e) => onGroupsChange(parseInt(e.target.value || "0", 10))}
-                disabled={locked}
-                className={inputCls}
-              />
-            </label>
+            <div className="flex items-center gap-1.5 text-xs font-medium text-mute">
+              Pools
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={onRemovePool} disabled={locked || poolN <= 1} className={stepBtn} aria-label="Remove a pool">
+                  <Minus size={15} />
+                </button>
+                <span className="w-7 text-center text-sm font-bold tabular text-ink">{poolN}</span>
+                <button type="button" onClick={onAddPool} disabled={locked} className={stepBtn} aria-label="Add a pool">
+                  <Plus size={15} />
+                </button>
+              </div>
+            </div>
           ) : null}
           <label className="flex items-center gap-1.5 text-xs font-medium text-mute">
-            {isRR ? (unit === "person" ? "Players" : "Teams") : "Per group"}
+            {isRR ? (unit === "person" ? "Players" : "Teams") : "Per pool"}
             <input
               type="number"
               min={1}
@@ -252,9 +293,34 @@ export function DivisionGroups({
 
       <p className="mt-2 text-xs font-medium text-ink-soft">
         Holds <span className="font-bold">{capacity}</span> {noun(unit, capacity)}
-        {isRR ? " · single round robin" : ` · ${groups} ${groups === 1 ? "group" : "groups"} × ${per}`}
+        {isRR
+          ? " · single round robin"
+          : uneven
+            ? ` · ${poolN} pools · ${sizes.join(" · ")}`
+            : ` · ${groups} ${groups === 1 ? "pool" : "pools"} × ${per}`}
         <span className="ml-1 font-normal text-faint">— this sets the division&rsquo;s registration cap.</span>
       </p>
+
+      {chooser != null && !locked ? (
+        <div className="mt-3 rounded-xl border border-brand/40 bg-tint-brand/60 p-3.5">
+          <p className="text-sm font-semibold text-brand-deep">
+            Only {chooser} {noun(unit, chooser)} free in the cap — add {chooser === 1 ? "it" : "them"} as:
+          </p>
+          <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={onChooseGrow} className="press rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-left transition-colors hover:border-brand">
+              <span className="block text-sm font-semibold text-ink">Grow a pool</span>
+              <span className="mt-0.5 block text-[11px] text-mute">Pools become {poolSizes(groups, per, extra + chooser, "grow").join(" · ")}</span>
+            </button>
+            <button type="button" onClick={onChooseNewPool} className="press rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-left transition-colors hover:border-brand">
+              <span className="block text-sm font-semibold text-ink">New small pool</span>
+              <span className="mt-0.5 block text-[11px] text-mute">Adds a pool of {chooser} → {poolSizes(groups, per, extra + chooser, "pool").join(" · ")}</span>
+            </button>
+          </div>
+          <button type="button" onClick={onCancelChooser} className="mt-2 text-xs font-medium text-mute hover:text-ink">
+            Cancel
+          </button>
+        </div>
+      ) : null}
 
       {locked ? (
         <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-bg px-3 py-2 text-[11px] font-medium text-ink-soft">
@@ -304,8 +370,8 @@ export function DivisionGroups({
           <div className="mb-3 flex items-center gap-2 rounded-xl border border-dashed border-brand/30 bg-tint-brand/40 px-3 py-2 text-xs font-medium text-brand-deep">
             <Eye size={14} className="shrink-0" />
             {previewEntries.length
-              ? `Preview — your ${participantCount} ${participantCount === 1 ? "entry" : "entries"} split across ${groups} ${groups === 1 ? "group" : "groups"}. Draw to lock the pools and create matches.`
-              : `Preview — ${groups} ${groups === 1 ? "group" : "groups"} of ${per} (holds ${capacity} ${noun(unit, capacity)}). Real ${unit === "person" ? "names" : "team names"} from sign-up fill these slots; draw to lock the pools.`}
+              ? `Preview — your ${participantCount} ${participantCount === 1 ? "entry" : "entries"} split across ${poolN} ${poolN === 1 ? "pool" : "pools"}. Draw to lock the pools and create matches.`
+              : `Preview — ${poolN} ${poolN === 1 ? "pool" : "pools"}${uneven ? ` (sizes ${sizes.join(" · ")})` : ` of ${per}`}, holds ${capacity} ${noun(unit, capacity)}. Real ${unit === "person" ? "names" : "team names"} from sign-up fill these slots; draw to lock the pools.`}
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {previewPools.map((slots, i) => (

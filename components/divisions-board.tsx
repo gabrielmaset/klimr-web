@@ -5,38 +5,42 @@ import { useRouter } from "next/navigation";
 import { Loader2, Check, TriangleAlert, Save } from "lucide-react";
 import { saveDivisionStructures, generateGroups } from "@/app/tournaments/actions";
 import { DivisionGroups, type DivisionData } from "@/components/division-groups";
+import type { GroupExtraMode } from "@/lib/tournament";
 
 type Unit = "team" | "person";
-type Setup = Record<string, { groups: number; per: number }>;
+type SetupItem = { groups: number; per: number; extra: number; mode: GroupExtraMode };
+type Setup = Record<string, SetupItem>;
 
-const cap = (s: { groups: number; per: number }) => s.groups * s.per;
+const EMPTY: SetupItem = { groups: 1, per: 1, extra: 0, mode: "grow" };
+const cap = (s: SetupItem) => s.groups * s.per + s.extra;
 
 // Trim divisions until the combined total fits `ceiling`. Reductions fall on the
-// OTHER divisions first (largest capacity first, whole groups before per-group
-// size); only if the edited/anchor division alone still busts the cap is it
-// clamped too. Pure so it can seed initial state and run on every edit.
+// OTHER divisions first, shedding the softest capacity first: remainder teams,
+// then whole pools, then per-pool size (largest division first at each step).
+// Only if the edited/anchor division alone still busts the cap is it clamped too.
+// Pure so it can seed initial state and run on every edit.
 function rebalanceSetup(ids: string[], start: Setup, editedId: string, ceiling: number): Setup {
   const next: Setup = { ...start };
   const total = () => ids.reduce((a, id) => a + cap(next[id]), 0);
   const others = ids.filter((id) => id !== editedId);
-  let guard = 4000;
-  while (total() > ceiling && guard-- > 0) {
-    const cand = others.filter((id) => next[id].groups > 1);
-    if (!cand.length) break;
-    cand.sort((a, b) => cap(next[b]) - cap(next[a]));
-    next[cand[0]] = { ...next[cand[0]], groups: next[cand[0]].groups - 1 };
-  }
-  guard = 4000;
-  while (total() > ceiling && guard-- > 0) {
-    const cand = others.filter((id) => next[id].per > 1);
-    if (!cand.length) break;
-    cand.sort((a, b) => cap(next[b]) - cap(next[a]));
-    next[cand[0]] = { ...next[cand[0]], per: next[cand[0]].per - 1 };
-  }
-  guard = 4000;
+  const shed = (pick: (id: string) => boolean, reduce: (s: SetupItem) => SetupItem) => {
+    let guard = 8000;
+    while (total() > ceiling && guard-- > 0) {
+      const cand = others.filter(pick);
+      if (!cand.length) break;
+      cand.sort((a, b) => cap(next[b]) - cap(next[a]));
+      next[cand[0]] = reduce(next[cand[0]]);
+    }
+  };
+  shed((id) => next[id].extra > 0, (s) => ({ ...s, extra: s.extra - 1 }));
+  shed((id) => next[id].groups > 1, (s) => ({ ...s, groups: s.groups - 1 }));
+  shed((id) => next[id].per > 1, (s) => ({ ...s, per: s.per - 1 }));
+
+  let guard = 8000;
   while (total() > ceiling && guard-- > 0) {
     const e = next[editedId];
-    if (e.groups > 1) next[editedId] = { ...e, groups: e.groups - 1 };
+    if (e.extra > 0) next[editedId] = { ...e, extra: e.extra - 1 };
+    else if (e.groups > 1) next[editedId] = { ...e, groups: e.groups - 1 };
     else if (e.per > 1) next[editedId] = { ...e, per: e.per - 1 };
     else break;
   }
@@ -44,7 +48,7 @@ function rebalanceSetup(ids: string[], start: Setup, editedId: string, ceiling: 
 }
 
 function seedSetup(divisions: DivisionData[], max: number | null): Setup {
-  const init: Setup = Object.fromEntries(divisions.map((d) => [d.id, { groups: d.groups, per: d.per }]));
+  const init: Setup = Object.fromEntries(divisions.map((d) => [d.id, { groups: d.groups, per: d.per, extra: d.extra, mode: d.mode }]));
   if (max == null) return init;
   const ids = divisions.map((d) => d.id);
   // Fit any pre-existing over-allocation: shrink the largest divisions first.
@@ -53,11 +57,12 @@ function seedSetup(divisions: DivisionData[], max: number | null): Setup {
 }
 
 /**
- * Coordinates every division's group structure against a single tournament-wide
- * capacity. Editing one division's group count or size live-rebalances the OTHER
- * divisions (trimming whole groups first, then per-group size, largest-first) so
- * the combined total can never exceed the cap. One save persists the cap and all
- * division structures together.
+ * Coordinates every division's pool structure against a single tournament-wide
+ * capacity. Editing one division live-rebalances the OTHER divisions so the
+ * combined total can never exceed the cap. Adding a pool when only a partial
+ * remainder is free offers the organizer a choice — grow an existing pool, or
+ * add one smaller pool — so leftover slots can be used without overshooting or
+ * shrinking other divisions. One save persists the cap and every structure.
  */
 export function DivisionsBoard({
   tournamentId,
@@ -80,6 +85,8 @@ export function DivisionsBoard({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [chooser, setChooser] = useState<{ id: string; free: number } | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
 
   const ids = useMemo(() => divisions.map((d) => d.id), [divisions]);
   const maxNum = (() => {
@@ -87,29 +94,32 @@ export function DivisionsBoard({
     return Number.isFinite(n) && n > 0 ? n : null;
   })();
 
-  const allocated = ids.reduce((a, id) => a + cap(setup[id] ?? { groups: 1, per: 1 }), 0);
+  const allocated = ids.reduce((a, id) => a + cap(setup[id] ?? EMPTY), 0);
   const remaining = maxNum != null ? maxNum - allocated : null;
   const overBy = remaining != null && remaining < 0 ? -remaining : 0;
   const noun = unit === "person" ? "players" : "teams";
   // The saved DB caps were over the cap (e.g. a leftover from before this rule):
   // we've fit them in the UI, but they only take effect once saved.
-  const savedSum = divisions.reduce((a, d) => a + d.groups * d.per, 0);
+  const savedSum = divisions.reduce((a, d) => a + d.groups * d.per + d.extra, 0);
   const savedOver = maxNum != null && savedSum > maxNum;
 
-  function setField(id: string, field: "groups" | "per", raw: number) {
-    const clamped = field === "groups" ? Math.max(1, Math.min(16, Math.floor(raw) || 1)) : Math.max(1, Math.min(64, Math.floor(raw) || 1));
+  function setPer(id: string, raw: number) {
+    const clamped = Math.max(1, Math.min(64, Math.floor(raw) || 1));
     setSetup((prev) => {
-      const merged: Setup = { ...prev, [id]: { ...prev[id], [field]: clamped } };
+      const merged: Setup = { ...prev, [id]: { ...prev[id], per: clamped } };
       return maxNum != null ? rebalanceSetup(ids, merged, id, maxNum) : merged;
     });
     setSaved(false);
     setErr(null);
+    setHint(null);
   }
 
   function applyMax(raw: string) {
     setMaxStr(raw);
     setSaved(false);
     setErr(null);
+    setHint(null);
+    setChooser(null);
     const n = parseInt(raw || "", 10);
     const ceiling = Number.isFinite(n) && n > 0 ? n : null;
     if (ceiling == null) return;
@@ -119,10 +129,65 @@ export function DivisionsBoard({
     });
   }
 
+  // Add a pool. A whole pool is added when one fits the free budget (or there's
+  // no cap); when only a partial remainder is free, open the grow/new-pool
+  // chooser; when the cap is full, surface a hint instead of stealing capacity.
+  function addPool(id: string) {
+    setSaved(false);
+    setErr(null);
+    setHint(null);
+    const s = setup[id];
+    const free = maxNum == null ? null : maxNum - allocated;
+    if (free == null || free >= s.per) {
+      setChooser(null);
+      setSetup((prev) => {
+        const merged: Setup = { ...prev, [id]: { ...prev[id], groups: Math.min(16, prev[id].groups + 1) } };
+        return maxNum != null ? rebalanceSetup(ids, merged, id, maxNum) : merged;
+      });
+    } else if (free >= 1) {
+      setChooser({ id, free });
+    } else {
+      setChooser(null);
+      setHint(`The ${maxNum}-${unit === "person" ? "player" : "team"} cap is full — raise Max ${noun}, or remove a pool from another division to add one here.`);
+    }
+  }
+
+  function removePool(id: string) {
+    setSaved(false);
+    setErr(null);
+    setHint(null);
+    setChooser(null);
+    setSetup((prev) => {
+      const s = prev[id];
+      if (s.extra > 0) return { ...prev, [id]: { ...s, extra: 0 } };
+      if (s.groups > 1) return { ...prev, [id]: { ...s, groups: s.groups - 1 } };
+      return prev;
+    });
+  }
+
+  function applyChooser(mode: GroupExtraMode) {
+    if (!chooser) return;
+    const { id, free } = chooser;
+    setSetup((prev) => {
+      const s = prev[id];
+      const merged: Setup = { ...prev, [id]: { ...s, extra: Math.min(64, s.extra + free), mode } };
+      return maxNum != null ? rebalanceSetup(ids, merged, id, maxNum) : merged;
+    });
+    setChooser(null);
+    setSaved(false);
+    setErr(null);
+  }
+
   async function persistAll(): Promise<boolean> {
     setSaving(true);
     setErr(null);
-    const items = ids.map((id) => ({ divisionId: id, groups: isRR ? 1 : setup[id].groups, per: setup[id].per }));
+    const items = ids.map((id) => ({
+      divisionId: id,
+      groups: isRR ? 1 : setup[id].groups,
+      per: setup[id].per,
+      extra: isRR ? 0 : setup[id].extra,
+      mode: setup[id].mode,
+    }));
     const res = await saveDivisionStructures(tournamentId, maxNum, items);
     setSaving(false);
     if (!res.ok) {
@@ -138,7 +203,7 @@ export function DivisionsBoard({
   async function drawDivision(divisionId: string) {
     const ok = await persistAll();
     if (!ok) throw new Error("save failed");
-    const res = await generateGroups(tournamentId, divisionId, isRR ? 1 : setup[divisionId].groups);
+    const res = await generateGroups(tournamentId, divisionId);
     if (!res.ok) throw new Error(res.error ?? "draw failed");
     startTransition(() => router.refresh());
   }
@@ -178,10 +243,15 @@ export function DivisionsBoard({
             <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-bg ring-1 ring-inset ring-rule">
               <div className={`h-full rounded-full transition-all ${overBy ? "bg-brand-deep" : "bg-brand"}`} style={{ width: `${pct}%` }} />
             </div>
-            <p className="mt-2 text-[11px] text-faint">Adjusting any division&rsquo;s groups or size automatically rebalances the others so the combined total stays within this cap.</p>
+            <p className="mt-2 text-[11px] text-faint">Adjusting any division&rsquo;s pools or size automatically rebalances the others so the combined total stays within this cap.</p>
             {savedOver ? (
               <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-tint-brand px-3 py-2 text-[11px] font-medium text-brand-deep">
                 <TriangleAlert size={13} className="mt-0.5 shrink-0" /> These divisions were over the {maxNum}-{unit === "person" ? "player" : "team"} cap and have been fit to {allocated}. Hit <span className="font-bold">Save structure</span> to apply the new caps.
+              </p>
+            ) : null}
+            {hint ? (
+              <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-bg px-3 py-2 text-[11px] font-medium text-ink-soft">
+                <TriangleAlert size={13} className="mt-0.5 shrink-0 text-mute" /> {hint}
               </p>
             ) : null}
           </div>
@@ -217,8 +287,15 @@ export function DivisionsBoard({
           unit={unit}
           groups={setup[d.id]?.groups ?? d.groups}
           per={setup[d.id]?.per ?? d.per}
-          onGroupsChange={(n) => setField(d.id, "groups", n)}
-          onPerChange={(n) => setField(d.id, "per", n)}
+          extra={isRR ? 0 : setup[d.id]?.extra ?? d.extra}
+          mode={setup[d.id]?.mode ?? d.mode}
+          onPerChange={(n) => setPer(d.id, n)}
+          onAddPool={() => addPool(d.id)}
+          onRemovePool={() => removePool(d.id)}
+          chooser={chooser?.id === d.id ? chooser.free : null}
+          onChooseGrow={() => applyChooser("grow")}
+          onChooseNewPool={() => applyChooser("pool")}
+          onCancelChooser={() => setChooser(null)}
           onDraw={() => drawDivision(d.id)}
           pools={d.pools}
           draws={d.draws}

@@ -2,6 +2,34 @@ import type { Json } from "@/lib/database.types";
 
 export type FormatType = "round_robin" | "pools_knockout" | "single_elim";
 
+export type GroupExtraMode = "grow" | "pool";
+
+/**
+ * Pool sizes for a division. The base layout is `groups` pools of `per`. Any
+ * `extra` teams beyond that are either folded into the pools as evenly as
+ * possible (`grow` → some pools hold one more) or added as one smaller pool
+ * (`pool` → an extra pool holding just the leftover). With `extra = 0` this is
+ * simply `groups` pools of `per`. Pure + shared by the planner preview and the
+ * draw so they can never diverge.
+ */
+export function poolSizes(groups: number, per: number, extra = 0, mode: GroupExtraMode = "grow"): number[] {
+  const g = Math.max(1, Math.floor(groups) || 1);
+  const m = Math.max(1, Math.floor(per) || 1);
+  const e = Math.max(0, Math.floor(extra) || 0);
+  if (e === 0) return Array.from({ length: g }, () => m);
+  if (mode === "pool") return [...Array.from({ length: g }, () => m), e];
+  // grow: spread the leftover across the existing pools, largest pools first
+  const base = Math.floor(e / g);
+  const rem = e - base * g;
+  return Array.from({ length: g }, (_, i) => m + base + (i < rem ? 1 : 0));
+}
+
+/** Number of pools a division resolves to once the remainder is accounted for. */
+export function effectivePoolCount(groups: number, extra = 0, mode: GroupExtraMode = "grow"): number {
+  const g = Math.max(1, Math.floor(groups) || 1);
+  return g + (mode === "pool" && (Math.floor(extra) || 0) > 0 ? 1 : 0);
+}
+
 export const FORMAT_LABEL: Record<FormatType, string> = {
   round_robin: "Round robin",
   pools_knockout: "Pools + knockout",

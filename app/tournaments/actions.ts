@@ -6,7 +6,7 @@ import { lookupZip, tzFromStateLng } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
 import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig, PublishedResults, Sponsor, Announcement } from "@/lib/tournament";
-import { computePoolStandings, isRegistrationOpen, isSignupFormReady } from "@/lib/tournament";
+import { computePoolStandings, isRegistrationOpen, isSignupFormReady, poolSizes } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
 import { placementPoints, bracketPlaces, ROLLING_WEEKS, ROLLING_BEST, RESERVE_FACTOR } from "@/lib/ranking";
@@ -922,7 +922,7 @@ export async function denyPayment(registrationId: string, reason: string) {
 
 /** Snake-seed a division's active entries into N pools. Regenerating clears the
  *  division's existing pools and any pool matches first. Staff-only. */
-export async function generateGroups(tournamentId: string, divisionId: string, poolCount: number) {
+export async function generateGroups(tournamentId: string, divisionId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -937,7 +937,20 @@ export async function generateGroups(tournamentId: string, divisionId: string, p
   }
   if (!staff) return { ok: false as const, error: "Not allowed." };
 
-  const pools = Math.max(1, Math.min(16, Math.floor(poolCount) || 1));
+  // Pool layout comes from the division's saved structure so the draw matches
+  // exactly what the planner previewed — including any uneven (remainder) pools.
+  const { data: div } = await supabase
+    .from("tournament_divisions")
+    .select("group_count, group_size, group_extra, group_extra_mode")
+    .eq("id", divisionId)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle();
+  const groups = Math.max(1, Math.min(16, Math.floor(div?.group_count ?? 1) || 1));
+  const per = Math.max(1, Math.min(64, Math.floor(div?.group_size ?? 1) || 1));
+  const extra = Math.max(0, Math.floor(div?.group_extra ?? 0) || 0);
+  const mode: "grow" | "pool" = div?.group_extra_mode === "pool" ? "pool" : "grow";
+  const sizes = poolSizes(groups, per, extra, mode);
+  const pools = sizes.length;
 
   const { data: entries } = await supabase
     .from("tournament_registrations")
@@ -963,15 +976,29 @@ export async function generateGroups(tournamentId: string, divisionId: string, p
   if (gErr || !created) return { ok: false as const, error: gErr?.message ?? "Couldn't create pools." };
   const groupBySort = new Map(created.map((g) => [g.sort_order, g.id]));
 
-  // Completely random draw — cryptographically shuffled, then dealt round-robin
-  // into the pools so sizes stay balanced. There's no manual seeding, so the draw
+  // Completely random draw — cryptographically shuffled, then dealt to fill each
+  // pool toward its planned size (so uneven layouts are honored). Pools under
+  // their target take entries first, most-room-first, which keeps the fill
+  // balanced; any overflow beyond the planned capacity lands in the least-loaded
+  // pool so no entry is ever dropped. There's no manual seeding, so the draw
   // can't be steered to favor anyone.
   const draw = shuffle(ids);
-  const geRows = draw.map((regId, i) => {
-    const col = i % pools;
-    const pos = Math.floor(i / pools);
+  const counts = new Array(pools).fill(0) as number[];
+  const geRows = draw.map((regId) => {
+    let best = 0;
+    let bestScore = -Infinity;
+    for (let p = 0; p < pools; p++) {
+      const room = sizes[p] - counts[p];
+      const score = room > 0 ? 1_000_000 + room * 1000 - p : -counts[p] * 1000 - p;
+      if (score > bestScore) {
+        bestScore = score;
+        best = p;
+      }
+    }
+    const pos = counts[best];
+    counts[best] += 1;
     return {
-      group_id: groupBySort.get(col) as string,
+      group_id: groupBySort.get(best) as string,
       tournament_id: tournamentId,
       division_id: divisionId,
       registration_id: regId,
@@ -1830,7 +1857,7 @@ export async function withdrawRegistration(registrationId: string): Promise<{ ok
 export async function saveDivisionStructures(
   tournamentId: string,
   max: number | null,
-  items: { divisionId: string; groups: number; per: number }[],
+  items: { divisionId: string; groups: number; per: number; extra?: number; mode?: "grow" | "pool" }[],
 ) {
   const supabase = await createClient();
   const {
@@ -1850,7 +1877,9 @@ export async function saveDivisionStructures(
   const clean = items.map((it) => {
     const g = Math.max(1, Math.min(16, Math.floor(it.groups) || 1));
     const p = Math.max(1, Math.min(64, Math.floor(it.per) || 1));
-    return { divisionId: it.divisionId, groups: g, per: p, capacity: g * p };
+    const extra = Math.max(0, Math.min(64, Math.floor(it.extra ?? 0) || 0));
+    const mode: "grow" | "pool" = it.mode === "pool" ? "pool" : "grow";
+    return { divisionId: it.divisionId, groups: g, per: p, extra, mode, capacity: g * p + extra };
   });
 
   // Defensive: the combined allocation must never exceed the tournament cap.
@@ -1862,7 +1891,7 @@ export async function saveDivisionStructures(
   for (const c of clean) {
     const { error } = await supabase
       .from("tournament_divisions")
-      .update({ group_count: c.groups, group_size: c.per, capacity: c.capacity, updated_at: new Date().toISOString() })
+      .update({ group_count: c.groups, group_size: c.per, group_extra: c.extra, group_extra_mode: c.mode, capacity: c.capacity, updated_at: new Date().toISOString() })
       .eq("id", c.divisionId)
       .eq("tournament_id", tournamentId);
     if (error) return { ok: false as const, error: error.message };
