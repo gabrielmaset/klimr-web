@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { ArrowRight, CalendarClock, Medal } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { DivisionGroups } from "@/components/division-groups";
+import { DivisionsBoard } from "@/components/divisions-board";
 import { DivisionBracket } from "@/components/division-bracket";
 import { DivisionKnockout } from "@/components/division-knockout";
 import { AwardPointsButton } from "@/components/award-points-button";
@@ -87,7 +87,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
       <div className="rounded-3xl border border-rule bg-surface p-8 text-center">
         <p className="text-base font-bold text-ink">Add a division first</p>
         <p className="mx-auto mt-1 max-w-md text-sm text-mute">Draws happen per division. Create at least one division, then come back to draw it.</p>
-        <Link href={`/tournament/${id}/divisions`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:underline">
+        <Link href={`/tournament/${id}/settings#divisions`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:underline">
           Divisions &amp; fees <ArrowRight size={15} />
         </Link>
       </div>
@@ -193,27 +193,19 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         return { d, dRegs, pools, knockoutMatches, resultsStarted, previewEntries, poolsComplete, groupCount, groupSize };
       });
 
-      const groupsNode = (
-        <div className="grid gap-5">
-          {perDiv.map((x) => (
-            <DivisionGroups
-              key={x.d.id}
-              tournamentId={id}
-              divisionId={x.d.id}
-              name={x.d.name}
-              participantCount={x.dRegs.length}
-              format={formatType}
-              unit={unit}
-              initialPools={x.groupCount}
-              initialPerGroup={x.groupSize}
-              pools={x.pools}
-              draws={drawsFor(x.d.id)}
-              previewEntries={x.previewEntries}
-              resultsStarted={x.resultsStarted}
-            />
-          ))}
-        </div>
-      );
+      const boardDivisions = perDiv.map((x) => ({
+        id: x.d.id,
+        name: x.d.name,
+        participantCount: x.dRegs.length,
+        groups: x.groupCount,
+        per: x.groupSize,
+        pools: x.pools,
+        draws: drawsFor(x.d.id),
+        previewEntries: x.previewEntries,
+        resultsStarted: x.resultsStarted,
+      }));
+
+      const groupsNode = <DivisionsBoard tournamentId={id} max={t.capacity ?? null} unit={unit} format={formatType} divisions={boardDivisions} />;
 
       if (isKnockout) {
         const bracketsNode = (

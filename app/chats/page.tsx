@@ -60,6 +60,7 @@ export default async function ChatsPage() {
 
     const convByMatch = new Map<string, { id: string; expires_at: string | null }>();
     for (const c of convs ?? []) {
+      if (!c.match_id) continue; // team conversations have no match
       convByMatch.set(c.match_id, { id: c.id, expires_at: c.expires_at });
       expiryByMatch.set(c.match_id, c.expires_at);
     }

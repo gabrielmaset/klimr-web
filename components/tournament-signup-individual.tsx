@@ -7,6 +7,7 @@ import { OptionCards } from "@/components/form-kit";
 import { CustomFieldsRenderer, type AnswerMap } from "@/components/custom-fields-renderer";
 import { signUpIndividual } from "@/app/tournaments/actions";
 import { formatFee, type CustomFieldRow, type DivisionRow } from "@/lib/tournament";
+import { RegistrantSharedInfo, type SharedInfo } from "@/components/registrant-shared-info";
 
 export function IndividualSignupForm({
   tournamentId,
@@ -17,6 +18,7 @@ export function IndividualSignupForm({
   rulesText,
   requireWaiver,
   requireRules,
+  sharedInfo,
 }: {
   tournamentId: string;
   code: string;
@@ -26,6 +28,7 @@ export function IndividualSignupForm({
   rulesText: string;
   requireWaiver: boolean;
   requireRules: boolean;
+  sharedInfo: SharedInfo;
 }) {
   const router = useRouter();
   const [divisionId, setDivisionId] = useState(divisions.length === 1 ? divisions[0].id : "");
@@ -75,6 +78,8 @@ export function IndividualSignupForm({
 
   return (
     <div className="grid gap-6">
+      <RegistrantSharedInfo info={sharedInfo} />
+
       {divisions.length > 0 ? (
         <section>
           <h2 className="mb-3 text-sm font-bold text-ink">Choose a division</h2>

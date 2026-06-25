@@ -7,6 +7,7 @@ import { IndividualSignupForm } from "@/components/tournament-signup-individual"
 import { TeamSignupForm } from "@/components/tournament-signup-team";
 import { isRegistrationOpen, type TournamentFormatConfig, type CustomFieldRow, type DivisionRow } from "@/lib/tournament";
 import { capacityState } from "@/lib/waitlist";
+import { genderLabel, type SharedInfo } from "@/components/registrant-shared-info";
 
 function Notice({ title, sub, code, href, linkLabel }: { title: string; sub: string; code: string; href?: string; linkLabel?: string }) {
   const to = href ?? `/e/${code}`;
@@ -38,6 +39,11 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
     .maybeSingle();
   if (!t) notFound();
   const meta = sportMeta(t.sport_key);
+
+  // What we disclose to the organizer from the registrant's Klimr account.
+  const { data: prof } = await supabase.from("profiles").select("first_name, last_name, display_name, gender").eq("id", user.id).maybeSingle();
+  const fullName = [prof?.first_name, prof?.last_name].filter(Boolean).join(" ").trim() || prof?.display_name || "—";
+  const sharedInfo: SharedInfo = { name: fullName, email: user.email ?? "—", gender: genderLabel(prof?.gender ?? null) };
 
   // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
   const deadlinePassed = !!t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now();
@@ -138,7 +144,7 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
     if (teams.length === 0) {
       body = <Notice title="You'll need a team first" sub={`Create a ${meta.name} squad with ${rosterSize} main player${rosterSize === 1 ? "" : "s"}, then come back to enter.`} code={t.code} href="/teams" linkLabel="Go to teams" />;
     } else {
-      body = <TeamSignupForm tournamentId={t.id} code={t.code} rosterSize={rosterSize} divisions={(tDivs as DivisionRow[]) ?? []} teamFields={teamFields} teams={teams} />;
+      body = <TeamSignupForm tournamentId={t.id} code={t.code} rosterSize={rosterSize} divisions={(tDivs as DivisionRow[]) ?? []} teamFields={teamFields} teams={teams} sharedInfo={sharedInfo} />;
     }
   } else {
     const { data: divs } = await supabase
@@ -173,6 +179,7 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
         rulesText={legal.rules_text ?? ""}
         requireWaiver={!!legal.require_waiver}
         requireRules={!!legal.require_rules}
+        sharedInfo={sharedInfo}
       />
     );
   }

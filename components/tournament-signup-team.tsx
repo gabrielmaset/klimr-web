@@ -7,6 +7,7 @@ import { OptionCards } from "@/components/form-kit";
 import { CustomFieldsRenderer, type AnswerMap } from "@/components/custom-fields-renderer";
 import { signUpTeam } from "@/app/tournaments/actions";
 import { formatFee, type CustomFieldRow, type DivisionRow } from "@/lib/tournament";
+import { RegistrantSharedInfo, type SharedInfo } from "@/components/registrant-shared-info";
 
 type TeamOpt = { id: string; name: string; eligible: boolean; reason: string };
 
@@ -17,6 +18,7 @@ export function TeamSignupForm({
   divisions,
   teamFields,
   teams,
+  sharedInfo,
 }: {
   tournamentId: string;
   code: string;
@@ -24,6 +26,7 @@ export function TeamSignupForm({
   divisions: DivisionRow[];
   teamFields: CustomFieldRow[];
   teams: TeamOpt[];
+  sharedInfo: SharedInfo;
 }) {
   const router = useRouter();
   const eligible = teams.filter((t) => t.eligible);
@@ -72,6 +75,8 @@ export function TeamSignupForm({
 
   return (
     <div className="grid gap-6">
+      <RegistrantSharedInfo info={sharedInfo} />
+
       <section>
         <h2 className="mb-1 text-sm font-bold text-ink">Choose your team</h2>
         <p className="mb-3 text-xs text-mute">

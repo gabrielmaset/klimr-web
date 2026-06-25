@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Eye, Lock, Printer, Check } from "lucide-react";
-import { generateGroups, clearGroups, saveDivisionGroupSetup } from "@/app/tournaments/actions";
+import { Loader2, Shuffle, Trash2, Dices, TriangleAlert, Eye, Lock, Printer } from "lucide-react";
+import { clearGroups } from "@/app/tournaments/actions";
 import { computePoolStandings } from "@/lib/tournament";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
 
@@ -12,6 +12,19 @@ type Pool = { name: string; entries: { name: string; seed: number | null }[]; ma
 type Draw = { number: number; at: string };
 type Slot = { label: string; seed: number | null; placeholder: boolean };
 type Unit = "team" | "person";
+
+/** Shape the brackets page passes per division into the board/panel. */
+export type DivisionData = {
+  id: string;
+  name: string;
+  participantCount: number;
+  groups: number;
+  per: number;
+  pools: Pool[];
+  draws: Draw[];
+  previewEntries: string[];
+  resultsStarted: boolean;
+};
 
 function noun(unit: Unit, n: number) {
   return unit === "person" ? (n === 1 ? "player" : "players") : n === 1 ? "team" : "teams";
@@ -69,6 +82,11 @@ function PoolCard({ name, slots, matches, preview = false, unit = "team" }: { na
   );
 }
 
+/**
+ * One division's pool card. Group count / size are CONTROLLED by the parent
+ * board (which coordinates the shared tournament cap across divisions); drawing
+ * is routed through the board so it persists every division's structure first.
+ */
 export function DivisionGroups({
   tournamentId,
   divisionId,
@@ -76,8 +94,11 @@ export function DivisionGroups({
   participantCount,
   format,
   unit,
-  initialPools,
-  initialPerGroup,
+  groups,
+  per,
+  onGroupsChange,
+  onPerChange,
+  onDraw,
   pools,
   draws,
   previewEntries,
@@ -89,8 +110,11 @@ export function DivisionGroups({
   participantCount: number;
   format: string;
   unit: Unit;
-  initialPools: number;
-  initialPerGroup: number;
+  groups: number;
+  per: number;
+  onGroupsChange: (n: number) => void;
+  onPerChange: (n: number) => void;
+  onDraw: () => Promise<void>;
   pools: Pool[];
   draws: Draw[];
   previewEntries: string[];
@@ -98,26 +122,19 @@ export function DivisionGroups({
 }) {
   const router = useRouter();
   const isRR = format === "round_robin";
-  const [poolsStr, setPoolsStr] = useState(String(initialPools || (isRR ? 1 : 2)));
-  const [perStr, setPerStr] = useState(String(initialPerGroup || 4));
-  const [busy, setBusy] = useState<null | "gen" | "clear" | "save">(null);
+  const [busy, setBusy] = useState<null | "gen" | "clear">(null);
   const [confirming, setConfirming] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const hasPools = pools.length > 0;
   const locked = resultsStarted;
 
-  const groups = isRR ? 1 : Math.max(1, Math.min(16, Number(poolsStr) || 1));
-  const per = Math.max(1, Math.min(64, Number(perStr) || 1));
   const capacity = groups * per;
-  const dirty = groups !== initialPools || per !== initialPerGroup;
 
   const firstAt = draws.length ? draws[0].at : null;
   const lastDraw = draws.length ? draws[draws.length - 1] : null;
   const redrawn = draws.length > 1;
 
-  // Empty-state preview reflects THIS division's own structure (groups × per) — no
-  // equal split of a shared total. Real entries fill in once they register.
+  // Empty-state preview reflects THIS division's own structure (groups × per).
   const previewPools = useMemo(() => {
     const haveNames = previewEntries.length > 0;
     const total = haveNames ? previewEntries.length : capacity;
@@ -128,30 +145,16 @@ export function DivisionGroups({
     return buckets;
   }, [previewEntries, groups, capacity, unit]);
 
-  async function save() {
-    setBusy("save");
-    setErr(null);
-    const res = await saveDivisionGroupSetup(tournamentId, divisionId, groups, per);
-    setBusy(null);
-    if (res.ok) {
-      setSaved(true);
-      router.refresh();
-      setTimeout(() => setSaved(false), 2500);
-    } else setErr(res.error ?? "Failed.");
-  }
-
-  async function gen() {
+  async function doDraw() {
     setBusy("gen");
     setErr(null);
     setConfirming(false);
-    // Persist the setup alongside the draw so the registration cap stays in sync.
-    await saveDivisionGroupSetup(tournamentId, divisionId, groups, per);
-    const res = await generateGroups(tournamentId, divisionId, groups);
-    if (res.ok) router.refresh();
-    else {
-      setErr(res.error ?? "Failed.");
-      setBusy(null);
+    try {
+      await onDraw();
+    } catch {
+      setErr("Couldn't draw the pools.");
     }
+    setBusy(null);
   }
 
   async function clear() {
@@ -197,25 +200,32 @@ export function DivisionGroups({
           {!isRR ? (
             <label className="flex items-center gap-1.5 text-xs font-medium text-mute">
               Groups
-              <input type="number" min={1} max={16} value={poolsStr} onChange={(e) => setPoolsStr(e.target.value)} disabled={locked} className={inputCls} />
+              <input
+                type="number"
+                min={1}
+                max={16}
+                value={String(groups)}
+                onChange={(e) => onGroupsChange(parseInt(e.target.value || "0", 10))}
+                disabled={locked}
+                className={inputCls}
+              />
             </label>
           ) : null}
           <label className="flex items-center gap-1.5 text-xs font-medium text-mute">
             {isRR ? (unit === "person" ? "Players" : "Teams") : "Per group"}
-            <input type="number" min={1} max={64} value={perStr} onChange={(e) => setPerStr(e.target.value)} disabled={locked} className={inputCls} />
+            <input
+              type="number"
+              min={1}
+              max={64}
+              value={String(per)}
+              onChange={(e) => onPerChange(parseInt(e.target.value || "0", 10))}
+              disabled={locked}
+              className={inputCls}
+            />
           </label>
-          {dirty && !locked ? (
-            <button type="button" onClick={save} disabled={!!busy} className="press inline-flex items-center gap-1.5 rounded-xl border border-brand/40 bg-tint-brand px-3 py-2 text-sm font-semibold text-brand-deep hover:bg-tint-brand/70 disabled:opacity-50">
-              {busy === "save" ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Save setup
-            </button>
-          ) : saved ? (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
-              <Check size={14} /> Saved
-            </span>
-          ) : null}
           <button
             type="button"
-            onClick={() => (hasPools ? setConfirming(true) : gen())}
+            onClick={() => (hasPools ? setConfirming(true) : doDraw())}
             disabled={!!busy || participantCount === 0 || locked}
             className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white hover:bg-ink-soft disabled:opacity-50"
           >
@@ -271,7 +281,7 @@ export function DivisionGroups({
             This discards the current pools and their matches and draws again at random. The original draw stays on record, this redraw is logged with a timestamp, and it&rsquo;s disclosed to participants on the event page.
           </p>
           <div className="mt-3 flex items-center gap-3">
-            <button type="button" onClick={gen} disabled={busy === "gen"} className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+            <button type="button" onClick={doDraw} disabled={busy === "gen"} className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
               {busy === "gen" ? <Loader2 size={13} className="animate-spin" /> : <Shuffle size={13} />} Redraw anyway
             </button>
             <button type="button" onClick={() => setConfirming(false)} className="text-xs font-medium text-mute hover:text-ink">

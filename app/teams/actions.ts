@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { accountActive } from "@/lib/guards";
 import { createNotification } from "@/lib/notify";
+import { logTeamEvent, notifyTeamMembers } from "@/lib/team-chat";
 import { SPORT_KEYS, sportMeta, teamSizeFor } from "@/lib/sports";
 import { lookupZip } from "@/lib/us-places";
 import type { TeamCard } from "./types";
@@ -121,6 +122,9 @@ export async function createTeam(_prev: TeamFormState, formData: FormData): Prom
   const { error: mErr } = await admin.from("team_members").insert({ team_id: team.id, user_id: user.id, role: "owner" });
   if (mErr) console.error("[teams] owner membership failed", mErr.code, mErr.message);
 
+  // The conversation is created by a DB trigger on team insert; record the first event.
+  await logTeamEvent(team.id, { kind: "team_created", actorId: user.id, body: name });
+
   revalidatePath("/teams");
   // Pro teams get the full workspace; recreational teams use the basic team page.
   redirect(category === "pro" ? `/team/${team.id}` : `/teams/${team.id}`);
@@ -141,7 +145,8 @@ export async function updateTeam(_prev: TeamFormState, formData: FormData): Prom
   if (!hit) return { error: "Enter a valid 5-digit US ZIP." };
 
   // Squad size: clamp to the sport range, but never below the current roster.
-  const { data: t } = await supabase.from("teams").select("sport_key").eq("id", teamId).maybeSingle();
+  const { data: t } = await supabase.from("teams").select("sport_key, name").eq("id", teamId).maybeSingle();
+  const renamed = (t?.name ?? "") !== name;
   const sz = teamSizeFor(t?.sport_key ?? "");
   const { count: mc } = await supabase.from("team_members").select("user_id", { count: "exact", head: true }).eq("team_id", teamId);
   const floor = Math.max(sz.min, mc ?? sz.min);
@@ -153,6 +158,10 @@ export async function updateTeam(_prev: TeamFormState, formData: FormData): Prom
   if (error) {
     console.error("[teams] update failed", error.code, error.message);
     return { error: `Couldn't save${error.code ? ` (${error.code})` : ""}.` };
+  }
+  if (renamed) {
+    await logTeamEvent(teamId, { kind: "team_renamed", actorId: user.id, body: name });
+    await notifyTeamMembers(teamId, user.id, { title: `Team renamed to ${name}`, linkUrl: `/teams/${teamId}` });
   }
   revalidatePath(`/teams/${teamId}`);
   return { ok: true };
@@ -287,17 +296,15 @@ export async function respondTeamInvite(formData: FormData) {
     }
     await admin.from("team_members").upsert({ team_id: invite.team_id, user_id: user.id, role: "member" }, { onConflict: "team_id,user_id" });
     await supabase.from("team_invites").update({ status: "accepted" }).eq("id", inviteId);
-    // Notify the captain.
+    // Log the join in the team thread and notify the rest of the roster.
     const { data: prof } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
-    if (team?.created_by && team.created_by !== user.id) {
-      await createNotification({
-        userId: team.created_by,
-        kind: "system",
-        title: `${prof?.display_name || "A player"} joined ${team.name}`,
-        body: "Your team has a new member.",
-        linkUrl: `/teams/${invite.team_id}`,
-      });
-    }
+    const who = prof?.display_name || "A player";
+    await logTeamEvent(invite.team_id, { kind: "member_joined", actorId: user.id, targetId: user.id, body: who });
+    await notifyTeamMembers(invite.team_id, user.id, {
+      title: `${who} joined ${team?.name ?? "your team"}`,
+      body: "Your team has a new member.",
+      linkUrl: `/teams/${invite.team_id}`,
+    });
     revalidatePath(`/teams/${invite.team_id}`);
   } else {
     await supabase.from("team_invites").update({ status: "declined" }).eq("id", inviteId);
@@ -311,8 +318,11 @@ export async function leaveTeam(formData: FormData) {
   const teamId = String(formData.get("teamId"));
   if (!teamId) return;
 
-  const { data: team } = await supabase.from("teams").select("id, created_by").eq("id", teamId).maybeSingle();
+  const { data: team } = await supabase.from("teams").select("id, name, created_by").eq("id", teamId).maybeSingle();
   const wasOwner = team?.created_by === user.id;
+  const { data: meProf } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
+  const myName = meProf?.display_name || "A player";
+  const teamName = team?.name ?? "your team";
 
   await supabase.from("team_members").delete().eq("team_id", teamId).eq("user_id", user.id);
 
@@ -329,11 +339,24 @@ export async function leaveTeam(formData: FormData) {
       // Promote the longest-standing remaining member to owner.
       await admin.from("team_members").update({ role: "owner" }).eq("team_id", teamId).eq("user_id", next.user_id);
       await admin.from("teams").update({ created_by: next.user_id }).eq("id", teamId);
+      await logTeamEvent(teamId, { kind: "member_left", actorId: user.id, body: myName });
+      await logTeamEvent(teamId, { kind: "owner_transferred", actorId: user.id, targetId: next.user_id });
+      await notifyTeamMembers(teamId, user.id, { title: `${myName} left ${teamName}`, linkUrl: `/teams/${teamId}` });
+      await createNotification({
+        userId: next.user_id,
+        kind: "system",
+        title: `You're now the owner of ${teamName}`,
+        body: "The previous owner left, so ownership passed to you.",
+        linkUrl: `/teams/${teamId}`,
+      });
     } else {
-      // Last member left — remove the empty team.
+      // Last member left — remove the empty team (its conversation cascades away).
       await admin.from("teams").delete().eq("id", teamId);
       redirect("/teams");
     }
+  } else {
+    await logTeamEvent(teamId, { kind: "member_left", actorId: user.id, body: myName });
+    await notifyTeamMembers(teamId, user.id, { title: `${myName} left ${teamName}`, linkUrl: `/teams/${teamId}` });
   }
   revalidatePath("/teams");
   redirect("/teams");
@@ -358,6 +381,15 @@ export async function removeMember(formData: FormData) {
   const admin = createAdminClient();
   await admin.from("team_members").delete().eq("team_id", teamId).eq("user_id", memberId);
   await admin.from("team_invites").delete().eq("team_id", teamId).eq("invited_user_id", memberId); // clear any stale invite
+  const { data: tn } = await admin.from("teams").select("name").eq("id", teamId).maybeSingle();
+  await logTeamEvent(teamId, { kind: "member_removed", actorId: user.id, targetId: memberId });
+  await createNotification({
+    userId: memberId,
+    kind: "system",
+    title: `You were removed from ${tn?.name ?? "a team"}`,
+    body: "An owner or manager removed you from the team.",
+    linkUrl: "/teams",
+  });
   revalidatePath(`/teams/${teamId}`);
 }
 
@@ -374,9 +406,17 @@ export async function setMemberRole(formData: FormData) {
 
   const admin = createAdminClient();
   // Manager/staff roles exist only for Pro teams; recreational teams are owner + members.
-  const { data: team } = await admin.from("teams").select("category").eq("id", teamId).maybeSingle();
+  const { data: team } = await admin.from("teams").select("category, name").eq("id", teamId).maybeSingle();
   if (team?.category !== "pro") return;
   await admin.from("team_members").update({ role }).eq("team_id", teamId).eq("user_id", memberId).neq("role", "owner");
+  const roleLabel = role === "manager" ? "Manager" : role === "staff" ? "Staff" : "Member";
+  await logTeamEvent(teamId, { kind: "role_changed", actorId: user.id, targetId: memberId, body: roleLabel });
+  await createNotification({
+    userId: memberId,
+    kind: "system",
+    title: `Your role in ${team?.name ?? "your team"} is now ${roleLabel}`,
+    linkUrl: `/teams/${teamId}`,
+  });
   revalidatePath(`/teams/${teamId}`);
 }
 
@@ -420,5 +460,6 @@ export async function transferOwnership(formData: FormData) {
     body: "Ownership of your team was transferred to you.",
     linkUrl: `/teams/${teamId}`,
   });
+  await logTeamEvent(teamId, { kind: "owner_transferred", actorId: user.id, targetId: memberId });
   revalidatePath(`/teams/${teamId}`);
 }

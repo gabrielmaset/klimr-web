@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, ClipboardList, CreditCard, CalendarClock, ListChecks,
-  Network, Handshake, Megaphone, Settings, Globe, ChevronLeft, Layers, Users,
+  Network, Handshake, Megaphone, Settings, Globe, ChevronLeft, Users,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
@@ -32,16 +32,16 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
 
   // Grouped by what each tool is for, in event-lifecycle order: an overview,
   // then Setup (define the event), Registration (manage entrants), Competition
-  // (run the draws & schedule), and Promotion (public-facing). Legal (waiver &
-  // rules) is a section of Settings, so it isn't a separate item.
+  // (run the draws & schedule), and Promotion (public-facing). Divisions & fees
+  // and Legal live as sections of Settings, so they aren't separate items.
   const groups: { header?: string; items: Item[] }[] = [
     { items: [{ href: base, label: "Dashboard", Icon: LayoutDashboard, exact: true }] },
     {
       header: "Setup",
       items: [
         { href: `${base}/settings`, label: "Settings", Icon: Settings },
-        { href: `${base}/divisions`, label: "Divisions & Fees", Icon: Layers },
         { href: `${base}/form`, label: "Sign-up form", Icon: ClipboardList },
+        { href: `${base}/planner`, label: "Day planner", Icon: ListChecks },
       ],
     },
     {
@@ -55,8 +55,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       header: "Competition",
       items: [
         { href: `${base}/brackets`, label: "Groups & brackets", Icon: Network },
-        { href: `${base}/schedule`, label: "Schedule", Icon: CalendarClock },
-        { href: `${base}/planner`, label: "Day planner", Icon: ListChecks },
+        { href: `${base}/schedule`, label: "Match schedule", Icon: CalendarClock },
       ],
     },
     {

@@ -2,8 +2,9 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TournamentSettingsEditor, type SettingsInit } from "@/components/tournament-settings-editor";
 import { GalleryEditor } from "@/components/gallery-editor";
+import { DivisionsEditor } from "@/components/tournament-divisions-editor";
 import { DeleteEvent } from "@/components/tournament-delete";
-import { isSignupFormReady, type TournamentFormatConfig, type FormatType } from "@/lib/tournament";
+import { isSignupFormReady, type TournamentFormatConfig, type FormatType, type DivisionRow } from "@/lib/tournament";
 
 export default async function TournamentSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,6 +23,13 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
   const legal = fc.legal ?? {};
   const { count: cfCount } = await supabase.from("tournament_custom_fields").select("id", { count: "exact", head: true }).eq("tournament_id", id);
   const signupFormReady = isSignupFormReady(fc, cfCount ?? 0);
+  const { data: divs } = await supabase
+    .from("tournament_divisions")
+    .select("id, name, description, fee_cents, fee_basis, capacity, sort_order")
+    .eq("tournament_id", id)
+    .order("sort_order");
+  const entryType = t.entry_type === "individual" ? "individual" : "team";
+  const capMode: "pooled" | "per_division" = fc.capacity_mode === "per_division" ? "per_division" : "pooled";
   const init: SettingsInit = {
     id: t.id,
     code: t.code,
@@ -69,6 +77,13 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
 
       <TournamentSettingsEditor
         init={init}
+        divisionsSlot={
+          <section id="divisions" className="scroll-mt-24 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+            <h2 className="text-lg font-bold tracking-tight text-ink">Divisions &amp; fees</h2>
+            <p className="mb-4 mt-0.5 text-sm text-mute">The categories {entryType === "team" ? "teams" : "players"} enter and what each costs.</p>
+            <DivisionsEditor tournamentId={t.id} entryType={entryType} initial={(divs as DivisionRow[]) ?? []} initialMode={capMode} />
+          </section>
+        }
         gallerySlot={
           <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
             <h2 className="text-base font-bold text-ink">Event photos</h2>

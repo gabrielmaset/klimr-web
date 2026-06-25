@@ -152,7 +152,7 @@ function VisibilityRow({ init }: { init: SettingsInit }) {
   );
 }
 
-export function TournamentSettingsEditor({ init, gallerySlot, dangerSlot }: { init: SettingsInit; gallerySlot?: ReactNode; dangerSlot?: ReactNode }) {
+export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dangerSlot }: { init: SettingsInit; divisionsSlot?: ReactNode; gallerySlot?: ReactNode; dangerSlot?: ReactNode }) {
   const router = useRouter();
   const save = (patch: TournamentDraftPatch) => updateTournamentDraft(init.id, patch);
 
@@ -500,8 +500,8 @@ export function TournamentSettingsEditor({ init, gallerySlot, dangerSlot }: { in
         </div>
         <div className="rounded-2xl border border-dashed border-rule bg-bg/40 p-4 text-sm text-mute">
           Entry categories &amp; fees live in{" "}
-          <Link href={`/tournament/${init.id}/divisions`} className="font-semibold text-brand-deep hover:underline">
-            Divisions
+          <Link href="#divisions" className="font-semibold text-brand-deep hover:underline">
+            Divisions &amp; fees
           </Link>
           ; custom sign-up questions live in{" "}
           <Link href={`/tournament/${init.id}/form`} className="font-semibold text-brand-deep hover:underline">
@@ -627,6 +627,12 @@ export function TournamentSettingsEditor({ init, gallerySlot, dangerSlot }: { in
       ),
     },
   ];
+  // Divisions & fees sits right after Format & eligibility (it defines the
+  // categories and pricing that flow from the event's format).
+  if (divisionsSlot) {
+    const fi = sections.findIndex((s) => s.key === "format");
+    sections.splice(fi >= 0 ? fi + 1 : sections.length, 0, { key: "divisions", label: "Divisions & fees", content: divisionsSlot });
+  }
   if (gallerySlot) sections.push({ key: "photos", label: "Event photos", content: gallerySlot });
   if (dangerSlot) sections.push({ key: "danger", label: "Danger zone", content: dangerSlot });
 

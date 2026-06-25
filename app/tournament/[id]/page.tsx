@@ -208,7 +208,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
     { label: "Basics", done: true, anchor: "details" },
     { label: "When & where", done: !!t.starts_at, anchor: "location" },
     { label: "Format", done: !!fc.format_type, anchor: "format" },
-    { label: "Divisions", done: divisions.length > 0, anchor: "", href: `${base}/divisions` },
+    { label: "Divisions", done: divisions.length > 0, anchor: "divisions" },
     { label: "Registration", done: !!(t.registration_opens_at || t.registration_deadline), anchor: "registration" },
     { label: "Sign-up form", done: signupFormReady, anchor: "form", href: `${base}/form` },
     { label: "Legal", done: !!(fc.legal?.waiver_text || fc.legal?.rules_text), anchor: "legal" },
@@ -386,7 +386,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
           <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5 lg:col-span-2">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-sm font-bold text-ink">Divisions</h2>
-              <Link href={`${base}/divisions`} className="text-xs font-semibold text-brand-deep hover:underline">Manage →</Link>
+              <Link href={`${base}/settings#divisions`} className="text-xs font-semibold text-brand-deep hover:underline">Manage →</Link>
             </div>
             <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
               {divisions.map((d) => {

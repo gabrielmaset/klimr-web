@@ -1823,7 +1823,15 @@ export async function withdrawRegistration(registrationId: string): Promise<{ ok
 /** Per-division pool structure (groups × per-group). Derives + stores the division's
  *  capacity and switches the event to per-division caps, so each division is sized
  *  independently — no equal split of a shared total. Staff only. */
-export async function saveDivisionGroupSetup(tournamentId: string, divisionId: string, groupCount: number, groupSize: number) {
+// Save the group structure for EVERY division at once, plus the tournament-wide
+// capacity ceiling. Each division's groups × size becomes its registration cap;
+// the combined total is bounded by `max`. The client rebalances live so the sum
+// never exceeds `max`, and this action enforces the same invariant defensively.
+export async function saveDivisionStructures(
+  tournamentId: string,
+  max: number | null,
+  items: { divisionId: string; groups: number; per: number }[],
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -1838,23 +1846,41 @@ export async function saveDivisionGroupSetup(tournamentId: string, divisionId: s
   }
   if (!staff) return { ok: false as const, error: "Not allowed." };
 
-  const gc = Math.max(1, Math.min(16, Math.floor(groupCount) || 1));
-  const gs = Math.max(1, Math.min(64, Math.floor(groupSize) || 1));
-  const capacity = gc * gs;
-  const { error } = await supabase
-    .from("tournament_divisions")
-    .update({ group_count: gc, group_size: gs, capacity, updated_at: new Date().toISOString() })
-    .eq("id", divisionId)
-    .eq("tournament_id", tournamentId);
-  if (error) return { ok: false as const, error: error.message };
+  const ceiling = max != null && Number.isFinite(max) && max > 0 ? Math.floor(max) : null;
+  const clean = items.map((it) => {
+    const g = Math.max(1, Math.min(16, Math.floor(it.groups) || 1));
+    const p = Math.max(1, Math.min(64, Math.floor(it.per) || 1));
+    return { divisionId: it.divisionId, groups: g, per: p, capacity: g * p };
+  });
 
-  // Per-division group structure implies per-division capacity — make sure the
-  // registration cap honors each division rather than a shared total.
+  // Defensive: the combined allocation must never exceed the tournament cap.
+  if (ceiling != null) {
+    const total = clean.reduce((a, c) => a + c.capacity, 0);
+    if (total > ceiling) return { ok: false as const, error: "Allocations exceed the tournament capacity." };
+  }
+
+  for (const c of clean) {
+    const { error } = await supabase
+      .from("tournament_divisions")
+      .update({ group_count: c.groups, group_size: c.per, capacity: c.capacity, updated_at: new Date().toISOString() })
+      .eq("id", c.divisionId)
+      .eq("tournament_id", tournamentId);
+    if (error) return { ok: false as const, error: error.message };
+  }
+
+  // Registration caps are enforced per division; the tournament cap is the planning
+  // ceiling on the combined total.
   const fc = (to.format_config ?? {}) as TournamentFormatConfig;
-  if (fc.capacity_mode !== "per_division") {
-    await supabase.from("tournaments").update({ format_config: { ...fc, capacity_mode: "per_division" }, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  const setMode = fc.capacity_mode !== "per_division";
+  const stamp = new Date().toISOString();
+  if (setMode && ceiling != null) {
+    await supabase.from("tournaments").update({ format_config: { ...fc, capacity_mode: "per_division" }, capacity: ceiling, updated_at: stamp }).eq("id", tournamentId);
+  } else if (setMode) {
+    await supabase.from("tournaments").update({ format_config: { ...fc, capacity_mode: "per_division" }, updated_at: stamp }).eq("id", tournamentId);
+  } else if (ceiling != null) {
+    await supabase.from("tournaments").update({ capacity: ceiling, updated_at: stamp }).eq("id", tournamentId);
   }
 
   revalidatePath(`/tournament/${tournamentId}/brackets`);
-  return { ok: true as const, capacity };
+  return { ok: true as const };
 }

@@ -36,12 +36,8 @@ type RankedRow = {
   rank: number;
 };
 
-/* The podium reuses the Klimr mark; medals are gold / silver / bronze. */
-const MEDAL = ["#e8b007", "#8b929c", "#b06a2c"];
-const STAIR =
-  "M 64,438 L 64,382 A 22 22 0 0 1 86,360 L 182,360 A 10 10 0 0 0 192,350 L 192,282 A 22 22 0 0 1 214,260 L 310,260 A 10 10 0 0 0 320,250 L 320,182 A 22 22 0 0 1 342,160 L 426,160 A 22 22 0 0 1 448,182 L 448,438 A 22 22 0 0 1 426,460 L 86,460 A 22 22 0 0 1 64,438 Z";
-const WIN =
-  "M 342,160 A 22 22 0 0 1 426,160 L 426,160 A 22 22 0 0 1 448,182 L 448,438 A 22 22 0 0 1 426,460 L 322,460 L 320,182 A 22 22 0 0 1 342,160 Z";
+/* Medal ring colors: gold / silver / bronze for ranks 1 / 2 / 3. */
+const MEDAL = ["#e8b007", "#9aa0aa", "#c07d3e"];
 
 const COUNTRY: Record<string, string> = { US: "United States" };
 const CARD =
@@ -85,80 +81,141 @@ function Disc({ row, you, size = 36 }: { row: RankedRow; you: boolean; size?: nu
   );
 }
 
-/* ---------- the podium === the Klimr mark; the top three climb its steps ---------- */
+/* ---------- podium: three steps climbing to the summit (rank 1 on the right) ----------
+   Geometry is fully computed from a few constants so every element — avatar, name,
+   points, and the watermark numeral — sits at an identical offset on each step and
+   nothing can collide, regardless of step height. */
 function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; userId: string }) {
+  const BASE = 452; // shared floor line
+  const PW = 120; // step width
+  const GAP = 16; // gap between steps
+  const AR = 33; // avatar radius (equal across steps for crisp alignment)
+  const ROW_W = 3 * PW + 2 * GAP;
+  const startX = (420 - ROW_W) / 2;
+
+  // Visual order left → right: rank 3, rank 2, rank 1 — a climb to the summit.
   const seats = [
-    { row: top3[0], pos: 1, cx: 384, cy: 120, r: 40, ny: 188, py: 210, gs: 150 },
-    { row: top3[1], pos: 2, cx: 262, cy: 220, r: 36, ny: 288, py: 310, gs: 106 },
-    { row: top3[2], pos: 3, cx: 134, cy: 322, r: 33, ny: 388, py: 410, gs: 74 },
-  ];
+    { row: top3[2], rank: 3, h: 174, num: 122 },
+    { row: top3[1], rank: 2, h: 214, num: 138 },
+    { row: top3[0], rank: 1, h: 258, num: 156 },
+  ].map((s, i) => ({
+    ...s,
+    cx: startX + PW / 2 + i * (PW + GAP),
+    top: BASE - s.h,
+  }));
+
+  const stepPath = (cx: number, top: number) => {
+    const x0 = cx - PW / 2;
+    const x1 = cx + PW / 2;
+    const r = 18;
+    return `M ${x0},${BASE} L ${x0},${top + r} Q ${x0},${top} ${x0 + r},${top} L ${x1 - r},${top} Q ${x1},${top} ${x1},${top + r} L ${x1},${BASE} Z`;
+  };
+
   return (
     <div className={CARD}>
-      <div className="kicker mb-1 text-faint">The summit · {place}</div>
-      <div className="mx-auto w-full max-w-[360px] lg:max-w-[430px]">
+      <div className="kicker mb-2 text-faint">The summit · {place}</div>
+      <div className="mx-auto w-full max-w-[380px] lg:max-w-[440px]">
         <svg
-          viewBox="52 48 408 424"
+          viewBox="0 112 420 366"
           className="block h-auto w-full"
-          style={{ filter: "drop-shadow(0 18px 26px rgba(10,10,11,.12))" }}
           role="img"
           aria-label={`Top three at ${place}: 1 ${top3[0].display_name}, 2 ${top3[1].display_name}, 3 ${top3[2].display_name}`}
         >
           <defs>
             {seats.map((s) => (
-              <linearGradient key={s.pos} id={`pod${s.pos}`} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor={`hsl(${s.row.avatar_hue},70%,54%)`} />
-                <stop offset="1" stopColor={`hsl(${mod(s.row.avatar_hue + 24, 360)},66%,44%)`} />
+              <linearGradient key={`pg${s.rank}`} id={`pg${s.rank}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#22222c" />
+                <stop offset="1" stopColor="#121217" />
               </linearGradient>
             ))}
-            <linearGradient id="podWin" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#ff4e1b" stopOpacity="0.2" />
-              <stop offset="1" stopColor="#ff4e1b" stopOpacity="0" />
-            </linearGradient>
-            <clipPath id="stairClip">
-              <path d={STAIR} />
-            </clipPath>
+            {seats.map((s) => (
+              <linearGradient key={`pav${s.rank}`} id={`pav${s.rank}`} x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor={`hsl(${s.row.avatar_hue},72%,55%)`} />
+                <stop offset="1" stopColor={`hsl(${mod(s.row.avatar_hue + 26, 360)},66%,44%)`} />
+              </linearGradient>
+            ))}
+            <radialGradient id="summitHalo" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stopColor="#ff7a4d" stopOpacity="0.30" />
+              <stop offset="1" stopColor="#ff7a4d" stopOpacity="0" />
+            </radialGradient>
+            <filter id="podShadow" x="-25%" y="-25%" width="150%" height="160%">
+              <feDropShadow dx="0" dy="9" stdDeviation="9" floodColor="#0a0a0b" floodOpacity="0.16" />
+            </filter>
           </defs>
 
-          <path d={STAIR} fill="#16161b" />
-          <path d={WIN} fill="url(#podWin)" />
+          {/* grounding shadow under the steps */}
+          <ellipse cx="210" cy={BASE + 10} rx={ROW_W / 2 + 6} ry="11" fill="#0a0a0b" opacity="0.06" />
 
-          <g clipPath="url(#stairClip)">
+          {/* summit halo behind the winner */}
+          {(() => {
+            const win = seats[2];
+            return <circle cx={win.cx} cy={win.top} r="92" fill="url(#summitHalo)" />;
+          })()}
+
+          {/* the three steps */}
+          <g filter="url(#podShadow)">
             {seats.map((s) => (
-              <text
-                key={`g${s.pos}`}
-                x={s.cx}
-                y={452}
-                textAnchor="middle"
-                style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontWeight: 700, fontSize: s.gs, fill: "#3a3a46" }}
-              >
-                {s.pos}
-              </text>
+              <path key={`p${s.rank}`} d={stepPath(s.cx, s.top)} fill={`url(#pg${s.rank})`} />
             ))}
           </g>
 
+          {/* watermark numerals + a hairline top edge, per step */}
+          {seats.map((s) => (
+            <g key={`n${s.rank}`}>
+              <line x1={s.cx - PW / 2 + 14} y1={s.top + 1} x2={s.cx + PW / 2 - 14} y2={s.top + 1} stroke={MEDAL[s.rank - 1]} strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+              <text
+                x={s.cx}
+                y={BASE - 18}
+                textAnchor="middle"
+                style={{ fontFamily: '"Instrument Serif", Georgia, serif', fontWeight: 700, fontSize: s.num, fill: "#2b2b35" }}
+              >
+                {s.rank}
+              </text>
+            </g>
+          ))}
+
+          {/* name + points, identical offsets from each step's top */}
           {seats.map((s) => {
             const you = s.row.user_id === userId;
             return (
-              <g key={`l${s.pos}`}>
-                <text x={s.cx} y={s.ny} textAnchor="middle" style={{ fontFamily: '"DM Sans Variable", sans-serif', fontWeight: 700, fontSize: 18, fill: you ? "#ff4e1b" : "#ffffff" }}>
+              <g key={`l${s.rank}`}>
+                <text x={s.cx} y={s.top + AR + 24} textAnchor="middle" style={{ fontFamily: '"DM Sans Variable", sans-serif', fontWeight: 700, fontSize: 17, fill: you ? "#ff7a4d" : "#ffffff" }}>
                   {you ? "You" : firstName(s.row.display_name)}
                 </text>
-                <text x={s.cx} y={s.py} textAnchor="middle" style={{ fontFamily: '"JetBrains Mono Variable", monospace', fontSize: 14, fill: "rgba(255,255,255,.7)" }}>
-                  {fmt(s.row.points)} pts
+                <text x={s.cx} y={s.top + AR + 44} textAnchor="middle" style={{ fontFamily: '"JetBrains Mono Variable", monospace', fontSize: 12.5, fill: "rgba(255,255,255,.68)" }}>
+                  {compact(s.row.points)} pts
                 </text>
               </g>
             );
           })}
 
-          <path d="M 362,96 L 366,70 L 378,86 L 384,62 L 390,86 L 402,70 L 406,96 Z" fill="#e8b007" stroke="#c9920a" strokeWidth="1.5" strokeLinejoin="round" />
-          <circle cx="384" cy="60" r="3.5" fill="#e8b007" />
+          {/* crown over the winner, centered on the summit avatar */}
+          {(() => {
+            const w = seats[2];
+            const cy = w.top - AR - 14;
+            return (
+              <g>
+                <path
+                  d={`M ${w.cx - 15},${cy + 11} L ${w.cx - 15},${cy + 1} L ${w.cx - 7.5},${cy + 6} L ${w.cx},${cy - 6} L ${w.cx + 7.5},${cy + 6} L ${w.cx + 15},${cy + 1} L ${w.cx + 15},${cy + 11} Z`}
+                  fill="#e8b007"
+                  stroke="#c9920a"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+                <circle cx={w.cx - 15} cy={cy + 1} r="2" fill="#e8b007" />
+                <circle cx={w.cx} cy={cy - 6} r="2.2" fill="#e8b007" />
+                <circle cx={w.cx + 15} cy={cy + 1} r="2" fill="#e8b007" />
+              </g>
+            );
+          })()}
 
+          {/* avatars straddling each step's top edge */}
           {seats.map((s) => {
             const you = s.row.user_id === userId;
             return (
-              <g key={`a${s.pos}`}>
-                <circle cx={s.cx} cy={s.cy} r={s.r} fill={`url(#pod${s.pos})`} stroke={you ? "#ff4e1b" : MEDAL[s.pos - 1]} strokeWidth={s.pos === 1 ? 4 : 3.5} />
-                <text x={s.cx} y={s.cy} textAnchor="middle" dominantBaseline="central" style={{ fontFamily: '"DM Sans Variable", sans-serif', fontWeight: 700, fontSize: s.r * 0.82, fill: "#fff" }}>
+              <g key={`a${s.rank}`}>
+                <circle cx={s.cx} cy={s.top} r={AR} fill={`url(#pav${s.rank})`} stroke={you ? "#ff4e1b" : MEDAL[s.rank - 1]} strokeWidth={s.rank === 1 ? 4 : 3} />
+                <text x={s.cx} y={s.top} textAnchor="middle" dominantBaseline="central" style={{ fontFamily: '"DM Sans Variable", sans-serif', fontWeight: 700, fontSize: AR * 0.8, fill: "#fff" }}>
                   {initials(s.row.display_name)}
                 </text>
               </g>

@@ -655,9 +655,15 @@ export interface Database {
         Relationships: [];
       };
       conversations: {
-        Row: { id: string; match_id: string; created_by: string | null; created_at: string; expires_at: string | null };
-        Insert: { id?: string; match_id: string; created_by?: string | null; created_at?: string; expires_at?: string | null };
-        Update: { expires_at?: string | null };
+        Row: { id: string; match_id: string | null; team_id: string | null; kind: string; created_by: string | null; created_at: string; expires_at: string | null };
+        Insert: { id?: string; match_id?: string | null; team_id?: string | null; kind?: string; created_by?: string | null; created_at?: string; expires_at?: string | null };
+        Update: { expires_at?: string | null; kind?: string };
+        Relationships: [];
+      };
+      conversation_events: {
+        Row: { id: string; conversation_id: string; kind: string; actor_id: string | null; target_id: string | null; body: string | null; created_at: string };
+        Insert: { id?: string; conversation_id: string; kind: string; actor_id?: string | null; target_id?: string | null; body?: string | null; created_at?: string };
+        Update: { body?: string | null };
         Relationships: [];
       };
       conversation_keys: {
