@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ChevronRight, Download, Mail, ShieldCheck, UserRound, Trophy, BadgeCheck, KeyRound,
-  MapPin, Swords, CalendarDays, BookOpen, Users, CreditCard, LifeBuoy, FileText, ScrollText, Send, Ban,
+  MapPin, Swords, CalendarDays, BookOpen, Users, CreditCard, LifeBuoy, FileText, ScrollText, Send, Ban, GraduationCap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOutAction, signOutEverywhereAction } from "@/app/auth/actions";
@@ -122,6 +122,7 @@ export default async function SettingsPage() {
               { Icon: UserRound, title: "Profile & bio", desc: "Name, bio, date of birth, and area", href: "/settings/profile" },
               { Icon: Trophy, title: "Sports & skill levels", desc: "The sports you play and your levels", href: "/settings/sports" },
               { Icon: BadgeCheck, title: "Identity verification", desc: "Your verified-player status", href: "/settings/verification" },
+              { Icon: GraduationCap, title: "Professional status", desc: "Apply as a coach, trainer, or health pro", href: "/settings/professional" },
               { Icon: Mail, title: "Linked email & phone", desc: "How you sign in and get reached", href: "/settings/email" },
               { Icon: KeyRound, title: "Sign-in & security", desc: "Magic link and two-factor", href: "/account/security" },
             ]}

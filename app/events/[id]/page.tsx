@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign } from "lucide-react";
+import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign, Pencil, Ban } from "lucide-react";
 import { BackButton } from "@/components/back-button";
+import { EventCoverEditor } from "@/components/event-cover-editor";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
-import { rsvp, cancelRsvp } from "../actions";
+import { rsvp, cancelRsvp, cancelEvent } from "../actions";
 
 export const metadata: Metadata = { title: "Event" };
 
@@ -39,12 +40,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const { data: e } = await supabase
     .from("events")
-    .select("id, title, sport_key, kind, description, court_id, location_text, starts_at, ends_at, capacity, cost_text, status")
+    .select("id, title, sport_key, kind, description, court_id, location_text, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path")
     .eq("id", id)
     .maybeSingle();
   if (!e) notFound();
 
   const meta = sportMeta(e.sport_key);
+  const isCreator = e.created_by === user.id;
+  const coverUrl = e.cover_path ? supabase.storage.from("tournament-gallery").getPublicUrl(e.cover_path).data.publicUrl : null;
 
   const [{ data: rsvps }, court] = await Promise.all([
     supabase.from("event_rsvps").select("user_id").eq("event_id", id),
@@ -84,6 +87,15 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <BackButton fallback="/events" label="Events" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
+      {isCreator ? (
+        <EventCoverEditor eventId={e.id} initialUrl={coverUrl} />
+      ) : coverUrl ? (
+        <div className="mx-auto mb-6 aspect-square w-full max-w-sm overflow-hidden rounded-3xl border border-rule">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+        </div>
+      ) : null}
+
       <span className="inline-block rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink">
         {meta.emoji} {meta.name} · {KIND_LABEL[e.kind] ?? "Event"}
       </span>
@@ -93,6 +105,25 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <div className="mt-3 rounded-xl border border-brand/30 bg-tint-brand px-4 py-2.5 text-sm font-semibold text-brand-deep">This event was cancelled.</div>
       ) : past ? (
         <div className="mt-3 rounded-xl border border-rule bg-[#f4f4f5] px-4 py-2.5 text-sm font-semibold text-mute">This event has ended.</div>
+      ) : null}
+
+      {isCreator ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Link
+            href={`/events/${e.id}/edit`}
+            className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-brand"
+          >
+            <Pencil size={14} /> Edit event
+          </Link>
+          {!cancelled ? (
+            <form action={cancelEvent}>
+              <input type="hidden" name="eventId" value={e.id} />
+              <button className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-1.5 text-sm font-semibold text-mute transition-colors hover:border-brand hover:text-brand-deep">
+                <Ban size={14} /> Cancel event
+              </button>
+            </form>
+          ) : null}
+        </div>
       ) : null}
 
       {/* facts */}

@@ -450,3 +450,74 @@ export async function purgeUserNow(formData: FormData) {
   revalidatePath("/admin");
   redirect("/admin/users/archived");
 }
+
+/** Approve or revoke a class provider (coach). Only approved providers can create classes. */
+export async function setClassProvider(formData: FormData) {
+  const { userId } = await requireAdmin("admin");
+  const target = String(formData.get("userId") ?? "").trim();
+  const action = String(formData.get("action") ?? "");
+  if (!target) return;
+
+  const admin = createAdminClient();
+  if (action === "revoke") {
+    await admin.from("class_providers").update({ status: "revoked" }).eq("user_id", target);
+    await logAdminAction(userId, "provider:revoke", target);
+  } else {
+    const headline = String(formData.get("headline") ?? "").trim() || null;
+    await admin
+      .from("class_providers")
+      .upsert(
+        { user_id: target, status: "approved", headline, approved_by: userId, approved_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+    await logAdminAction(userId, "provider:approve", target, headline ?? undefined);
+  }
+  revalidatePath("/admin/providers");
+}
+
+/** Approve or reject a professional-status application. Approving grants the role
+ *  (and class-creation ability) by upserting the user's class_providers record. */
+export async function reviewProviderApplication(formData: FormData) {
+  const { userId } = await requireAdmin("admin");
+  const appId = String(formData.get("appId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("review_note") ?? "").trim() || null;
+  if (!appId || !["approve", "reject"].includes(decision)) return;
+
+  const admin = createAdminClient();
+  const { data: app } = await admin
+    .from("provider_applications")
+    .select("id, user_id, role, headline")
+    .eq("id", appId)
+    .maybeSingle();
+  if (!app) return;
+
+  if (decision === "approve") {
+    const { data: existing } = await admin.from("class_providers").select("roles").eq("user_id", app.user_id).maybeSingle();
+    const roles = new Set<string>(existing?.roles ?? []);
+    roles.add(app.role);
+    await admin.from("class_providers").upsert(
+      {
+        user_id: app.user_id,
+        status: "approved",
+        roles: [...roles],
+        approved_by: userId,
+        approved_at: new Date().toISOString(),
+        ...(app.headline ? { headline: app.headline } : {}),
+      },
+      { onConflict: "user_id" },
+    );
+    await admin
+      .from("provider_applications")
+      .update({ status: "approved", review_note: note, reviewed_by: userId, reviewed_at: new Date().toISOString() })
+      .eq("id", appId);
+    await logAdminAction(userId, `provider_app:approve:${app.role}`, app.user_id, note ?? undefined, appId);
+  } else {
+    await admin
+      .from("provider_applications")
+      .update({ status: "rejected", review_note: note, reviewed_by: userId, reviewed_at: new Date().toISOString() })
+      .eq("id", appId);
+    await logAdminAction(userId, `provider_app:reject:${app.role}`, app.user_id, note ?? undefined, appId);
+  }
+  revalidatePath("/admin/providers");
+}

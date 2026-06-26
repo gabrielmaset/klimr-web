@@ -7,6 +7,7 @@ import { sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
 import { acceptFriendRequest, removeFriend } from "@/app/network/actions";
 import { respondTeamInvite } from "@/app/teams/actions";
+import { TeamSharingDisclaimer } from "@/components/registrant-shared-info";
 import { acceptMatchInvite, declineMatchInvite, cancelMatchInvite } from "@/app/play/[id]/actions";
 
 export const metadata: Metadata = { title: "Invites" };
@@ -185,6 +186,7 @@ export default async function InvitesPage({ searchParams }: { searchParams: Prom
                     </span>
                   </div>
                 </div>
+                {dir === "received" ? <TeamSharingDisclaimer className="mt-3" /> : null}
                 <div className="mt-3 flex items-center gap-2">
                   {dir === "received" ? (
                     <>

@@ -186,6 +186,9 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
 
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
+      <Link href={`/e/${code}`} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
+        <ArrowLeft size={16} /> Back to event
+      </Link>
       <div className="mb-6">
         <p className="kicker text-brand-deep">{meta.name} · Sign up</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{t.title}</h1>

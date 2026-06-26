@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Newspaper, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut,
   Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
-  User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox, Medal, IdCard,
+  User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox, Medal, IdCard, GraduationCap,
 } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
@@ -46,6 +46,7 @@ const GROUPS: { header?: string; items: Item[] }[] = [
       { href: "/discover", label: "Players", Icon: Radar },
       { href: "/courts", label: "Courts", Icon: MapPin },
       { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
+      { href: "/classes", label: "Classes", Icon: GraduationCap },
       { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
       { href: "/resources", label: "Resources", Icon: BookOpen },
     ],

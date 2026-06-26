@@ -133,6 +133,20 @@ export default async function MarketplacePage({
         </Link>
       </div>
 
+      <Link
+        href="/classes"
+        className="lift mb-5 flex items-center gap-3 rounded-2xl border border-brand/30 bg-tint-brand p-4"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-white">
+          <GraduationCap size={20} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-ink">Classes &amp; clinics</span>
+          <span className="block truncate text-xs text-mute">Book sessions with verified coaches — sign up, confirm, and manage attendance in Klimr.</span>
+        </span>
+        <span className="shrink-0 text-sm font-semibold text-brand-deep">Browse →</span>
+      </Link>
+
       {savedView ? (
         <h2 className="mb-4 text-sm font-semibold text-mute">Your saved listings</h2>
       ) : (

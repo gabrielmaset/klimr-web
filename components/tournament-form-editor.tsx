@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Loader2, Check, X } from "lucide-react";
+import { Plus, Trash2, Loader2, Check, X, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { Segmented } from "@/components/form-kit";
 import { saveCustomFields } from "@/app/tournaments/actions";
 import { FIELD_TYPE_LABEL, fieldTypeHasOptions, type CustomFieldRow } from "@/lib/tournament";
 import type { CustomFieldType } from "@/lib/database.types";
 
 type FieldRow = {
+  uid: string;
   id?: string;
   label: string;
   description: string;
@@ -21,8 +22,14 @@ const inputCls = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-
 const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-mute";
 const TYPES: CustomFieldType[] = ["short_text", "long_text", "single_select", "multi_select", "number", "date"];
 
+// Stable client-side key per row so reordering (drag / arrows) never remounts
+// an unsaved question's inputs.
+let _seq = 0;
+const newUid = () => `f${_seq++}`;
+
 function toRow(f: CustomFieldRow): FieldRow {
   return {
+    uid: newUid(),
     id: f.id,
     label: f.label,
     description: f.description ?? "",
@@ -33,7 +40,7 @@ function toRow(f: CustomFieldRow): FieldRow {
   };
 }
 
-const blank = (entryType: "team" | "individual"): FieldRow => ({ label: "", description: "", type: "short_text", options: ["", ""], required: false, scope: entryType === "individual" ? "per_player" : "per_player" });
+const blank = (entryType: "team" | "individual"): FieldRow => ({ uid: newUid(), label: "", description: "", type: "short_text", options: ["", ""], required: false, scope: entryType === "individual" ? "per_player" : "per_player" });
 
 function MiniSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -44,14 +51,24 @@ function MiniSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boo
 }
 
 export function CustomFieldsEditor({ tournamentId, entryType, initial }: { tournamentId: string; entryType: "team" | "individual"; initial: CustomFieldRow[] }) {
-  const [rows, setRows] = useState<FieldRow[]>(initial.map(toRow));
+  const [rows, setRows] = useState<FieldRow[]>(() => initial.map(toRow));
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
 
   const update = (i: number, patch: Partial<FieldRow>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const add = () => setRows((rs) => [...rs, blank(entryType)]);
   const remove = (i: number) => setRows((rs) => rs.filter((_, j) => j !== i));
+  const move = (from: number, to: number) =>
+    setRows((rs) => {
+      if (to < 0 || to >= rs.length || from === to) return rs;
+      const copy = [...rs];
+      const [it] = copy.splice(from, 1);
+      copy.splice(to, 0, it);
+      return copy;
+    });
   const setOption = (i: number, oi: number, val: string) => update(i, { options: rows[i].options.map((o, k) => (k === oi ? val : o)) });
   const addOption = (i: number) => update(i, { options: [...rows[i].options, ""] });
   const removeOption = (i: number, oi: number) => update(i, { options: rows[i].options.filter((_, k) => k !== oi) });
@@ -93,9 +110,72 @@ export function CustomFieldsEditor({ tournamentId, entryType, initial }: { tourn
         </div>
       ) : (
         <div className="grid gap-3">
+          {rows.length > 1 ? (
+            <p className="-mb-0.5 flex items-center gap-1.5 text-xs text-faint">
+              <GripVertical size={13} /> Drag the handle — or use the arrows — to reorder questions.
+            </p>
+          ) : null}
           {rows.map((r, i) => (
-            <div key={r.id ?? `new-${i}`} className="rounded-2xl border border-rule bg-surface p-4">
+            <div
+              key={r.uid}
+              data-card
+              onDragOver={(e) => {
+                if (dragIndex !== null) {
+                  e.preventDefault();
+                  setOverIndex(i);
+                }
+              }}
+              onDrop={() => {
+                if (dragIndex !== null) move(dragIndex, i);
+                setDragIndex(null);
+                setOverIndex(null);
+              }}
+              className={`rounded-2xl border bg-surface p-4 transition-shadow ${dragIndex === i ? "opacity-50" : ""} ${
+                overIndex === i && dragIndex !== null && dragIndex !== i ? "border-brand ring-2 ring-brand/30" : "border-rule"
+              }`}
+            >
               <div className="flex items-start gap-3">
+                {/* Reorder rail: drag handle + arrow fallback */}
+                <div className="flex shrink-0 flex-col items-center gap-1 pt-0.5">
+                  <button
+                    type="button"
+                    aria-label="Drag to reorder"
+                    title="Drag to reorder"
+                    draggable
+                    onDragStart={(e) => {
+                      setDragIndex(i);
+                      const card = (e.currentTarget as HTMLElement).closest("[data-card]");
+                      if (card) e.dataTransfer.setDragImage(card as Element, 16, 16);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => {
+                      setDragIndex(null);
+                      setOverIndex(null);
+                    }}
+                    className="press grid h-7 w-7 cursor-grab place-items-center rounded-lg text-faint hover:bg-bg hover:text-mute active:cursor-grabbing"
+                  >
+                    <GripVertical size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Move question up"
+                    disabled={i === 0}
+                    onClick={() => move(i, i - 1)}
+                    className="press grid h-6 w-6 place-items-center rounded-lg text-mute hover:bg-bg hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronUp size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Move question down"
+                    disabled={i === rows.length - 1}
+                    onClick={() => move(i, i + 1)}
+                    className="press grid h-6 w-6 place-items-center rounded-lg text-mute hover:bg-bg hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                </div>
+
                 <div className="grid min-w-0 flex-1 gap-3">
                   <input className={inputCls} placeholder="Question (e.g. T-shirt size)" value={r.label} onChange={(e) => update(i, { label: e.target.value })} maxLength={120} />
                   <input className={inputCls} placeholder="Help text (optional)" value={r.description} onChange={(e) => update(i, { description: e.target.value })} maxLength={160} />

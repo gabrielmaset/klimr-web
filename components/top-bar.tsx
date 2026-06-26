@@ -218,7 +218,8 @@ export function TopBar({
   const proTeams = teams.filter((t) => t.category === "pro");
 
   return (
-    <header className="sticky top-3 z-30 mx-3 mt-3 hidden rounded-2xl border border-rule bg-surface shadow-[0_10px_40px_-15px_rgba(10,10,11,0.22)] backdrop-blur-2xl backdrop-saturate-150 md:block">
+    <div className="sticky top-0 z-40 hidden bg-bg px-3 pb-3 pt-3 md:block">
+    <header className="rounded-2xl border border-rule bg-surface shadow-[0_10px_40px_-15px_rgba(10,10,11,0.22)]">
       <div className="flex items-center gap-3 px-3.5 py-2.5">
         {/* Inline search — type here, results drop down below (no modal) */}
         <TopSearch />
@@ -320,5 +321,6 @@ export function TopBar({
         </div>
       </div>
     </header>
+    </div>
   );
 }
