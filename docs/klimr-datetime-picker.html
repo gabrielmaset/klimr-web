@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Klimr — Date & time picker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{--bg:#fafafa;--surface:#fff;--ink:#0a0a0b;--ink-soft:#18181b;--mute:#71717a;--faint:#a1a1aa;--rule:#e4e4e7;--brand:#ff4e1b;--brand-deep:#d63a0f;--tint:#fff1ed}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:linear-gradient(180deg,#eef0f2,#fafafa);color:var(--ink);font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:560px;margin:0 auto;padding:48px 22px 80px}
+  .mk{font-weight:800;font-size:20px;letter-spacing:-.02em}.mk .d{width:8px;height:8px;border-radius:50%;background:var(--brand);display:inline-block;margin-left:6px;transform:translateY(-2px)}
+  h1{font-weight:800;font-size:24px;letter-spacing:-.02em;margin:10px 0 6px}
+  .sub{color:var(--mute);font-size:14px;margin-bottom:28px}
+  .card{background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:22px}
+  .kick{text-transform:uppercase;letter-spacing:.14em;font-size:10px;font-weight:700;color:var(--faint)}
+  .help{font-size:12px;color:var(--faint);margin-top:8px}
+
+  .field{position:relative;margin-top:8px}
+  .trigger{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--rule);background:var(--surface);border-radius:12px;padding:10px 36px 10px 14px;font-family:inherit;font-size:14px;text-align:left;cursor:pointer;color:var(--faint)}
+  .trigger.set{color:var(--ink);font-weight:500}
+  .trigger:hover{border-color:var(--faint)} .trigger.open{border-color:var(--brand)}
+  .trigger .ico{color:var(--faint);flex:none}
+  .clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:20px;height:20px;border:none;background:none;border-radius:50%;color:var(--faint);cursor:pointer;display:none;align-items:center;justify-content:center}
+  .clear:hover{background:var(--bg);color:var(--ink)} .field.set .clear{display:flex}
+
+  .pop{position:absolute;left:0;top:calc(100% + 8px);z-index:30;width:min(94vw,440px);background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:0 24px 60px -15px rgba(10,10,11,.35);overflow:hidden;display:none;animation:fade .12s ease-out}
+  .pop.open{display:block}@keyframes fade{from{opacity:0}to{opacity:1}}
+  .presets{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--rule);padding:10px 12px}
+  .chip{border:1px solid var(--rule);background:none;border-radius:999px;padding:4px 12px;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer}
+  .chip:hover{background:var(--bg)}
+  .clrtx{margin-left:auto;border:none;background:none;font-family:inherit;font-size:12px;font-weight:600;color:var(--mute);cursor:pointer;padding:4px 8px}.clrtx:hover{color:var(--ink)}
+
+  .body{display:flex;flex-direction:column}
+  @media(min-width:560px){.body{flex-direction:row}}
+  .cal{padding:12px;border-bottom:1px solid var(--rule)}
+  @media(min-width:560px){.cal{flex:1;border-bottom:none;border-right:1px solid var(--rule)}}
+  .calhead{display:flex;align-items:center;justify-content:space-between;padding:0 4px;margin-bottom:8px}
+  .calhead .m{font-size:14px;font-weight:600}
+  .nav{width:28px;height:28px;border:none;background:none;border-radius:8px;color:var(--mute);cursor:pointer;display:grid;place-items:center}.nav:hover{background:var(--bg)}.nav:disabled{opacity:.3;cursor:default}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .dow{height:28px;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--faint)}
+  .day{position:relative;height:36px;border:none;background:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:500;color:var(--ink);cursor:pointer}
+  .day:hover{background:var(--bg)} .day.sel{background:var(--brand);color:#fff;font-weight:600} .day.past{color:rgba(161,161,170,.4);cursor:default} .day.past:hover{background:none}
+  .day .td{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--brand)}
+
+  .times{padding:12px}@media(min-width:560px){.times{width:150px;flex:none}}
+  .th{display:flex;align-items:center;gap:6px;padding:0 4px;margin-bottom:8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+  .slotbox{max-height:228px;overflow-y:auto;padding-right:4px;display:flex;flex-direction:column;gap:4px}
+  .ph{padding:24px 4px;text-align:center;font-size:12px;color:var(--faint)}
+  .slot{border:none;background:none;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:13px;font-weight:500;color:var(--ink-soft);cursor:pointer;text-align:center}
+  .slot:hover{background:var(--bg)} .slot.sel{background:var(--brand);color:#fff;font-weight:600} .slot.past{color:rgba(161,161,170,.4);cursor:default}.slot.past:hover{background:none}
+
+  .foot{display:flex;align-items:center;gap:12px;border-top:1px solid var(--rule);background:rgba(250,250,250,.5);padding:10px 14px}
+  .foot .s{flex:1;font-size:12px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.foot .s.set{color:var(--ink);font-weight:600}
+  .done{border:none;background:var(--ink);color:#fff;border-radius:999px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}.done:hover{background:var(--ink-soft)}
+  svg{stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;width:16px;height:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mk">klimr<span class="d"></span></div>
+  <h1>Match schedule — date &amp; time</h1>
+  <p class="sub">15-minute time slots, past dates &amp; past times disabled, quick Today / Tomorrow. Click the field.</p>
+
+  <div class="card">
+    <div class="kick">When <span style="text-transform:none;letter-spacing:normal;font-weight:400">(optional)</span></div>
+    <div class="field" id="field">
+      <button class="trigger" id="trigger" onclick="toggle()">
+        <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+        <span id="label" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Add a date &amp; time</span>
+      </button>
+      <button class="clear" id="clear" aria-label="Clear" onclick="clearAll(event)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+
+      <div class="pop" id="pop">
+        <div class="presets">
+          <button class="chip" onclick="preset(0)">Today</button>
+          <button class="chip" onclick="preset(1)">Tomorrow</button>
+          <button class="clrtx" onclick="clearAll(event)">Clear</button>
+        </div>
+        <div class="body">
+          <div class="cal">
+            <div class="calhead">
+              <button class="nav" id="prev" onclick="moveMonth(-1)"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+              <span class="m" id="month"></span>
+              <button class="nav" onclick="moveMonth(1)"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+            </div>
+            <div class="grid" id="grid"></div>
+          </div>
+          <div class="times">
+            <div class="th"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Time</div>
+            <div id="timewrap"><p class="ph">Pick a date to see times.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span class="s" id="summary">No date set</span><button class="done" onclick="toggle()">Done</button></div>
+      </div>
+    </div>
+    <p class="help">Leave blank for open / anytime play. Times are in 15-minute steps.</p>
+  </div>
+</div>
+
+<script>
+  var STEP=15, SLOTS=[]; for(var i=0;i<24*60;i+=STEP)SLOTS.push(i);
+  var WD=["Su","Mo","Tu","We","Th","Fr","Sa"];
+  var day=null, minutes=null, view=startMonth(new Date()), open=false;
+
+  function sod(d){var x=new Date(d);x.setHours(0,0,0,0);return x;}
+  function startMonth(d){return new Date(d.getFullYear(),d.getMonth(),1);}
+  function same(a,b){return a.getFullYear()==b.getFullYear()&&a.getMonth()==b.getMonth()&&a.getDate()==b.getDate();}
+  function pad(n){return String(n).padStart(2,"0");}
+  function fmtTime(m){var h=Math.floor(m/60),mm=m%60,ap=h<12?"AM":"PM",h12=((h+11)%12)+1;return h12+":"+pad(mm)+" "+ap;}
+  function fmtDay(d){return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});}
+  function today(){return sod(new Date());}
+  function nowMin(){var d=new Date();return d.getHours()*60+d.getMinutes();}
+  function isToday(){return day&&same(day,today());}
+  function slotPast(m){return isToday()&&m<=nowMin();}
+  function hasVal(){return day&&minutes!=null&&!slotPast(minutes);}
+
+  function toggle(){open=!open;document.getElementById("pop").classList.toggle("open",open);document.getElementById("trigger").classList.toggle("open",open);if(open)render();}
+  function clearAll(e){if(e)e.stopPropagation();day=null;minutes=null;render();}
+  function preset(n){var t=today();t.setDate(t.getDate()+n);view=startMonth(t);pickDay(t);}
+  function moveMonth(d){view=new Date(view.getFullYear(),view.getMonth()+d,1);render();}
+  function pickDay(d){day=d;if(minutes!=null&&same(d,today())&&minutes<=nowMin())minutes=null;render(true);}
+  function pickSlot(m){minutes=m;render();}
+
+  document.addEventListener("click",function(e){
+    var f=document.getElementById("field");
+    if(open&&!f.contains(e.target)){open=false;document.getElementById("pop").classList.remove("open");document.getElementById("trigger").classList.remove("open");}
+  });
+
+  function render(scroll){
+    // trigger + clear + summary
+    var lab=document.getElementById("label"), trig=document.getElementById("trigger"), field=document.getElementById("field"), sum=document.getElementById("summary");
+    if(hasVal()){lab.textContent=fmtDay(day)+" · "+fmtTime(minutes);trig.classList.add("set");field.classList.add("set");sum.textContent=fmtDay(day)+" · "+fmtTime(minutes);sum.classList.add("set");}
+    else{lab.innerHTML="Add a date &amp; time";trig.classList.remove("set");field.classList.remove("set");sum.textContent=day?"Now pick a time":"No date set";sum.classList.remove("set");}
+
+    // month + prev disabled
+    document.getElementById("month").textContent=view.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+    document.getElementById("prev").disabled=startMonth(view).getTime()<=startMonth(today()).getTime();
+
+    // calendar grid
+    var g=document.getElementById("grid");g.innerHTML="";
+    WD.forEach(function(w){var c=document.createElement("div");c.className="dow";c.textContent=w;g.appendChild(c);});
+    var first=startMonth(view), dim=new Date(view.getFullYear(),view.getMonth()+1,0).getDate();
+    for(var b=0;b<first.getDay();b++)g.appendChild(document.createElement("div"));
+    for(var dd=1;dd<=dim;dd++){(function(dd){
+      var d=new Date(view.getFullYear(),view.getMonth(),dd), past=d.getTime()<today().getTime();
+      var btn=document.createElement("button");btn.className="day"+(day&&same(d,day)?" sel":"")+(past?" past":"");btn.textContent=dd;
+      if(same(d,today())&&!(day&&same(d,day))){var dot=document.createElement("span");dot.className="td";btn.appendChild(dot);}
+      if(!past)btn.onclick=function(){pickDay(d);};
+      g.appendChild(btn);
+    })(dd);}
+
+    // time slots
+    var tw=document.getElementById("timewrap");
+    if(!day){tw.innerHTML='<p class="ph">Pick a date to see times.</p>';return;}
+    if(SLOTS.every(slotPast)){tw.innerHTML='<p class="ph">No more times today — pick another day.</p>';return;}
+    var box=document.createElement("div");box.className="slotbox";box.id="slotbox";
+    SLOTS.forEach(function(m){
+      var past=slotPast(m);var b=document.createElement("button");b.className="slot"+(minutes==m?" sel":"")+(past?" past":"");b.textContent=fmtTime(m);b.dataset.m=m;
+      if(!past)b.onclick=function(){pickSlot(m);};box.appendChild(b);
+    });
+    tw.innerHTML="";tw.appendChild(box);
+    if(scroll||minutes!=null){
+      var tM=minutes!=null?minutes:(isToday()?(SLOTS.find(function(m){return m>nowMin();})||1425):540);
+      var el=box.querySelector('[data-m="'+tM+'"]');if(el)box.scrollTop=el.offsetTop-box.clientHeight/2+el.clientHeight/2;
+    }
+  }
+  render();
+</script>
+</body>
+</html>

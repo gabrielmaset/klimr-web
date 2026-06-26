@@ -1,0 +1,87 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import type { Database } from "@/lib/database.types";
+
+// Reachable without a session. Everything else redirects to /login.
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/gate"];
+
+// Reachable with a session that has NOT yet cleared 2FA (AAL1). These are the
+// pages a signed-in user needs *in order to* complete or recover 2FA, so the
+// AAL gate must not bounce them.
+const AAL_EXEMPT = ["/mfa", "/auth"];
+
+const matches = (path: string, list: string[]) =>
+  list.some((p) => path === p || path.startsWith(p + "/"));
+
+export async function updateSession(request: NextRequest) {
+  // Forward the pathname so server components (AppShell) can tell when a request
+  // is inside the team workspace. Rebuilt on each NextResponse.next so refreshed
+  // auth cookies still propagate to the downstream request.
+  const forwarded = () => {
+    const h = new Headers(request.headers);
+    h.set("x-pathname", request.nextUrl.pathname);
+    return h;
+  };
+
+  let response = NextResponse.next({ request: { headers: forwarded() } });
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          response = NextResponse.next({ request: { headers: forwarded() } });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+        },
+      },
+    },
+  );
+
+  // Refresh the session and read the user (do not run code between these).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const path = request.nextUrl.pathname;
+
+  // The public event AD page (/e/<code>) is viewable with no account — it's the
+  // event's advertisement. Its sub-routes (/e/<code>/signup, /confirm) stay
+  // protected: registering requires a signed-in, 2FA-cleared account.
+  const isPublicEventPage = /^\/e\/[^/]+\/?$/.test(path);
+
+  // 1) No session on a protected page → sign in.
+  if (!user && !matches(path, PUBLIC_PATHS) && !isPublicEventPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", path);
+    return NextResponse.redirect(url);
+  }
+
+  // 2) Signed in but two-factor not yet satisfied → complete 2FA first.
+  //    Required on every protected page; marketing/auth pages are exempt.
+  if (user && !matches(path, PUBLIC_PATHS) && !matches(path, AAL_EXEMPT) && !isPublicEventPage) {
+    try {
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal?.currentLevel && aal.currentLevel !== "aal2") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/mfa";
+        url.searchParams.set("next", path);
+        return NextResponse.redirect(url);
+      }
+    } catch {
+      // Fail open for this request rather than risk locking a user out on a
+      // transient error; the gate still applies on the next navigation.
+    }
+  }
+
+  return response;
+}
