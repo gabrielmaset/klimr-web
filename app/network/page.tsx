@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Users, ChevronRight, BadgeCheck, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { Avatar } from "@/components/avatar";
+import { NetworkBrowser, type Person, type Tab, type FriendStatus } from "@/components/network-browser";
 
 export const metadata: Metadata = { title: "Network" };
 
@@ -18,11 +16,10 @@ type Prof = {
   neighborhood: string | null;
   city: string | null;
 };
-type Tab = "friends" | "following" | "followers";
 
 export default async function NetworkPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab: tabRaw } = await searchParams;
-  const tab: Tab = tabRaw === "following" || tabRaw === "followers" ? tabRaw : "friends";
+  const initialTab: Tab = tabRaw === "following" || tabRaw === "followers" ? tabRaw : "friends";
 
   const supabase = await createClient();
   const {
@@ -30,107 +27,77 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/network");
 
-  // Gather ids for all three relationships (counts shown on every tab).
-  const [{ data: fr }, { data: following }, { data: followers }] = await Promise.all([
-    supabase.from("friendships").select("requester_id, addressee_id, status").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq("status", "accepted"),
-    supabase.from("follows").select("followee_id").eq("follower_id", user.id),
-    supabase.from("follows").select("follower_id").eq("followee_id", user.id),
+  const [{ data: fr }, { data: flw }, { data: flwr }] = await Promise.all([
+    supabase.from("friendships").select("requester_id, addressee_id, status, created_at, responded_at").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),
+    supabase.from("follows").select("followee_id, created_at").eq("follower_id", user.id),
+    supabase.from("follows").select("follower_id, created_at").eq("followee_id", user.id),
   ]);
 
-  const friendIds = (fr ?? []).map((f) => (f.requester_id === user.id ? f.addressee_id : f.requester_id));
-  const followingIds = (following ?? []).map((f) => f.followee_id);
-  const followerIds = (followers ?? []).map((f) => f.follower_id);
-  const counts = { friends: friendIds.length, following: followingIds.length, followers: followerIds.length };
+  const friendAddedAt = new Map<string, string>();
+  const friendStatusById = new Map<string, FriendStatus>();
+  for (const f of fr ?? []) {
+    const other = f.requester_id === user.id ? f.addressee_id : f.requester_id;
+    if (f.status === "accepted") {
+      friendAddedAt.set(other, f.responded_at ?? f.created_at);
+      friendStatusById.set(other, "friends");
+    } else if (f.status === "pending") {
+      friendStatusById.set(other, f.requester_id === user.id ? "requested" : "incoming");
+    }
+  }
+  const iFollowAt = new Map<string, string>();
+  for (const f of flw ?? []) iFollowAt.set(f.followee_id, f.created_at);
+  const followsMeAt = new Map<string, string>();
+  for (const f of flwr ?? []) followsMeAt.set(f.follower_id, f.created_at);
 
-  const activeIds = tab === "friends" ? friendIds : tab === "following" ? followingIds : followerIds;
+  const friendIds = new Set(friendAddedAt.keys());
+  const iFollowIds = new Set(iFollowAt.keys());
+  const followsMeIds = new Set(followsMeAt.keys());
 
-  let profs: Prof[] = [];
-  if (activeIds.length) {
+  const allIds = [...new Set([...friendIds, ...iFollowIds, ...followsMeIds])];
+  const pmap = new Map<string, Prof>();
+  if (allIds.length) {
     const { data } = await supabase
       .from("profiles")
       .select("id, display_name, avatar_hue, avatar_path, verification_status, primary_sport, neighborhood, city")
-      .in("id", activeIds);
-    profs = (data as Prof[] | null) ?? [];
-    // preserve insertion order roughly by id list
-    const order = new Map(activeIds.map((id, i) => [id, i]));
-    profs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+      .in("id", allIds);
+    for (const p of (data as Prof[] | null) ?? []) pmap.set(p.id, p);
   }
 
-  // Which of these am I already friends with (for a small badge on follow lists).
-  const friendSet = new Set(friendIds);
+  const toPerson = (id: string, addedAt: string): Person | null => {
+    const p = pmap.get(id);
+    if (!p) return null;
+    const m = p.primary_sport ? sportMeta(p.primary_sport) : null;
+    return {
+      id,
+      name: p.display_name || "Player",
+      avatarUrl: p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null,
+      hue: p.avatar_hue ?? 200,
+      verified: p.verification_status === "verified",
+      sportKey: p.primary_sport ?? null,
+      sportName: m?.name ?? null,
+      sportEmoji: m?.emoji ?? null,
+      place: [p.neighborhood, p.city].filter(Boolean).join(", ") || null,
+      addedAt,
+      isFriend: friendStatusById.get(id) === "friends",
+      iFollow: iFollowIds.has(id),
+      followsMe: followsMeIds.has(id),
+      friendStatus: friendStatusById.get(id) ?? "none",
+    };
+  };
+  const isPerson = (x: Person | null): x is Person => x !== null;
 
-  const TABS: { key: Tab; label: string }[] = [
-    { key: "friends", label: `Friends ${counts.friends}` },
-    { key: "following", label: `Following ${counts.following}` },
-    { key: "followers", label: `Followers ${counts.followers}` },
-  ];
-
-  const empty =
-    tab === "friends"
-      ? "No friends yet. Add players from their profile — they’ll appear here once they accept."
-      : tab === "following"
-        ? "You’re not following anyone yet. Follow a player to track their climb."
-        : "No followers yet. As you play and post, players will follow you.";
+  const friends = [...friendAddedAt.entries()].map(([id, t]) => toPerson(id, t)).filter(isPerson);
+  const following = [...iFollowAt.entries()].map(([id, t]) => toPerson(id, t)).filter(isPerson);
+  const followers = [...followsMeAt.entries()].map(([id, t]) => toPerson(id, t)).filter(isPerson);
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <div className="mb-5">
+      <div className="mb-6">
         <p className="kicker text-faint">Network</p>
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Friends &amp; followers</h1>
+        <p className="mt-1.5 text-sm text-mute">Everyone in your circle — search, filter, and jump to any player.</p>
       </div>
-
-      <div className="mb-5 flex gap-1.5">
-        {TABS.map((t) => {
-          const on = t.key === tab;
-          return (
-            <Link
-              key={t.key}
-              href={`/network?tab=${t.key}`}
-              className="press rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors"
-              style={{ borderColor: on ? "#0a0a0b" : "#e4e4e7", background: on ? "#0a0a0b" : "transparent", color: on ? "#fff" : "#71717a" }}
-            >
-              {t.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      {profs.length === 0 ? (
-        <div className="rounded-2xl border border-rule bg-surface p-10 text-center">
-          <Users size={26} className="mx-auto text-faint" />
-          <p className="mx-auto mt-3 max-w-sm text-sm text-mute">{empty}</p>
-          <Link href="/discover" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep">
-            <UserPlus size={15} /> Find players
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {profs.map((p) => {
-            const url = p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
-            const m = p.primary_sport ? sportMeta(p.primary_sport) : null;
-            const place = [p.neighborhood, p.city].filter(Boolean).join(", ");
-            return (
-              <Link key={p.id} href={`/profile/${p.id}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
-                <Avatar url={url} hue={p.avatar_hue ?? 200} name={p.display_name} size={46} />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-bold text-ink">{p.display_name || "Player"}</span>
-                    {p.verification_status === "verified" ? <BadgeCheck size={14} className="shrink-0 text-brand" aria-label="Verified" /> : null}
-                    {tab !== "friends" && friendSet.has(p.id) ? (
-                      <span className="rounded-full bg-tint-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-deep">Friend</span>
-                    ) : null}
-                  </span>
-                  <span className="mt-0.5 block truncate text-xs text-mute">
-                    {m ? `${m.emoji} ${m.name}` : "—"}
-                    {place ? ` · ${place}` : ""}
-                  </span>
-                </span>
-                <ChevronRight size={18} className="shrink-0 text-faint" />
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <NetworkBrowser friends={friends} following={following} followers={followers} initialTab={initialTab} />
     </div>
   );
 }

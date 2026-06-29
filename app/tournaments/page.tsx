@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Trophy, Plus, MapPin, CalendarClock, Sparkles, Search, Navigation } from "lucide-react";
+import { Trophy, Plus, MapPin, CalendarClock, Sparkles, Search, Navigation, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { lookupZip, suggestCities, milesBetween } from "@/lib/us-places";
@@ -9,18 +9,37 @@ import { WithdrawEntryButton } from "@/components/withdraw-entry-button";
 
 export const metadata: Metadata = { title: "Tournaments" };
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: "Draft",
-  published: "Published",
-  registration_open: "Registration open",
-  registration_closed: "Registration closed",
-  in_progress: "In progress",
-  completed: "Completed",
-  archived: "Archived",
-  cancelled: "Cancelled",
-};
 const ACTIVE_PUBLIC = ["published", "registration_open", "registration_closed", "in_progress"];
 const REGION_MILES = 250;
+
+// Badge shown over the cover image. White "Upcoming" reads as an ad; live/open get color.
+const STATUS_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
+  registration_open: { label: "Registration open", bg: "#16a34a", fg: "#ffffff" },
+  published: { label: "Upcoming", bg: "#ffffff", fg: "#0a0a0b" },
+  registration_closed: { label: "Registration closed", bg: "#d97706", fg: "#ffffff" },
+  in_progress: { label: "Live now", bg: "#2563eb", fg: "#ffffff" },
+  completed: { label: "Completed", bg: "#52525b", fg: "#ffffff" },
+  archived: { label: "Archived", bg: "#52525b", fg: "#ffffff" },
+  cancelled: { label: "Cancelled", bg: "#dc2626", fg: "#ffffff" },
+  draft: { label: "Draft", bg: "#71717a", fg: "#ffffff" },
+};
+
+// Sport-themed gradients for cover-less tournaments — keeps the grid graphical.
+const SPORT_GRADIENT: Record<string, string> = {
+  tennis: "linear-gradient(135deg,#16a34a,#052e16)",
+  pickleball: "linear-gradient(135deg,#0891b2,#083344)",
+  padel: "linear-gradient(135deg,#7c3aed,#2e1065)",
+  racquetball: "linear-gradient(135deg,#dc2626,#450a0a)",
+  beach_volleyball: "linear-gradient(135deg,#f59e0b,#0369a1)",
+};
+const sportGrad = (k: string) => SPORT_GRADIENT[k] ?? "linear-gradient(135deg,#ff6a3d,#d63a0f)";
+
+// tournament-gallery is a public bucket, so its object URL is deterministic — build
+// it directly (avoids passing the supabase client into card components).
+const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+function coverUrl(path: string | null): string | null {
+  return path ? `${SUPA_URL}/storage/v1/object/public/tournament-gallery/${path}` : null;
+}
 
 type PubRow = {
   id: string;
@@ -35,6 +54,8 @@ type PubRow = {
   location_lat: number | null;
   location_lng: number | null;
   promoted: boolean;
+  cover_path: string | null;
+  logo_path: string | null;
 };
 
 function fmtDate(iso: string | null): string | null {
@@ -43,35 +64,95 @@ function fmtDate(iso: string | null): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function PublicCard({ t, miles }: { t: PubRow; miles: number | null }) {
-  const meta = sportMeta(t.sport_key);
-  const date = fmtDate(t.starts_at);
-  const place = t.location_name || t.location_address;
+/** Cover/gradient media strip with overlaid badges. */
+function CardMedia({
+  cover,
+  logo,
+  sportKey,
+  emoji,
+  statusKey,
+  promoted,
+  miles,
+  date,
+  className = "aspect-[16/10]",
+}: {
+  cover: string | null;
+  logo: string | null;
+  sportKey: string;
+  emoji: string;
+  statusKey: string | null;
+  promoted?: boolean;
+  miles?: number | null;
+  date?: string | null;
+  className?: string;
+}) {
+  const badge = statusKey ? STATUS_BADGE[statusKey] : null;
   return (
-    <Link href={`/e/${t.code}`} className="lift flex flex-col rounded-2xl border border-rule bg-surface p-4">
-      <div className="flex items-center gap-2.5">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-lg">{meta.emoji}</span>
-        <span className="rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-mute">{STATUS_LABEL[t.status] ?? t.status}</span>
-        {t.promoted ? (
-          <span className="ml-auto flex items-center gap-1 rounded-full bg-tint-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-deep">
-            <Sparkles size={11} /> Promoted
+    <div className={`relative w-full overflow-hidden bg-cover bg-center ${className}`} style={cover ? { backgroundImage: `url("${cover}")` } : { background: sportGrad(sportKey) }}>
+      {!cover ? <span className="pointer-events-none absolute inset-0 grid place-items-center text-[88px] opacity-25">{emoji}</span> : null}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-black/10" />
+
+      <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+        {badge ? (
+          <span className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm" style={{ background: badge.bg, color: badge.fg }}>
+            {badge.label}
+          </span>
+        ) : null}
+        {promoted ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+            <Sparkles size={11} /> Featured
           </span>
         ) : null}
       </div>
-      <p className="mt-3 truncate text-sm font-bold text-ink">{t.title}</p>
-      <p className="mt-0.5 text-xs text-mute">{meta.name}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mute">
-        {date ? <span className="flex items-center gap-1"><CalendarClock size={12} /> {date}</span> : null}
-        {place ? <span className="flex items-center gap-1 truncate"><MapPin size={12} /> {place}</span> : null}
-        {miles !== null ? <span className="text-faint">· {Math.round(miles)} mi</span> : null}
+
+      {miles != null ? <span className="absolute right-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">{Math.round(miles)} mi</span> : null}
+
+      <div className="absolute inset-x-3 bottom-3 flex items-center gap-2">
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-ink backdrop-blur-sm">
+          <span>{emoji}</span> {sportMeta(sportKey).name}
+        </span>
+        {date ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+            <CalendarClock size={12} /> {date}
+          </span>
+        ) : null}
+        {logo ? <span className="ml-auto h-9 w-9 shrink-0 rounded-full border-2 border-white/90 bg-cover bg-center shadow" style={{ backgroundImage: `url("${logo}")` }} /> : null}
+      </div>
+    </div>
+  );
+}
+
+/** Public tournament card (links to the public page). */
+function PhotoCard({ t, miles }: { t: PubRow; miles: number | null }) {
+  const meta = sportMeta(t.sport_key);
+  const place = t.location_name || t.location_address;
+  const cover = coverUrl(t.cover_path);
+  return (
+    <Link href={`/e/${t.code}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface">
+      <CardMedia cover={cover} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} promoted={t.promoted} miles={miles} date={fmtDate(t.starts_at)} />
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="truncate text-base font-bold text-ink">{t.title}</h3>
+        {place ? (
+          <p className="mt-1 flex items-center gap-1 truncate text-xs text-mute">
+            <MapPin size={12} className="shrink-0" /> {place}
+          </p>
+        ) : null}
+        {t.summary ? <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-soft">{t.summary}</p> : null}
+        <div className="mt-auto flex items-center justify-between pt-3">
+          <span className="text-xs font-bold text-brand-deep group-hover:underline">View &amp; register</span>
+          <ArrowRight size={14} className="text-brand-deep transition-transform group-hover:translate-x-0.5" />
+        </div>
       </div>
     </Link>
   );
 }
 
+// Module-level holder so the small card components can build public URLs without prop drilling.
+
 export default async function TournamentsHub({ searchParams }: { searchParams: Promise<{ near?: string }> }) {
   const { near } = await searchParams;
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -79,7 +160,6 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
 
   const { data: prof } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
 
-  // Resolve the search center: an explicit ZIP/city filter, else the viewer's home ZIP.
   const nearRaw = (near ?? "").trim();
   let center: { lat: number; lng: number; label: string } | null = null;
   if (nearRaw) {
@@ -96,30 +176,16 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
     if (z) center = { lat: z.lat, lng: z.lng, label: `${z.city}, ${z.state}` };
   }
 
+  const COLS = "id, code, title, sport_key, status, summary, starts_at, location_name, location_address, location_lat, location_lng, promoted, cover_path, logo_path";
   const [{ data: pub }, { data: promo }, { data: mine }] = await Promise.all([
-    supabase
-      .from("tournaments")
-      .select("id, code, title, sport_key, status, summary, starts_at, location_name, location_address, location_lat, location_lng, promoted")
-      .eq("visibility", "public")
-      .in("status", ACTIVE_PUBLIC)
-      .not("location_lat", "is", null)
-      .limit(150),
-    supabase
-      .from("tournaments")
-      .select("id, code, title, sport_key, status, summary, starts_at, location_name, location_address, location_lat, location_lng, promoted")
-      .eq("visibility", "public")
-      .eq("promoted", true)
-      .in("status", ACTIVE_PUBLIC)
-      .order("starts_at", { ascending: true })
-      .limit(12),
-    supabase.from("tournaments").select("id, code, title, sport_key, status").eq("owner_id", user.id).order("created_at", { ascending: false }),
+    supabase.from("tournaments").select(COLS).eq("visibility", "public").in("status", ACTIVE_PUBLIC).not("location_lat", "is", null).limit(150),
+    supabase.from("tournaments").select(COLS).eq("visibility", "public").eq("promoted", true).in("status", ACTIVE_PUBLIC).order("starts_at", { ascending: true }).limit(12),
+    supabase.from("tournaments").select("id, code, title, sport_key, status, starts_at, location_name, cover_path, logo_path").eq("owner_id", user.id).order("created_at", { ascending: false }),
   ]);
 
   const promoted = (promo as PubRow[] | null) ?? [];
   const promotedIds = new Set(promoted.map((t) => t.id));
 
-  // Nearby = located public active tournaments, ranked by distance, within the region radius.
-  // (Promoted ones surface in their own section, so we drop them here to avoid duplicates.)
   let nearby: { t: PubRow; miles: number | null }[] = [];
   const allPub = ((pub as PubRow[] | null) ?? []).filter((t) => !promotedIds.has(t.id));
   if (center) {
@@ -132,9 +198,9 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
     nearby = allPub.slice(0, 24).map((t) => ({ t, miles: null }));
   }
 
-  const tournaments = mine ?? [];
+  const organizing = (mine as Pick<PubRow, "id" | "code" | "title" | "sport_key" | "status" | "starts_at" | "location_name" | "cover_path" | "logo_path">[] | null) ?? [];
 
-  // The viewer's own entries (registered + waitlisted), newest first.
+  // The viewer's entries (registered + waitlisted), newest first.
   const { data: myRegs } = await supabase
     .from("tournament_registrations")
     .select("id, status, tournament_id, created_at")
@@ -143,10 +209,10 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
     .order("created_at", { ascending: false });
   const myRegList = myRegs ?? [];
   const entryTournIds = [...new Set(myRegList.map((r) => r.tournament_id))];
-  const entryTournMap = new Map<string, { code: string; title: string; sport_key: string }>();
+  const entryTournMap = new Map<string, { code: string; title: string; sport_key: string; cover_path: string | null; starts_at: string | null; location_name: string | null }>();
   if (entryTournIds.length) {
-    const { data: et } = await supabase.from("tournaments").select("id, code, title, sport_key").in("id", entryTournIds);
-    for (const x of et ?? []) entryTournMap.set(x.id, { code: x.code, title: x.title, sport_key: x.sport_key });
+    const { data: et } = await supabase.from("tournaments").select("id, code, title, sport_key, cover_path, starts_at, location_name").in("id", entryTournIds);
+    for (const x of et ?? []) entryTournMap.set(x.id, { code: x.code, title: x.title, sport_key: x.sport_key, cover_path: x.cover_path, starts_at: x.starts_at, location_name: x.location_name });
   }
   const myEntries = myRegList
     .map((r) => {
@@ -155,9 +221,12 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
 
+  const hero = promoted[0] ?? null;
+  const featuredRest = promoted.slice(1);
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      {/* Header with a discreet host button */}
+      {/* Header */}
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-tint-brand text-brand-deep">
@@ -165,50 +234,77 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           </span>
           <div>
             <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Tournaments</h1>
-            <p className="mt-1 text-sm text-mute">Find events near you, or host your own.</p>
+            <p className="mt-1 text-sm text-mute">Find a bracket to join near you — or host your own.</p>
           </div>
         </div>
-        <Link
-          href="/tournaments/new"
-          className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
-        >
-          <Plus size={16} className="text-brand" /> Host a tournament
+        <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <Plus size={16} /> Host a tournament
         </Link>
       </div>
 
-      {/* Promoted */}
-      {promoted.length > 0 ? (
+      {/* Featured hero (promoted) */}
+      {hero ? (
         <section className="mb-9">
-          <div className="mb-2.5 flex items-center gap-2">
-            <h2 className="kicker text-brand-deep">Promoted</h2>
-            <span className="text-xs text-faint">Featured events from organizers</span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {promoted.map((t) => (
-              <PublicCard key={t.id} t={t} miles={null} />
-            ))}
-          </div>
+          <Link href={`/e/${hero.code}`} className="group relative block overflow-hidden rounded-3xl border border-rule">
+            <div className="relative h-64 w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.02] sm:h-80" style={coverUrl(hero.cover_path) ? { backgroundImage: `url("${coverUrl(hero.cover_path)}")` } : { background: sportGrad(hero.sport_key) }}>
+              {!coverUrl(hero.cover_path) ? <span className="pointer-events-none absolute inset-0 grid place-items-center text-[160px] opacity-20">{sportMeta(hero.sport_key).emoji}</span> : null}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+              <span className="absolute left-5 top-5 inline-flex items-center gap-1 rounded-full bg-brand px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow">
+                <Sparkles size={12} /> Featured
+              </span>
+              <div className="absolute inset-x-5 bottom-5 text-white sm:inset-x-7 sm:bottom-7">
+                <p className="kicker text-white/80">
+                  {sportMeta(hero.sport_key).emoji} {sportMeta(hero.sport_key).name}
+                </p>
+                <h2 className="mt-1 font-display text-2xl leading-tight sm:text-4xl">{hero.title}</h2>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/90">
+                  {fmtDate(hero.starts_at) ? (
+                    <span className="flex items-center gap-1.5">
+                      <CalendarClock size={14} /> {fmtDate(hero.starts_at)}
+                    </span>
+                  ) : null}
+                  {hero.location_name || hero.location_address ? (
+                    <span className="flex items-center gap-1.5">
+                      <MapPin size={14} /> {hero.location_name || hero.location_address}
+                    </span>
+                  ) : null}
+                </div>
+                <span className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-brand-deep">
+                  View &amp; register <ArrowRight size={15} />
+                </span>
+              </div>
+            </div>
+          </Link>
+
+          {featuredRest.length > 0 ? (
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {featuredRest.map((t) => (
+                <PhotoCard key={t.id} t={t} miles={null} />
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
-      {/* Near you + filter */}
-      <section className="mb-9">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+      {/* Near you + location search */}
+      <section className="mb-10">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="kicker text-faint">Tournaments near you</h2>
             <p className="mt-0.5 text-sm text-mute">
-              {center ? <>Around <span className="font-semibold text-ink">{center.label}</span> · within {REGION_MILES} mi</> : "Set a location to see what's happening nearby."}
+              {center ? (
+                <>
+                  Around <span className="font-semibold text-ink">{center.label}</span> · within {REGION_MILES} mi
+                </>
+              ) : (
+                "Set a location to see what's happening nearby."
+              )}
             </p>
           </div>
           <form action="/tournaments" method="get" className="flex items-center gap-2">
             <div className="flex items-center gap-2 rounded-full border border-rule bg-surface px-3 py-2 focus-within:border-brand">
               <Search size={15} className="shrink-0 text-faint" />
-              <input
-                name="near"
-                defaultValue={nearRaw}
-                placeholder="ZIP or city"
-                className="w-32 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
-              />
+              <input name="near" defaultValue={nearRaw} placeholder="ZIP or city" className="w-32 bg-transparent text-sm text-ink outline-none placeholder:text-faint" />
             </div>
             <button type="submit" className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
               Search
@@ -222,46 +318,49 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
         </div>
 
         {nearby.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-rule bg-surface/50 p-10 text-center">
-            <p className="text-sm font-semibold text-ink">{center ? "No tournaments here yet" : "No location set"}</p>
-            <p className="mt-1 text-xs text-mute">
-              {center ? "Try a different ZIP or city, or check back soon." : "Search a ZIP or city above to find local events."}
-            </p>
+          <div className="rounded-3xl border border-dashed border-rule bg-gradient-to-br from-[#fff4ef] to-surface p-12 text-center">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-tint-brand text-brand-deep">
+              <Trophy size={22} />
+            </span>
+            <p className="mt-3 text-base font-bold text-ink">{center ? "No tournaments here yet" : "No location set"}</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-mute">{center ? "Be the first to run one in your area — it takes a few minutes to set up." : "Search a ZIP or city above to find local brackets."}</p>
+            <Link href="/tournaments/new" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+              <Plus size={15} /> Host a tournament
+            </Link>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {nearby.map(({ t, miles }) => (
-              <PublicCard key={t.id} t={t} miles={miles} />
+              <PhotoCard key={t.id} t={t} miles={miles} />
             ))}
           </div>
         )}
       </section>
 
-      {/* Your entries — registered + waitlisted, with withdraw */}
+      {/* Your entries */}
       {myEntries.length > 0 ? (
-        <section className="mb-9">
-          <h2 className="kicker mb-3 text-faint">Your entries</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="mb-10">
+          <h2 className="kicker mb-4 text-faint">Your entries</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {myEntries.map((e) => {
               const meta = sportMeta(e.sport_key);
               const wl = e.status === "waitlisted";
               return (
-                <div key={e.regId} className="flex flex-col rounded-2xl border border-rule bg-surface p-4">
-                  <div className="flex items-center gap-2.5">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-lg">{meta.emoji}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${wl ? "bg-tint-brand text-brand-deep" : e.status === "confirmed" ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>
-                      {wl ? "Waitlisted" : e.status === "confirmed" ? "Confirmed" : "Pending"}
-                    </span>
-                  </div>
-                  <Link href={`/e/${e.code}`} className="mt-3 truncate text-sm font-bold text-ink hover:underline">
-                    {e.title}
+                <div key={e.regId} className="flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface">
+                  <Link href={`/e/${e.code}`} className="group block">
+                    <CardMedia cover={coverUrl(e.cover_path)} logo={null} sportKey={e.sport_key} emoji={meta.emoji} statusKey={null} date={fmtDate(e.starts_at)} className="aspect-[16/9]" />
                   </Link>
-                  <p className="mt-0.5 truncate text-xs text-mute">{meta.name}</p>
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <Link href={`/e/${e.code}`} className="text-xs font-semibold text-brand-deep hover:underline">
-                      View event
+                  <div className="flex flex-1 flex-col p-4">
+                    <Link href={`/e/${e.code}`} className="truncate text-sm font-bold text-ink hover:underline">
+                      {e.title}
                     </Link>
-                    <WithdrawEntryButton registrationId={e.regId} waitlisted={wl} />
+                    {e.location_name ? <p className="mt-0.5 truncate text-xs text-mute">{e.location_name}</p> : null}
+                    <div className="mt-3 flex items-center justify-between gap-2 pt-1">
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${wl ? "bg-tint-brand text-brand-deep" : e.status === "confirmed" ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>
+                        {wl ? "Waitlisted" : e.status === "confirmed" ? "Confirmed" : "Pending"}
+                      </span>
+                      <WithdrawEntryButton registrationId={e.regId} waitlisted={wl} />
+                    </div>
                   </div>
                 </div>
               );
@@ -270,21 +369,24 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
         </section>
       ) : null}
 
-      {/* Organizing — the viewer's own tournaments (incl. drafts) */}
-      {tournaments.length > 0 ? (
+      {/* Organizing */}
+      {organizing.length > 0 ? (
         <section>
-          <h2 className="kicker mb-3 text-faint">Organizing</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {tournaments.map((t) => {
+          <h2 className="kicker mb-4 text-faint">Organizing</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {organizing.map((t) => {
               const meta = sportMeta(t.sport_key);
               return (
-                <Link key={t.id} href={`/tournament/${t.id}`} className="lift rounded-2xl border border-rule bg-surface p-4">
-                  <div className="flex items-center gap-2.5">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-lg">{meta.emoji}</span>
-                    <span className="rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-mute">{STATUS_LABEL[t.status] ?? t.status}</span>
+                <Link key={t.id} href={`/tournament/${t.id}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface">
+                  <CardMedia cover={coverUrl(t.cover_path)} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} date={fmtDate(t.starts_at)} className="aspect-[16/9]" />
+                  <div className="flex flex-1 flex-col p-4">
+                    <h3 className="truncate text-sm font-bold text-ink">{t.title}</h3>
+                    <p className="mt-0.5 truncate text-xs text-mute">/e/{t.code}</p>
+                    <div className="mt-auto flex items-center justify-between pt-3">
+                      <span className="text-xs font-bold text-brand-deep group-hover:underline">Manage</span>
+                      <ArrowRight size={14} className="text-brand-deep transition-transform group-hover:translate-x-0.5" />
+                    </div>
                   </div>
-                  <p className="mt-3 truncate text-sm font-bold text-ink">{t.title}</p>
-                  <p className="mt-0.5 truncate text-xs text-mute">{meta.name} · /e/{t.code}</p>
                 </Link>
               );
             })}

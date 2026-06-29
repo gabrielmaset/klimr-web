@@ -82,12 +82,10 @@ function Disc({ row, you, size = 36 }: { row: RankedRow; you: boolean; size?: nu
 }
 
 /* ---------- podium: the Klimr mark itself — one ascending staircase with the
-   three winners seated on its three steps and the brand's orange summit dot
-   hovering over the champion (rank 1, top-right). It's the logo, made literal:
-   "the dot is the player at the top of their block." Geometry is the exact mark
-   path in its native 512 space; avatars straddle each landing, names + points
-   sit on the step face just below. No watermark numerals — they aren't in the
-   mark and were what used to collide on the short step. */
+   three winners seated on its three steps. The champion (rank 1, top-right)
+   wears a gold crown; each avatar carries a gold/silver/bronze rank pill, and
+   names + points sit on the step face just below. Geometry is the exact mark
+   path in its native 512 space; avatars straddle each landing. */
 const KLIMR_STAIR =
   "M 64,438 L 64,382 A 22 22 0 0 1 86,360 L 182,360 A 10 10 0 0 0 192,350 L 192,282 A 22 22 0 0 1 214,260 L 310,260 A 10 10 0 0 0 320,250 L 320,182 A 22 22 0 0 1 342,160 L 426,160 A 22 22 0 0 1 448,182 L 448,438 A 22 22 0 0 1 426,460 L 86,460 A 22 22 0 0 1 64,438 Z";
 
@@ -105,7 +103,7 @@ function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; use
       <div className="kicker mb-2 text-faint">The summit · {place}</div>
       <div className="mx-auto w-full max-w-[360px] lg:max-w-[420px]">
         <svg
-          viewBox="40 46 432 446"
+          viewBox="40 92 432 400"
           className="block h-auto w-full"
           role="img"
           aria-label={`Top three at ${place}: 1 ${top3[0].display_name}, 2 ${top3[1].display_name}, 3 ${top3[2].display_name}`}
@@ -130,9 +128,10 @@ function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; use
             </filter>
           </defs>
 
-          {/* grounding shadow + glow at the summit */}
+          {/* grounding shadow */}
           <ellipse cx="256" cy="470" rx="200" ry="13" fill="#0a0a0b" opacity="0.06" />
-          <circle cx="384" cy="135" r="120" fill="url(#summitHalo)" />
+          {/* a soft, contained glow behind the champion — warmth, not a floating blob */}
+          <circle cx="384" cy="158" r="60" fill="url(#summitHalo)" />
 
           {/* the Klimr staircase mark */}
           <path d={KLIMR_STAIR} fill="url(#stepDark)" filter="url(#podShadow)" />
@@ -141,9 +140,6 @@ function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; use
           {seats.map((s) => (
             <line key={`e${s.rank}`} x1={s.x0 + 14} y1={s.top + 1.5} x2={s.x1 - 14} y2={s.top + 1.5} stroke={MEDAL[s.rank - 1]} strokeWidth="2.4" strokeLinecap="round" opacity="0.55" />
           ))}
-
-          {/* the orange summit dot — the mark's signature, over the champion */}
-          <circle cx="384" cy="96" r="30" fill="#FF4E1B" />
 
           {/* name + points on each step face */}
           {seats.map((s) => {
@@ -172,6 +168,24 @@ function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; use
               </g>
             );
           })}
+
+          {/* rank pills (1 / 2 / 3) on each avatar's lower edge */}
+          {seats.map((s) => (
+            <g key={`b${s.rank}`}>
+              <circle cx={s.cx + 20} cy={s.top + 20} r={11} fill={MEDAL[s.rank - 1]} stroke="#ffffff" strokeWidth="2" />
+              <text x={s.cx + 20} y={s.top + 20.5} textAnchor="middle" dominantBaseline="central" style={{ fontFamily: '"DM Sans Variable", sans-serif', fontWeight: 800, fontSize: 12, fill: s.rank === 1 ? "#3a2a00" : "#ffffff" }}>
+                {s.rank}
+              </text>
+            </g>
+          ))}
+
+          {/* a gold crown marks the champion — the summit, made tasteful */}
+          <g>
+            <path d="M366,132 L366,113 L375,121 L384,103 L393,121 L402,113 L402,132 Z" fill={MEDAL[0]} stroke="#a8780a" strokeWidth="1.2" strokeLinejoin="round" />
+            <circle cx="366" cy="113" r="1.7" fill="#fff" opacity="0.9" />
+            <circle cx="384" cy="103" r="2" fill="#fff" opacity="0.95" />
+            <circle cx="402" cy="113" r="1.7" fill="#fff" opacity="0.9" />
+          </g>
         </svg>
       </div>
     </div>
