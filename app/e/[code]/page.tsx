@@ -96,17 +96,41 @@ function PublicBracket({ rounds }: { rounds: PublishedBracketRound[] }) {
   );
 }
 
+const MEDALS: Record<string, { from: string; to: string; text: string; ring: string; tint: string }> = {
+  gold: { from: "#fde68a", to: "#f59e0b", text: "#854d0e", ring: "#f6c453", tint: "#fffbeb" },
+  silver: { from: "#eef2f6", to: "#94a3b8", text: "#334155", ring: "#cbd5e1", tint: "#f8fafc" },
+  bronze: { from: "#fcd9b6", to: "#c2773f", text: "#7c2d12", ring: "#e0a06a", tint: "#fff7ed" },
+  brand: { from: "#ffd0bf", to: "#ff5b2e", text: "#9a2c0c", ring: "#ffb59e", tint: "#fff5f1" },
+};
+function medalKey(place?: string | null): keyof typeof MEDALS {
+  const p = (place ?? "").toLowerCase();
+  if (/(^|\b)(1|1st|first|champion|gold|winner)\b/.test(p) || p.includes("🥇")) return "gold";
+  if (/(^|\b)(2|2nd|second|runner|finalist|silver)\b/.test(p) || p.includes("🥈")) return "silver";
+  if (/(^|\b)(3|3rd|third|bronze)\b/.test(p) || p.includes("🥉")) return "bronze";
+  return "brand";
+}
+
 function PrizeCard({ p }: { p: Prize }) {
+  const m = MEDALS[medalKey(p.place)];
+  const num = (p.place ?? "").match(/\d+/)?.[0] ?? null;
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-rule bg-bg/40">
+    <div className="relative flex flex-col overflow-hidden rounded-2xl border shadow-sm" style={{ borderColor: m.ring, background: m.tint }}>
       {p.photo ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={p.photo} alt="" className="aspect-[4/3] w-full object-cover" />
+        <img src={p.photo} alt="" className="aspect-[16/9] w-full object-cover" />
       ) : null}
-      <div className="flex flex-1 flex-col p-4">
-        {p.place ? <span className="mb-1 inline-flex w-fit items-center gap-1 rounded-full bg-tint-brand px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-brand-deep">{p.place}</span> : null}
-        <p className="text-sm font-bold text-ink">{p.title}</p>
-        {p.description ? <p className="mt-1 text-xs leading-relaxed text-mute">{p.description}</p> : null}
+      <div className="flex flex-1 items-center gap-3.5 p-4">
+        <span
+          className="grid h-12 w-12 shrink-0 place-items-center rounded-full font-display text-xl font-bold shadow-inner ring-1 ring-black/5"
+          style={{ background: `linear-gradient(145deg, ${m.from}, ${m.to})`, color: m.text }}
+        >
+          {num ?? <Trophy size={20} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          {p.place ? <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: m.text }}>{p.place}</p> : null}
+          <p className="font-display text-lg font-bold leading-tight text-ink">{p.title}</p>
+          {p.description ? <p className="mt-0.5 text-xs leading-relaxed text-mute">{p.description}</p> : null}
+        </div>
       </div>
     </div>
   );
@@ -611,11 +635,16 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-ink">
             <Trophy size={15} className="text-brand-deep" /> Prizes
           </h2>
-          <div className="space-y-5">
+          <div className="space-y-6">
             {prizeGroups.map((g) => (
               <div key={g.key}>
-                {prizeGroups.length > 1 || g.key !== "overall" ? <p className="mb-2 text-xs font-bold uppercase tracking-wide text-mute">{g.label}</p> : null}
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {prizeGroups.length > 1 || g.key !== "overall" ? (
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-ink-soft">{g.label}</span>
+                    <span className="h-px flex-1 bg-rule" />
+                  </div>
+                ) : null}
+                <div className="grid gap-3 sm:grid-cols-2">
                   {g.items.map((p) => (
                     <PrizeCard key={p.id} p={p} />
                   ))}

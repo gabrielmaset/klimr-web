@@ -270,8 +270,9 @@ async function placeOnTeam(admin: Admin, court: CourtLite, member: Member): Prom
 
 /** Validate, then either place on a team now or file a pending request (approval mode). */
 async function requestOrJoin(admin: Admin, courtId: string, member: Member, coords: { lat?: number; lng?: number }): Promise<Result & { sessionId?: string; pending?: boolean }> {
-  const { data: court } = await admin.from("queue_courts").select("id, session_id, team_size").eq("id", courtId).maybeSingle();
+  const { data: court } = await admin.from("queue_courts").select("id, session_id, team_size, closed_at").eq("id", courtId).maybeSingle();
   if (!court) return { error: "Court not found." };
+  if (court.closed_at) return { error: "This court is closed.", sessionId: court.session_id };
   const s = await sessionRow(admin, court.session_id);
   if (!s) return { error: "Session not found." };
 
@@ -477,6 +478,71 @@ export async function startNextByCode(formData: FormData): Promise<Result> {
   const { data: court } = await admin.from("queue_courts").select("id, session_id").eq("id", courtId).maybeSingle();
   if (!court || court.session_id !== sid) return { error: "Court not found." };
   return applyStartNext(admin, courtId, sid);
+}
+
+/** A staying winner bows out: mark them done, then call the next two in line on. No auth here. */
+async function applyWinnerStepDown(admin: Admin, teamId: string): Promise<Result> {
+  const { data: t } = await admin.from("queue_teams").select("id, session_id, court_id, status").eq("id", teamId).maybeSingle();
+  if (!t) return { error: "Team not found." };
+  if (t.status === "playing") return { error: "That team is currently playing." };
+  await admin.from("queue_teams").update({ status: "done", hold_court: false }).eq("id", teamId);
+  // bring the next two in line on, if there are enough (ignore "need two teams" — stepping down still succeeded)
+  await applyStartNext(admin, t.court_id, t.session_id);
+  revalidatePath(`/queue/${t.session_id}`);
+  return { ok: true };
+}
+
+export async function stepDownTeam(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const teamId = String(formData.get("teamId") || "");
+  const { data: t } = await admin.from("queue_teams").select("id, session_id, status").eq("id", teamId).maybeSingle();
+  if (!t) return { error: "Team not found." };
+  const s = await sessionRow(admin, t.session_id);
+  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can do that." };
+  return applyWinnerStepDown(admin, teamId);
+}
+
+export async function stepDownByCode(formData: FormData): Promise<Result> {
+  const admin = createAdminClient();
+  const code = String(formData.get("code") || "");
+  const teamId = String(formData.get("teamId") || "");
+  const sid = await sessionIdByCode(admin, code);
+  if (!sid) return { error: "Session not found." };
+  const { data: t } = await admin.from("queue_teams").select("id, session_id, status").eq("id", teamId).maybeSingle();
+  if (!t || t.session_id !== sid) return { error: "Team not found." };
+  return applyWinnerStepDown(admin, teamId);
+}
+
+// ---------- end-of-day: close / reopen a court ----------
+
+export async function closeCourt(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const courtId = String(formData.get("courtId") || "");
+  const guard = await organizerGuardByCourt(admin, courtId, userId);
+  if (guard.error) return { error: guard.error };
+  const { data: live } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
+  if (live) return { error: "Finish the current match before closing this court." };
+  await admin.from("queue_courts").update({ closed_at: new Date().toISOString() }).eq("id", courtId);
+  // clear anyone still waiting/forming so they don't linger in a closed line
+  await admin.from("queue_teams").update({ status: "done", hold_court: false }).eq("court_id", courtId).neq("status", "done");
+  revalidatePath(`/queue/${guard.session!.id}`);
+  return { ok: true };
+}
+
+export async function reopenCourt(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const courtId = String(formData.get("courtId") || "");
+  const guard = await organizerGuardByCourt(admin, courtId, userId);
+  if (guard.error) return { error: guard.error };
+  await admin.from("queue_courts").update({ closed_at: null }).eq("id", courtId);
+  revalidatePath(`/queue/${guard.session!.id}`);
+  return { ok: true };
 }
 
 // ---------- approval queue ----------

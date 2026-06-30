@@ -21,7 +21,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
   if (!s) return null;
 
   const [{ data: courts }, { data: teams }, { data: matches }, { data: requests }] = await Promise.all([
-    admin.from("queue_courts").select("id, label, team_size, levels, sort, created_at").eq("session_id", sessionId).order("sort").order("created_at"),
+    admin.from("queue_courts").select("id, label, team_size, levels, sort, created_at, closed_at").eq("session_id", sessionId).order("sort").order("created_at"),
     admin.from("queue_teams").select("id, court_id, status, wins, hold_court, queued_at, created_at").eq("session_id", sessionId).neq("status", "done"),
     admin.from("queue_matches").select("id, court_id, team_a, team_b, started_at").eq("session_id", sessionId).eq("status", "live"),
     admin.from("queue_join_requests").select("id, court_id, user_id, guest_name, created_at").eq("session_id", sessionId).eq("status", "pending").order("created_at"),
@@ -57,7 +57,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       isGuest: !m.user_id,
       you: !!meId && m.user_id === meId,
     }));
-    return { id: t.id, members: mem, wins: t.wins, hold: t.hold_court, size, count: mem.length };
+    return { id: t.id, members: mem, wins: t.wins, hold: t.hold_court, size, count: mem.length, queuedAt: t.queued_at };
   };
 
   const teamById = new Map(teamRows.map((t) => [t.id, t]));
@@ -91,6 +91,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       current,
       queue: queued.map((t) => buildTeam(t, size)),
       forming: forming.map((t) => buildTeam(t, size)),
+      closed: !!c.closed_at,
     };
   });
 

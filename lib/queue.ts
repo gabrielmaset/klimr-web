@@ -44,7 +44,7 @@ export function clock(ms: number): string {
 // ----- live-state shape (returned by the polling route + initial SSR) -----
 
 export type QMember = { name: string; isGuest: boolean; you: boolean };
-export type QTeam = { id: string; members: QMember[]; wins: number; hold: boolean; size: number; count: number };
+export type QTeam = { id: string; members: QMember[]; wins: number; hold: boolean; size: number; count: number; queuedAt: string | null };
 
 export type QCourtState = {
   id: string;
@@ -54,6 +54,7 @@ export type QCourtState = {
   current: { matchId: string; startedAt: string; a: QTeam; b: QTeam } | null;
   queue: QTeam[]; // queued teams in play order (holder first if a winner is staying)
   forming: QTeam[]; // teams still filling — open to join
+  closed: boolean; // organizer retired this court (end-of-day wind-down)
 };
 
 export type QPending = { id: string; courtId: string; name: string; isGuest: boolean };

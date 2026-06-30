@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, Square, UserCheck } from "lucide-react";
+import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, Square, UserCheck, Power, RotateCcw } from "lucide-react";
 import type { QSessionState, QCourtState, QTeam } from "@/lib/queue";
 import { LEVELS, levelLabel, formationLabel, FORMATIONS } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
 import { useQueueState } from "@/components/queue/use-queue-state";
-import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, endSession, removeTeam, approveRequest, denyRequest, cancelRequest } from "@/app/queue/actions";
+import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, endSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt } from "@/app/queue/actions";
 
 type Action = (fd: FormData) => Promise<{ ok?: true; error?: string }>;
 
@@ -243,10 +243,25 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
 
       {/* courts */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {courts.map((c) => {
+        {courts.map((c, ci) => {
           const meHere = myTeam && myTeam.court.id === c.id;
           const meElsewhere = myTeam && myTeam.court.id !== c.id;
           const canStart = !c.current && c.queue.length >= 2;
+          if (c.closed) {
+            return (
+              <div key={c.id} className="flex items-center justify-between gap-2 rounded-3xl border border-dashed border-rule bg-bg/40 p-5">
+                <div className="min-w-0">
+                  <h2 className="font-display text-lg text-mute">{c.label}</h2>
+                  <p className="mt-0.5 text-xs font-semibold text-faint">Closed · {formationLabel(c.teamSize)}</p>
+                </div>
+                {isOrganizer && session.status === "live" ? (
+                  <button type="button" disabled={pending} onClick={() => run(reopenCourt, fd({ courtId: c.id }))} className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-bg disabled:opacity-50">
+                    <RotateCcw size={13} /> Reopen
+                  </button>
+                ) : null}
+              </div>
+            );
+          }
           return (
             <div key={c.id} className="rounded-3xl border border-rule bg-surface p-5">
               <div className="flex items-start justify-between gap-2">
@@ -258,9 +273,14 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                 </div>
                 <div className="flex items-center gap-1.5">
                   {isOrganizer && session.status === "live" ? (
-                    <a href={`/q/${session.code}/court/${c.id}`} target="_blank" rel="noreferrer" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-bg" title="Open the login-free Courtside display for a tablet">
+                    <a href={`/q/${session.code}/${ci + 1}`} target="_blank" rel="noreferrer" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-bg" title="Open the login-free Courtside display for a tablet">
                       <Monitor size={12} /> Courtside
                     </a>
+                  ) : null}
+                  {isOrganizer && session.status === "live" && courts.length > 1 ? (
+                    <button type="button" disabled={pending} onClick={() => run(closeCourt, fd({ courtId: c.id }))} className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-faint hover:text-brand-deep disabled:opacity-50" title="Stop using this court (end-of-day wind-down)">
+                      <Power size={12} /> Stop
+                    </button>
                   ) : null}
                   {isOrganizer && session.status !== "live" ? (
                     <button type="button" disabled={pending} onClick={() => run(removeCourt, fd({ courtId: c.id }))} className="press rounded-full border border-rule bg-white px-2 py-1 text-faint hover:text-brand-deep" aria-label="Remove court">
@@ -328,20 +348,18 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                 {c.queue.length === 0 ? (
                   <p className="text-sm text-faint">No teams waiting yet.</p>
                 ) : (
-                  <ol className="space-y-1.5">
+                  <ol className="space-y-2">
                     {c.queue.map((t, i) => (
-                      <li key={t.id} className="flex items-start justify-between gap-2 rounded-xl border border-rule px-3 py-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="grid h-5 w-5 place-items-center rounded-full bg-ink text-[10px] font-bold text-white">{i + 1}</span>
+                      <li key={t.id} className="flex items-center gap-2.5 rounded-xl border border-rule bg-bg/30 px-3 py-2.5">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-ink text-xs font-bold text-white">{i + 1}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             {t.hold ? (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#a16207]">
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-[#fef3c7] px-1.5 py-0.5 text-[10px] font-bold text-[#a16207]">
                                 <Crown size={11} /> staying
                               </span>
                             ) : null}
-                            {t.members.some((m) => m.you) ? <span className="rounded-full bg-tint-brand px-1.5 text-[10px] font-bold text-brand-deep">you</span> : null}
-                          </div>
-                          <div className="mt-1">
+                            {t.members.some((m) => m.you) ? <span className="rounded-full bg-tint-brand px-1.5 py-0.5 text-[10px] font-bold text-brand-deep">you</span> : null}
                             <MemberList team={t} canEdit={false} onRemove={() => {}} />
                           </div>
                         </div>
@@ -360,14 +378,15 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
               {c.forming.length > 0 ? (
                 <div className="mt-3">
                   <p className="kicker mb-1.5 text-faint">Filling now</p>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {c.forming.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between gap-2 rounded-xl border border-dashed border-rule px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-semibold text-mute">
-                            {t.count}/{t.size} joined
-                          </p>
-                          <div className="mt-1">
+                      <div key={t.id} className="flex items-center gap-2.5 rounded-xl border border-dashed border-rule px-3 py-2.5">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-dashed border-rule text-[10px] font-bold text-mute">
+                          {t.count}/{t.size}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-full bg-bg px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-mute ring-1 ring-rule">filling · {t.size - t.count} open</span>
                             <MemberList team={t} canEdit={false} onRemove={() => {}} />
                           </div>
                         </div>

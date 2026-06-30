@@ -32,7 +32,7 @@ export function EventQueueAdmin({ eventId, queueEnabled, session }: { eventId: s
   };
 
   const walkUrl = origin && session ? `${origin}/q/${session.code}` : "";
-  const courtsideUrl = origin && session && session.firstCourtId ? `${origin}/q/${session.code}/court/${session.firstCourtId}` : "";
+  const courtsideUrl = origin && session && session.firstCourtId ? `${origin}/q/${session.code}/1` : "";
 
   return (
     <div className="rounded-3xl border border-rail-border bg-gradient-to-br from-[#0e2c3a] to-[#0a212c] p-5 text-white">

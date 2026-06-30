@@ -51,9 +51,9 @@ export interface Database {
         Relationships: [];
       };
       queue_courts: {
-        Row: { id: string; session_id: string; label: string; team_size: number; levels: string[]; sort: number; created_at: string };
-        Insert: { id?: string; session_id: string; label?: string; team_size?: number; levels?: string[]; sort?: number; created_at?: string };
-        Update: { id?: string; session_id?: string; label?: string; team_size?: number; levels?: string[]; sort?: number; created_at?: string };
+        Row: { id: string; session_id: string; label: string; team_size: number; levels: string[]; sort: number; created_at: string; closed_at: string | null };
+        Insert: { id?: string; session_id: string; label?: string; team_size?: number; levels?: string[]; sort?: number; created_at?: string; closed_at?: string | null };
+        Update: { id?: string; session_id?: string; label?: string; team_size?: number; levels?: string[]; sort?: number; created_at?: string; closed_at?: string | null };
         Relationships: [];
       };
       queue_teams: {
