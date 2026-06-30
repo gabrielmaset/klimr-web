@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CalendarClock, Users, Trophy, Check, Dices, FileText, Megaphone, Pin, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { formatFee, isRegistrationOpen, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Announcement } from "@/lib/tournament";
+import { formatFee, isRegistrationOpen, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventHero } from "@/components/event-hero";
 import { PremiumSponsorAd } from "@/components/sponsor-ad";
@@ -96,6 +96,22 @@ function PublicBracket({ rounds }: { rounds: PublishedBracketRound[] }) {
   );
 }
 
+function PrizeCard({ p }: { p: Prize }) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-rule bg-bg/40">
+      {p.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={p.photo} alt="" className="aspect-[4/3] w-full object-cover" />
+      ) : null}
+      <div className="flex flex-1 flex-col p-4">
+        {p.place ? <span className="mb-1 inline-flex w-fit items-center gap-1 rounded-full bg-tint-brand px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-brand-deep">{p.place}</span> : null}
+        <p className="text-sm font-bold text-ink">{p.title}</p>
+        {p.description ? <p className="mt-1 text-xs leading-relaxed text-mute">{p.description}</p> : null}
+      </div>
+    </div>
+  );
+}
+
 function SponsorCard({ s }: { s: Sponsor }) {
   const inner = (
     <div className="relative flex h-full flex-col items-center gap-2.5 rounded-2xl border border-rule bg-surface/90 p-4 text-center transition hover:border-faint">
@@ -154,6 +170,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const pubSchedule = fc.schedule_published && fc.published_schedule?.rows?.length ? fc.published_schedule : null;
   const pubResults = fc.results_published && fc.published_results?.divisions?.length ? fc.published_results : null;
   const sponsors: Sponsor[] = Array.isArray(fc.sponsors) ? fc.sponsors : [];
+  const prizes: Prize[] = Array.isArray(fc.prizes) ? fc.prizes : [];
   const premiumSponsors = sponsors.filter((s) => s.tier === "premium");
   const rulesText = fc.legal?.rules_text?.trim() || null;
   const announcements = (Array.isArray(fc.announcements) ? (fc.announcements as Announcement[]) : [])
@@ -355,6 +372,19 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
     .select("id, name, description, fee_cents, fee_basis")
     .eq("tournament_id", t.id)
     .order("sort_order");
+
+  // Prizes grouped for the public page: overall (no division / stale division) first,
+  // then each division that has prizes, in the divisions' own order.
+  const divNameById = new Map((divs ?? []).map((d) => [d.id, d.name]));
+  const prizeGroups: { key: string; label: string; items: Prize[] }[] = [];
+  if (prizes.length) {
+    const overall = prizes.filter((p) => !p.divisionId || !divNameById.has(p.divisionId));
+    if (overall.length) prizeGroups.push({ key: "overall", label: divs && divs.length ? "All divisions" : "Prizes", items: overall });
+    for (const d of divs ?? []) {
+      const items = prizes.filter((p) => p.divisionId === d.id);
+      if (items.length) prizeGroups.push({ key: d.id, label: d.name, items });
+    }
+  }
 
   const { data: drawsData } = await supabase.from("tournament_draws").select("division_id, draw_number, drawn_at").eq("tournament_id", t.id).order("draw_number");
   const drawsByDiv = new Map<string, { number: number; at: string }[]>();
@@ -569,6 +599,27 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
                 <p className="text-sm font-semibold text-ink">{d.name}</p>
                 {d.description ? <p className="mt-0.5 line-clamp-2 text-xs text-mute">{d.description}</p> : null}
                 <p className="mt-2 text-sm font-bold text-brand-deep">{formatFee(d.fee_cents, d.fee_basis)}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* prizes */}
+      {prizeGroups.length ? (
+        <section className="mt-6 rounded-3xl border border-rule bg-surface/90 p-5 sm:p-6">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-ink">
+            <Trophy size={15} className="text-brand-deep" /> Prizes
+          </h2>
+          <div className="space-y-5">
+            {prizeGroups.map((g) => (
+              <div key={g.key}>
+                {prizeGroups.length > 1 || g.key !== "overall" ? <p className="mb-2 text-xs font-bold uppercase tracking-wide text-mute">{g.label}</p> : null}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {g.items.map((p) => (
+                    <PrizeCard key={p.id} p={p} />
+                  ))}
+                </div>
               </div>
             ))}
           </div>

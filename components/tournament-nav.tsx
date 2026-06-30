@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, ClipboardList, CreditCard, CalendarClock, ListChecks,
-  Network, Handshake, Megaphone, Settings, Globe, ChevronLeft, Users,
+  Network, Handshake, Megaphone, Settings, Globe, ChevronLeft, Users, Award,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
@@ -61,6 +61,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
     {
       header: "Promotion",
       items: [
+        { href: `${base}/prizes`, label: "Prizes", Icon: Award },
         { href: `${base}/sponsors`, label: "Sponsors", Icon: Handshake },
         { href: `${base}/announcements`, label: "Announcements", Icon: Megaphone },
       ],

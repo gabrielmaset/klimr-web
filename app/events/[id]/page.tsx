@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign, Pencil, Ban } from "lucide-react";
+import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign, Pencil, Ban, ListOrdered } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { EventCoverEditor } from "@/components/event-cover-editor";
 import { createClient } from "@/lib/supabase/server";
@@ -68,6 +68,17 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     p?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
 
   const courtData = court.data as { id: string; name: string; neighborhood: string | null; city: string | null } | null;
+
+  // A live-queue session attached to this event (if any), so we can link players to it.
+  const { data: queueSession } = await supabase
+    .from("court_sessions")
+    .select("id, status")
+    .eq("event_id", id)
+    .neq("status", "ended")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const where = courtData ? courtData.name : e.location_text;
   const full = e.capacity != null && count >= e.capacity && !amGoing;
   const past = isPast(e.starts_at);
@@ -105,6 +116,24 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <div className="mt-3 rounded-xl border border-brand/30 bg-tint-brand px-4 py-2.5 text-sm font-semibold text-brand-deep">This event was cancelled.</div>
       ) : past ? (
         <div className="mt-3 rounded-xl border border-rule bg-[#f4f4f5] px-4 py-2.5 text-sm font-semibold text-mute">This event has ended.</div>
+      ) : null}
+
+      {!cancelled ? (
+        queueSession ? (
+          <Link
+            href={`/queue/${queueSession.id}`}
+            className="press mt-4 inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+          >
+            <ListOrdered size={16} /> {queueSession.status === "live" ? "Open the live queue" : "Open queue setup"}
+          </Link>
+        ) : isCreator && !past ? (
+          <Link
+            href={`/queue/new?event=${e.id}`}
+            className="press mt-4 inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+          >
+            <ListOrdered size={16} /> Start a live queue
+          </Link>
+        ) : null
       ) : null}
 
       {isCreator ? (

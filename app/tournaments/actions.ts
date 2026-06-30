@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { lookupZip, tzFromStateLng } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
-import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig, PublishedResults, Sponsor, Announcement } from "@/lib/tournament";
+import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig, PublishedResults, Sponsor, Prize, Announcement } from "@/lib/tournament";
 import { computePoolStandings, isRegistrationOpen, isSignupFormReady, poolSizes } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
@@ -452,6 +452,44 @@ export async function saveSponsors(tournamentId: string, sponsors: Sponsor[]) {
   revalidatePath(`/tournament/${tournamentId}/sponsors`);
   if (to.code) revalidatePath(`/e/${to.code}`);
   return { ok: true as const, sponsors: clean };
+}
+
+export async function savePrizes(tournamentId: string, prizes: Prize[]) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, code, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  // Only divisions that belong to this tournament are allowed, so a stale id can't leak through.
+  const { data: divRows } = await supabase.from("tournament_divisions").select("id").eq("tournament_id", tournamentId);
+  const validDiv = new Set((divRows ?? []).map((d) => d.id));
+
+  const clean: Prize[] = (prizes ?? []).slice(0, 80).map((p) => ({
+    id: typeof p.id === "string" && p.id ? p.id.slice(0, 64) : randomUUID(),
+    divisionId: p.divisionId && validDiv.has(p.divisionId) ? p.divisionId : null,
+    place: p.place ? String(p.place).trim().slice(0, 60) || null : null,
+    title: String(p.title ?? "").trim().slice(0, 160) || "Prize",
+    description: p.description ? String(p.description).trim().slice(0, 600) || null : null,
+    photo: p.photo ? String(p.photo).slice(0, 600) : null,
+  }));
+
+  const fc = { ...((to.format_config ?? {}) as Record<string, unknown>), prizes: clean };
+  const { error } = await supabase.from("tournaments").update({ format_config: fc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath(`/tournament/${tournamentId}/prizes`);
+  if (to.code) revalidatePath(`/e/${to.code}`);
+  return { ok: true as const, prizes: clean };
 }
 
 /** Save the announcements feed. Rides in format_config.announcements (anon reads

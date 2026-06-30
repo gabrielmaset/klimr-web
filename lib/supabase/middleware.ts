@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
 // Reachable without a session. Everything else redirects to /login.
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/gate"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/gate", "/q", "/api/queue"];
 
 // Reachable with a session that has NOT yet cleared 2FA (AAL1). These are the
 // pages a signed-in user needs *in order to* complete or recover 2FA, so the

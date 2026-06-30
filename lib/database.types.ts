@@ -44,6 +44,42 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      court_sessions: {
+        Row: { id: string; code: string; event_id: string | null; organizer_id: string; title: string; sport_key: string; status: string; win_cap: number; center_lat: number | null; center_lng: number | null; radius_m: number; allow_guests: boolean; require_location: boolean; event_only: boolean; require_approval: boolean; created_at: string; ended_at: string | null };
+        Insert: { id?: string; code: string; event_id?: string | null; organizer_id: string; title?: string; sport_key: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; created_at?: string; ended_at?: string | null };
+        Update: { id?: string; code?: string; event_id?: string | null; organizer_id?: string; title?: string; sport_key?: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; created_at?: string; ended_at?: string | null };
+        Relationships: [];
+      };
+      queue_courts: {
+        Row: { id: string; session_id: string; label: string; team_size: number; levels: string[]; sort: number; created_at: string };
+        Insert: { id?: string; session_id: string; label?: string; team_size?: number; levels?: string[]; sort?: number; created_at?: string };
+        Update: { id?: string; session_id?: string; label?: string; team_size?: number; levels?: string[]; sort?: number; created_at?: string };
+        Relationships: [];
+      };
+      queue_teams: {
+        Row: { id: string; session_id: string; court_id: string; status: string; wins: number; hold_court: boolean; queued_at: string | null; created_at: string };
+        Insert: { id?: string; session_id: string; court_id: string; status?: string; wins?: number; hold_court?: boolean; queued_at?: string | null; created_at?: string };
+        Update: { id?: string; session_id?: string; court_id?: string; status?: string; wins?: number; hold_court?: boolean; queued_at?: string | null; created_at?: string };
+        Relationships: [];
+      };
+      queue_team_members: {
+        Row: { id: string; team_id: string; user_id: string | null; guest_name: string | null; session_id: string | null; joined_at: string };
+        Insert: { id?: string; team_id: string; user_id?: string | null; guest_name?: string | null; session_id?: string | null; joined_at?: string };
+        Update: { id?: string; team_id?: string; user_id?: string | null; guest_name?: string | null; session_id?: string | null; joined_at?: string };
+        Relationships: [];
+      };
+      queue_matches: {
+        Row: { id: string; session_id: string; court_id: string; team_a: string; team_b: string; status: string; winner_team: string | null; started_at: string; ended_at: string | null };
+        Insert: { id?: string; session_id: string; court_id: string; team_a: string; team_b: string; status?: string; winner_team?: string | null; started_at?: string; ended_at?: string | null };
+        Update: { id?: string; session_id?: string; court_id?: string; team_a?: string; team_b?: string; status?: string; winner_team?: string | null; started_at?: string; ended_at?: string | null };
+        Relationships: [];
+      };
+      queue_join_requests: {
+        Row: { id: string; session_id: string; court_id: string; user_id: string | null; guest_name: string | null; status: string; created_at: string; decided_at: string | null };
+        Insert: { id?: string; session_id: string; court_id: string; user_id?: string | null; guest_name?: string | null; status?: string; created_at?: string; decided_at?: string | null };
+        Update: { id?: string; session_id?: string; court_id?: string; user_id?: string | null; guest_name?: string | null; status?: string; created_at?: string; decided_at?: string | null };
+        Relationships: [];
+      };
       error_logs: {
         Row: {
           id: string;

@@ -76,6 +76,15 @@ export type Sponsor = {
   blurb?: string | null;
 };
 
+export type Prize = {
+  id: string;
+  divisionId?: string | null; // null = applies to the whole tournament / all divisions
+  place?: string | null; // e.g. "1st", "Champion", "Finalist", "Best dressed"
+  title: string; // e.g. "$500 cash", "Trophy + medals"
+  description?: string | null;
+  photo?: string | null; // optional public URL (prize photo, not required)
+};
+
 export type TournamentFormatConfig = {
   format_type?: FormatType;
   pool_count?: number;
@@ -93,6 +102,7 @@ export type TournamentFormatConfig = {
   published_results?: PublishedResults;
   signup_form_ready?: boolean;
   sponsors?: Sponsor[];
+  prizes?: Prize[];
   announcements?: Announcement[];
   gallery?: string[];
   public_bg?: string; // public-page background colour key (see PUBLIC_BG_OPTIONS); default canvas when unset

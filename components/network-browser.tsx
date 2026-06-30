@@ -2,12 +2,28 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
-import { Search, BadgeCheck, Users, UserPlus, UserCheck, ArrowUpDown, X, Rss, Check, Clock } from "lucide-react";
+import { Search, BadgeCheck, Users, UserPlus, UserCheck, ArrowUpDown, X, Rss, Check, Clock, ChevronDown } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { followUser, unfollowUser, sendFriendRequest, acceptFriendRequest, removeFriend } from "@/app/network/actions";
 
 export type Tab = "friends" | "following" | "followers";
 export type FriendStatus = "none" | "requested" | "incoming" | "friends";
+export type SortKey = "az" | "za" | "newest" | "oldest";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "az", label: "Name (A–Z)" },
+  { key: "za", label: "Name (Z–A)" },
+  { key: "newest", label: "Newest first" },
+  { key: "oldest", label: "Oldest first" },
+];
+
+// Date sorts fall back to name so same-timestamp rows stay stable (and readable).
+const SORTERS: Record<SortKey, (a: Person, b: Person) => number> = {
+  az: (a, b) => a.name.localeCompare(b.name),
+  za: (a, b) => b.name.localeCompare(a.name),
+  newest: (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime() || a.name.localeCompare(b.name),
+  oldest: (a, b) => new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime() || a.name.localeCompare(b.name),
+};
 export type Person = {
   id: string;
   name: string;
@@ -42,7 +58,7 @@ export function NetworkBrowser({
   const [tab, setTab] = useState<Tab>(initialTab);
   const [q, setQ] = useState("");
   const [sport, setSport] = useState("all");
-  const [sort, setSort] = useState<"recent" | "az">("recent");
+  const [sort, setSort] = useState<SortKey>("az");
   const [, startTransition] = useTransition();
 
   // optimistic flag updates, applied everywhere the person appears
@@ -100,7 +116,7 @@ export function NetworkBrowser({
       const needle = q.trim().toLowerCase();
       out = out.filter((p) => p.name.toLowerCase().includes(needle) || (p.place ?? "").toLowerCase().includes(needle));
     }
-    return [...out].sort((a, b) => (sort === "az" ? a.name.localeCompare(b.name) : new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()));
+    return [...out].sort(SORTERS[sort]);
   }, [active, q, sport, sort]);
 
   const TABS: { key: Tab; label: string; n: number }[] = [
@@ -145,13 +161,7 @@ export function NetworkBrowser({
             </button>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => setSort((s) => (s === "recent" ? "az" : "recent"))}
-          className="press inline-flex shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-mute transition-colors hover:text-ink"
-        >
-          <ArrowUpDown size={15} /> {sort === "recent" ? "Recently added" : "Name A–Z"}
-        </button>
+        <SortMenu value={sort} onChange={setSort} />
       </div>
 
       {sports.length > 1 ? (
@@ -256,6 +266,51 @@ function FriendButton({ status, onClick }: { status: FriendStatus; onClick: () =
     <button type="button" onClick={onClick} aria-label="Add friend" title="Add friend" className={`${btnBase} border-rule text-mute hover:border-brand/50 hover:text-brand-deep`}>
       <UserPlus size={16} />
     </button>
+  );
+}
+
+function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
+  const [open, setOpen] = useState(false);
+  const current = SORT_OPTIONS.find((o) => o.key === value) ?? SORT_OPTIONS[0];
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="press inline-flex w-full items-center justify-center gap-1.5 rounded-2xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-mute transition-colors hover:text-ink sm:w-auto"
+      >
+        <ArrowUpDown size={15} /> {current.label}
+        <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? (
+        <>
+          <button type="button" aria-hidden tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
+          <div role="listbox" className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-rule bg-surface p-1 shadow-[0_18px_40px_-20px_rgba(10,10,11,0.35)]">
+            {SORT_OPTIONS.map((o) => {
+              const on = o.key === value;
+              return (
+                <button
+                  key={o.key}
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  onClick={() => {
+                    onChange(o.key);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition-colors ${on ? "bg-bg text-ink" : "text-mute hover:bg-bg hover:text-ink"}`}
+                >
+                  {o.label}
+                  {on ? <Check size={14} className="text-brand" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }
 

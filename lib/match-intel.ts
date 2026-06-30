@@ -13,6 +13,7 @@ export type Suggestion = {
   city: string | null;
   skillLevel: string | null;
   score: number; // 0–100 compatibility
+  factors: { location: number; skill: number; availability: number; style: number }; // each 0–100, share of that factor's max
   reasons: string[];
 };
 
@@ -67,46 +68,51 @@ export async function suggestedOpponents(supabase: SB, meId: string, sportKey: s
     if (p.account_status && p.account_status !== "active") continue;
 
     const reasons: string[] = [];
-    let score = 0;
+    let locPts = 0;
+    let skillPts = 0;
+    let availPts = 0;
+    let stylePts = 0;
 
-    // location — Klimr's geographic wedge gets the most weight
+    // location — Klimr's geographic wedge gets the most weight (max 35)
     if (me?.neighborhood && p.neighborhood && me.neighborhood.toLowerCase() === p.neighborhood.toLowerCase()) {
-      score += 35;
+      locPts = 35;
       reasons.push(`Plays in ${p.neighborhood}`);
     } else if (me?.city && p.city && me.city.toLowerCase() === p.city.toLowerCase()) {
-      score += 25;
+      locPts = 25;
       reasons.push(`Both in ${p.city}`);
     } else if (myZip3 && p.home_zip && p.home_zip.slice(0, 3) === myZip3) {
-      score += 18;
+      locPts = 18;
       reasons.push("Nearby");
     } else if (me?.state && p.state && me.state === p.state) {
-      score += 8;
+      locPts = 8;
     }
 
-    // skill proximity
+    // skill proximity (max 35)
     if (mySport?.skill_level && c.skill_level && mySport.skill_level.toLowerCase() === c.skill_level.toLowerCase()) {
-      score += 35;
+      skillPts = 35;
       reasons.push(`Same level: ${c.skill_level}`);
     } else if (mySport?.skill_rating != null && c.skill_rating != null) {
       const closeness = Math.max(0, 1 - Math.abs(mySport.skill_rating - c.skill_rating) / 1.5);
-      score += Math.round(35 * closeness);
+      skillPts = Math.round(35 * closeness);
       if (closeness > 0.5) reasons.push("Similar skill level");
     } else {
-      score += 12;
+      skillPts = 12;
     }
 
-    // availability overlap
+    // availability overlap (max 20)
     const day = overlapDay(myAvail, (p.availability ?? []) as Avail[]);
     if (day) {
-      score += 20;
+      availPts = 20;
       reasons.push(`Both free on ${cap(day)}`);
     }
 
-    // preferred format
+    // preferred format / play style (max 10)
     if (myFormat && c.preferred_format && myFormat.toLowerCase() === c.preferred_format.toLowerCase()) {
-      score += 10;
+      stylePts = 10;
       reasons.push(`Both prefer ${c.preferred_format}`);
     }
+
+    const score = Math.min(100, locPts + skillPts + availPts + stylePts);
 
     out.push({
       userId: c.user_id,
@@ -116,7 +122,13 @@ export async function suggestedOpponents(supabase: SB, meId: string, sportKey: s
       neighborhood: p.neighborhood ?? null,
       city: p.city ?? null,
       skillLevel: c.skill_level ?? null,
-      score: Math.min(100, score),
+      score,
+      factors: {
+        location: Math.round((locPts / 35) * 100),
+        skill: Math.round((skillPts / 35) * 100),
+        availability: Math.round((availPts / 20) * 100),
+        style: Math.round((stylePts / 10) * 100),
+      },
       reasons,
     });
   }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Radar, Sparkle } from "lucide-react";
+import { Radar, Sparkle, ArrowRight, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
@@ -10,10 +10,54 @@ import { suggestedOpponents } from "@/lib/match-intel";
 
 export const metadata: Metadata = { title: "Discover players" };
 
-function scoreColor(score: number): { bg: string; fg: string } {
-  if (score >= 70) return { bg: "#f0fdf4", fg: "#15803d" };
-  if (score >= 45) return { bg: "#fff8e6", fg: "#8a6d0b" };
-  return { bg: "#f4f4f5", fg: "#52525b" };
+function scoreColor(s: number): { bg: string; fg: string } {
+  if (s >= 70) return { bg: "#ecfdf3", fg: "#15803d" };
+  if (s >= 45) return { bg: "#fff7e6", fg: "#b45309" };
+  return { bg: "#f1f5f9", fg: "#475569" };
+}
+
+/* A match-score gauge ring drawn around the player's avatar. */
+function ScoredAvatar({ score, url, hue, name, size }: { score: number; url: string | null; hue: number; name: string; size: number }) {
+  const stroke = Math.max(4, Math.round(size * 0.075));
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const off = circ * (1 - Math.min(100, Math.max(0, score)) / 100);
+  const col = scoreColor(score).fg;
+  const inner = size - stroke * 2 - 5;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 -rotate-90" aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8e8ec" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={col} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={off} />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center">
+        <Avatar url={url} hue={hue} name={name} size={inner} />
+      </div>
+    </div>
+  );
+}
+
+/* The compatibility breakdown — the page's tagline made literal. */
+function FactorBars({ factors }: { factors: { location: number; skill: number; availability: number; style: number } }) {
+  const rows: [string, number][] = [
+    ["Area", factors.location],
+    ["Skill", factors.skill],
+    ["Timing", factors.availability],
+    ["Style", factors.style],
+  ];
+  return (
+    <div className="space-y-2">
+      {rows.map(([label, v]) => (
+        <div key={label} className="flex items-center gap-2.5">
+          <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-faint">{label}</span>
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#ececed]">
+            <span className="block h-full rounded-full transition-all" style={{ width: `${v}%`, background: scoreColor(v).fg }} />
+          </span>
+          <span className="w-6 shrink-0 text-right text-[10px] font-semibold tabular text-mute">{v}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default async function DiscoverPage({ searchParams }: { searchParams: Promise<{ sport?: string }> }) {
@@ -34,11 +78,13 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
     return (
       <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Match Intelligence</h1>
-        <div className="mt-5 rounded-2xl border border-rule bg-surface p-8 text-center">
-          <Radar className="mx-auto text-faint" size={26} />
-          <p className="mt-2 text-sm font-semibold text-ink">Add a sport to get matched</p>
-          <p className="mt-1 text-sm text-mute">Tell us what you play and we&apos;ll suggest opponents near your level and area.</p>
-          <Link href="/onboarding" className="press mt-4 inline-block rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep">
+        <div className="mt-5 rounded-3xl border border-rule bg-surface p-10 text-center">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-tint-brand text-brand-deep">
+            <Radar size={22} />
+          </span>
+          <p className="mt-3 text-base font-bold text-ink">Add a sport to get matched</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-mute">Tell us what you play and the engine will rank opponents near your level and area.</p>
+          <Link href="/onboarding" className="press mt-4 inline-block rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
             Set up your sports
           </Link>
         </div>
@@ -47,8 +93,11 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
   }
 
   const selected = sport && mySports.includes(sport) ? sport : mySports.includes(profile?.primary_sport ?? "") ? (profile!.primary_sport as string) : mySports[0];
-  const suggestions = await suggestedOpponents(supabase, user.id, selected, 10);
+  const suggestions = await suggestedOpponents(supabase, user.id, selected, 12);
   const meta = sportMeta(selected);
+  const top = suggestions[0] ?? null;
+  const rest = suggestions.slice(1);
+  const aurl = (path: string | null) => (path ? supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl : null);
 
   // Open matches that still need players (any sport, soonest first).
   const { data: openMatches } = await supabase
@@ -58,18 +107,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
     .order("scheduled_at", { ascending: true, nullsFirst: false })
     .limit(16);
   const openList = openMatches ?? [];
-  type NeedRow = {
-    id: string;
-    sport_key: string;
-    format: string;
-    scheduled_at: string | null;
-    total_slots: number;
-    location_text: string | null;
-    court_id: string | null;
-    filled: number;
-    org: string;
-    place: string | null;
-  };
+  type NeedRow = { id: string; sport_key: string; format: string; scheduled_at: string | null; total_slots: number; filled: number; org: string; place: string | null };
   let needPlayers: NeedRow[] = [];
   if (openList.length) {
     const ids = openList.map((m) => m.id);
@@ -97,8 +135,6 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
         format: m.format,
         scheduled_at: m.scheduled_at,
         total_slots: m.total_slots,
-        location_text: m.location_text,
-        court_id: m.court_id,
         filled: cMap.get(m.id) ?? 0,
         org: oMap.get(m.organizer_id) ?? "a player",
         place: (m.court_id ? courtMap.get(m.court_id) : null) ?? m.location_text ?? null,
@@ -107,38 +143,128 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <div className="mb-1 flex items-center gap-2">
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Match Intelligence</h1>
-      </div>
-      <p className="mb-4 flex items-center gap-1.5 text-sm text-mute">
-        <Sparkle size={13} className="text-brand" /> Suggested opponents, ranked by skill, area, availability, and play style.
-      </p>
+      {/* Futuristic AI hero */}
+      <div className="relative mb-6 overflow-hidden rounded-3xl px-6 py-7 sm:px-8 sm:py-9" style={{ background: "linear-gradient(135deg, #0b1020 0%, #171233 55%, #2a1530 100%)" }}>
+        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(120% 130% at 88% 8%, rgba(255,78,27,0.42), transparent 55%)" }} />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.10]" style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "30px 30px" }} />
+        <div className="relative">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white/90 backdrop-blur-sm">
+            <Sparkle size={12} className="text-brand" /> AI matchmaking
+          </span>
+          <h1 className="mt-3 font-display text-4xl leading-none text-white sm:text-5xl">Match Intelligence</h1>
+          <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-white/65">
+            Your best {meta.name.toLowerCase()} opponents, scored on four signals — <span className="text-white/85">area, skill, timing, and play style</span>.
+          </p>
 
-      {/* sport selector (only sports you play) */}
-      {mySports.length > 1 ? (
-        <div className="mb-5 flex gap-1.5 overflow-x-auto pb-1">
-          {mySports.map((k) => {
-            const m = sportMeta(k);
-            const on = k === selected;
-            return (
-              <Link
-                key={k}
-                href={`/discover?sport=${k}`}
-                className="press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                style={{ borderColor: on ? "#ff4e1b" : "#e4e4e7", background: on ? "#fff1ed" : "transparent", color: on ? "#d63a0f" : "#71717a" }}
-              >
-                {m.emoji} {m.name}
-              </Link>
-            );
-          })}
+          {mySports.length > 1 ? (
+            <div className="mt-5 flex flex-wrap gap-1.5">
+              {mySports.map((k) => {
+                const m = sportMeta(k);
+                const on = k === selected;
+                return (
+                  <Link
+                    key={k}
+                    href={`/discover?sport=${k}`}
+                    className="press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                    style={{ borderColor: on ? "transparent" : "rgba(255,255,255,0.2)", background: on ? "#ff4e1b" : "rgba(255,255,255,0.08)", color: on ? "#fff" : "rgba(255,255,255,0.78)" }}
+                  >
+                    {m.emoji} {m.name}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
 
-      {/* Matches need a player — surfaced open matches you can jump into */}
+      {suggestions.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-rule bg-surface/50 p-12 text-center">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-tint-brand text-brand-deep">
+            <Radar size={22} />
+          </span>
+          <p className="mt-3 text-base font-bold text-ink">No {meta.name.toLowerCase()} matches yet</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-mute">As more players join your area, the engine will surface your best opponents here.</p>
+        </div>
+      ) : (
+        <>
+          {/* Top match spotlight */}
+          {top ? (
+            <div className="mb-4 overflow-hidden rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+              <span className="kicker text-brand-deep">★ Top match</span>
+              <div className="mt-3 grid gap-5 lg:grid-cols-[1.05fr_1fr] lg:items-center">
+                <Link href={`/profile/${top.userId}`} className="flex items-center gap-4">
+                  <ScoredAvatar score={top.score} url={aurl(top.avatarPath)} hue={top.avatarHue} name={top.displayName} size={88} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-lg font-bold text-ink">{top.displayName}</span>
+                      <span className="rounded-full px-2 py-0.5 text-xs font-bold tabular" style={{ background: scoreColor(top.score).bg, color: scoreColor(top.score).fg }}>
+                        {top.score}% match
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-sm text-mute">
+                      {[top.neighborhood, top.city].filter(Boolean).join(", ") || "—"}
+                      {top.skillLevel ? ` · ${top.skillLevel}` : ""}
+                    </p>
+                    {top.reasons.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {top.reasons.slice(0, 3).map((r) => (
+                          <span key={r} className="rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </Link>
+                <div className="rounded-2xl bg-bg/60 p-4 lg:border-l lg:border-rule lg:bg-transparent lg:p-0 lg:pl-6">
+                  <p className="kicker mb-2.5 text-faint">Compatibility breakdown</p>
+                  <FactorBars factors={top.factors} />
+                  <Link href={`/profile/${top.userId}`} className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+                    View profile <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Ranked grid */}
+          {rest.length ? (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {rest.map((s) => {
+                const sc = scoreColor(s.score);
+                return (
+                  <Link key={s.userId} href={`/profile/${s.userId}`} className="lift block rounded-3xl border border-rule bg-surface p-4">
+                    <div className="flex items-center gap-3.5">
+                      <ScoredAvatar score={s.score} url={aurl(s.avatarPath)} hue={s.avatarHue} name={s.displayName} size={58} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-ink">{s.displayName}</p>
+                        <p className="truncate text-xs text-mute">
+                          {[s.neighborhood, s.city].filter(Boolean).join(", ") || "—"}
+                          {s.skillLevel ? ` · ${s.skillLevel}` : ""}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular" style={{ background: sc.bg, color: sc.fg }}>
+                        {s.score}%
+                      </span>
+                    </div>
+                    <div className="mt-3.5 border-t border-rule pt-3">
+                      <FactorBars factors={s.factors} />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {/* Open matches you can jump into */}
       {needPlayers.length > 0 ? (
-        <section className="mb-7">
+        <section className="mt-9">
           <div className="mb-2.5 flex items-center justify-between">
-            <h2 className="kicker text-brand-deep">Matches need a player · {needPlayers.length} open</h2>
+            <h2 className="kicker flex items-center gap-1.5 text-brand-deep">
+              <Zap size={13} /> Open matches · {needPlayers.length} need a player
+            </h2>
             <Link href="/play" className="press text-xs font-semibold text-brand-deep hover:underline">
               See all →
             </Link>
@@ -149,13 +275,11 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
               const left = m.total_slots - m.filled;
               const d = m.scheduled_at ? new Date(m.scheduled_at) : null;
               return (
-                <Link
-                  key={m.id}
-                  href={`/play/${m.id}`}
-                  className="lift w-64 shrink-0 snap-start rounded-2xl border border-rule bg-surface p-4"
-                >
+                <Link key={m.id} href={`/play/${m.id}`} className="lift w-64 shrink-0 snap-start rounded-2xl border border-rule bg-surface p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xl" aria-hidden>{m2.emoji}</span>
+                    <span className="text-xl" aria-hidden>
+                      {m2.emoji}
+                    </span>
                     <span className="kicker rounded-full bg-tint-brand px-2 py-1 text-[9px] text-brand-deep">
                       {left} spot{left === 1 ? "" : "s"} open
                     </span>
@@ -163,11 +287,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                   <h3 className="mt-2 text-sm font-bold text-ink">
                     {m2.name} · {m.format === "doubles" ? "Doubles" : "Singles"}
                   </h3>
-                  <p className="mt-1 text-xs text-mute">
-                    {d
-                      ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-                      : "Open · anytime"}
-                  </p>
+                  <p className="mt-1 text-xs text-mute">{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Open · anytime"}</p>
                   {m.place ? <p className="mt-0.5 truncate text-xs text-faint">{m.place}</p> : null}
                   <p className="mt-2 border-t border-rule pt-2 text-xs text-faint">
                     by {m.org} · {m.filled}/{m.total_slots} in
@@ -179,48 +299,9 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
         </section>
       ) : null}
 
-      {suggestions.length === 0 ? (
-        <div className="rounded-2xl border border-rule bg-surface p-8 text-center text-sm text-mute">
-          No {meta.name.toLowerCase()} players to suggest yet. As more players join your area, matches will appear here.
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {suggestions.map((s) => {
-            const url = s.avatarPath ? supabase.storage.from("avatars").getPublicUrl(s.avatarPath).data.publicUrl : null;
-            const c = scoreColor(s.score);
-            return (
-              <Link key={s.userId} href={`/profile/${s.userId}`} className="lift block rounded-2xl border border-rule bg-surface p-4">
-                <div className="flex items-center gap-3">
-                  <Avatar url={url} hue={s.avatarHue} name={s.displayName} size={44} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-ink">{s.displayName}</p>
-                    <p className="truncate text-xs text-mute">
-                      {[s.neighborhood, s.city].filter(Boolean).join(", ") || "—"}
-                      {s.skillLevel ? ` · ${s.skillLevel}` : ""}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular" style={{ background: c.bg, color: c.fg }}>
-                    {s.score}% match
-                  </span>
-                </div>
-                {s.reasons.length ? (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {s.reasons.slice(0, 3).map((r) => (
-                      <span key={r} className="rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[11px] font-medium text-ink-soft">{r}</span>
-                    ))}
-                  </div>
-                ) : null}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <AdSlot className="mt-7" label="Local sponsor" />
 
-      <AdSlot className="mt-6" label="Local sponsor" />
-
-      <p className="mt-6 text-xs leading-relaxed text-faint">
-        Suggestions use your profile, ranking, and availability. Update your area and times on your account for sharper matches.
-      </p>
+      <p className="mt-6 text-xs leading-relaxed text-faint">Scores use your profile, ranking, and availability. Sharpen your matches by keeping your area and play times current on your account.</p>
     </div>
   );
 }
