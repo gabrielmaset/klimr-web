@@ -15,7 +15,7 @@ type MemberRow = { team_id: string; user_id: string | null; guest_name: string |
 export async function loadSessionState(admin: Admin, sessionId: string, meId?: string | null): Promise<QSessionState | null> {
   const { data: s } = await admin
     .from("court_sessions")
-    .select("id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, center_lat, center_lng, radius_m, organizer_id")
+    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, center_lat, center_lng, radius_m, organizer_id")
     .eq("id", sessionId)
     .maybeSingle();
   if (!s) return null;
@@ -128,6 +128,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
   return {
     session: {
       id: s.id,
+      eventId: s.event_id,
       code: s.code,
       title: s.title,
       sportKey: s.sport_key,

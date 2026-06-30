@@ -80,6 +80,12 @@ export interface Database {
         Update: { id?: string; session_id?: string; court_id?: string; user_id?: string | null; guest_name?: string | null; status?: string; created_at?: string; decided_at?: string | null };
         Relationships: [];
       };
+      queue_points: {
+        Row: { id: string; user_id: string; sport_key: string; session_id: string | null; match_id: string | null; points: number; won: boolean; earned_at: string; created_at: string };
+        Insert: { id?: string; user_id: string; sport_key: string; session_id?: string | null; match_id?: string | null; points?: number; won?: boolean; earned_at?: string; created_at?: string };
+        Update: { id?: string; user_id?: string; sport_key?: string; session_id?: string | null; match_id?: string | null; points?: number; won?: boolean; earned_at?: string; created_at?: string };
+        Relationships: [];
+      };
       error_logs: {
         Row: {
           id: string;

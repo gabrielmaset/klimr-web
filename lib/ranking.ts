@@ -14,6 +14,16 @@ export const ROLLING_BEST = 8;
 /** A rostered sub whose participation wasn't confirmed earns this share. */
 export const RESERVE_FACTOR = 0.5;
 
+/** Pickup (King of the Court) match points. Casual matches are a modest on-ramp to the
+ *  rankings: a win is worth a little, a loss still earns a small participation share.
+ *  These land in the SAME rolling best-N pool as tournament finishes, so grinding pickup
+ *  games can't out-earn real tournament results. Tune here — this is the only place. */
+export const PICKUP_WIN_POINTS = 12;
+export const PICKUP_LOSS_POINTS = 4;
+export function pickupMatchPoints(won: boolean): number {
+  return won ? PICKUP_WIN_POINTS : PICKUP_LOSS_POINTS;
+}
+
 /** The champion's haul scales with how many entries they had to beat, so winning a
  *  bigger, tougher draw is worth more — without any manual "tier" the organizer sets. */
 export function champBase(fieldSize: number): number {

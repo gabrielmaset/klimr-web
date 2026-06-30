@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Crown, Play, X, Clock } from "lucide-react";
+import QRCode from "qrcode";
+import { Crown, Play, Clock, Maximize, Minimize } from "lucide-react";
 import type { QSessionState, QTeam } from "@/lib/queue";
 import { clock, formationLabel, levelLabel } from "@/lib/queue";
 import { useQueueState } from "@/components/queue/use-queue-state";
@@ -12,7 +13,7 @@ const SIDES: Side[] = [
   { key: "A", color: "#ff6a3d", soft: "rgba(255,106,61,0.12)", ring: "rgba(255,106,61,0.45)" },
   { key: "B", color: "#22cfe0", soft: "rgba(34,207,224,0.12)", ring: "rgba(34,207,224,0.45)" },
 ];
-const HOLD_MS = 5000;
+const HOLD_MS = 3000;
 const perfNow = () => performance.now();
 
 function StackedNames({ team, className }: { team: QTeam; className?: string }) {
@@ -44,7 +45,7 @@ function waited(iso: string | null, now: number): string {
   return `${Math.floor(m / 60)}h ${m % 60}m waiting`;
 }
 
-/** Press-and-hold to confirm: a left-to-right fill acts as a 5-second countdown so a stray tap can't end a match. */
+/** Press-and-hold to confirm: a left-to-right fill acts as a 3-second countdown so a stray tap can't end a match. */
 function HoldButton({ label, color, onConfirm, disabled }: { label: string; color: string; onConfirm: () => void; disabled?: boolean }) {
   const [progress, setProgress] = useState(0);
   const raf = useRef<number | null>(null);
@@ -113,14 +114,50 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
   const sid = initial.session.id;
   const { state, refetch } = useQueueState(sid, initial, 3000);
   const [now, setNow] = useState(() => Date.now());
+  const [origin, setOrigin] = useState("");
+  const [qr, setQr] = useState("");
   const [pending, start] = useTransition();
   const [note, setNote] = useState<string | null>(null);
   const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [isFs, setIsFs] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    const onChange = () => setIsFs(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOrigin(window.location.origin);
+  }, []);
+
+  const walkUrl = origin ? `${origin}/q/${state.session.code}` : "";
+  const hostPath = walkUrl.replace(/^https?:\/\//, "");
+
+  useEffect(() => {
+    if (!walkUrl) return;
+    let alive = true;
+    QRCode.toString(walkUrl, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#0a0f1f", light: "#ffffff" } })
+      .then((svg) => {
+        if (alive) setQr(svg);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [walkUrl]);
 
   useEffect(() => {
     let lock: { release: () => Promise<void> } | null = null;
@@ -165,17 +202,16 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
   const upNext = court ? court.queue.filter((t) => !t.hold).slice(0, 3) : [];
   const canStart = !!court && court.queue.length >= 2;
   const cap = state.session.winCap;
-  const exitHref = code ? `/q/${code}` : `/queue/${sid}`;
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(125% 95% at 50% -5%, #1c1147, #0a0f1f 58%)" }}>
+    <div className="fixed inset-0 z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0c0e16, #050609 58%)" }}>
       {/* top bar — event + exit, then a bigger court/format/level row beneath it */}
       <div className="px-[3vw] pt-[2vh]">
         <div className="flex items-center justify-between gap-4">
           <p className="min-w-0 truncate text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
-          <a href={exitHref} className="press inline-flex shrink-0 items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10">
-            <X size={15} /> Exit
-          </a>
+          <button type="button" onClick={toggleFullscreen} className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
+            {isFs ? <Minimize size={15} /> : <Maximize size={15} />} {isFs ? "Exit full screen" : "Full screen"}
+          </button>
         </div>
         <div className="mt-[1.6vh] flex flex-wrap items-center gap-x-[1.4vw] gap-y-2">
           <h1 className="font-display leading-none text-[clamp(2.2rem,5.4vw,5rem)]">{court?.label ?? "Court"}</h1>
@@ -298,30 +334,50 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
         </div>
       )}
 
-      {/* up next — place in line only (no A/B), with the time each team joined the queue */}
+      {/* up next (place in line only, no A/B) + the walk-up link so newcomers can join */}
       <div className="border-t border-white/10 px-[3vw] py-[2vh]">
-        <p className="mb-[1vh] text-[clamp(0.65rem,1vw,0.95rem)] font-bold uppercase tracking-[0.22em] text-white/40">Next up in line</p>
-        {upNext.length === 0 ? (
-          <p className="text-[clamp(0.9rem,1.4vw,1.4rem)] text-white/40">No teams waiting.</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-[1.5vw]">
-            {upNext.map((t, i) => (
-              <div key={t.id} className="flex items-start gap-[1vw] rounded-[1.2vw] border border-white/10 bg-white/[0.04] px-[1.4vw] py-[1.3vh]">
-                <span className="grid shrink-0 place-items-center rounded-full bg-white/12 font-display font-bold text-white/90" style={{ width: "clamp(1.7rem,2.6vw,2.6rem)", height: "clamp(1.7rem,2.6vw,2.6rem)", fontSize: "clamp(0.85rem,1.4vw,1.4rem)" }}>
-                  {i + 1}
-                </span>
-                <div className="min-w-0">
-                  <StackedNames team={t} className="font-semibold text-white/90 text-[clamp(0.9rem,1.4vw,1.35rem)]" />
-                  {t.queuedAt ? (
-                    <p className="mt-1 flex items-center gap-1 text-[clamp(0.6rem,0.95vw,0.9rem)] font-medium text-white/35">
-                      <Clock size={"1em" as unknown as number} /> in line since {joinedAt(t.queuedAt)} · {waited(t.queuedAt, now)}
-                    </p>
-                  ) : null}
-                </div>
+        <div className="flex flex-col gap-[1.6vh] xl:flex-row xl:items-stretch xl:gap-[2vw]">
+          <div className="min-w-0 flex-1">
+            <p className="mb-[1vh] text-[clamp(0.65rem,1vw,0.95rem)] font-bold uppercase tracking-[0.22em] text-white/50">Next up in line</p>
+            {upNext.length === 0 ? (
+              <p className="text-[clamp(0.9rem,1.4vw,1.4rem)] text-white/45">No teams waiting.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-[1.5vw]">
+                {upNext.map((t, i) => (
+                  <div key={t.id} className="flex items-start gap-[1vw] rounded-[1.2vw] border border-white/10 bg-white/[0.05] px-[1.4vw] py-[1.3vh]">
+                    <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(1.7rem,2.6vw,2.6rem)", height: "clamp(1.7rem,2.6vw,2.6rem)", fontSize: "clamp(0.85rem,1.4vw,1.4rem)" }}>
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <StackedNames team={t} className="font-semibold text-white text-[clamp(0.9rem,1.4vw,1.35rem)]" />
+                      {t.queuedAt ? (
+                        <p className="mt-1 flex items-center gap-1 text-[clamp(0.6rem,0.95vw,0.9rem)] font-medium text-white/45">
+                          <Clock size={"1em" as unknown as number} /> in line since {joinedAt(t.queuedAt)} · {waited(t.queuedAt, now)}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+
+          {walkUrl ? (
+            <div className="flex shrink-0 items-center gap-[1.4vw] self-start rounded-[1.2vw] border border-white/15 bg-white/[0.07] px-[1.6vw] py-[1.4vh] xl:self-stretch">
+              {qr ? (
+                <span
+                  className="block shrink-0 rounded-[0.7vw] bg-white p-[0.7vh] [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+                  style={{ width: "clamp(5.5rem,9vw,9rem)", height: "clamp(5.5rem,9vw,9rem)" }}
+                  dangerouslySetInnerHTML={{ __html: qr }}
+                />
+              ) : null}
+              <div className="min-w-0">
+                <p className="text-[clamp(0.62rem,0.95vw,0.9rem)] font-bold uppercase tracking-[0.2em] text-white/55">Join the line — scan or type</p>
+                <p className="mt-1 break-all font-mono font-bold leading-tight text-white text-[clamp(1rem,1.9vw,1.9rem)]">{hostPath}</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

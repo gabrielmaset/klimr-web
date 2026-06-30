@@ -9,7 +9,8 @@ import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInp
 import { computePoolStandings, isRegistrationOpen, isSignupFormReady, poolSizes } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
-import { placementPoints, bracketPlaces, ROLLING_WEEKS, ROLLING_BEST, RESERVE_FACTOR } from "@/lib/ranking";
+import { placementPoints, bracketPlaces, RESERVE_FACTOR } from "@/lib/ranking";
+import { recomputePlayerPoints } from "@/lib/points";
 import { notifyRegistration, notifyPayment } from "@/lib/emails/notify";
 import { randomInt, randomUUID } from "node:crypto";
 
@@ -1776,12 +1777,7 @@ export async function awardTournamentPoints(tournamentId: string) {
   if (upErr) return { ok: false as const, error: upErr.message };
 
   const userIds = [...new Set(ledgerRows.map((r) => r.user_id))];
-  const cutoff = new Date(Date.now() - ROLLING_WEEKS * 7 * 24 * 3600 * 1000).toISOString();
-  for (const uid of userIds) {
-    const { data: led } = await admin.from("tournament_points").select("points").eq("user_id", uid).eq("sport_key", sport).gte("earned_at", cutoff).order("points", { ascending: false }).limit(ROLLING_BEST);
-    const total = (led ?? []).reduce((s, x) => s + (x.points ?? 0), 0);
-    await admin.from("player_sports").upsert({ user_id: uid, sport_key: sport, points: total, updated_at: new Date().toISOString() }, { onConflict: "user_id,sport_key" });
-  }
+  for (const uid of userIds) await recomputePlayerPoints(admin, uid, sport);
 
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   revalidatePath("/rankings");

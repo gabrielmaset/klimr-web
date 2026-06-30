@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, Square, UserCheck, Power, RotateCcw } from "lucide-react";
+import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, Square, UserCheck, Power, RotateCcw, ArrowLeft } from "lucide-react";
 import type { QSessionState, QCourtState, QTeam } from "@/lib/queue";
 import { LEVELS, levelLabel, formationLabel, FORMATIONS } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
@@ -102,10 +102,16 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
 
   return (
     <div className="space-y-5">
+      {/* back to the event this queue belongs to */}
+      <a href={session.eventId ? `/events/${session.eventId}` : "/events"} className="press inline-flex items-center gap-1.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
+        <ArrowLeft size={16} /> {session.eventId ? "Back to event page" : "Back to events"}
+      </a>
+
       {/* header */}
       <div className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
+            <p className="kicker mb-1.5 text-brand-deep">Player queue</p>
             <div className="flex items-center gap-2">
               <span className="text-2xl" aria-hidden>{meta.emoji}</span>
               <h1 className="truncate font-display text-2xl text-ink sm:text-3xl">{session.title}</h1>
@@ -166,13 +172,14 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                     type="button"
                     disabled={pending}
                     onClick={() => {
-                      if (confirm("End the session for everyone? The queue will close.")) run(endSession, fd({ sessionId: sid }));
+                      if (confirm("End the live queue for everyone? This closes the queue only and will not cancel the event or its recurring series.")) run(endSession, fd({ sessionId: sid }));
                     }}
                     className="press ml-auto inline-flex items-center gap-1.5 rounded-full border border-rule bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-bg"
                   >
                     <Square size={12} /> End session
                   </button>
                 </div>
+                <p className="text-xs text-faint">Ending the session closes this live queue only — it won&rsquo;t cancel the event or its recurring series.</p>
               </div>
             ) : (
               <p className="text-sm text-mute">This session has ended.</p>

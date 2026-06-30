@@ -353,6 +353,82 @@ export async function removeAdmin(formData: FormData) {
   revalidatePath(`/events/${eventId}`);
 }
 
+type AdminCandidate = { id: string; name: string; avatarUrl: string | null; hue: number; city: string | null };
+
+/** Organizer-only search for any active member to add as an event admin, excluding the
+ *  organizer and anyone who is already an admin. Wildcards are stripped from the query. */
+export async function searchEventAdminCandidates(eventId: string, qRaw: string): Promise<AdminCandidate[]> {
+  const q = (qRaw ?? "").trim();
+  if (!eventId || q.length < 2) return [];
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data: ev } = await supabase.from("events").select("created_by").eq("id", eventId).maybeSingle();
+  if (!ev || ev.created_by !== user.id) return []; // owner-only
+
+  const admin = createAdminClient();
+  const { data: mgrs } = await admin.from("event_managers").select("user_id").eq("event_id", eventId);
+  const exclude = new Set<string>([ev.created_by ?? "", ...((mgrs ?? []).map((m) => m.user_id))]);
+  const like = `%${q.replace(/[%_\\]/g, "")}%`;
+  const { data: profs } = await admin
+    .from("profiles")
+    .select("id, display_name, avatar_hue, avatar_path, city, account_status")
+    .ilike("display_name", like)
+    .eq("account_status", "active")
+    .limit(10);
+  return ((profs ?? []) as { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null }[])
+    .filter((p) => !exclude.has(p.id))
+    .slice(0, 6)
+    .map((p) => ({
+      id: p.id,
+      name: p.display_name,
+      avatarUrl: p.avatar_path ? admin.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null,
+      hue: p.avatar_hue,
+      city: p.city,
+    }));
+}
+
+/** Organizer-only: promote any active member to admin (they need not be attending). */
+export async function setEventAdmin(eventId: string, userId: string): Promise<{ ok?: true; error?: string }> {
+  if (!eventId || !userId) return { error: "Missing info." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first." };
+  const { data: ev } = await supabase.from("events").select("created_by").eq("id", eventId).maybeSingle();
+  if (!ev) return { error: "Event not found." };
+  if (ev.created_by !== user.id) return { error: "Only the organizer manages admins." };
+  if (userId === ev.created_by) return { ok: true };
+
+  const admin = createAdminClient();
+  const { data: prof } = await admin.from("profiles").select("id, account_status").eq("id", userId).maybeSingle();
+  if (!prof || prof.account_status !== "active") return { error: "That person isn't an active member." };
+  await admin.from("event_managers").upsert({ event_id: eventId, user_id: userId, added_by: user.id }, { onConflict: "event_id,user_id" });
+  revalidatePath(`/events/${eventId}`);
+  return { ok: true };
+}
+
+/** Remove an admin. The organizer can remove anyone; an admin can step themselves down. */
+export async function unsetEventAdmin(eventId: string, userId: string): Promise<{ ok?: true; error?: string }> {
+  if (!eventId || !userId) return { error: "Missing info." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first." };
+  const { data: ev } = await supabase.from("events").select("created_by").eq("id", eventId).maybeSingle();
+  if (!ev) return { error: "Event not found." };
+  if (ev.created_by !== user.id && userId !== user.id) return { error: "Not allowed." };
+
+  const admin = createAdminClient();
+  await admin.from("event_managers").delete().eq("event_id", eventId).eq("user_id", userId);
+  revalidatePath(`/events/${eventId}`);
+  return { ok: true };
+}
+
 export async function setQueueEnabled(formData: FormData) {
   const eventId = String(formData.get("eventId") ?? "");
   const enabled = formData.get("enabled") != null;

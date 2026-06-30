@@ -7,6 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS } from "@/lib/sports";
 import { LEVELS, metersBetween } from "@/lib/queue";
+import { pickupMatchPoints } from "@/lib/ranking";
+import { recomputePlayerPoints } from "@/lib/points";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Result = { ok?: true; error?: string };
@@ -395,7 +397,13 @@ async function applyGameOver(admin: Admin, match: MatchRow, winCap: number, winn
   if (match.status !== "live") return { error: "That match is already finished." };
   if (winnerId !== match.team_a && winnerId !== match.team_b) return { error: "Pick one of the two teams." };
   const loserId = winnerId === match.team_a ? match.team_b : match.team_a;
-  await admin.from("queue_matches").update({ status: "final", winner_team: winnerId, ended_at: new Date().toISOString() }).eq("id", match.id);
+  const nowIso = new Date().toISOString();
+
+  // Finalize atomically: only the first request to flip a *live* match proceeds. This
+  // guards against double-taps / two devices recording the same match (no double points).
+  const { data: finalized } = await admin.from("queue_matches").update({ status: "final", winner_team: winnerId, ended_at: nowIso }).eq("id", match.id).eq("status", "live").select("id");
+  if (!finalized || finalized.length === 0) return { ok: true };
+
   await admin.from("queue_teams").update({ status: "done" }).eq("id", loserId);
 
   const { data: winner } = await admin.from("queue_teams").select("wins").eq("id", winnerId).maybeSingle();
@@ -403,10 +411,44 @@ async function applyGameOver(admin: Admin, match: MatchRow, winCap: number, winn
   if (newWins >= winCap) {
     await admin.from("queue_teams").update({ status: "done", wins: newWins }).eq("id", winnerId);
   } else {
-    await admin.from("queue_teams").update({ status: "queued", wins: newWins, hold_court: true, queued_at: new Date().toISOString() }).eq("id", winnerId);
+    await admin.from("queue_teams").update({ status: "queued", wins: newWins, hold_court: true, queued_at: nowIso }).eq("id", winnerId);
   }
+
+  // count the match toward the rankings for any logged-in players (guests don't earn points)
+  await awardQueueMatchPoints(admin, match, winnerId);
+
   revalidatePath(`/queue/${match.session_id}`);
   return { ok: true };
+}
+
+/** Record one finished pickup match for the community rankings: every logged-in player on
+ *  either team gets a match counted (win or loss) plus points per lib/ranking's pickup rule,
+ *  then their per-sport ranking points are recomputed. Idempotent per (match, player). */
+async function awardQueueMatchPoints(admin: Admin, match: MatchRow, winnerId: string): Promise<void> {
+  const { data: sess } = await admin.from("court_sessions").select("sport_key").eq("id", match.session_id).maybeSingle();
+  const sport = sess?.sport_key;
+  if (!sport) return;
+
+  const { data: mem } = await admin.from("queue_team_members").select("team_id, user_id").in("team_id", [match.team_a, match.team_b]);
+  const players = (mem ?? []).filter((m): m is { team_id: string; user_id: string } => !!m.user_id);
+  if (!players.length) return;
+
+  const nowIso = new Date().toISOString();
+  const ledger = players.map((p) => {
+    const won = p.team_id === winnerId;
+    return { user_id: p.user_id, sport_key: sport, session_id: match.session_id, match_id: match.id, points: pickupMatchPoints(won), won };
+  });
+  await admin.from("queue_points").upsert(ledger, { onConflict: "match_id,user_id" });
+
+  for (const p of players) {
+    const won = p.team_id === winnerId;
+    const { data: cur } = await admin.from("player_sports").select("matches_played, wins").eq("user_id", p.user_id).eq("sport_key", sport).maybeSingle();
+    await admin.from("player_sports").upsert(
+      { user_id: p.user_id, sport_key: sport, matches_played: (cur?.matches_played ?? 0) + 1, wins: (cur?.wins ?? 0) + (won ? 1 : 0), updated_at: nowIso },
+      { onConflict: "user_id,sport_key" },
+    );
+    await recomputePlayerPoints(admin, p.user_id, sport);
+  }
 }
 
 /** Core next-match logic (holder first, then earliest queued). No auth here. */

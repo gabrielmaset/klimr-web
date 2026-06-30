@@ -62,6 +62,7 @@ export type QPending = { id: string; courtId: string; name: string; isGuest: boo
 export type QSessionState = {
   session: {
     id: string;
+    eventId: string | null;
     code: string;
     title: string;
     sportKey: string;

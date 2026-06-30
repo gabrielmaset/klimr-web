@@ -5,12 +5,13 @@ import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign, Pencil, Ban, Rep
 import { BackButton } from "@/components/back-button";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { EventQueueAdmin } from "@/components/event-queue-admin";
+import { EventAdmins } from "@/components/event-admins";
 import { EventLocationMap } from "@/components/event-location-map";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { sanitizeRichText, looksLikeHtml } from "@/lib/rich-text";
 import { Avatar } from "@/components/avatar";
-import { rsvp, cancelRsvp, cancelEvent, approveMember, denyMember, addAdmin, removeAdmin } from "../actions";
+import { rsvp, cancelRsvp, cancelEvent, approveMember, denyMember } from "../actions";
 
 export const metadata: Metadata = { title: "Event" };
 
@@ -90,6 +91,21 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     for (const p of (profs as Prof[] | null) ?? []) profById.set(p.id, p);
   }
   const avatarUrl = (p: Prof | undefined) => (p?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null);
+
+  // admin roster (owner + managers) — some admins may not be RSVP'd "going", so fetch any missing profiles
+  const adminIdList = [...adminIds];
+  const adminProfById = new Map<string, Prof>(profById);
+  const missingAdmin = adminIdList.filter((uid) => !adminProfById.has(uid));
+  if (missingAdmin.length) {
+    const { data: aprofs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path").in("id", missingAdmin);
+    for (const p of (aprofs as Prof[] | null) ?? []) adminProfById.set(p.id, p);
+  }
+  const initialAdmins = adminIdList
+    .map((uid) => {
+      const p = adminProfById.get(uid);
+      return { id: uid, name: p?.display_name ?? "Player", hue: p?.avatar_hue ?? 200, avatarUrl: avatarUrl(p), isOwner: uid === e.created_by };
+    })
+    .sort((a, b) => (a.isOwner === b.isOwner ? 0 : a.isOwner ? -1 : 1));
 
   let session: { id: string; code: string; status: string; firstCourtId: string | null } | null = null;
   if (e.queue_enabled) {
@@ -341,7 +357,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             </div>
           ) : null}
 
-          <p className="mt-4 text-[11px] text-mute">{isOwner ? "Tip: make a member an admin from the attendee list below." : "Admins can edit details and run the queue. Only the organizer manages admins."}</p>
+          <div className="mt-4">
+            <EventAdmins eventId={e.id} isOwner={isOwner} meId={user.id} initialAdmins={initialAdmins} />
+          </div>
         </section>
       ) : null}
 
@@ -371,27 +389,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                       ) : null}
                     </span>
                   </Link>
-                  {isOwner && !owner ? (
-                    admin ? (
-                      <form action={removeAdmin}>
-                        <input type="hidden" name="eventId" value={e.id} />
-                        <input type="hidden" name="userId" value={uid} />
-                        <button className="press shrink-0 rounded-full border border-rule px-2.5 py-1 text-[11px] font-semibold text-mute hover:text-brand-deep">Remove admin</button>
-                      </form>
-                    ) : (
-                      <form action={addAdmin}>
-                        <input type="hidden" name="eventId" value={e.id} />
-                        <input type="hidden" name="userId" value={uid} />
-                        <button className="press shrink-0 rounded-full border border-rule px-2.5 py-1 text-[11px] font-semibold text-ink hover:border-brand">Make admin</button>
-                      </form>
-                    )
-                  ) : !isOwner && uid === user.id && admin ? (
-                    <form action={removeAdmin}>
-                      <input type="hidden" name="eventId" value={e.id} />
-                      <input type="hidden" name="userId" value={uid} />
-                      <button className="press shrink-0 rounded-full border border-rule px-2.5 py-1 text-[11px] font-semibold text-mute hover:text-brand-deep">Step down</button>
-                    </form>
-                  ) : null}
                 </div>
               );
             })}
