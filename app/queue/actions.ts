@@ -31,7 +31,7 @@ async function currentUserId(): Promise<string | null> {
 async function sessionRow(admin: Admin, id: string) {
   const { data } = await admin
     .from("court_sessions")
-    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval")
+    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -81,6 +81,7 @@ export async function createSession(formData: FormData): Promise<void> {
   const requireLocation = formData.get("requireLocation") != null;
   const requireApproval = formData.get("requireApproval") != null;
   const eventOnly = formData.get("eventOnly") != null && !!eventId;
+  const allowFullTeams = formData.get("allowFullTeams") != null;
 
   // unique code with a few retries
   let sessionId = "";
@@ -88,7 +89,7 @@ export async function createSession(formData: FormData): Promise<void> {
     const code = genCode();
     const { data, error } = await admin
       .from("court_sessions")
-      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval })
+      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams })
       .select("id")
       .single();
     if (!error && data) sessionId = data.id;
@@ -320,6 +321,59 @@ export async function joinCourtGuest(formData: FormData): Promise<Result & { pen
   return res.error ? { error: res.error } : { ok: true, pending: res.pending };
 }
 
+/** Drop a COMPLETE team straight into the queue (when the organizer allows it). The team's
+ *  anchor is now; fairness vs. a forming team is handled by ordering on created_at. */
+export async function joinCourtFullTeam(formData: FormData): Promise<Result> {
+  const admin = createAdminClient();
+  const courtId = String(formData.get("courtId") || "");
+  const names = formData
+    .getAll("names")
+    .map((n) => String(n).trim().slice(0, 40))
+    .filter((n) => n.length >= 1);
+  const lat = parseFloat(String(formData.get("lat") || ""));
+  const lng = parseFloat(String(formData.get("lng") || ""));
+
+  const { data: court } = await admin.from("queue_courts").select("id, session_id, team_size, closed_at").eq("id", courtId).maybeSingle();
+  if (!court) return { error: "Court not found." };
+  if (court.closed_at) return { error: "This court is closed." };
+  const s = await sessionRow(admin, court.session_id);
+  if (!s) return { error: "Session not found." };
+  if (!s.allow_full_teams) return { error: "Full-team sign-ups aren't enabled for this session." };
+  if (names.length !== court.team_size) return { error: `A full team needs exactly ${court.team_size} player${court.team_size === 1 ? "" : "s"}.` };
+
+  // shared on-site / session checks (status, walk-ups allowed, geofence, event-only)
+  const v = await validateJoin(admin, { id: court.id, session_id: court.session_id, team_size: court.team_size }, s, { guest_name: names[0] }, { lat, lng });
+  if (v.error) return { error: v.error };
+
+  const { data: team, error: tErr } = await admin
+    .from("queue_teams")
+    .insert({ session_id: court.session_id, court_id: court.id, status: "queued", queued_at: new Date().toISOString(), hold_court: false })
+    .select("id")
+    .single();
+  if (tErr || !team) return { error: "Couldn't add your team — try again." };
+  const { error: mErr } = await admin.from("queue_team_members").insert(names.map((n) => ({ team_id: team.id, guest_name: n, session_id: court.session_id })));
+  if (mErr) {
+    await admin.from("queue_teams").delete().eq("id", team.id); // roll back the empty team
+    return { error: "Couldn't add your team — try again." };
+  }
+  revalidatePath(`/queue/${court.session_id}`);
+  return { ok: true };
+}
+
+/** Organizer toggle: allow complete teams to join the line at once. */
+export async function setAllowFullTeams(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const sessionId = String(formData.get("sessionId") || "");
+  const on = formData.get("on") === "1";
+  const s = await sessionRow(admin, sessionId);
+  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can change this." };
+  await admin.from("court_sessions").update({ allow_full_teams: on }).eq("id", sessionId);
+  revalidatePath(`/queue/${sessionId}`);
+  return { ok: true };
+}
+
 // ---------- leaving / management ----------
 
 async function settleTeamAfterRemoval(admin: Admin, teamId: string, teamSize: number, status: string) {
@@ -456,10 +510,10 @@ async function applyStartNext(admin: Admin, courtId: string, sessionId: string):
   const { data: liveExisting } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
   if (liveExisting) return { error: "A match is already live on this court." };
 
-  const { data: queued } = await admin.from("queue_teams").select("id, hold_court, queued_at").eq("court_id", courtId).eq("status", "queued");
+  const { data: queued } = await admin.from("queue_teams").select("id, hold_court, created_at").eq("court_id", courtId).eq("status", "queued");
   const sorted = (queued ?? []).sort((a, b) => {
     if (a.hold_court !== b.hold_court) return a.hold_court ? -1 : 1;
-    return (a.queued_at ?? "").localeCompare(b.queued_at ?? "");
+    return (a.created_at ?? "").localeCompare(b.created_at ?? ""); // fair: order by when each team's first player joined
   });
   if (sorted.length < 2) return { error: "Need at least two teams in the queue to start a match." };
 

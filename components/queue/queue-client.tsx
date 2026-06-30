@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, Square, UserCheck, Power, RotateCcw, ArrowLeft } from "lucide-react";
+import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, Square, UserCheck, Power, RotateCcw, ArrowLeft, Users } from "lucide-react";
 import type { QSessionState, QCourtState, QTeam } from "@/lib/queue";
 import { LEVELS, levelLabel, formationLabel, FORMATIONS } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
 import { useQueueState } from "@/components/queue/use-queue-state";
-import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, endSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt } from "@/app/queue/actions";
+import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, endSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setAllowFullTeams } from "@/app/queue/actions";
 
 type Action = (fd: FormData) => Promise<{ ok?: true; error?: string }>;
 
@@ -168,6 +168,16 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                     {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />} {copied ? "Copied" : "Copy walk-up link"}
                   </button>
                   {session.allowGuests ? <span className="text-xs text-faint">Walk-ups join at {walkUrl ? <span className="font-mono">{walkUrl.replace(/^https?:\/\//, "")}</span> : "your link"}</span> : <span className="text-xs text-faint">Walk-up sign-ups are off.</span>}
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => run(setAllowFullTeams, fd({ sessionId: sid, on: session.allowFullTeams ? "0" : "1" }))}
+                    className="press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+                    style={session.allowFullTeams ? { borderColor: "#ffb59e", background: "#fff5f1", color: "#d63a0f" } : { borderColor: "var(--color-rule)", background: "#fff", color: "var(--color-mute)" }}
+                    title="Let groups drop a complete team straight into the line"
+                  >
+                    <Users size={13} /> Full teams: {session.allowFullTeams ? "on" : "off"}
+                  </button>
                   <button
                     type="button"
                     disabled={pending}

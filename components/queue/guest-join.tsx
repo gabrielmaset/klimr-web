@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Crown, Plus, MapPin, Check, Loader2, Radio, Clock } from "lucide-react";
-import type { QSessionState, QTeam } from "@/lib/queue";
+import { Crown, Plus, MapPin, Check, Loader2, Radio, Clock, Users } from "lucide-react";
+import type { QSessionState, QTeam, QCourtState } from "@/lib/queue";
 import { formationLabel, levelLabel } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
 import { useQueueState } from "@/components/queue/use-queue-state";
-import { joinCourtGuest } from "@/app/queue/actions";
+import { joinCourtGuest, joinCourtFullTeam } from "@/app/queue/actions";
 
 async function getCoords(): Promise<{ lat: number; lng: number } | null> {
   if (typeof navigator === "undefined" || !navigator.geolocation) return null;
@@ -54,6 +54,8 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
   const [err, setErr] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"" | "joined" | "pending">("");
   const [joiningCourt, setJoiningCourt] = useState<string | null>(null);
+  const [teamCourt, setTeamCourt] = useState<string | null>(null);
+  const [teamNames, setTeamNames] = useState<string[]>([]);
 
   const join = (courtId: string) => {
     setErr(null);
@@ -76,6 +78,49 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
         setErr(res.error === "location_required" ? "Allow location access so we can confirm you're on-site, then tap Join again." : res.error);
       } else {
         setConfirm(res.pending ? "pending" : "joined");
+        setName(""); // ready for the next person to type
+        setTimeout(() => setConfirm(""), 5000);
+      }
+      setJoiningCourt(null);
+      await refetch();
+    });
+  };
+
+  const openTeam = (court: QCourtState) => {
+    setErr(null);
+    setTeamCourt(court.id);
+    setTeamNames(Array.from({ length: court.teamSize }, (_, i) => (i === 0 ? name.trim() : "")));
+  };
+  const closeTeam = () => {
+    setTeamCourt(null);
+    setTeamNames([]);
+  };
+  const setTeamName = (i: number, val: string) => setTeamNames((cur) => cur.map((n, j) => (j === i ? val : n)));
+
+  const submitTeam = (court: QCourtState) => {
+    setErr(null);
+    const cleaned = teamNames.map((n) => n.trim());
+    if (cleaned.some((n) => n.length < 1)) {
+      setErr(`Enter all ${court.teamSize} player names.`);
+      return;
+    }
+    setJoiningCourt(court.id);
+    start(async () => {
+      const coords = await getCoords();
+      const f = new FormData();
+      f.append("courtId", court.id);
+      cleaned.forEach((n) => f.append("names", n));
+      if (coords) {
+        f.append("lat", String(coords.lat));
+        f.append("lng", String(coords.lng));
+      }
+      const res = await joinCourtFullTeam(f);
+      if (res?.error) {
+        setErr(res.error === "location_required" ? "Allow location access so we can confirm you're on-site, then add your team again." : res.error);
+      } else {
+        setConfirm("joined");
+        setName("");
+        closeTeam();
         setTimeout(() => setConfirm(""), 5000);
       }
       setJoiningCourt(null);
@@ -225,6 +270,40 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                           </div>
                         )}
                       </div>
+
+                      {session.allowFullTeams ? (
+                        <div className="border-t-2 border-rule px-4 py-3.5 sm:px-5">
+                          {teamCourt === c.id ? (
+                            <div>
+                              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-soft">Your full team · {c.teamSize} players</p>
+                              <div className="space-y-2">
+                                {teamNames.map((nm, i) => (
+                                  <input
+                                    key={i}
+                                    value={nm}
+                                    onChange={(e) => setTeamName(i, e.target.value)}
+                                    placeholder={i === 0 ? "You" : `Player ${i + 1}`}
+                                    maxLength={40}
+                                    className="w-full rounded-xl border-2 border-rule bg-bg px-3.5 py-3 text-base font-semibold text-ink outline-none transition-colors focus:border-brand focus:bg-white"
+                                  />
+                                ))}
+                              </div>
+                              <div className="mt-2.5 flex gap-2">
+                                <button type="button" disabled={pending} onClick={() => submitTeam(c)} className="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand py-3 text-base font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-50">
+                                  {busy ? <Loader2 size={18} className="animate-spin" /> : <Users size={18} />} Add team to the line
+                                </button>
+                                <button type="button" disabled={pending} onClick={closeTeam} className="press rounded-full border-2 border-rule px-4 py-3 text-sm font-bold text-mute hover:bg-bg">
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => openTeam(c)} className="press inline-flex items-center gap-2 text-sm font-bold text-brand-deep hover:underline">
+                              <Users size={16} /> Bring your own full team
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

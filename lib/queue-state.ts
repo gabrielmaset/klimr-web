@@ -15,7 +15,7 @@ type MemberRow = { team_id: string; user_id: string | null; guest_name: string |
 export async function loadSessionState(admin: Admin, sessionId: string, meId?: string | null): Promise<QSessionState | null> {
   const { data: s } = await admin
     .from("court_sessions")
-    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, center_lat, center_lng, radius_m, organizer_id")
+    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, center_lat, center_lng, radius_m, organizer_id")
     .eq("id", sessionId)
     .maybeSingle();
   if (!s) return null;
@@ -57,7 +57,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       isGuest: !m.user_id,
       you: !!meId && m.user_id === meId,
     }));
-    return { id: t.id, members: mem, wins: t.wins, hold: t.hold_court, size, count: mem.length, queuedAt: t.queued_at };
+    return { id: t.id, members: mem, wins: t.wins, hold: t.hold_court, size, count: mem.length, queuedAt: t.created_at };
   };
 
   const teamById = new Map(teamRows.map((t) => [t.id, t]));
@@ -79,7 +79,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       .filter((t) => t.status === "queued")
       .sort((a, b) => {
         if (a.hold_court !== b.hold_court) return a.hold_court ? -1 : 1; // a staying winner is next
-        return (a.queued_at ?? "").localeCompare(b.queued_at ?? "");
+        return (a.created_at ?? "").localeCompare(b.created_at ?? ""); // fair: anchor on when the team's first player joined
       });
     const forming = courtTeams.filter((t) => t.status === "forming").sort((a, b) => a.created_at.localeCompare(b.created_at));
 
@@ -138,6 +138,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       requireLocation: s.require_location,
       eventOnly: s.event_only,
       requireApproval: s.require_approval,
+      allowFullTeams: s.allow_full_teams,
       centerLat: s.center_lat,
       centerLng: s.center_lng,
       radiusM: s.radius_m,

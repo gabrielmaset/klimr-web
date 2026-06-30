@@ -108,6 +108,10 @@ export default async function NewQueuePage({ searchParams }: { searchParams: Pro
             <input type="checkbox" name="requireApproval" className="h-4 w-4 accent-[#ff4e1b]" />
             Approve each player before they join the line
           </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-soft">
+            <input type="checkbox" name="allowFullTeams" className="h-4 w-4 accent-[#ff4e1b]" />
+            Let players drop a complete team into the line at once
+          </label>
           {event ? (
             <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-soft">
               <input type="checkbox" name="eventOnly" className="h-4 w-4 accent-[#ff4e1b]" />
