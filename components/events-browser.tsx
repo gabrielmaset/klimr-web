@@ -17,6 +17,8 @@ export type CardEvent = {
   amGoing: boolean;
   coverUrl: string | null;
   costText: string | null;
+  mine?: boolean;
+  status?: string;
 };
 
 const TZ = "America/Los_Angeles";
@@ -53,19 +55,21 @@ function Chips({ value, onChange, options }: { value: string; onChange: (v: stri
   );
 }
 
-export function EventsBrowser({ events, nowMs }: { events: CardEvent[]; nowMs: number }) {
+export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEvent[]; myEvents?: CardEvent[]; nowMs: number }) {
+  const [mode, setMode] = useState<"browse" | "mine">("browse");
   const [q, setQ] = useState("");
   const [sport, setSport] = useState("all");
   const [kind, setKind] = useState("all");
   const [price, setPrice] = useState("all");
   const [when, setWhen] = useState("all");
 
-  const sports = useMemo(() => [...new Set(events.map((e) => e.sportKey))], [events]);
-  const kinds = useMemo(() => [...new Set(events.map((e) => e.kind))], [events]);
+  const base = mode === "mine" ? myEvents : events;
+  const sports = useMemo(() => [...new Set(base.map((e) => e.sportKey))], [base]);
+  const kinds = useMemo(() => [...new Set(base.map((e) => e.kind))], [base]);
 
   const filtered = useMemo(() => {
     const day = 86400000;
-    return events.filter((e) => {
+    return base.filter((e) => {
       if (sport !== "all" && e.sportKey !== sport) return false;
       if (kind !== "all" && e.kind !== kind) return false;
       if (price === "free" && !isFree(e.costText)) return false;
@@ -90,13 +94,24 @@ export function EventsBrowser({ events, nowMs }: { events: CardEvent[]; nowMs: n
       }
       return true;
     });
-  }, [events, q, sport, kind, price, when, nowMs]);
+  }, [base, q, sport, kind, price, when, nowMs]);
 
   const sportChips: Chip[] = [{ value: "all", label: "All sports" }, ...sports.map((s) => ({ value: s, label: `${sportMeta(s).emoji} ${sportMeta(s).name}` }))];
   const kindChips: Chip[] = [{ value: "all", label: "All types" }, ...kinds.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }))];
 
   return (
     <div>
+      {myEvents.length > 0 ? (
+        <div className="mb-4 inline-flex rounded-full border border-rule bg-surface p-1">
+          <button type="button" onClick={() => setMode("browse")} className={`press rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${mode === "browse" ? "bg-brand text-white" : "text-mute hover:text-ink"}`}>
+            Browse
+          </button>
+          <button type="button" onClick={() => setMode("mine")} className={`press rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${mode === "mine" ? "bg-brand text-white" : "text-mute hover:text-ink"}`}>
+            My events ({myEvents.length})
+          </button>
+        </div>
+      ) : null}
+
       <div className="relative mb-3">
         <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
         <input
@@ -164,7 +179,11 @@ export function EventsBrowser({ events, nowMs }: { events: CardEvent[]; nowMs: n
                     </div>
                   )}
                   <span className="absolute left-2.5 top-2.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-ink backdrop-blur">{KIND_LABEL[e.kind] ?? "Event"}</span>
-                  {e.amGoing ? (
+                  {mode === "mine" && e.status === "cancelled" ? (
+                    <span className="absolute right-2.5 top-2.5 rounded-full bg-ink/80 px-2 py-1 text-[10px] font-bold text-white">Cancelled</span>
+                  ) : mode === "mine" && new Date(e.whenIso).getTime() < nowMs ? (
+                    <span className="absolute right-2.5 top-2.5 rounded-full bg-ink/55 px-2 py-1 text-[10px] font-bold text-white">Past</span>
+                  ) : e.amGoing ? (
                     <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-0.5 rounded-full bg-success px-2 py-1 text-[10px] font-bold text-white">
                       <Check size={11} /> Going
                     </span>

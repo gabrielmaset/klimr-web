@@ -37,9 +37,10 @@ function MemberList({ team, canEdit, onRemove }: { team: QTeam; canEdit: boolean
   return (
     <div className="flex flex-wrap gap-1.5">
       {team.members.map((m, i) => (
-        <span key={i} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${m.you ? "bg-tint-brand font-semibold text-brand-deep" : "bg-[#f4f4f5] text-ink-soft"}`}>
+        <span key={i} className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-xs font-semibold ring-1 ${m.you ? "bg-tint-brand text-brand-deep ring-brand/30" : "bg-white text-ink ring-rule"}`}>
+          <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white ${m.you ? "bg-brand" : "bg-ink"}`}>{(m.name.trim()[0] ?? "?").toUpperCase()}</span>
           {m.name}
-          {m.isGuest ? <span className="text-faint">·guest</span> : null}
+          {m.isGuest ? <span className="text-[10px] font-medium text-faint">guest</span> : null}
           {canEdit ? (
             <button type="button" onClick={() => onRemove(m.name)} className="ml-0.5 text-faint hover:text-brand-deep" aria-label={`Remove ${m.name}`}>
               <X size={11} />
@@ -48,7 +49,7 @@ function MemberList({ team, canEdit, onRemove }: { team: QTeam; canEdit: boolean
         </span>
       ))}
       {Array.from({ length: Math.max(0, team.size - team.count) }).map((_, i) => (
-        <span key={`e${i}`} className="rounded-full border border-dashed border-rule px-2 py-0.5 text-xs text-faint">
+        <span key={`e${i}`} className="inline-flex items-center rounded-full border border-dashed border-rule px-2.5 py-1 text-[11px] font-medium text-faint">
           open
         </span>
       ))}
@@ -257,8 +258,8 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                 </div>
                 <div className="flex items-center gap-1.5">
                   {isOrganizer && session.status === "live" ? (
-                    <a href={`/queue/${sid}/court/${c.id}`} target="_blank" rel="noreferrer" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-bg" title="Open the full-screen tablet display">
-                      <Monitor size={12} /> Tablet
+                    <a href={`/q/${session.code}/court/${c.id}`} target="_blank" rel="noreferrer" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-bg" title="Open the login-free Courtside display for a tablet">
+                      <Monitor size={12} /> Courtside
                     </a>
                   ) : null}
                   {isOrganizer && session.status !== "live" ? (
@@ -277,28 +278,31 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                       <Radio size={11} /> On court now
                     </p>
                     <div className="space-y-2">
-                      {[c.current.a, c.current.b].map((t, idx) => (
-                        <div key={t.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface px-3 py-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-faint">{idx === 0 ? "A" : "B"}</span>
-                              {t.hold ? <Crown size={13} className="text-[#e8b007]" /> : null}
-                              {t.wins > 0 ? <span className="rounded-full bg-tint-success px-1.5 text-[10px] font-bold text-success">{t.wins}W</span> : null}
+                      {[c.current.a, c.current.b].map((t, idx) => {
+                        const sc = idx === 0 ? "#ff6a3d" : "#22cfe0";
+                        return (
+                          <div key={t.id} className="flex items-center justify-between gap-2 rounded-xl border-l-[3px] bg-surface px-3 py-2" style={{ borderLeftColor: sc }}>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold text-white" style={{ background: sc }}>{idx === 0 ? "A" : "B"}</span>
+                                {t.hold ? <Crown size={13} className="text-[#e8b007]" /> : null}
+                                {t.wins > 0 ? <span className="rounded-full bg-tint-success px-1.5 text-[10px] font-bold text-success">{t.wins}W</span> : null}
+                              </div>
+                              <p className="mt-0.5 truncate text-sm font-medium text-ink">{t.members.map((m) => m.name).join(", ") || "—"}</p>
                             </div>
-                            <p className="mt-0.5 truncate text-sm font-medium text-ink">{t.members.map((m) => m.name).join(", ") || "—"}</p>
+                            {isOrganizer ? (
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => run(gameOver, fd({ matchId: c.current!.matchId, winnerTeamId: t.id }))}
+                                className="press shrink-0 rounded-full bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95 disabled:opacity-60"
+                              >
+                                Won
+                              </button>
+                            ) : null}
                           </div>
-                          {isOrganizer ? (
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => run(gameOver, fd({ matchId: c.current!.matchId, winnerTeamId: t.id }))}
-                              className="press shrink-0 rounded-full bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95 disabled:opacity-60"
-                            >
-                              Won
-                            </button>
-                          ) : null}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </>
                 ) : (

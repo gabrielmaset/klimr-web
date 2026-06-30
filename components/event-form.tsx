@@ -2,11 +2,21 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Check, CircleAlert, ImagePlus, X } from "lucide-react";
+import { Loader2, Check, CircleAlert, ImagePlus, X, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SPORTS } from "@/lib/sports";
 import { MediaCropper, type MediaCropResult } from "@/components/media-cropper";
-import { createEvent, updateEvent, createEventCoverUploadUrl, setEventCover } from "@/app/events/actions";
+import { RichTextEditor, linkifyHtml } from "@/components/rich-text-editor";
+import {
+  createEvent,
+  updateEvent,
+  createEventCoverUploadUrl,
+  setEventCover,
+  removeEventCover,
+  createEventThumbUploadUrl,
+  setEventThumb,
+  removeEventThumb,
+} from "@/app/events/actions";
 
 const COVER_BUCKET = "tournament-gallery";
 const field = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand";
@@ -20,6 +30,23 @@ const KINDS = [
   ["social", "Social"],
 ] as const;
 
+const WEEKDAYS: [string, string][] = [
+  ["SU", "Sun"],
+  ["MO", "Mon"],
+  ["TU", "Tue"],
+  ["WE", "Wed"],
+  ["TH", "Thu"],
+  ["FR", "Fri"],
+  ["SA", "Sat"],
+];
+const RECUR_OPTS: [string, string][] = [
+  ["none", "One-time"],
+  ["weekly", "Weekly"],
+  ["biweekly", "Every 2 weeks"],
+  ["monthly", "Monthly"],
+  ["daily", "Daily"],
+];
+
 type Initial = {
   id: string;
   title: string;
@@ -27,11 +54,21 @@ type Initial = {
   kind: string;
   description: string | null;
   location_text: string | null;
+  location_url: string | null;
   starts_at: string;
   ends_at: string | null;
   capacity: number | null;
   cost_text: string | null;
+  whatsapp_url: string | null;
+  join_policy: string;
+  recurrence: string;
+  recurrence_days: string[];
+  queue_enabled: boolean;
+  cover_url: string | null;
+  thumb_url: string | null;
 };
+
+type ImgTarget = "banner" | "thumb";
 
 function toLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -44,7 +81,8 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : "");
 export function EventForm({ initial }: { initial?: Initial }) {
   const router = useRouter();
   const editing = !!initial;
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const bannerFileRef = useRef<HTMLInputElement | null>(null);
+  const thumbFileRef = useRef<HTMLInputElement | null>(null);
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [sportKey, setSportKey] = useState(initial?.sport_key ?? SPORTS[0].key);
@@ -52,24 +90,101 @@ export function EventForm({ initial }: { initial?: Initial }) {
   const [startsLocal, setStartsLocal] = useState(() => toLocalInput(initial?.starts_at ?? null));
   const [endsLocal, setEndsLocal] = useState(() => toLocalInput(initial?.ends_at ?? null));
   const [location, setLocation] = useState(initial?.location_text ?? "");
+  const [locationUrl, setLocationUrl] = useState(initial?.location_url ?? "");
   const [capacity, setCapacity] = useState(initial?.capacity != null ? String(initial.capacity) : "");
   const [cost, setCost] = useState(initial?.cost_text ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [whatsapp, setWhatsapp] = useState(initial?.whatsapp_url ?? "");
+  const [joinPolicy, setJoinPolicy] = useState(initial?.join_policy === "approval" ? "approval" : "open");
+  const [recurrence, setRecurrence] = useState(initial?.recurrence ?? "none");
+  const [recurDays, setRecurDays] = useState<string[]>(initial?.recurrence_days ?? []);
+  const [queueEnabled, setQueueEnabled] = useState(!!initial?.queue_enabled);
+  const toggleDay = (d: string) => setRecurDays((ds) => (ds.includes(d) ? ds.filter((x) => x !== d) : [...ds, d]));
+  const showDays = recurrence === "weekly" || recurrence === "biweekly";
 
-  const [cover, setCover] = useState<MediaCropResult | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(initial?.cover_url ?? null);
+  const [thumbUrl, setThumbUrl] = useState<string | null>(initial?.thumb_url ?? null);
+  const [bannerStaged, setBannerStaged] = useState<MediaCropResult | null>(null);
+  const [thumbStaged, setThumbStaged] = useState<MediaCropResult | null>(null);
+  const [cropTarget, setCropTarget] = useState<ImgTarget | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [imgBusy, setImgBusy] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
+  function pickImage(target: ImgTarget, e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
     setErr(null);
     if (!f.type.startsWith("image/")) return setErr("Please choose an image.");
     if (f.size > 12 * 1024 * 1024) return setErr("Image must be under 12 MB.");
+    setCropTarget(target);
     setCropSrc(URL.createObjectURL(f));
+  }
+
+  async function onCropConfirm(res: MediaCropResult) {
+    const target = cropTarget;
+    setCropSrc(null);
+    setCropTarget(null);
+    if (!target) return;
+    if (editing && initial) {
+      setImgBusy(true);
+      try {
+        const supabase = createClient();
+        if (target === "banner") {
+          const signed = await createEventCoverUploadUrl(initial.id, res.type);
+          if (signed.ok) {
+            const up = await supabase.storage.from(COVER_BUCKET).uploadToSignedUrl(signed.path, signed.token, res.blob, { contentType: res.type });
+            if (!up.error) {
+              const saved = await setEventCover(initial.id, signed.path);
+              if (saved.ok) setBannerUrl(saved.url);
+            }
+          }
+        } else {
+          const signed = await createEventThumbUploadUrl(initial.id, res.type);
+          if (signed.ok) {
+            const up = await supabase.storage.from(COVER_BUCKET).uploadToSignedUrl(signed.path, signed.token, res.blob, { contentType: res.type });
+            if (!up.error) {
+              const saved = await setEventThumb(initial.id, signed.path);
+              if (saved.ok) setThumbUrl(saved.url);
+            }
+          }
+        }
+      } finally {
+        setImgBusy(false);
+      }
+    } else if (target === "banner") {
+      setBannerStaged(res);
+      setBannerUrl(res.dataUrl);
+    } else {
+      setThumbStaged(res);
+      setThumbUrl(res.dataUrl);
+    }
+  }
+
+  async function removeImage(target: ImgTarget) {
+    if (editing && initial) {
+      setImgBusy(true);
+      try {
+        if (target === "banner") {
+          await removeEventCover(initial.id);
+          setBannerUrl(null);
+        } else {
+          await removeEventThumb(initial.id);
+          setThumbUrl(null);
+        }
+      } finally {
+        setImgBusy(false);
+      }
+    } else if (target === "banner") {
+      setBannerStaged(null);
+      setBannerUrl(null);
+    } else {
+      setThumbStaged(null);
+      setThumbUrl(null);
+    }
   }
 
   async function submit() {
@@ -82,12 +197,18 @@ export function EventForm({ initial }: { initial?: Initial }) {
         title: title.trim(),
         sport_key: sportKey,
         kind,
-        description: description.trim() || null,
+        description: linkifyHtml(description),
         location_text: location.trim() || null,
+        location_url: locationUrl.trim() || null,
         starts_at: toIso(startsLocal),
         ends_at: endsLocal ? toIso(endsLocal) : null,
         capacity: capacity ? Number(capacity) : null,
         cost_text: cost.trim() || null,
+        whatsapp_url: whatsapp.trim() || null,
+        join_policy: joinPolicy,
+        recurrence,
+        recurrence_days: showDays ? recurDays : [],
+        queue_enabled: queueEnabled,
       };
 
       if (initial) {
@@ -100,12 +221,19 @@ export function EventForm({ initial }: { initial?: Initial }) {
 
       const res = await createEvent(payload);
       if (!res.ok) return setErr(res.error ?? "Couldn't create the event.");
-      if (cover) {
-        const supabase = createClient();
-        const signed = await createEventCoverUploadUrl(res.id, cover.type);
+      const supabase = createClient();
+      if (bannerStaged) {
+        const signed = await createEventCoverUploadUrl(res.id, bannerStaged.type);
         if (signed.ok) {
-          const up = await supabase.storage.from(COVER_BUCKET).uploadToSignedUrl(signed.path, signed.token, cover.blob, { contentType: cover.type });
+          const up = await supabase.storage.from(COVER_BUCKET).uploadToSignedUrl(signed.path, signed.token, bannerStaged.blob, { contentType: bannerStaged.type });
           if (!up.error) await setEventCover(res.id, signed.path);
+        }
+      }
+      if (thumbStaged) {
+        const signed = await createEventThumbUploadUrl(res.id, thumbStaged.type);
+        if (signed.ok) {
+          const up = await supabase.storage.from(COVER_BUCKET).uploadToSignedUrl(signed.path, signed.token, thumbStaged.blob, { contentType: thumbStaged.type });
+          if (!up.error) await setEventThumb(res.id, signed.path);
         }
       }
       router.push(`/events/${res.id}`);
@@ -144,10 +272,11 @@ export function EventForm({ initial }: { initial?: Initial }) {
             </select>
           </label>
         </div>
-        <label className="block">
+        <div>
           <span className={labelCls}>Description</span>
-          <textarea className={field} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} placeholder="What to expect, level, what to bring…" />
-        </label>
+          <RichTextEditor value={description} onChange={setDescription} />
+          <span className="mt-1.5 block text-[11px] text-faint">Format the text, add links, colours, and highlights. Pasted links become clickable automatically.</span>
+        </div>
       </section>
 
       <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
@@ -167,6 +296,14 @@ export function EventForm({ initial }: { initial?: Initial }) {
           <span className={labelCls}>Venue / location</span>
           <input className={field} value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} placeholder="e.g. Memorial Park Courts, 1401 Olympic Blvd" />
         </label>
+        <label className="block">
+          <span className={labelCls}>Google Maps link (optional)</span>
+          <div className="relative">
+            <MapPin size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+            <input className={`${field} pl-9`} value={locationUrl} onChange={(e) => setLocationUrl(e.target.value)} maxLength={500} placeholder="Paste a Google Maps link for the exact spot" />
+          </div>
+          <span className="mt-1.5 block text-[11px] text-faint">When set, the location on the event page opens this exact pin. Otherwise it searches the venue text above.</span>
+        </label>
       </section>
 
       <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
@@ -183,26 +320,106 @@ export function EventForm({ initial }: { initial?: Initial }) {
         </div>
       </section>
 
-      {!editing ? (
-        <section className="space-y-3 rounded-2xl border border-rule bg-surface p-5">
-          <h2 className="text-sm font-bold text-ink">Cover photo (optional)</h2>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickCover} />
-          {cover ? (
-            <div className="relative mx-auto aspect-square w-full max-w-[220px] overflow-hidden rounded-2xl border border-rule">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={cover.dataUrl} alt="Cover preview" className="h-full w-full object-cover" />
-              <button type="button" onClick={() => setCover(null)} aria-label="Remove cover" className="press absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-black/55 text-white backdrop-blur">
-                <X size={14} />
-              </button>
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+        <h2 className="text-sm font-bold text-ink">Group &amp; joining</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className={labelCls}>Repeats</span>
+            <select className={field} value={recurrence} onChange={(e) => setRecurrence(e.target.value)}>
+              {RECUR_OPTS.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className={labelCls}>Who can join</span>
+            <select className={field} value={joinPolicy} onChange={(e) => setJoinPolicy(e.target.value)}>
+              <option value="open">Anyone can join</option>
+              <option value="approval">Require admin approval</option>
+            </select>
+          </label>
+        </div>
+
+        {showDays ? (
+          <div>
+            <span className={labelCls}>On which days</span>
+            <div className="flex flex-wrap gap-1.5">
+              {WEEKDAYS.map(([code, lbl]) => {
+                const on = recurDays.includes(code);
+                return (
+                  <button key={code} type="button" onClick={() => toggleDay(code)} className="press rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors" style={{ borderColor: on ? "#ff4e1b" : "#e4e4e7", background: on ? "#fff1ed" : "white", color: on ? "#d63a0f" : "#71717a" }}>
+                    {lbl}
+                  </button>
+                );
+              })}
             </div>
-          ) : (
-            <button type="button" onClick={() => fileRef.current?.click()} className="press inline-flex items-center gap-1.5 rounded-xl border border-dashed border-rule px-4 py-2.5 text-sm font-semibold text-mute hover:border-brand hover:text-brand-deep">
-              <ImagePlus size={16} /> Add a square cover photo
-            </button>
-          )}
-          <p className="text-xs text-faint">A photo of the venue or a past session makes your event stand out. You can also add or change it later.</p>
-        </section>
-      ) : null}
+            <p className="mt-1.5 text-[11px] text-faint">For weekly groups like a Tuesday beach-volley meetup. Leave empty to use the start day.</p>
+          </div>
+        ) : null}
+
+        <label className="block">
+          <span className={labelCls}>WhatsApp group link (optional)</span>
+          <input className={field} value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} maxLength={300} placeholder="https://chat.whatsapp.com/…" />
+          <span className="mt-1.5 block text-[11px] text-faint">Shown to members who&apos;ve joined, so they can chat between sessions.</span>
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rule bg-bg/50 p-3.5">
+          <input type="checkbox" checked={queueEnabled} onChange={(e) => setQueueEnabled(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#ff4e1b]" />
+          <span>
+            <span className="block text-sm font-semibold text-ink">Enable the live queue (King of the Court)</span>
+            <span className="mt-0.5 block text-xs text-mute">Run a self-managing pickup line on the day — winners stay, losers re-form. You&apos;ll set up the courts from the event page.</span>
+          </span>
+        </label>
+      </section>
+
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+        <div>
+          <h2 className="text-sm font-bold text-ink">Photos</h2>
+          <p className="text-xs text-faint">A wide banner runs across the top of the event page; a square image is used on event cards. {editing ? "Changes save right away." : "Both are optional."}</p>
+        </div>
+        <input ref={bannerFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => pickImage("banner", e)} />
+        <input ref={thumbFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => pickImage("thumb", e)} />
+        <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
+          <div>
+            <span className={labelCls}>Top banner (16:9)</span>
+            {bannerUrl ? (
+              <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-rule">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={bannerUrl} alt="Banner preview" className="h-full w-full object-cover" />
+                <div className="absolute right-2 top-2 flex gap-1.5">
+                  <button type="button" onClick={() => bannerFileRef.current?.click()} disabled={imgBusy} className="press rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">Change</button>
+                  <button type="button" onClick={() => removeImage("banner")} disabled={imgBusy} aria-label="Remove banner" className="press grid h-6 w-6 place-items-center rounded-full bg-black/55 text-white backdrop-blur"><X size={12} /></button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => bannerFileRef.current?.click()} disabled={imgBusy} className="press flex aspect-video w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-rule text-mute hover:border-brand hover:text-brand-deep">
+                {imgBusy ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+                <span className="text-xs font-semibold">Add banner photo</span>
+              </button>
+            )}
+          </div>
+          <div>
+            <span className={labelCls}>Card image (square)</span>
+            {thumbUrl ? (
+              <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-rule">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={thumbUrl} alt="Card preview" className="h-full w-full object-cover" />
+                <div className="absolute right-2 top-2 flex gap-1.5">
+                  <button type="button" onClick={() => thumbFileRef.current?.click()} disabled={imgBusy} className="press rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">Change</button>
+                  <button type="button" onClick={() => removeImage("thumb")} disabled={imgBusy} aria-label="Remove card image" className="press grid h-6 w-6 place-items-center rounded-full bg-black/55 text-white backdrop-blur"><X size={12} /></button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => thumbFileRef.current?.click()} disabled={imgBusy} className="press flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-rule text-mute hover:border-brand hover:text-brand-deep">
+                {imgBusy ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+                <span className="text-xs font-semibold">Add card image</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
 
       {err ? (
         <p className="flex items-center gap-1.5 text-sm font-semibold text-brand-deep">
@@ -222,14 +439,14 @@ export function EventForm({ initial }: { initial?: Initial }) {
       {cropSrc ? (
         <MediaCropper
           src={cropSrc}
-          aspect={1}
-          outputW={900}
-          title="Position your cover photo"
-          onCancel={() => setCropSrc(null)}
-          onConfirm={(r) => {
-            setCover(r);
+          aspect={cropTarget === "thumb" ? 1 : 16 / 9}
+          outputW={cropTarget === "thumb" ? 600 : 1600}
+          title={cropTarget === "thumb" ? "Position the card image" : "Position the banner"}
+          onCancel={() => {
             setCropSrc(null);
+            setCropTarget(null);
           }}
+          onConfirm={onCropConfirm}
         />
       ) : null}
     </div>

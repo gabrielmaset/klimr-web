@@ -20,5 +20,5 @@ export default async function CourtDisplayPage({ params }: { params: Promise<{ i
   if (!state) notFound();
 
   const isOrganizer = state.session.organizerId === user.id;
-  return <CourtDisplay initial={state} courtId={courtId} isOrganizer={isOrganizer} />;
+  return <CourtDisplay initial={state} courtId={courtId} canOperate={isOrganizer} />;
 }

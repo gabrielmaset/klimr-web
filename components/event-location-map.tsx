@@ -12,6 +12,7 @@ export function EventLocationMap({
   lat,
   lng,
   placeId,
+  href,
   className,
 }: {
   name: string | null;
@@ -20,6 +21,7 @@ export function EventLocationMap({
   lat: number | null;
   lng: number | null;
   placeId?: string | null;
+  href?: string;
   className?: string;
 }) {
   const label = (name ?? "").trim();
@@ -33,7 +35,7 @@ export function EventLocationMap({
   if (!query) return null;
 
   const embedSrc = `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=14&output=embed`;
-  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}${placeId ? `&query_place_id=${encodeURIComponent(placeId)}` : ""}`;
+  const mapsHref = href || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}${placeId ? `&query_place_id=${encodeURIComponent(placeId)}` : ""}`;
   const caption = label || addr || "Venue";
 
   return (

@@ -18,11 +18,14 @@ type Ev = {
   capacity: number | null;
   cost_text: string | null;
   cover_path: string | null;
+  thumb_path: string | null;
+  created_by: string | null;
+  status: string;
 };
 
 const COVER_BUCKET = "tournament-gallery";
+const CARD_COLS = "id, title, sport_key, kind, court_id, location_text, starts_at, capacity, cost_text, cover_path, thumb_path, created_by, status";
 
-// Wrapped in a helper so the render body stays free of a bare new Date() call.
 function nowIso() {
   return new Date().toISOString();
 }
@@ -37,23 +40,31 @@ export default async function EventsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/events");
 
-  const { data: eData } = await supabase
-    .from("events")
-    .select("id, title, sport_key, kind, court_id, location_text, starts_at, capacity, cost_text, cover_path")
-    .eq("status", "active")
-    .gte("starts_at", nowIso())
-    .order("starts_at")
-    .limit(60);
+  const [{ data: eData }, { data: mgr }] = await Promise.all([
+    supabase.from("events").select(CARD_COLS).eq("status", "active").gte("starts_at", nowIso()).order("starts_at").limit(60),
+    supabase.from("event_managers").select("event_id").eq("user_id", user.id),
+  ]);
   const events = (eData as Ev[] | null) ?? [];
+  const adminSet = new Set<string>((mgr ?? []).map((m) => m.event_id));
 
-  const ids = events.map((e) => e.id);
+  // events the viewer owns or co-admins — any status, most recent first
+  let myRows: Ev[] = [];
+  {
+    const adminIds = [...adminSet];
+    let qb = supabase.from("events").select(CARD_COLS);
+    qb = adminIds.length ? qb.or(`created_by.eq.${user.id},id.in.(${adminIds.join(",")})`) : qb.eq("created_by", user.id);
+    const { data } = await qb.order("starts_at", { ascending: false }).limit(60);
+    myRows = (data as Ev[] | null) ?? [];
+  }
+
+  const allIds = [...new Set([...events.map((e) => e.id), ...myRows.map((e) => e.id)])];
   const going = new Set<string>();
   const counts = new Map<string, number>();
   const courtName = new Map<string, string>();
-  if (ids.length) {
-    const courtIds = [...new Set(events.map((e) => e.court_id).filter(Boolean))] as string[];
+  if (allIds.length) {
+    const courtIds = [...new Set([...events, ...myRows].map((e) => e.court_id).filter(Boolean))] as string[];
     const [{ data: rsvps }, courtsRes] = await Promise.all([
-      supabase.from("event_rsvps").select("event_id, user_id").in("event_id", ids),
+      supabase.from("event_rsvps").select("event_id, user_id, status").in("event_id", allIds).eq("status", "going"),
       courtIds.length ? supabase.from("courts").select("id, name").in("id", courtIds) : Promise.resolve({ data: [] }),
     ]);
     for (const r of rsvps ?? []) {
@@ -63,7 +74,11 @@ export default async function EventsPage() {
     for (const c of (courtsRes.data as { id: string; name: string }[] | null) ?? []) courtName.set(c.id, c.name);
   }
 
-  const cards: CardEvent[] = events.map((e) => ({
+  const coverUrl = (e: Ev) => {
+    const path = e.thumb_path || e.cover_path;
+    return path ? supabase.storage.from(COVER_BUCKET).getPublicUrl(path).data.publicUrl : null;
+  };
+  const toCard = (e: Ev): CardEvent => ({
     id: e.id,
     title: e.title,
     sportKey: e.sport_key,
@@ -73,9 +88,14 @@ export default async function EventsPage() {
     goingCount: counts.get(e.id) ?? 0,
     capacity: e.capacity,
     amGoing: going.has(e.id),
-    coverUrl: e.cover_path ? supabase.storage.from(COVER_BUCKET).getPublicUrl(e.cover_path).data.publicUrl : null,
+    coverUrl: coverUrl(e),
     costText: e.cost_text,
-  }));
+    mine: e.created_by === user.id || adminSet.has(e.id),
+    status: e.status,
+  });
+
+  const cards = events.map(toCard);
+  const myCards = myRows.map(toCard);
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
@@ -84,19 +104,12 @@ export default async function EventsPage() {
           <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Events</h1>
           <p className="mt-1 text-sm text-mute">Open play, ladder nights, clinics, and tournaments near you. Times shown in PT.</p>
         </div>
-        <Link
-          href="/events/new"
-          className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
-        >
+        <Link href="/events/new" className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
           <Plus size={16} /> Host an event
         </Link>
       </div>
 
-      {events.length === 0 ? (
-        <div className="rounded-3xl border border-rule bg-surface p-12 text-center text-sm text-mute">No upcoming events right now. Check back soon.</div>
-      ) : (
-        <EventsBrowser events={cards} nowMs={nowMs()} />
-      )}
+      <EventsBrowser events={cards} myEvents={myCards} nowMs={nowMs()} />
     </div>
   );
 }

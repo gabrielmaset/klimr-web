@@ -217,7 +217,7 @@ async function validateJoin(admin: Admin, court: CourtLite, s: Session, member: 
   if (s.event_only) {
     if (!s.event_id) return { error: "This queue is limited to event RSVPs." };
     if (!member.user_id) return { error: "This queue is only for players who RSVP'd to the event. Sign in and RSVP to join." };
-    const { data: rsvp } = await admin.from("event_rsvps").select("user_id").eq("event_id", s.event_id).eq("user_id", member.user_id).maybeSingle();
+    const { data: rsvp } = await admin.from("event_rsvps").select("user_id").eq("event_id", s.event_id).eq("user_id", member.user_id).eq("status", "going").maybeSingle();
     if (!rsvp) return { error: "RSVP to the event first, then you can join this queue." };
   }
 
@@ -382,26 +382,24 @@ export async function removeMember(formData: FormData): Promise<Result> {
 
 // ---------- the king-of-the-court engine ----------
 
-export async function gameOver(formData: FormData): Promise<Result> {
-  const userId = await currentUserId();
-  if (!userId) return { error: "Sign in first." };
-  const admin = createAdminClient();
-  const matchId = String(formData.get("matchId") || "");
-  const winnerId = String(formData.get("winnerTeamId") || "");
-  const { data: match } = await admin.from("queue_matches").select("id, session_id, team_a, team_b, status").eq("id", matchId).maybeSingle();
-  if (!match) return { error: "Match not found." };
-  if (match.status !== "live") return { error: "That match is already finished." };
-  const s = await sessionRow(admin, match.session_id);
-  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can record results." };
-  if (winnerId !== match.team_a && winnerId !== match.team_b) return { error: "Pick one of the two teams." };
+async function sessionIdByCode(admin: Admin, code: string): Promise<string | null> {
+  const { data } = await admin.from("court_sessions").select("id").eq("code", code.toUpperCase()).maybeSingle();
+  return data?.id ?? null;
+}
 
+type MatchRow = { id: string; session_id: string; team_a: string; team_b: string; status: string };
+
+/** Core result-recording logic (winner stays under the win cap, otherwise re-forms). No auth here. */
+async function applyGameOver(admin: Admin, match: MatchRow, winCap: number, winnerId: string): Promise<Result> {
+  if (match.status !== "live") return { error: "That match is already finished." };
+  if (winnerId !== match.team_a && winnerId !== match.team_b) return { error: "Pick one of the two teams." };
   const loserId = winnerId === match.team_a ? match.team_b : match.team_a;
-  await admin.from("queue_matches").update({ status: "final", winner_team: winnerId, ended_at: new Date().toISOString() }).eq("id", matchId);
+  await admin.from("queue_matches").update({ status: "final", winner_team: winnerId, ended_at: new Date().toISOString() }).eq("id", match.id);
   await admin.from("queue_teams").update({ status: "done" }).eq("id", loserId);
 
   const { data: winner } = await admin.from("queue_teams").select("wins").eq("id", winnerId).maybeSingle();
   const newWins = (winner?.wins ?? 0) + 1;
-  if (newWins >= s.win_cap) {
+  if (newWins >= winCap) {
     await admin.from("queue_teams").update({ status: "done", wins: newWins }).eq("id", winnerId);
   } else {
     await admin.from("queue_teams").update({ status: "queued", wins: newWins, hold_court: true, queued_at: new Date().toISOString() }).eq("id", winnerId);
@@ -410,15 +408,8 @@ export async function gameOver(formData: FormData): Promise<Result> {
   return { ok: true };
 }
 
-export async function startNextMatch(formData: FormData): Promise<Result> {
-  const userId = await currentUserId();
-  if (!userId) return { error: "Sign in first." };
-  const admin = createAdminClient();
-  const courtId = String(formData.get("courtId") || "");
-  const guard = await organizerGuardByCourt(admin, courtId, userId);
-  if (guard.error) return { error: guard.error };
-  const sessionId = guard.session!.id;
-
+/** Core next-match logic (holder first, then earliest queued). No auth here. */
+async function applyStartNext(admin: Admin, courtId: string, sessionId: string): Promise<Result> {
   const { data: liveExisting } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
   if (liveExisting) return { error: "A match is already live on this court." };
 
@@ -436,6 +427,56 @@ export async function startNextMatch(formData: FormData): Promise<Result> {
   await admin.from("queue_teams").update({ status: "playing", hold_court: false }).in("id", [teamA, teamB]);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
+}
+
+export async function gameOver(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const matchId = String(formData.get("matchId") || "");
+  const winnerId = String(formData.get("winnerTeamId") || "");
+  const { data: match } = await admin.from("queue_matches").select("id, session_id, team_a, team_b, status").eq("id", matchId).maybeSingle();
+  if (!match) return { error: "Match not found." };
+  const s = await sessionRow(admin, match.session_id);
+  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can record results." };
+  return applyGameOver(admin, match as MatchRow, s.win_cap, winnerId);
+}
+
+export async function startNextMatch(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const courtId = String(formData.get("courtId") || "");
+  const guard = await organizerGuardByCourt(admin, courtId, userId);
+  if (guard.error) return { error: guard.error };
+  return applyStartNext(admin, courtId, guard.session!.id);
+}
+
+/* ---------- public (tablet) result-recording — authorized by the session code, no login ---------- */
+
+export async function gameOverByCode(formData: FormData): Promise<Result> {
+  const admin = createAdminClient();
+  const code = String(formData.get("code") || "");
+  const matchId = String(formData.get("matchId") || "");
+  const winnerId = String(formData.get("winnerTeamId") || "");
+  const sid = await sessionIdByCode(admin, code);
+  if (!sid) return { error: "Session not found." };
+  const { data: match } = await admin.from("queue_matches").select("id, session_id, team_a, team_b, status").eq("id", matchId).maybeSingle();
+  if (!match || match.session_id !== sid) return { error: "Match not found." };
+  const s = await sessionRow(admin, sid);
+  if (!s) return { error: "Session not found." };
+  return applyGameOver(admin, match as MatchRow, s.win_cap, winnerId);
+}
+
+export async function startNextByCode(formData: FormData): Promise<Result> {
+  const admin = createAdminClient();
+  const code = String(formData.get("code") || "");
+  const courtId = String(formData.get("courtId") || "");
+  const sid = await sessionIdByCode(admin, code);
+  if (!sid) return { error: "Session not found." };
+  const { data: court } = await admin.from("queue_courts").select("id, session_id").eq("id", courtId).maybeSingle();
+  if (!court || court.session_id !== sid) return { error: "Court not found." };
+  return applyStartNext(admin, courtId, sid);
 }
 
 // ---------- approval queue ----------

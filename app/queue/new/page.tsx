@@ -14,6 +14,8 @@ export default async function NewQueuePage({ searchParams }: { searchParams: Pro
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/queue/new");
+  // The live queue always belongs to an event — send people to pick one if none was passed.
+  if (!event) redirect("/events");
 
   let title = "";
   let sport = "beach_volleyball";

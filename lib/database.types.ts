@@ -1187,6 +1187,13 @@ export interface Database {
           created_by: string | null;
           created_at: string;
           cover_path: string | null;
+          thumb_path: string | null;
+          location_url: string | null;
+          whatsapp_url: string | null;
+          queue_enabled: boolean;
+          join_policy: string;
+          recurrence: string;
+          recurrence_days: string[];
         };
         Insert: {
           id?: string;
@@ -1204,6 +1211,13 @@ export interface Database {
           created_by?: string | null;
           created_at?: string;
           cover_path?: string | null;
+          thumb_path?: string | null;
+          location_url?: string | null;
+          whatsapp_url?: string | null;
+          queue_enabled?: boolean;
+          join_policy?: string;
+          recurrence?: string;
+          recurrence_days?: string[];
         };
         Update: {
           title?: string;
@@ -1218,13 +1232,26 @@ export interface Database {
           cost_text?: string | null;
           status?: string;
           cover_path?: string | null;
+          thumb_path?: string | null;
+          location_url?: string | null;
+          whatsapp_url?: string | null;
+          queue_enabled?: boolean;
+          join_policy?: string;
+          recurrence?: string;
+          recurrence_days?: string[];
         };
         Relationships: [];
       };
       event_rsvps: {
-        Row: { event_id: string; user_id: string; created_at: string };
-        Insert: { event_id: string; user_id: string; created_at?: string };
-        Update: { created_at?: string };
+        Row: { event_id: string; user_id: string; status: string; created_at: string };
+        Insert: { event_id: string; user_id: string; status?: string; created_at?: string };
+        Update: { status?: string; created_at?: string };
+        Relationships: [];
+      };
+      event_managers: {
+        Row: { event_id: string; user_id: string; added_by: string | null; created_at: string };
+        Insert: { event_id: string; user_id: string; added_by?: string | null; created_at?: string };
+        Update: { added_by?: string | null };
         Relationships: [];
       };
       marketplace_listings: {
