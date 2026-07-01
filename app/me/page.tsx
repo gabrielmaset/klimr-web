@@ -132,7 +132,7 @@ export default async function MyProfilePage() {
             <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={132} />
           </div>
           <Link
-            href="/account"
+            href="/settings/profile"
             className="press pointer-events-auto mb-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
           >
             <Pencil size={14} /> Edit profile

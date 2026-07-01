@@ -280,6 +280,15 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   if (!user) return { ok: false as const, error: "Not signed in." };
 
   const u: Database["public"]["Tables"]["tournaments"]["Update"] = { updated_at: new Date().toISOString() };
+
+  // If the start is changing, capture the previous value (and code) first so we
+  // can slide the day-planner by the same delta and refresh the public page.
+  let prev: { starts_at: string | null; code: string | null } | null = null;
+  if (patch.starts_at !== undefined) {
+    const { data: cur } = await supabase.from("tournaments").select("starts_at, code").eq("id", id).maybeSingle();
+    prev = cur ?? null;
+  }
+
   if (patch.title !== undefined) u.title = patch.title;
   if (patch.summary !== undefined) u.summary = patch.summary;
   if (patch.description !== undefined) u.description = patch.description;
@@ -318,7 +327,22 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   }
 
   const { error } = await supabase.from("tournaments").update(u).eq("id", id);
-  return error ? { ok: false as const, error: error.message } : { ok: true as const };
+  if (error) return { ok: false as const, error: error.message };
+
+  // The date moved: slide the run-of-show planner by the same delta (keeping each
+  // item's time-of-day and multi-day offset), and refresh the views that show the
+  // date. Match times are governed by a separate "matches start time," so they're
+  // intentionally left alone here.
+  if (patch.starts_at !== undefined && prev?.starts_at && patch.starts_at) {
+    const deltaMs = new Date(patch.starts_at).getTime() - new Date(prev.starts_at).getTime();
+    if (Number.isFinite(deltaMs) && deltaMs !== 0) {
+      await supabase.rpc("shift_tournament_plan", { p_tournament: id, p_shift: `${deltaMs} milliseconds` });
+      revalidatePath(`/tournament/${id}/planner`);
+      revalidatePath(`/tournament/${id}`);
+      if (prev.code) revalidatePath(`/e/${prev.code}`);
+    }
+  }
+  return { ok: true as const };
 }
 
 /** Publish a draft so it becomes visible at /e/<code>. */

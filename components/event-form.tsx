@@ -8,6 +8,7 @@ import { SPORTS } from "@/lib/sports";
 import { eventKindsFor } from "@/lib/event-kinds";
 import { MediaCropper, type MediaCropResult } from "@/components/media-cropper";
 import { RichTextEditor, linkifyHtml } from "@/components/rich-text-editor";
+import { DateTimeField } from "@/components/date-time-field";
 import {
   createEvent,
   updateEvent,
@@ -289,14 +290,14 @@ export function EventForm({ initial }: { initial?: Initial }) {
         <h2 className="text-sm font-bold text-ink">When &amp; where</h2>
         <p className="-mt-2 text-xs text-faint">Times are Pacific.</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
+          <div>
             <span className={labelCls}>Starts</span>
-            <input type="datetime-local" className={field} value={startsLocal} onChange={(e) => setStartsLocal(e.target.value)} />
-          </label>
-          <label className="block">
+            <DateTimeField value={startsLocal} onChange={setStartsLocal} ariaLabel="Starts" />
+          </div>
+          <div>
             <span className={labelCls}>Ends (optional)</span>
-            <input type="datetime-local" className={field} value={endsLocal} onChange={(e) => setEndsLocal(e.target.value)} />
-          </label>
+            <DateTimeField value={endsLocal} onChange={setEndsLocal} optional ariaLabel="Ends" />
+          </div>
         </div>
         <label className="block">
           <span className={labelCls}>Venue / location</span>

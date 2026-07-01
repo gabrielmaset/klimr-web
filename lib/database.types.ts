@@ -1510,6 +1510,7 @@ export interface Database {
       code_lock_seconds: { Args: { p_bucket: string }; Returns: number };
       note_code_failure: { Args: { p_bucket: string; p_max: number; p_window_seconds: number; p_lock_seconds: number }; Returns: number };
       clear_code_attempts: { Args: { p_bucket: string }; Returns: undefined };
+      shift_tournament_plan: { Args: { p_tournament: string; p_shift: string }; Returns: undefined };
     };
     Enums: {
       verification_status: VerificationStatus;
