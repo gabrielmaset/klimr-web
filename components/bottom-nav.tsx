@@ -13,7 +13,7 @@ const TABS = [
 ];
 
 // Secondary destinations all live under the "You" tab (account screen).
-const YOU = ["/me", "/account", "/settings", "/sponsorships", "/teams", "/courts", "/challenges", "/events", "/marketplace", "/resources", "/discover", "/invite", "/network", "/invites"];
+const YOU = ["/me", "/calendar", "/account", "/settings", "/sponsorships", "/teams", "/courts", "/challenges", "/events", "/marketplace", "/resources", "/discover", "/invite", "/network", "/invites"];
 
 export function BottomNav({
   avatarUrl,

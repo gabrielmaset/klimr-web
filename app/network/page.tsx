@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sportMeta } from "@/lib/sports";
 import { NetworkBrowser, type Person, type Tab, type FriendStatus } from "@/components/network-browser";
 
@@ -63,6 +64,27 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
     for (const p of (data as Prof[] | null) ?? []) pmap.set(p.id, p);
   }
 
+  // Play frequency: how many matches the user has shared with each connection.
+  // match_participants rows for others aren't broadly readable under RLS, so this
+  // aggregates on the admin client — scoped to the user's own matches, chunked so
+  // the query stays bounded no matter how active the player is.
+  const playedWith = new Map<string, number>();
+  if (allIds.length) {
+    const admin = createAdminClient();
+    const { data: mine } = await admin.from("match_participants").select("match_id").eq("user_id", user.id);
+    const myMatchIds = [...new Set((mine ?? []).map((r) => r.match_id))];
+    const connSet = new Set(allIds);
+    const CHUNK = 400;
+    for (let i = 0; i < myMatchIds.length; i += CHUNK) {
+      const batch = myMatchIds.slice(i, i + CHUNK);
+      const { data: co } = await admin.from("match_participants").select("user_id").in("match_id", batch);
+      for (const r of co ?? []) {
+        if (r.user_id === user.id || !connSet.has(r.user_id)) continue;
+        playedWith.set(r.user_id, (playedWith.get(r.user_id) ?? 0) + 1);
+      }
+    }
+  }
+
   const toPerson = (id: string, addedAt: string): Person | null => {
     const p = pmap.get(id);
     if (!p) return null;
@@ -78,6 +100,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
       sportEmoji: m?.emoji ?? null,
       place: [p.neighborhood, p.city].filter(Boolean).join(", ") || null,
       addedAt,
+      playedTogether: playedWith.get(id) ?? 0,
       isFriend: friendStatusById.get(id) === "friends",
       iFollow: iFollowIds.has(id),
       followsMe: followsMeIds.has(id),

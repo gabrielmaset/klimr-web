@@ -1,31 +1,49 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, MapPin, Pencil, Trophy, CalendarClock, Swords, ArrowUpRight, ShieldCheck, Users, CalendarDays, Crown, Plus } from "lucide-react";
+import { BadgeCheck, MapPin, Pencil, Trophy, CalendarClock, CalendarRange, Swords, ArrowUpRight, Users, Crown, Plus } from "lucide-react";
 import { displayAge } from "@/lib/age";
 import { createClient } from "@/lib/supabase/server";
+import { getCalendarEvents } from "@/lib/calendar";
 import { Avatar } from "@/components/avatar";
 import { CoverUploader } from "@/components/cover-uploader";
 import { sportMeta, SPORTS } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "My profile" };
 
-type PS = { sport_key: string; points: number; skill_rating: number | null; matches_played: number; wins: number };
+type PS = { sport_key: string; points: number; skill_rating: number | null; matches_played: number; wins: number; skill_level: string };
 type MatchRow = { id: string; sport_key: string; format: string; scheduled_at: string | null; status: string; location_text: string | null };
 
-type CalItem = { key: string; kind: "match" | "event" | "class" | "tournament"; title: string; at: string; location: string | null; href: string; sport_key: string };
-
-const CAL_KIND: Record<CalItem["kind"], { label: string; bg: string; fg: string }> = {
-  match: { label: "Match", bg: "var(--color-tint-brand)", fg: "var(--color-brand-deep)" },
-  event: { label: "Event", bg: "#eaf2ff", fg: "#1d4ed8" },
-  class: { label: "Class", bg: "#f3e9ff", fg: "#7c3aed" },
-  tournament: { label: "Tournament", bg: "#fef1cf", fg: "#b45309" },
+// Per-sport accent colors (shared with the teams hub).
+const SPORT_COLOR: Record<string, string> = {
+  tennis: "#84cc16",
+  pickleball: "#eab308",
+  padel: "#3b82f6",
+  racquetball: "#8b5cf6",
+  beach_volleyball: "#f97316",
 };
+const KIND_DOT: Record<string, string> = { match: "#ea580c", event: "#2563eb", class: "#7c3aed", tournament: "#d97706" };
+const KIND_LABEL: Record<string, string> = { match: "Match", event: "Event", class: "Class", tournament: "Tournament" };
 
 function whenLabel(iso: string | null) {
   if (!iso) return "Open / anytime";
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " · " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function calWhen(start: string, allDay: boolean) {
+  const d = new Date(start);
+  const date = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return allDay ? date : `${date} · ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <div className="font-display text-xl leading-none text-ink sm:text-2xl">{value}</div>
+      <div className="mt-1 text-[11px] uppercase tracking-wide text-faint">{label}</div>
+    </div>
+  );
 }
 
 export default async function MyProfilePage() {
@@ -50,15 +68,16 @@ export default async function MyProfilePage() {
   const coverUrl = profile.cover_path ? supabase.storage.from("avatars").getPublicUrl(profile.cover_path).data.publicUrl : null;
   const verified = profile.verification_status === "verified";
   const place = [profile.neighborhood, profile.city, profile.state].filter(Boolean).join(", ") || profile.home_zip || "Location not set";
-  const memberSince = profile.created_at
-    ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-    : null;
+  const memberSince = profile.created_at ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : null;
   const age = displayAge(profile.date_of_birth, profile.birth_year);
+  const primaryMeta = profile.primary_sport ? sportMeta(profile.primary_sport) : null;
 
+  // Sports the player has signed up for (one player_sports row each).
   const { data: psData } = await supabase
     .from("player_sports")
-    .select("sport_key, points, skill_rating, matches_played, wins")
-    .eq("user_id", user.id);
+    .select("sport_key, points, skill_rating, matches_played, wins, skill_level")
+    .eq("user_id", user.id)
+    .eq("active", true);
   const sports = (psData as PS[] | null) ?? [];
   const order: string[] = SPORTS.map((s) => s.key);
   sports.sort((a, b) => {
@@ -71,67 +90,20 @@ export default async function MyProfilePage() {
   const { data: parts } = await supabase.from("match_participants").select("match_id").eq("user_id", user.id);
   const matchIds = [...new Set((parts ?? []).map((p) => p.match_id))];
   let recent: MatchRow[] = [];
-  let upcoming: MatchRow[] = [];
   if (matchIds.length) {
-    const nowIso = new Date().toISOString();
-    const [{ data: r }, { data: u }] = await Promise.all([
-      supabase
-        .from("matches")
-        .select("id, sport_key, format, scheduled_at, status, location_text")
-        .in("id", matchIds)
-        .order("created_at", { ascending: false })
-        .limit(6),
-      supabase
-        .from("matches")
-        .select("id, sport_key, format, scheduled_at, status, location_text")
-        .in("id", matchIds)
-        .gte("scheduled_at", nowIso)
-        .order("scheduled_at", { ascending: true })
-        .limit(8),
-    ]);
+    const { data: r } = await supabase
+      .from("matches")
+      .select("id, sport_key, format, scheduled_at, status, location_text")
+      .in("id", matchIds)
+      .order("created_at", { ascending: false })
+      .limit(6);
     recent = (r as MatchRow[] | null) ?? [];
-    upcoming = (u as MatchRow[] | null) ?? [];
   }
 
-  // The Klimr calendar aggregates every upcoming commitment: matches, events you're
-  // going to, classes you're enrolled in, and tournaments you're registered for.
-  const calNow = new Date().toISOString();
-  const cal: CalItem[] = [];
-  for (const m of upcoming) {
-    if (m.scheduled_at) cal.push({ key: `m-${m.id}`, kind: "match", title: `${sportMeta(m.sport_key).name} · ${m.format === "doubles" ? "Doubles" : "Singles"}`, at: m.scheduled_at, location: m.location_text, href: `/play/${m.id}`, sport_key: m.sport_key });
-  }
-  {
-    const { data: going } = await supabase.from("event_rsvps").select("event_id").eq("user_id", user.id).eq("status", "going");
-    const ids = [...new Set((going ?? []).map((r) => r.event_id))];
-    if (ids.length) {
-      const { data: evs } = await supabase.from("events").select("id, title, sport_key, starts_at, status, location_text").in("id", ids).gte("starts_at", calNow).neq("status", "cancelled").order("starts_at").limit(12);
-      for (const e of evs ?? []) cal.push({ key: `e-${e.id}`, kind: "event", title: e.title, at: e.starts_at, location: e.location_text, href: `/events/${e.id}`, sport_key: e.sport_key });
-    }
-  }
-  {
-    const { data: enr } = await supabase.from("class_enrollments").select("session_id, class_id, status").eq("user_id", user.id).neq("status", "cancelled");
-    const sessIds = [...new Set((enr ?? []).map((r) => r.session_id))];
-    if (sessIds.length) {
-      const { data: sess } = await supabase.from("class_sessions").select("id, class_id, starts_at, status").in("id", sessIds).gte("starts_at", calNow).neq("status", "cancelled").order("starts_at").limit(12);
-      const classIds = [...new Set((sess ?? []).map((s) => s.class_id))];
-      const { data: cls } = classIds.length ? await supabase.from("classes").select("id, title, sport_key").in("id", classIds) : { data: [] as { id: string; title: string; sport_key: string }[] };
-      const clsById = new Map((cls ?? []).map((c) => [c.id, c]));
-      for (const s of sess ?? []) {
-        const c = clsById.get(s.class_id);
-        cal.push({ key: `c-${s.id}`, kind: "class", title: c?.title ?? "Class", at: s.starts_at, location: null, href: `/classes/${s.class_id}`, sport_key: c?.sport_key ?? "" });
-      }
-    }
-  }
-  {
-    const { data: reg } = await supabase.from("tournament_registrations").select("tournament_id, status").eq("registrant_id", user.id).not("status", "in", "(withdrawn,declined)");
-    const ids = [...new Set((reg ?? []).map((r) => r.tournament_id))];
-    if (ids.length) {
-      const { data: trs } = await supabase.from("tournaments").select("id, code, title, sport_key, starts_at, status, location_name").in("id", ids).gte("starts_at", calNow).neq("status", "cancelled").order("starts_at").limit(12);
-      for (const t of trs ?? []) if (t.starts_at) cal.push({ key: `t-${t.id}`, kind: "tournament", title: t.title, at: t.starts_at, location: t.location_name, href: `/e/${t.code}`, sport_key: t.sport_key });
-    }
-  }
-  cal.sort((a, b) => a.at.localeCompare(b.at));
-  const calItems = cal.slice(0, 10);
+  // Next few commitments — a teaser for the full calendar.
+  const allCal = await getCalendarEvents(supabase, user.id);
+  const nowMs = new Date().getTime();
+  const upNext = allCal.filter((e) => new Date(e.start).getTime() >= nowMs - 3600000).slice(0, 3);
 
   // Teams the player is on.
   const { data: tm } = await supabase.from("team_members").select("team_id, role").eq("user_id", user.id);
@@ -145,21 +117,19 @@ export default async function MyProfilePage() {
 
   const totalMatches = sports.reduce((n, s) => n + (s.matches_played || 0), 0);
   const totalWins = sports.reduce((n, s) => n + (s.wins || 0), 0);
+  const winRate = totalMatches ? `${Math.round((totalWins / totalMatches) * 100)}%` : "—";
 
   return (
     <div className="mx-auto max-w-page px-4 py-6 sm:px-6 sm:py-8">
+      {/* ===== Hero ===== */}
       <CoverUploader initialUrl={coverUrl} hue={hue} />
 
-      {/* Identity header — avatar overlaps the cover; name sits BELOW it so nothing bleeds onto the cover */}
       <div className="relative z-10 px-1 sm:px-4">
-        {/* This row is pulled up over the cover with -mt; its empty space would
-            otherwise sit on top of the cover's "Add cover photo" button and
-            swallow the click. pointer-events-none lets clicks fall through to
-            the button beneath, while the avatar and Edit-profile link below
-            re-enable pointer events so they stay interactive. */}
-        <div className="pointer-events-none -mt-12 flex items-end justify-between sm:-mt-14">
+        {/* Avatar overlaps the cover; the row is pointer-events-none so the cover's
+            own buttons stay clickable, with the avatar + edit button re-enabling it. */}
+        <div className="pointer-events-none -mt-14 flex items-end justify-between sm:-mt-16">
           <div className="pointer-events-auto rounded-full ring-4 ring-bg">
-            <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={112} />
+            <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={132} />
           </div>
           <Link
             href="/account"
@@ -169,37 +139,80 @@ export default async function MyProfilePage() {
           </Link>
         </div>
 
-        <div className="mt-3">
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{profile.display_name}</h1>
-            {verified ? <BadgeCheck size={22} className="shrink-0 text-brand" aria-label="Identity verified" /> : null}
-          </div>
-          <p className="mt-1.5 flex items-center gap-1.5 text-sm text-mute">
-            <MapPin size={14} className="shrink-0 text-faint" /> {place}
-          </p>
-        </div>
-
-        {/* meta row */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-faint">
-          {verified ? (
-            <span className="inline-flex items-center gap-1 text-brand-deep">
-              <ShieldCheck size={13} /> Identity verified
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{profile.display_name}</h1>
+          {verified ? <BadgeCheck size={22} className="shrink-0 text-brand" aria-label="Identity verified" /> : null}
+          {primaryMeta ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-tint-brand px-2.5 py-1 text-xs font-semibold text-brand-deep">
+              <span aria-hidden>{primaryMeta.emoji}</span> {primaryMeta.name}
             </span>
-          ) : (
-            <span>Verification pending</span>
-          )}
-          {memberSince ? <span>Member since {memberSince}</span> : null}
-          {age !== null ? <span>{age} years old</span> : null}
-          <span>
-            {totalWins}/{totalMatches} career {totalMatches === 1 ? "match" : "matches"} won
-          </span>
+          ) : null}
         </div>
 
-        {profile.bio ? <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-ink">{profile.bio}</p> : null}
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-mute">
+          <MapPin size={14} className="shrink-0 text-faint" /> {place}
+          {verified ? <span className="text-faint">· Identity verified</span> : <span className="text-faint">· Verification pending</span>}
+        </p>
+
+        {profile.bio ? <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-ink-soft">{profile.bio}</p> : null}
+
+        {/* Stat strip — inline, divider-separated (not a stack of cards). */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-7 gap-y-4">
+          <Stat value={`${totalWins}–${Math.max(totalMatches - totalWins, 0)}`} label="Career W–L" />
+          <span className="hidden h-9 w-px bg-rule sm:block" aria-hidden />
+          <Stat value={winRate} label="Win rate" />
+          <span className="hidden h-9 w-px bg-rule sm:block" aria-hidden />
+          <Stat value={String(sports.length)} label={sports.length === 1 ? "Sport" : "Sports"} />
+          <span className="hidden h-9 w-px bg-rule sm:block" aria-hidden />
+          <Stat value={String(teams.length)} label={teams.length === 1 ? "Team" : "Teams"} />
+          {age !== null ? (
+            <>
+              <span className="hidden h-9 w-px bg-rule sm:block" aria-hidden />
+              <Stat value={String(age)} label="Age" />
+            </>
+          ) : null}
+          {memberSince ? (
+            <>
+              <span className="hidden h-9 w-px bg-rule sm:block" aria-hidden />
+              <Stat value={memberSince} label="Member since" />
+            </>
+          ) : null}
+        </div>
       </div>
 
-      {/* Per-sport stats */}
-      <div className="mt-8 px-1 sm:px-4">
+      {/* ===== Up next (calendar teaser) ===== */}
+      <div className="mt-10 px-1 sm:px-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="kicker text-faint">Up next</h2>
+          <Link href="/calendar" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
+            Open calendar <ArrowUpRight size={13} />
+          </Link>
+        </div>
+        {upNext.length === 0 ? (
+          <Link href="/calendar" className="lift flex items-center gap-3 rounded-2xl border border-dashed border-rule bg-surface px-5 py-4 text-sm text-mute">
+            <CalendarRange size={18} className="shrink-0 text-faint" />
+            <span>Nothing scheduled yet — matches, events, classes, and tournaments you join show up on your calendar.</span>
+          </Link>
+        ) : (
+          <div className="grid gap-2.5 sm:grid-cols-3">
+            {upNext.map((ev) => (
+              <Link key={ev.key} href={ev.href} className="lift rounded-2xl border border-rule bg-surface p-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ background: KIND_DOT[ev.kind] }} aria-hidden />
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-faint">{KIND_LABEL[ev.kind]}</span>
+                </div>
+                <div className="mt-2 truncate text-sm font-bold text-ink">{ev.title}</div>
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-mute">
+                  <CalendarClock size={12} className="shrink-0 text-faint" /> {calWhen(ev.start, ev.allDay)}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ===== Sports & standing (trophy case) ===== */}
+      <div className="mt-10 px-1 sm:px-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="kicker text-faint">Sports &amp; standing</h2>
           <Link href="/rankings" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
@@ -208,39 +221,44 @@ export default async function MyProfilePage() {
         </div>
 
         {sports.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-6 text-center text-sm text-mute">
+          <div className="rounded-2xl border border-dashed border-rule bg-surface p-8 text-center text-sm text-mute">
             No sports yet. <Link href="/account" className="font-semibold text-ink underline underline-offset-2">Add your sports</Link> to start climbing.
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sports.map((s) => {
               const meta = sportMeta(s.sport_key);
+              const color = SPORT_COLOR[s.sport_key] ?? "#71717a";
               const isPrimary = s.sport_key === profile.primary_sport;
               const winPct = s.matches_played > 0 ? Math.round((s.wins / s.matches_played) * 100) : null;
               return (
-                <div
-                  key={s.sport_key}
-                  className="rounded-2xl border bg-surface p-4"
-                  style={{ borderColor: isPrimary ? "#ff4e1b55" : "#e4e4e7" }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl" aria-hidden>{meta.emoji}</span>
-                      <span className="text-sm font-bold text-ink">{meta.name}</span>
-                      {isPrimary ? <span className="rounded-full bg-tint-brand px-2 py-0.5 text-[10px] font-semibold text-brand-deep">Primary</span> : null}
+                <div key={s.sport_key} className="overflow-hidden rounded-2xl border border-rule bg-surface">
+                  <div className="flex items-center justify-between px-4 py-3" style={{ background: `${color}14` }}>
+                    <div className="flex items-center gap-2.5">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `${color}26` }} aria-hidden>
+                        {meta.emoji}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-bold text-ink">{meta.name}</div>
+                        {isPrimary ? (
+                          <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>Primary sport</div>
+                        ) : (
+                          <div className="text-[10px] uppercase tracking-wide text-faint">{s.skill_level || "Player"}</div>
+                        )}
+                      </div>
                     </div>
-                    <Trophy size={15} className="text-faint" />
+                    <Trophy size={15} style={{ color }} />
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-xl bg-bg py-2">
+                  <div className="grid grid-cols-3 divide-x divide-rule border-t border-rule text-center">
+                    <div className="py-3">
                       <div className="font-display text-xl text-ink">{Math.round(s.points).toLocaleString("en-US")}</div>
                       <div className="text-[10px] uppercase tracking-wide text-faint">Points</div>
                     </div>
-                    <div className="rounded-xl bg-bg py-2">
+                    <div className="py-3">
                       <div className="font-display text-xl text-ink">{s.wins}/{s.matches_played}</div>
                       <div className="text-[10px] uppercase tracking-wide text-faint">Won{winPct != null ? ` · ${winPct}%` : ""}</div>
                     </div>
-                    <div className="rounded-xl bg-bg py-2">
+                    <div className="py-3">
                       <div className="font-display text-xl text-ink">{s.skill_rating != null ? s.skill_rating.toFixed(1) : "—"}</div>
                       <div className="text-[10px] uppercase tracking-wide text-faint">Skill</div>
                     </div>
@@ -252,145 +270,93 @@ export default async function MyProfilePage() {
         )}
       </div>
 
-      {/* Calendar — upcoming scheduled matches */}
-      <div className="mt-8 px-1 sm:px-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="kicker text-faint">Your calendar</h2>
-          <div className="flex items-center gap-3">
-            <Link href="/archive" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
-              Past <ArrowUpRight size={13} />
-            </Link>
-            <Link href="/play/new" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
-              Organize a match <ArrowUpRight size={13} />
+      {/* ===== Teams + Recent matches (two clean panels) ===== */}
+      <div className="mt-10 grid gap-8 px-1 sm:px-4 lg:grid-cols-2">
+        {/* Teams */}
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="kicker text-faint">Teams</h2>
+            <Link href="/teams" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
+              All teams <ArrowUpRight size={13} />
             </Link>
           </div>
+          {teams.length === 0 ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-dashed border-rule bg-surface px-5 py-4 text-sm text-mute">
+              <Users size={18} className="shrink-0 text-faint" />
+              <span>You&rsquo;re not on a team yet. <Link href="/teams" className="font-semibold text-ink underline underline-offset-2">Create or join one</Link>.</span>
+            </div>
+          ) : (
+            <div className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface">
+              {teams.map((t) => {
+                const meta = sportMeta(t.sport_key);
+                const color = SPORT_COLOR[t.sport_key] ?? "#a1a1aa";
+                return (
+                  <Link key={t.id} href={`/teams/${t.id}`} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-bg">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: `${color}1f` }} aria-hidden>{meta.emoji}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-bold text-ink">{t.name}</span>
+                        {roleByTeam.get(t.id) === "owner" ? <Crown size={12} className="shrink-0 text-pop" aria-label="Owner" /> : null}
+                      </span>
+                      <span className="block truncate text-xs text-mute">{meta.name}{t.city ? ` · ${t.city}` : ""}</span>
+                    </span>
+                    <ArrowUpRight size={15} className="shrink-0 text-faint" />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
-        {calItems.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface p-5 text-sm text-mute">
-            <CalendarDays size={18} className="shrink-0 text-faint" />
-            <span>Nothing scheduled yet. Matches, events, classes, and tournaments you join will show up here as your calendar.</span>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {calItems.map((it) => {
-              const meta = sportMeta(it.sport_key);
-              const d = new Date(it.at);
-              const k = CAL_KIND[it.kind];
-              return (
-                <Link key={it.key} href={it.href} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-3">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl leading-none" style={{ background: k.bg }}>
-                    <span className="text-[10px] font-bold uppercase" style={{ color: k.fg }}>{d.toLocaleDateString("en-US", { month: "short" })}</span>
-                    <span className="font-display text-lg text-ink">{d.getDate()}</span>
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: k.bg, color: k.fg }}>{k.label}</span>
-                      <span className="truncate text-sm font-semibold text-ink">{meta.emoji} {it.title}</span>
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-xs text-mute">
-                      <CalendarClock size={12} className="shrink-0 text-faint" />
-                      {d.toLocaleDateString("en-US", { weekday: "short" }) + " · " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                      {it.location ? ` · ${it.location}` : ""}
-                    </span>
-                  </span>
-                  <ArrowUpRight size={16} className="shrink-0 text-faint" />
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
-      {/* Teams */}
-      <div className="mt-8 px-1 sm:px-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="kicker text-faint">Teams</h2>
-          <Link href="/teams" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
-            All teams <ArrowUpRight size={13} />
-          </Link>
-        </div>
-        {teams.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface p-5 text-sm text-mute">
-            <Users size={18} className="shrink-0 text-faint" />
-            <span>You&rsquo;re not on a team yet. <Link href="/teams" className="font-semibold text-ink underline underline-offset-2">Create or join one</Link>.</span>
-          </div>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {teams.map((t) => {
-              const meta = sportMeta(t.sport_key);
-              return (
-                <Link key={t.id} href={`/teams/${t.id}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-3.5">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#f4f4f5] text-lg" aria-hidden>{meta.emoji}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-bold text-ink">{t.name}</span>
-                      {roleByTeam.get(t.id) === "owner" ? <Crown size={12} className="shrink-0 text-pop" aria-label="Owner" /> : null}
-                    </span>
-                    <span className="block truncate text-xs text-mute">{meta.name}{t.city ? ` · ${t.city}` : ""}</span>
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Recent matches */}
-      <div className="mt-8 px-1 sm:px-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="kicker text-faint">Recent matches</h2>
-          <Link href="/play" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
-            All matches <ArrowUpRight size={13} />
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-rule bg-surface px-6 py-10 text-center">
-            <Swords size={22} className="mx-auto text-faint" />
-            <p className="mx-auto mt-3 max-w-xs text-sm text-mute">No matches yet — organize one and it&rsquo;ll show up here.</p>
-            <Link
-              href="/play/new"
-              className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
-            >
-              <Plus size={15} /> Organize a match
+        {/* Recent matches */}
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="kicker text-faint">Recent matches</h2>
+            <Link href="/play" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
+              All matches <ArrowUpRight size={13} />
             </Link>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {recent.map((m) => {
-              const meta = sportMeta(m.sport_key);
-              return (
-                <Link
-                  key={m.id}
-                  href={`/play/${m.id}`}
-                  className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-3.5"
-                >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-lg" aria-hidden>{meta.emoji}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-ink">
-                      {meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}
+          {recent.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-rule bg-surface px-6 py-10 text-center">
+              <Swords size={22} className="mx-auto text-faint" />
+              <p className="mx-auto mt-3 max-w-xs text-sm text-mute">No matches yet — organize one and it&rsquo;ll show up here.</p>
+              <Link
+                href="/play/new"
+                className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+              >
+                <Plus size={15} /> Organize a match
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface">
+              {recent.map((m) => {
+                const meta = sportMeta(m.sport_key);
+                const color = SPORT_COLOR[m.sport_key] ?? "#a1a1aa";
+                return (
+                  <Link key={m.id} href={`/play/${m.id}`} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-bg">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: `${color}1f` }} aria-hidden>{meta.emoji}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-ink">{meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}</span>
+                      <span className="flex items-center gap-1.5 text-xs text-mute">
+                        <CalendarClock size={12} className="shrink-0 text-faint" /> {whenLabel(m.scheduled_at)}
+                        {m.location_text ? ` · ${m.location_text}` : ""}
+                      </span>
                     </span>
-                    <span className="flex items-center gap-1.5 text-xs text-mute">
-                      <CalendarClock size={12} className="shrink-0 text-faint" /> {whenLabel(m.scheduled_at)}
-                      {m.location_text ? ` · ${m.location_text}` : ""}
+                    <span
+                      className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize"
+                      style={{ background: m.status === "open" ? "#fff1ed" : "#f4f4f5", color: m.status === "open" ? "#d63a0f" : "#71717a" }}
+                    >
+                      {m.status}
                     </span>
-                  </span>
-                  <span
-                    className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize"
-                    style={{
-                      background: m.status === "open" ? "#fff1ed" : "#f4f4f5",
-                      color: m.status === "open" ? "#d63a0f" : "#71717a",
-                    }}
-                  >
-                    {m.status}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      <p className="mt-8 flex items-center justify-center gap-1.5 px-4 text-center text-xs text-faint">
+      <p className="mt-10 flex items-center justify-center gap-1.5 px-4 text-center text-xs text-faint">
         <Swords size={12} /> This is how other members see you. Manage details &amp; privacy in{" "}
         <Link href="/settings" className="font-semibold text-ink underline underline-offset-2">Settings</Link>.
       </p>

@@ -16,7 +16,7 @@ export default async function SportsPage() {
   if (!user) redirect("/login?next=/settings/sports");
 
   const [{ data: rows }, { data: profile }] = await Promise.all([
-    supabase.from("player_sports").select("sport_key, skill_level, skill_rating, preferred_format").eq("user_id", user.id),
+    supabase.from("player_sports").select("sport_key, skill_level, skill_rating, preferred_format, active").eq("user_id", user.id),
     supabase.from("profiles").select("primary_sport").eq("id", user.id).maybeSingle(),
   ]);
 
@@ -25,7 +25,7 @@ export default async function SportsPage() {
   for (const k of SPORT_KEYS) {
     const r = byKey.get(k);
     sports[k] = {
-      on: !!r,
+      on: !!(r && r.active),
       level: r?.skill_level ?? "casual",
       rating: r?.skill_rating != null ? String(r.skill_rating) : "",
       format: r?.preferred_format ?? "both",

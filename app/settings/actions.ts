@@ -222,6 +222,31 @@ export async function saveSports(_prev: EditState, formData: FormData): Promise<
     console.error("[settings] sports save failed", sErr.code, sErr.message);
     return { error: `Couldn't save${sErr.code ? ` (${sErr.code})` : ""}. Please try again.` };
   }
+
+  // Preserve stats when a sport is removed: instead of deleting the row (which
+  // would drop points, record, and skill), flip an `active` flag. De-selected
+  // sports are hidden from the profile but keep every stat, and re-selecting one
+  // restores it intact. player_sports guards stats + has no user DELETE policy, so
+  // the flag flips run on the admin client, scoped to this user and only the
+  // racquet sports this editor manages (never touches beach volleyball).
+  const EDITOR_SPORTS = ["tennis", "pickleball", "padel", "racquetball"];
+  const kept = picked.map((s) => s.key);
+  const keptSet = new Set(kept);
+  const toHide = EDITOR_SPORTS.filter((k) => !keptSet.has(k));
+  const admin = createAdminClient();
+  // Re-activate anything the user picked (covers a previously hidden sport).
+  const { error: onErr } = await admin.from("player_sports").update({ active: true }).eq("user_id", user.id).in("sport_key", kept);
+  if (onErr) {
+    console.error("[settings] sports activate failed", onErr.code, onErr.message);
+    return { error: `Couldn't save${onErr.code ? ` (${onErr.code})` : ""}. Please try again.` };
+  }
+  if (toHide.length) {
+    const { error: offErr } = await admin.from("player_sports").update({ active: false }).eq("user_id", user.id).in("sport_key", toHide);
+    if (offErr) {
+      console.error("[settings] sports hide failed", offErr.code, offErr.message);
+      return { error: `Couldn't save${offErr.code ? ` (${offErr.code})` : ""}. Please try again.` };
+    }
+  }
   revalidatePath("/settings");
   revalidatePath("/me");
   return { ok: true };

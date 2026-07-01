@@ -73,7 +73,7 @@ export function CoverUploader({ initialUrl, hue }: { initialUrl: string | null; 
 
   return (
     <div
-      className="relative h-44 w-full overflow-hidden rounded-3xl sm:h-56 lg:h-64"
+      className="relative h-60 w-full overflow-hidden rounded-3xl sm:h-72 lg:h-80"
       style={{ background: `linear-gradient(135deg, hsl(${hue},70%,52%) 0%, hsl(${(hue + 32) % 360},66%,38%) 100%)` }}
     >
       {url ? (

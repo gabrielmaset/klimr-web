@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { CalendarClock, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, ChevronRight, Users } from "lucide-react";
+import { CalendarClock, CalendarRange, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, ChevronRight, Users } from "lucide-react";
 import { setPresenceMode } from "@/app/account/presence-actions";
 import type { PresenceMode } from "@/app/account/presence";
 import { TopSearch } from "@/components/top-search";
@@ -146,11 +146,12 @@ function IconLink({ href, label, badge, children }: { href: string; label: strin
     <Link
       href={href}
       aria-label={badge > 0 ? `${label}, ${badge} unread` : label}
-      className="press relative grid h-9 w-9 place-items-center rounded-xl text-mute transition-colors hover:bg-black/[0.05] hover:text-ink"
+      className="press inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-black/[0.05] hover:text-ink"
     >
-      {children}
+      <span className="shrink-0">{children}</span>
+      <span>{label}</span>
       {badge > 0 ? (
-        <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface">
+        <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white">
           {badge > 9 ? "9+" : badge}
         </span>
       ) : null}
@@ -255,6 +256,9 @@ export function TopBar({
 
           <span className="mx-1 h-5 w-px bg-rule" aria-hidden />
 
+          <IconLink href="/calendar" label="Calendar" badge={0}>
+            <CalendarRange size={18} />
+          </IconLink>
           <IconLink href="/chats" label="Chats" badge={chatUnread}>
             <MessageCircle size={18} />
           </IconLink>

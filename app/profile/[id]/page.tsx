@@ -108,6 +108,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     .from("player_sports")
     .select("sport_key, points, skill_rating, matches_played, wins")
     .eq("user_id", id)
+    .eq("active", true)
     .order("points", { ascending: false });
   const sports = (psRows as PS[] | null) ?? [];
 

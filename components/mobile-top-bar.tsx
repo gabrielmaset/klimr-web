@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, CalendarRange } from "lucide-react";
 import { KlimrLogo } from "@/components/logo";
 
 export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
@@ -11,6 +11,7 @@ export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
   if (pathname.startsWith("/chats/")) return null;
 
   const active = pathname === "/notifications" || pathname.startsWith("/notifications/");
+  const calActive = pathname === "/calendar" || pathname.startsWith("/calendar/");
 
   return (
     <header className="sticky top-0 z-40 border-b border-rule bg-surface md:hidden">
@@ -27,6 +28,13 @@ export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
           >
             <Search size={17} />
           </button>
+          <Link
+            href="/calendar"
+            aria-label="Calendar"
+            className="press relative grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface/70"
+          >
+            <CalendarRange size={17} className={calActive ? "text-brand-deep" : "text-ink"} />
+          </Link>
           <Link
             href="/notifications"
             aria-label="Notifications"

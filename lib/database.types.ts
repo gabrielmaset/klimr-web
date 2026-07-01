@@ -304,6 +304,7 @@ export interface Database {
           skill_level: string;
           preferred_format: string;
           handedness: string | null;
+          active: boolean;
           updated_at: string;
         };
         Insert: {
@@ -316,6 +317,7 @@ export interface Database {
           skill_level?: string;
           preferred_format?: string;
           handedness?: string | null;
+          active?: boolean;
           updated_at?: string;
         };
         Update: {
@@ -326,6 +328,7 @@ export interface Database {
           skill_level?: string;
           preferred_format?: string;
           handedness?: string | null;
+          active?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -839,6 +842,12 @@ export interface Database {
         Row: { team_id: string; user_id: string; role: string; designation: string | null; joined_at: string };
         Insert: { team_id: string; user_id: string; role?: string; designation?: string | null; joined_at?: string };
         Update: { role?: string; designation?: string | null };
+        Relationships: [];
+      };
+      team_matches: {
+        Row: { id: string; sport_key: string; home_team_id: string; away_team_id: string; proposed_by: string; scheduled_at: string | null; location_text: string | null; status: string; home_score: number | null; away_score: number | null; winner_team_id: string | null; note: string | null; decided_at: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; sport_key: string; home_team_id: string; away_team_id: string; proposed_by: string; scheduled_at?: string | null; location_text?: string | null; status?: string; home_score?: number | null; away_score?: number | null; winner_team_id?: string | null; note?: string | null; decided_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { sport_key?: string; scheduled_at?: string | null; location_text?: string | null; status?: string; home_score?: number | null; away_score?: number | null; winner_team_id?: string | null; note?: string | null; decided_at?: string | null; updated_at?: string };
         Relationships: [];
       };
       team_invites: {
