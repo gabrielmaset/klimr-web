@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Check, CircleAlert, ImagePlus, X, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SPORTS } from "@/lib/sports";
+import { eventKindsFor } from "@/lib/event-kinds";
 import { MediaCropper, type MediaCropResult } from "@/components/media-cropper";
 import { RichTextEditor, linkifyHtml } from "@/components/rich-text-editor";
 import {
@@ -21,14 +22,6 @@ import {
 const COVER_BUCKET = "tournament-gallery";
 const field = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand";
 const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-mute";
-
-const KINDS = [
-  ["open_play", "Open play"],
-  ["ladder", "Ladder night"],
-  ["clinic", "Clinic"],
-  ["tournament", "Round-robin / tournament"],
-  ["social", "Social"],
-] as const;
 
 const WEEKDAYS: [string, string][] = [
   ["SU", "Sun"],
@@ -253,7 +246,16 @@ export function EventForm({ initial }: { initial?: Initial }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className={labelCls}>Sport</span>
-            <select className={field} value={sportKey} onChange={(e) => setSportKey(e.target.value)}>
+            <select
+              className={field}
+              value={sportKey}
+              onChange={(e) => {
+                const s = e.target.value;
+                setSportKey(s);
+                const nk = eventKindsFor(s);
+                if (!nk.some((k) => k.value === kind)) setKind(nk[0].value);
+              }}
+            >
               {SPORTS.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.emoji} {s.name}
@@ -264,12 +266,16 @@ export function EventForm({ initial }: { initial?: Initial }) {
           <label className="block">
             <span className={labelCls}>Type</span>
             <select className={field} value={kind} onChange={(e) => setKind(e.target.value)}>
-              {KINDS.map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
+              {eventKindsFor(sportKey).map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
                 </option>
               ))}
             </select>
+            {(() => {
+              const sel = eventKindsFor(sportKey).find((k) => k.value === kind);
+              return sel ? <span className="mt-1.5 block text-[11px] leading-relaxed text-faint">{sel.blurb}</span> : null;
+            })()}
           </label>
         </div>
         <div>

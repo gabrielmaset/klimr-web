@@ -6,6 +6,7 @@ import { Search, Users, ChevronRight, Loader2, Check } from "lucide-react";
 import { searchTeams } from "./actions";
 import type { TeamCard } from "./types";
 import { sportMeta } from "@/lib/sports";
+import { TeamCrest } from "@/components/team-crest";
 
 export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
   const [q, setQ] = useState("");
@@ -65,10 +66,10 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
                 href={`/teams/${t.id}`}
                 className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4"
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f4f4f5] text-lg">{meta.emoji}</span>
+                <TeamCrest name={t.name} size={44} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-bold text-ink">{t.name}</span>
+                    <span className="truncate font-athletic text-[15px] text-ink">{t.name}</span>
                     {t.joined ? (
                       <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-tint-success px-1.5 py-0.5 text-[10px] font-semibold text-success">
                         <Check size={10} /> Joined

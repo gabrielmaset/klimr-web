@@ -178,9 +178,9 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
 
   const COLS = "id, code, title, sport_key, status, summary, starts_at, location_name, location_address, location_lat, location_lng, promoted, cover_path, logo_path";
   const [{ data: pub }, { data: promo }, { data: mine }] = await Promise.all([
-    supabase.from("tournaments").select(COLS).eq("visibility", "public").in("status", ACTIVE_PUBLIC).not("location_lat", "is", null).limit(150),
-    supabase.from("tournaments").select(COLS).eq("visibility", "public").eq("promoted", true).in("status", ACTIVE_PUBLIC).order("starts_at", { ascending: true }).limit(12),
-    supabase.from("tournaments").select("id, code, title, sport_key, status, starts_at, location_name, cover_path, logo_path").eq("owner_id", user.id).order("created_at", { ascending: false }),
+    supabase.from("tournaments").select(COLS).eq("visibility", "public").is("cancelled_at", null).in("status", ACTIVE_PUBLIC).not("location_lat", "is", null).limit(150),
+    supabase.from("tournaments").select(COLS).eq("visibility", "public").eq("promoted", true).is("cancelled_at", null).in("status", ACTIVE_PUBLIC).order("starts_at", { ascending: true }).limit(12),
+    supabase.from("tournaments").select("id, code, title, sport_key, status, starts_at, location_name, cover_path, logo_path, cancelled_at").eq("owner_id", user.id).order("created_at", { ascending: false }),
   ]);
 
   const promoted = (promo as PubRow[] | null) ?? [];
@@ -235,6 +235,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           <div>
             <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Tournaments</h1>
             <p className="mt-1 text-sm text-mute">Find a bracket to join near you — or host your own.</p>
+            <Link href="/archive?tab=tournaments" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past tournaments →</Link>
           </div>
         </div>
         <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">

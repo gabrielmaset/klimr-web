@@ -15,10 +15,30 @@ type MemberRow = { team_id: string; user_id: string | null; guest_name: string |
 export async function loadSessionState(admin: Admin, sessionId: string, meId?: string | null): Promise<QSessionState | null> {
   const { data: s } = await admin
     .from("court_sessions")
-    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, center_lat, center_lng, radius_m, organizer_id")
+    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, center_lat, center_lng, radius_m, organizer_id, created_at")
     .eq("id", sessionId)
     .maybeSingle();
   if (!s) return null;
+
+  // Lazy auto-retire: a live session idle for 6+ hours turns off and clears its queue.
+  // "Activity" = the session being created, a team forming/joining, or a match starting/ending.
+  if (s.status === "live") {
+    const [{ data: lastMatchRows }, { data: lastTeamRows }] = await Promise.all([
+      admin.from("queue_matches").select("started_at, ended_at").eq("session_id", sessionId).order("started_at", { ascending: false }).limit(1),
+      admin.from("queue_teams").select("created_at").eq("session_id", sessionId).order("created_at", { ascending: false }).limit(1),
+    ]);
+    const times: number[] = [new Date(s.created_at).getTime()];
+    const lm = (lastMatchRows ?? [])[0] as { started_at: string | null; ended_at: string | null } | undefined;
+    if (lm?.started_at) times.push(new Date(lm.started_at).getTime());
+    if (lm?.ended_at) times.push(new Date(lm.ended_at).getTime());
+    const lt = (lastTeamRows ?? [])[0] as { created_at: string | null } | undefined;
+    if (lt?.created_at) times.push(new Date(lt.created_at).getTime());
+    if (Date.now() - Math.max(...times) > 6 * 60 * 60 * 1000) {
+      await admin.from("court_sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", sessionId).eq("status", "live");
+      await admin.from("queue_teams").update({ status: "done" }).eq("session_id", sessionId).neq("status", "done");
+      s.status = "ended";
+    }
+  }
 
   const [{ data: courts }, { data: teams }, { data: matches }, { data: requests }] = await Promise.all([
     admin.from("queue_courts").select("id, label, team_size, levels, sort, created_at, closed_at").eq("session_id", sessionId).order("sort").order("created_at"),

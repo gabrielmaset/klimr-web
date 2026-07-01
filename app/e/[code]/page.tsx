@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Users, Trophy, Check, Dices, FileText, Megaphone, Pin, ChevronDown } from "lucide-react";
+import { CalendarClock, Users, Trophy, Check, Dices, FileText, Megaphone, Pin, ChevronDown, RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { formatFee, isRegistrationOpen, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
@@ -9,6 +9,8 @@ import { EventHero } from "@/components/event-hero";
 import { PremiumSponsorAd } from "@/components/sponsor-ad";
 import { WeatherForecastCard } from "@/components/weather-card";
 import { EventLocationMap } from "@/components/event-location-map";
+import { reopenTournament } from "@/app/tournaments/actions";
+import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
 import { JoinWaitlistDialog } from "@/components/join-waitlist-dialog";
 import { getEventForecast } from "@/lib/weather";
 
@@ -184,7 +186,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // means "no such (visible) event" → 404. The page needs no account to view.
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, status, entry_type, summary, description, starts_at, location_name, location_address, location_zip, location_lat, location_lng, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
+    .select("id, code, title, sport_key, status, owner_id, cancelled_at, entry_type, summary, description, starts_at, location_name, location_address, location_url, location_zip, location_lat, location_lng, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
     .eq("code", code)
     .maybeSingle();
   if (!t) notFound();
@@ -226,7 +228,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
     : null;
   // Status row is up to three columns: registration · venue map · weather. The map
   // shows when we have a location; registration widens to fill any empty columns.
-  const hasMap = !!(t.location_address || t.location_name || (t.location_lat != null && t.location_lng != null));
+  const hasMap = !!(t.location_url || t.location_address || t.location_name || (t.location_lat != null && t.location_lng != null));
   const sideCount = (hasMap ? 1 : 0) + (forecast ? 1 : 0);
   const regSpan = sideCount === 2 ? "lg:col-span-1" : sideCount === 1 ? "lg:col-span-2" : "lg:col-span-3";
   // Capacity shown WITH its unit so it can't be misread against per-player fees.
@@ -438,6 +440,26 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         photos={photos}
       />
 
+      {t.cancelled_at ? (
+        <div className="mt-4 rounded-3xl border border-[#f5b8a6] bg-[#fff5f1] px-5 py-4">
+          <p className="text-sm font-bold text-[#dc2626]">This tournament has been cancelled.</p>
+          <p className="mt-0.5 text-xs text-ink-soft">Sign-ups are closed. If you registered, reach out to the organizer about any refunds.</p>
+          {user && t.owner_id === user.id ? (
+            withinRecoverWindow(t.cancelled_at) ? (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <form action={reopenTournament}>
+                  <input type="hidden" name="tournamentId" value={t.id} />
+                  <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep"><RotateCcw size={14} /> Recover tournament</button>
+                </form>
+                <span className="text-xs text-mute">Recoverable for {recoverDaysLeft(t.cancelled_at)} more day{recoverDaysLeft(t.cancelled_at) === 1 ? "" : "s"}, then archived.</span>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-mute">The 90-day recovery window has passed \u2014 this tournament is archived. Its data is kept.</p>
+            )
+          ) : null}
+        </div>
+      ) : null}
+
       {/* status row: registration · venue map · weather, side by side on desktop */}
       <div className="mt-4 grid gap-3 lg:grid-cols-3">
         <div className={regSpan}>
@@ -543,6 +565,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
             zip={t.location_zip}
             lat={t.location_lat}
             lng={t.location_lng}
+            href={t.location_url ?? undefined}
             className="lg:col-span-1"
           />
         ) : null}

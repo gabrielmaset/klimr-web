@@ -11,6 +11,18 @@ export type LevelKey = (typeof LEVELS)[number]["key"];
 // Team sizes offered in setup (3 = 3v3, 4 = 4v4, ...). 1 = singles / king-of-court 1s.
 export const FORMATIONS = [1, 2, 3, 4, 5, 6] as const;
 
+/** Valid on-court formations per sport (there's no 1v1 beach volleyball, padel is doubles-only, etc.). */
+export const SPORT_FORMATIONS: Record<string, number[]> = {
+  tennis: [1, 2],
+  pickleball: [1, 2],
+  padel: [2],
+  racquetball: [1, 2, 3],
+  beach_volleyball: [2, 3, 4, 6],
+};
+export function formationsFor(sportKey: string): number[] {
+  return SPORT_FORMATIONS[sportKey] ?? [1, 2, 3, 4];
+}
+
 export function levelLabel(k: string): string {
   return LEVELS.find((l) => l.key === k)?.label ?? k;
 }

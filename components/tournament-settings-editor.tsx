@@ -28,6 +28,7 @@ export type SettingsInit = {
   timezone: string | null;
   location_name: string | null;
   location_address: string | null;
+  location_url: string | null;
   location_zip: string | null;
   weather_enabled: boolean;
   capacity: number | null;
@@ -168,6 +169,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
   const [endsAt, setEndsAt] = useState(isoToLocalInput(init.ends_at));
   const [locName, setLocName] = useState(init.location_name ?? "");
   const [locAddr, setLocAddr] = useState(init.location_address ?? "");
+  const [locUrl, setLocUrl] = useState(init.location_url ?? "");
   const [locZip, setLocZip] = useState(init.location_zip ?? "");
   const [locResolved, setLocResolved] = useState<{ city: string; state: string } | null>(null);
   const [, startZip] = useTransition();
@@ -294,6 +296,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
             ends_at: localInputToIso(endsAt),
             location_name: locName.trim() || null,
             location_address: locAddr.trim() || null,
+            location_url: locUrl.trim() || null,
             zip: locZip.trim() || undefined,
             weather_enabled: weather,
           })
@@ -318,6 +321,11 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
             <label className={labelCls}>Address</label>
             <input className={inputCls} value={locAddr} onChange={(e) => setLocAddr(e.target.value)} placeholder="Street, city, state" />
           </div>
+        </div>
+        <div>
+          <label className={labelCls}>Google Maps link <span className="font-normal normal-case text-faint">(optional)</span></label>
+          <input className={inputCls} value={locUrl} onChange={(e) => setLocUrl(e.target.value)} placeholder="https://maps.app.goo.gl/…" inputMode="url" />
+          <p className={`${hintCls} mt-1`}>Paste a Google Maps share link to control exactly where the map on your public page points. Leave blank to use the venue name and address.</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-[10rem_1fr]">
           <div>

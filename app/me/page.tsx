@@ -13,6 +13,15 @@ export const metadata: Metadata = { title: "My profile" };
 type PS = { sport_key: string; points: number; skill_rating: number | null; matches_played: number; wins: number };
 type MatchRow = { id: string; sport_key: string; format: string; scheduled_at: string | null; status: string; location_text: string | null };
 
+type CalItem = { key: string; kind: "match" | "event" | "class" | "tournament"; title: string; at: string; location: string | null; href: string; sport_key: string };
+
+const CAL_KIND: Record<CalItem["kind"], { label: string; bg: string; fg: string }> = {
+  match: { label: "Match", bg: "var(--color-tint-brand)", fg: "var(--color-brand-deep)" },
+  event: { label: "Event", bg: "#eaf2ff", fg: "#1d4ed8" },
+  class: { label: "Class", bg: "#f3e9ff", fg: "#7c3aed" },
+  tournament: { label: "Tournament", bg: "#fef1cf", fg: "#b45309" },
+};
+
 function whenLabel(iso: string | null) {
   if (!iso) return "Open / anytime";
   const d = new Date(iso);
@@ -84,13 +93,53 @@ export default async function MyProfilePage() {
     upcoming = (u as MatchRow[] | null) ?? [];
   }
 
+  // The Klimr calendar aggregates every upcoming commitment: matches, events you're
+  // going to, classes you're enrolled in, and tournaments you're registered for.
+  const calNow = new Date().toISOString();
+  const cal: CalItem[] = [];
+  for (const m of upcoming) {
+    if (m.scheduled_at) cal.push({ key: `m-${m.id}`, kind: "match", title: `${sportMeta(m.sport_key).name} · ${m.format === "doubles" ? "Doubles" : "Singles"}`, at: m.scheduled_at, location: m.location_text, href: `/play/${m.id}`, sport_key: m.sport_key });
+  }
+  {
+    const { data: going } = await supabase.from("event_rsvps").select("event_id").eq("user_id", user.id).eq("status", "going");
+    const ids = [...new Set((going ?? []).map((r) => r.event_id))];
+    if (ids.length) {
+      const { data: evs } = await supabase.from("events").select("id, title, sport_key, starts_at, status, location_text").in("id", ids).gte("starts_at", calNow).neq("status", "cancelled").order("starts_at").limit(12);
+      for (const e of evs ?? []) cal.push({ key: `e-${e.id}`, kind: "event", title: e.title, at: e.starts_at, location: e.location_text, href: `/events/${e.id}`, sport_key: e.sport_key });
+    }
+  }
+  {
+    const { data: enr } = await supabase.from("class_enrollments").select("session_id, class_id, status").eq("user_id", user.id).neq("status", "cancelled");
+    const sessIds = [...new Set((enr ?? []).map((r) => r.session_id))];
+    if (sessIds.length) {
+      const { data: sess } = await supabase.from("class_sessions").select("id, class_id, starts_at, status").in("id", sessIds).gte("starts_at", calNow).neq("status", "cancelled").order("starts_at").limit(12);
+      const classIds = [...new Set((sess ?? []).map((s) => s.class_id))];
+      const { data: cls } = classIds.length ? await supabase.from("classes").select("id, title, sport_key").in("id", classIds) : { data: [] as { id: string; title: string; sport_key: string }[] };
+      const clsById = new Map((cls ?? []).map((c) => [c.id, c]));
+      for (const s of sess ?? []) {
+        const c = clsById.get(s.class_id);
+        cal.push({ key: `c-${s.id}`, kind: "class", title: c?.title ?? "Class", at: s.starts_at, location: null, href: `/classes/${s.class_id}`, sport_key: c?.sport_key ?? "" });
+      }
+    }
+  }
+  {
+    const { data: reg } = await supabase.from("tournament_registrations").select("tournament_id, status").eq("registrant_id", user.id).not("status", "in", "(withdrawn,declined)");
+    const ids = [...new Set((reg ?? []).map((r) => r.tournament_id))];
+    if (ids.length) {
+      const { data: trs } = await supabase.from("tournaments").select("id, code, title, sport_key, starts_at, status, location_name").in("id", ids).gte("starts_at", calNow).neq("status", "cancelled").order("starts_at").limit(12);
+      for (const t of trs ?? []) if (t.starts_at) cal.push({ key: `t-${t.id}`, kind: "tournament", title: t.title, at: t.starts_at, location: t.location_name, href: `/e/${t.code}`, sport_key: t.sport_key });
+    }
+  }
+  cal.sort((a, b) => a.at.localeCompare(b.at));
+  const calItems = cal.slice(0, 10);
+
   // Teams the player is on.
   const { data: tm } = await supabase.from("team_members").select("team_id, role").eq("user_id", user.id);
   const teamIds = [...new Set((tm ?? []).map((t) => t.team_id))];
   const roleByTeam = new Map((tm ?? []).map((t) => [t.team_id, t.role]));
   let teams: { id: string; name: string; sport_key: string; city: string | null }[] = [];
   if (teamIds.length) {
-    const { data: tt } = await supabase.from("teams").select("id, name, sport_key, city").in("id", teamIds);
+    const { data: tt } = await supabase.from("teams").select("id, name, sport_key, city").is("deleted_at", null).in("id", teamIds);
     teams = (tt as { id: string; name: string; sport_key: string; city: string | null }[] | null) ?? [];
   }
 
@@ -207,34 +256,41 @@ export default async function MyProfilePage() {
       <div className="mt-8 px-1 sm:px-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="kicker text-faint">Your calendar</h2>
-          <Link href="/play/new" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
-            Organize a match <ArrowUpRight size={13} />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/archive" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
+              Past <ArrowUpRight size={13} />
+            </Link>
+            <Link href="/play/new" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
+              Organize a match <ArrowUpRight size={13} />
+            </Link>
+          </div>
         </div>
-        {upcoming.length === 0 ? (
+        {calItems.length === 0 ? (
           <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface p-5 text-sm text-mute">
             <CalendarDays size={18} className="shrink-0 text-faint" />
-            <span>No scheduled matches yet. Matches with a date &amp; time will appear here as your upcoming calendar.</span>
+            <span>Nothing scheduled yet. Matches, events, classes, and tournaments you join will show up here as your calendar.</span>
           </div>
         ) : (
           <div className="space-y-2">
-            {upcoming.map((m) => {
-              const meta = sportMeta(m.sport_key);
-              const d = m.scheduled_at ? new Date(m.scheduled_at) : null;
+            {calItems.map((it) => {
+              const meta = sportMeta(it.sport_key);
+              const d = new Date(it.at);
+              const k = CAL_KIND[it.kind];
               return (
-                <Link key={m.id} href={`/play/${m.id}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-3">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-tint-brand leading-none">
-                    <span className="text-[10px] font-bold uppercase text-brand-deep">{d ? d.toLocaleDateString("en-US", { month: "short" }) : "—"}</span>
-                    <span className="font-display text-lg text-ink">{d ? d.getDate() : "—"}</span>
+                <Link key={it.key} href={it.href} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-3">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl leading-none" style={{ background: k.bg }}>
+                    <span className="text-[10px] font-bold uppercase" style={{ color: k.fg }}>{d.toLocaleDateString("en-US", { month: "short" })}</span>
+                    <span className="font-display text-lg text-ink">{d.getDate()}</span>
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-ink">
-                      {meta.emoji} {meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}
+                    <span className="flex items-center gap-2">
+                      <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: k.bg, color: k.fg }}>{k.label}</span>
+                      <span className="truncate text-sm font-semibold text-ink">{meta.emoji} {it.title}</span>
                     </span>
-                    <span className="flex items-center gap-1.5 text-xs text-mute">
+                    <span className="mt-0.5 flex items-center gap-1.5 text-xs text-mute">
                       <CalendarClock size={12} className="shrink-0 text-faint" />
-                      {d ? d.toLocaleDateString("en-US", { weekday: "short" }) + " · " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "Anytime"}
-                      {m.location_text ? ` · ${m.location_text}` : ""}
+                      {d.toLocaleDateString("en-US", { weekday: "short" }) + " · " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      {it.location ? ` · ${it.location}` : ""}
                     </span>
                   </span>
                   <ArrowUpRight size={16} className="shrink-0 text-faint" />

@@ -8,6 +8,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS, type SportKey } from "@/lib/sports";
 import { sanitizeRichText } from "@/lib/rich-text";
+import { ALL_EVENT_KIND_VALUES } from "@/lib/event-kinds";
+import { withinRecoverWindow } from "@/lib/recover";
+import { rsvpCycleStartISO } from "@/lib/event-schedule";
 
 export async function rsvp(formData: FormData) {
   const id = String(formData.get("eventId"));
@@ -19,9 +22,11 @@ export async function rsvp(formData: FormData) {
   if (!user) redirect(`/login?next=/events/${id}`);
   if (!(await accountActive(supabase, user.id))) return;
 
-  const { data: ev } = await supabase.from("events").select("id, status, starts_at, capacity, created_by, join_policy").eq("id", id).maybeSingle();
+  const { data: ev } = await supabase.from("events").select("id, status, starts_at, capacity, created_by, join_policy, recurrence, recurrence_days").eq("id", id).maybeSingle();
   if (!ev || ev.status !== "active") return;
-  if (new Date(ev.starts_at).getTime() < Date.now()) return; // event already started
+  // Block only one-time events that have already started. Recurring events keep accepting
+  // RSVPs for the next occurrence even though their original starts_at is in the past.
+  if ((ev.recurrence ?? "none") === "none" && new Date(ev.starts_at).getTime() < Date.now()) return;
 
   // Owner/admins are always confirmed; otherwise approval-required events hold the join as pending.
   let isAdmin = ev.created_by === user.id;
@@ -32,11 +37,16 @@ export async function rsvp(formData: FormData) {
   const status = ev.join_policy === "approval" && !isAdmin ? "pending" : "going";
 
   if (status === "going" && ev.capacity != null) {
-    const { count } = await supabase.from("event_rsvps").select("*", { count: "exact", head: true }).eq("event_id", id).eq("status", "going");
+    // Only count RSVPs from the current cycle toward capacity (stale ones don't fill seats).
+    const cycleStartISO = rsvpCycleStartISO(ev.starts_at, ev.recurrence, ev.recurrence_days ?? []);
+    let q = supabase.from("event_rsvps").select("*", { count: "exact", head: true }).eq("event_id", id).eq("status", "going");
+    if (cycleStartISO) q = q.gt("created_at", cycleStartISO);
+    const { count } = await q;
     if ((count ?? 0) >= ev.capacity) return; // full
   }
 
-  await supabase.from("event_rsvps").upsert({ event_id: id, user_id: user.id, status }, { onConflict: "event_id,user_id" });
+  // Refresh created_at so a re-RSVP after a reset counts for the new cycle.
+  await supabase.from("event_rsvps").upsert({ event_id: id, user_id: user.id, status, created_at: new Date().toISOString() }, { onConflict: "event_id,user_id" });
   revalidatePath(`/events/${id}`);
   revalidatePath("/events");
 }
@@ -161,8 +171,6 @@ export async function removeEventThumb(eventId: string) {
 
 /* ---------- event authoring (create / edit / cancel — host owns the row) ---------- */
 
-const EVENT_KINDS = ["open_play", "ladder", "clinic", "tournament", "social"];
-
 type EventInput = {
   title: string;
   sport_key: string;
@@ -202,7 +210,7 @@ function normalizeEvent(input: EventInput) {
   const title = (input.title ?? "").trim();
   if (!title) return { error: "Add a title for your event." as const };
   if (!SPORT_KEYS.includes(input.sport_key as SportKey)) return { error: "Pick a sport." as const };
-  const kind = EVENT_KINDS.includes(input.kind) ? input.kind : "open_play";
+  const kind = ALL_EVENT_KIND_VALUES.includes(input.kind) ? input.kind : "open_play";
   const starts = new Date(input.starts_at);
   if (isNaN(starts.getTime())) return { error: "Add a valid date and time." as const };
   if (starts.getTime() < Date.now() - 60_000) return { error: "Pick a date and time in the future." as const };
@@ -284,6 +292,44 @@ export async function cancelEvent(formData: FormData) {
   const { data: ev } = await supabase.from("events").select("created_by").eq("id", eventId).maybeSingle();
   if (!ev || ev.created_by !== user.id) return;
   await supabase.from("events").update({ status: "cancelled" }).eq("id", eventId);
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath("/events");
+}
+
+// How long a cancelled event/tournament/team stays recoverable before it's archived read-only.
+
+/** Soft-cancel: keeps all data, turns off any live queue, recoverable for 90 days. */
+export async function cancelEventById(eventId: string): Promise<{ error?: string } | void> {
+  if (!eventId) return { error: "Missing event." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first." };
+  const { data: ev } = await supabase.from("events").select("created_by").eq("id", eventId).maybeSingle();
+  if (!ev) return { error: "Event not found." };
+  if (ev.created_by !== user.id) return { error: "Only the organizer can cancel this event." };
+  await supabase.from("events").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", eventId);
+  // Turn off any live queue for this event — the session and its history are preserved.
+  const admin = createAdminClient();
+  await admin.from("court_sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("event_id", eventId).eq("status", "live");
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath("/events");
+}
+
+/** Recover a cancelled event within the 90-day window. Void form action. */
+export async function reopenEvent(formData: FormData): Promise<void> {
+  const eventId = String(formData.get("eventId") ?? "");
+  if (!eventId) return;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: ev } = await supabase.from("events").select("created_by, cancelled_at, status").eq("id", eventId).maybeSingle();
+  if (!ev || ev.created_by !== user.id || ev.status !== "cancelled") return;
+  if (!withinRecoverWindow(ev.cancelled_at)) return; // archived — past the recovery window
+  await supabase.from("events").update({ status: "active", cancelled_at: null }).eq("id", eventId);
   revalidatePath(`/events/${eventId}`);
   revalidatePath("/events");
 }

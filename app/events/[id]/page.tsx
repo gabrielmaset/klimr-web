@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign, Pencil, Ban, Repeat, ArrowRight, MessageCircle, UserCheck, X, Crown, Shield, Wrench, ExternalLink } from "lucide-react";
+import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign, Pencil, Ban, Repeat, ArrowRight, MessageCircle, UserCheck, X, Crown, Shield, Wrench, ExternalLink, RotateCcw } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { EventQueueAdmin } from "@/components/event-queue-admin";
@@ -11,14 +11,18 @@ import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { sanitizeRichText, looksLikeHtml } from "@/lib/rich-text";
 import { Avatar } from "@/components/avatar";
-import { rsvp, cancelRsvp, cancelEvent, approveMember, denyMember } from "../actions";
+import { rsvp, cancelRsvp, approveMember, denyMember } from "../actions";
+import { rsvpCycleStartMs } from "@/lib/event-schedule";
+import { eventKindLabel } from "@/lib/event-kinds";
+import { DangerConfirm } from "@/components/danger-confirm";
+import { cancelEventById, reopenEvent } from "../actions";
+import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
 
 export const metadata: Metadata = { title: "Event" };
 
 type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null };
 
 const TZ = "America/Los_Angeles";
-const KIND_LABEL: Record<string, string> = { open_play: "Open play", ladder: "Ladder night", clinic: "Clinic", tournament: "Tournament", social: "Social" };
 const DAY_LABEL: Record<string, string> = { SU: "Sun", MO: "Mon", TU: "Tue", WE: "Wed", TH: "Thu", FR: "Fri", SA: "Sat" };
 
 function isPast(iso: string) {
@@ -59,7 +63,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const { data: e } = await supabase
     .from("events")
-    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled")
+    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at")
     .eq("id", id)
     .maybeSingle();
   if (!e) notFound();
@@ -69,7 +73,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const coverUrl = e.cover_path ? supabase.storage.from("tournament-gallery").getPublicUrl(e.cover_path).data.publicUrl : null;
 
   const [{ data: rsvps }, { data: managerRows }, court] = await Promise.all([
-    supabase.from("event_rsvps").select("user_id, status").eq("event_id", id),
+    supabase.from("event_rsvps").select("user_id, status, created_at").eq("event_id", id),
     supabase.from("event_managers").select("user_id").eq("event_id", id),
     e.court_id ? supabase.from("courts").select("id, name, neighborhood, city").eq("id", e.court_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
@@ -78,10 +82,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const isAdmin = isOwner || adminIds.has(user.id);
 
   const allRsvps = rsvps ?? [];
-  const goingIds = allRsvps.filter((r) => r.status === "going").map((r) => r.user_id);
+  const cycleStartMs = rsvpCycleStartMs(e.starts_at, e.recurrence, e.recurrence_days ?? []);
+  const inCycle = (createdAt: string) => cycleStartMs == null || new Date(createdAt).getTime() > cycleStartMs;
+  const goingIds = allRsvps.filter((r) => r.status === "going" && inCycle(r.created_at)).map((r) => r.user_id);
   const pendingIds = allRsvps.filter((r) => r.status === "pending").map((r) => r.user_id);
   const myRsvp = allRsvps.find((r) => r.user_id === user.id);
-  const myStatus = myRsvp?.status ?? null; // 'going' | 'pending' | null
+  // A stale "going" from a past occurrence reads as not-going, so the user can re-RSVP for the next one.
+  const myStatus = myRsvp ? (myRsvp.status === "going" && !inCycle(myRsvp.created_at) ? null : myRsvp.status) : null; // 'going' | 'pending' | null
   const count = goingIds.length;
 
   const wanted = [...new Set([...goingIds.slice(0, 60), ...pendingIds.slice(0, 30)])];
@@ -152,7 +159,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       <EventHeroCover eventId={e.id} initialUrl={coverUrl} canEdit={isAdmin} emoji={meta.emoji}>
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
-            {meta.emoji} {meta.name} · {KIND_LABEL[e.kind] ?? "Event"}
+            {meta.emoji} {meta.name} · {eventKindLabel(e.kind)}
           </span>
           {recurText ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
@@ -190,7 +197,24 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
       {/* status notices */}
       {cancelled ? (
-        <div className="mt-5 rounded-2xl border border-brand/30 bg-tint-brand px-4 py-3 text-sm font-semibold text-brand-deep">This event was cancelled.</div>
+        <div className="mt-5 rounded-2xl border border-[#f5b8a6] bg-[#fff5f1] px-4 py-3.5">
+          <p className="text-sm font-semibold text-brand-deep">This event was cancelled.</p>
+          {isOwner ? (
+            withinRecoverWindow(e.cancelled_at) ? (
+              <div className="mt-2.5 flex flex-wrap items-center gap-3">
+                <form action={reopenEvent}>
+                  <input type="hidden" name="eventId" value={e.id} />
+                  <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
+                    <RotateCcw size={14} /> Recover event
+                  </button>
+                </form>
+                <span className="text-xs text-mute">Recoverable for {recoverDaysLeft(e.cancelled_at)} more day{recoverDaysLeft(e.cancelled_at) === 1 ? "" : "s"}, then archived.</span>
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-mute">The 90-day recovery window has passed — this event is archived. Its data is kept.</p>
+            )
+          ) : null}
+        </div>
       ) : past ? (
         <div className="mt-5 rounded-2xl border border-rule bg-[#f4f4f5] px-4 py-3 text-sm font-semibold text-mute">This event has ended.</div>
       ) : null}
@@ -228,12 +252,23 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </a>
         ) : null}
 
+        {myStatus === "going" || myStatus === "pending" ? (
+          <Link href="/me" className="press inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-tint-success px-4 py-2.5 text-sm font-semibold text-success">
+            <Check size={15} /> On your Klimr calendar
+          </Link>
+        ) : null}
+
         {!cancelled ? (
           <a href={gcal} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
-            <CalendarPlus size={15} /> Add to calendar
+            <CalendarPlus size={15} /> Google Calendar
           </a>
         ) : null}
       </div>
+      {canRsvp && !cancelled && myStatus !== "going" && myStatus !== "pending" ? (
+        <p className="mt-2 flex items-center gap-1.5 px-1 text-xs text-mute">
+          <CalendarPlus size={12} className="shrink-0 text-faint" /> Joining adds this to your Klimr calendar.
+        </p>
+      ) : null}
 
       {/* member-facing LIVE entry */}
       {queueLiveForMembers && myStatus === "going" && !isAdmin && session ? (
@@ -252,7 +287,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
       {/* facts */}
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile icon={<Clock size={14} />} label="When" tint="linear-gradient(135deg,#fff1ed,#ffffff)">
+        <Tile icon={<Clock size={14} />} label={e.recurrence && e.recurrence !== "none" ? "Next event" : "When"} tint="linear-gradient(135deg,#fff1ed,#ffffff)">
           {fmt(e.starts_at, { weekday: "long", month: "long", day: "numeric" })}
           <span className="mt-0.5 block text-xs font-normal text-mute">
             {fmt(e.starts_at, { hour: "numeric", minute: "2-digit" })}
@@ -310,12 +345,16 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <Pencil size={14} /> Edit event details
             </Link>
             {isOwner ? (
-              <form action={cancelEvent}>
-                <input type="hidden" name="eventId" value={e.id} />
-                <button className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-brand hover:text-brand-deep">
-                  <Ban size={14} /> Cancel event
-                </button>
-              </form>
+              <DangerConfirm
+                word="CANCEL"
+                triggerLabel="Cancel event"
+                triggerIcon={<Ban size={14} />}
+                heading="Cancel this event?"
+                description="RSVPs stop and it drops off listings. Nothing is deleted \u2014 your photos, RSVPs, and queue history are kept, and you can recover it for 90 days."
+                consequences={["Any live queue for this event is turned off", "Guests can no longer RSVP or join", "Recoverable for 90 days, then archived read-only"]}
+                confirmLabel="Cancel event"
+                onConfirm={cancelEventById.bind(null, e.id)}
+              />
             ) : null}
           </div>
 

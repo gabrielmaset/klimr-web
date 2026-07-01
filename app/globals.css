@@ -36,6 +36,7 @@
   --font-kicker: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-athletic: "Oswald Variable", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
 }
 
 html {
@@ -121,6 +122,14 @@ select:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+/* Condensed athletic voice — jersey lettering, scoreboard labels, squad numbers. */
+.font-athletic {
+  font-family: var(--font-athletic);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Logotype — the wordmark's own face (Fraunces, display optical size).
    Inter is the UI + headline voice; the logo carries more ink so it holds at
    header and favicon-adjacent sizes. */
@@ -180,19 +189,21 @@ select:focus-visible {
 /* right stub — every match except the champion column */
 .bkt-col:not(:last-child) .bkt-cell::after {
   content: ""; position: absolute; left: 100%; top: 50%;
-  width: 1.125rem; height: 2px; background: var(--color-rule);
+  width: 1.125rem; height: 2px; background: #d4d4d8;
 }
-/* vertical pair connector — drawn on the odd cell down to its even sibling
-   (skipped for a lone cell, e.g. a single Final match) */
-.bkt-col:not(:last-child) .bkt-cell:nth-child(odd):not(:last-child)::before {
+/* vertical pair connector — drawn on the first cell of each pair down to its
+   sibling. Uses nth-of-type (NOT nth-child) so the column-label <p>, which is
+   the first child, doesn't shift the count and misalign every connector.
+   Skipped for a lone last cell (e.g. a single Final match). */
+.bkt-col:not(:last-child) .bkt-cell:nth-of-type(odd):not(:last-child)::before {
   content: ""; position: absolute; left: calc(100% + 1.125rem); top: 50%;
-  width: 2px; height: 100%; background: var(--color-rule);
+  width: 2px; height: 100%; background: #d4d4d8;
 }
 /* left stub — leads into every match from round 2 onward (on the card so it
    doesn't collide with the cell's vertical connector) */
 .bkt-col:not(:first-child) .bkt-card::before {
   content: ""; position: absolute; right: 100%; top: 50%;
-  width: 1.125rem; height: 2px; background: var(--color-rule);
+  width: 1.125rem; height: 2px; background: #d4d4d8;
 }
 @media (prefers-reduced-motion: no-preference) {
   .bkt-card { transition: border-color 0.15s ease, box-shadow 0.15s ease; }

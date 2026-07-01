@@ -103,6 +103,7 @@ export default async function EventsPage() {
         <div>
           <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Events</h1>
           <p className="mt-1 text-sm text-mute">Open play, ladder nights, clinics, and tournaments near you. Times shown in PT.</p>
+          <Link href="/archive?tab=events" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past events \u2192</Link>
         </div>
         <Link href="/events/new" className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
           <Plus size={16} /> Host an event

@@ -132,8 +132,8 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
                   name={p?.display_name ?? "Player"}
                   avatarUrl={avatarUrl(p)}
                   hue={p?.avatar_hue ?? 200}
-                  role={m.role}
-                  designation={m.designation}
+                  role={team.category === "pro" ? m.role : m.role === "owner" ? "owner" : "member"}
+                  designation={team.category === "pro" ? m.designation : null}
                   city={p?.city ?? null}
                   skillLevel={s?.skill ?? null}
                   points={s ? s.points : null}

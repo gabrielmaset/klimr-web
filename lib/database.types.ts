@@ -824,9 +824,9 @@ export interface Database {
         Relationships: [];
       };
       teams: {
-        Row: { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null; zip: string | null; state: string | null; max_size: number | null; category: string; created_by: string; created_at: string };
-        Insert: { id?: string; name: string; sport_key: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by: string; created_at?: string };
-        Update: { name?: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by?: string };
+        Row: { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null; zip: string | null; state: string | null; max_size: number | null; category: string; created_by: string; created_at: string; deleted_at: string | null };
+        Insert: { id?: string; name: string; sport_key: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by: string; created_at?: string; deleted_at?: string | null };
+        Update: { name?: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by?: string; deleted_at?: string | null };
         Relationships: [];
       };
       login_events: {
@@ -855,6 +855,7 @@ export interface Database {
           title: string;
           sport_key: string;
           status: string;
+          cancelled_at: string | null;
           entry_type: string;
           visibility: string;
           summary: string | null;
@@ -868,6 +869,7 @@ export interface Database {
           location_lat: number | null;
           location_lng: number | null;
           location_place_id: string | null;
+          location_url: string | null;
           registration_opens_at: string | null;
           registration_deadline: string | null;
           capacity: number | null;
@@ -892,6 +894,7 @@ export interface Database {
           title: string;
           sport_key: string;
           status?: string;
+          cancelled_at?: string | null;
           entry_type?: string;
           visibility?: string;
           summary?: string | null;
@@ -905,6 +908,7 @@ export interface Database {
           location_lat?: number | null;
           location_lng?: number | null;
           location_place_id?: string | null;
+          location_url?: string | null;
           registration_opens_at?: string | null;
           registration_deadline?: string | null;
           capacity?: number | null;
@@ -926,6 +930,7 @@ export interface Database {
           title?: string;
           sport_key?: string;
           status?: string;
+          cancelled_at?: string | null;
           entry_type?: string;
           visibility?: string;
           summary?: string | null;
@@ -939,6 +944,7 @@ export interface Database {
           location_lat?: number | null;
           location_lng?: number | null;
           location_place_id?: string | null;
+          location_url?: string | null;
           registration_opens_at?: string | null;
           registration_deadline?: string | null;
           capacity?: number | null;
@@ -1190,6 +1196,7 @@ export interface Database {
           capacity: number | null;
           cost_text: string | null;
           status: string;
+          cancelled_at: string | null;
           created_by: string | null;
           created_at: string;
           cover_path: string | null;
@@ -1214,6 +1221,7 @@ export interface Database {
           capacity?: number | null;
           cost_text?: string | null;
           status?: string;
+          cancelled_at?: string | null;
           created_by?: string | null;
           created_at?: string;
           cover_path?: string | null;
@@ -1237,6 +1245,7 @@ export interface Database {
           capacity?: number | null;
           cost_text?: string | null;
           status?: string;
+          cancelled_at?: string | null;
           cover_path?: string | null;
           thumb_path?: string | null;
           location_url?: string | null;

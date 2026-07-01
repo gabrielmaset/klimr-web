@@ -82,6 +82,9 @@ export async function createSession(formData: FormData): Promise<void> {
   const requireApproval = formData.get("requireApproval") != null;
   const eventOnly = formData.get("eventOnly") != null && !!eventId;
   const allowFullTeams = formData.get("allowFullTeams") != null;
+  const centerLat = parseFloat(String(formData.get("centerLat") || ""));
+  const centerLng = parseFloat(String(formData.get("centerLng") || ""));
+  const hasCenter = requireLocation && Number.isFinite(centerLat) && Number.isFinite(centerLng);
 
   // unique code with a few retries
   let sessionId = "";
@@ -89,7 +92,7 @@ export async function createSession(formData: FormData): Promise<void> {
     const code = genCode();
     const { data, error } = await admin
       .from("court_sessions")
-      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams })
+      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null })
       .select("id")
       .single();
     if (!error && data) sessionId = data.id;

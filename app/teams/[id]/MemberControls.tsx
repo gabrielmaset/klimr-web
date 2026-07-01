@@ -79,19 +79,21 @@ export function MemberControls({
             </label>
           ) : null}
 
-          <label className="block">
-            <span className="kicker text-faint">Designation</span>
-            <select
-              defaultValue={designation ?? ""}
-              disabled={pending}
-              onChange={(e) => run(setMemberDesignation, { designation: e.target.value })}
-              className={`mt-1 w-full ${sel}`}
-            >
-              {DESIGS.map((d) => (
-                <option key={d.v} value={d.v}>{d.label}</option>
-              ))}
-            </select>
-          </label>
+          {isPro ? (
+            <label className="block">
+              <span className="kicker text-faint">Designation</span>
+              <select
+                defaultValue={designation ?? ""}
+                disabled={pending}
+                onChange={(e) => run(setMemberDesignation, { designation: e.target.value })}
+                className={`mt-1 w-full ${sel}`}
+              >
+                {DESIGS.map((d) => (
+                  <option key={d.v} value={d.v}>{d.label}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <div className="mt-3 space-y-1.5 border-t border-rule pt-3">
             {viewerIsOwner ? (

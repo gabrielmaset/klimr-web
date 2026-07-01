@@ -33,21 +33,32 @@ function findTeam(state: QSessionState, teamId: string): { team: QTeam; court: Q
   return null;
 }
 
+function hueFromName(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return h;
+}
+
 function MemberList({ team, canEdit, onRemove }: { team: QTeam; canEdit: boolean; onRemove: (m: string) => void }) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      {team.members.map((m, i) => (
-        <span key={i} className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-xs font-semibold ring-1 ${m.you ? "bg-tint-brand text-brand-deep ring-brand/30" : "bg-white text-ink ring-rule"}`}>
-          <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white ${m.you ? "bg-brand" : "bg-ink"}`}>{(m.name.trim()[0] ?? "?").toUpperCase()}</span>
-          {m.name}
-          {m.isGuest ? <span className="text-[10px] font-medium text-faint">guest</span> : null}
-          {canEdit ? (
-            <button type="button" onClick={() => onRemove(m.name)} className="ml-0.5 text-faint hover:text-brand-deep" aria-label={`Remove ${m.name}`}>
-              <X size={11} />
-            </button>
-          ) : null}
-        </span>
-      ))}
+      {team.members.map((m, i) => {
+        const hue = hueFromName(m.name);
+        return (
+          <span key={i} className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-xs font-semibold ring-1 ${m.you ? "bg-tint-brand text-brand-deep ring-brand/30" : "bg-white text-ink ring-rule"}`}>
+            <span className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold" style={m.you ? { background: "var(--color-brand)", color: "#fff" } : { background: `hsl(${hue} 58% 90%)`, color: `hsl(${hue} 50% 30%)` }}>
+              {(m.name.trim()[0] ?? "?").toUpperCase()}
+            </span>
+            {m.name}
+            {m.isGuest ? <span className="text-[10px] font-medium text-faint">guest</span> : null}
+            {canEdit ? (
+              <button type="button" onClick={() => onRemove(m.name)} className="ml-0.5 text-faint hover:text-brand-deep" aria-label={`Remove ${m.name}`}>
+                <X size={11} />
+              </button>
+            ) : null}
+          </span>
+        );
+      })}
       {Array.from({ length: Math.max(0, team.size - team.count) }).map((_, i) => (
         <span key={`e${i}`} className="inline-flex items-center rounded-full border border-dashed border-rule px-2.5 py-1 text-[11px] font-medium text-faint">
           open
@@ -121,16 +132,21 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
             </p>
           </div>
           <span
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold"
+            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-bold shadow-sm"
             style={
               session.status === "live"
-                ? { background: "#ecfdf3", color: "#15803d" }
+                ? { background: "#16a34a", color: "#fff" }
                 : session.status === "ended"
                   ? { background: "#f4f4f5", color: "#52525b" }
                   : { background: "#fff7e6", color: "#b45309" }
             }
           >
-            {session.status === "live" ? <Radio size={12} /> : null}
+            {session.status === "live" ? (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+              </span>
+            ) : null}
             {session.status === "live" ? "Live" : session.status === "ended" ? "Ended" : "Setup"}
           </span>
         </div>
@@ -171,16 +187,6 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => run(setAllowFullTeams, fd({ sessionId: sid, on: session.allowFullTeams ? "0" : "1" }))}
-                    className="press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
-                    style={session.allowFullTeams ? { borderColor: "#ffb59e", background: "#fff5f1", color: "#d63a0f" } : { borderColor: "var(--color-rule)", background: "#fff", color: "var(--color-mute)" }}
-                    title="Let groups drop a complete team straight into the line"
-                  >
-                    <Users size={13} /> Full teams: {session.allowFullTeams ? "on" : "off"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
                     onClick={() => {
                       if (confirm("End the live queue for everyone? This closes the queue only and will not cancel the event or its recurring series.")) run(endSession, fd({ sessionId: sid }));
                     }}
@@ -189,6 +195,29 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                     <Square size={12} /> End session
                   </button>
                 </div>
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-rule bg-bg/40 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                      <Users size={15} /> Full teams can join at once
+                    </p>
+                    <p className="mt-0.5 text-xs text-mute">Let a group drop a complete team straight into the line.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={session.allowFullTeams}
+                    disabled={pending}
+                    onClick={() => run(setAllowFullTeams, fd({ sessionId: sid, on: session.allowFullTeams ? "0" : "1" }))}
+                    className="press relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50"
+                    style={{ background: session.allowFullTeams ? "#16a34a" : "var(--color-rule)" }}
+                    title="Let groups drop a complete team straight into the line"
+                  >
+                    <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform" style={{ transform: session.allowFullTeams ? "translateX(22px)" : "translateX(2px)" }} />
+                  </button>
+                </div>
+                <p className="text-xs text-mute">
+                  Courtside screen on a separate tablet? Open <span className="font-mono font-semibold text-ink">klimr.com/q</span> and enter code <span className="font-mono font-bold tracking-wider text-ink">{session.code}</span> + the court number.
+                </p>
                 <p className="text-xs text-faint">Ending the session closes this live queue only — it won&rsquo;t cancel the event or its recurring series.</p>
               </div>
             ) : (
@@ -368,7 +397,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                   <ol className="space-y-2">
                     {c.queue.map((t, i) => (
                       <li key={t.id} className="flex items-center gap-2.5 rounded-xl border border-rule bg-bg/30 px-3 py-2.5">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-ink text-xs font-bold text-white">{i + 1}</span>
+                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${i === 0 ? "bg-brand text-white shadow-sm" : "border border-rule bg-surface text-mute"}`}>{i + 1}</span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
                             {t.hold ? (

@@ -98,7 +98,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
     <>
       {/* desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
-        <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
+        <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-[#5a2c17] bg-[linear-gradient(180deg,#3a1608,#210c05)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
           <div className="rounded-2xl border border-rail-border bg-white/[0.05] p-3">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-2xl">{meta.emoji}</span>

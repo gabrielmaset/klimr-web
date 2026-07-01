@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/inter/standard-italic.css";
 import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/oswald";
 import "@fontsource-variable/fraunces/full.css"; // logotype only — see components/logo.tsx
 import "./globals.css";
 import Script from "next/script";

@@ -3,7 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { TournamentSettingsEditor, type SettingsInit } from "@/components/tournament-settings-editor";
 import { GalleryEditor } from "@/components/gallery-editor";
 import { DivisionsEditor } from "@/components/tournament-divisions-editor";
-import { DeleteEvent } from "@/components/tournament-delete";
+import { Trash2, RotateCcw } from "lucide-react";
+import { DangerConfirm } from "@/components/danger-confirm";
+import { cancelTournamentById, reopenTournament } from "@/app/tournaments/actions";
+import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
 import { isSignupFormReady, type TournamentFormatConfig, type FormatType, type DivisionRow } from "@/lib/tournament";
 
 export default async function TournamentSettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -45,6 +48,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
     timezone: t.timezone,
     location_name: t.location_name,
     location_address: t.location_address,
+    location_url: t.location_url,
     location_zip: t.location_zip ?? null,
     weather_enabled: !!t.weather_enabled,
     capacity: t.capacity,
@@ -93,9 +97,44 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
         }
         dangerSlot={
           isOwner ? (
-            <DeleteEvent id={t.id} title={t.title} />
+            <section className="rounded-3xl border border-[#f5b8a6] bg-[#fff5f1] p-5 sm:p-6">
+              <h2 className="flex items-center gap-1.5 text-sm font-bold text-[#dc2626]"><Trash2 size={15} /> Danger zone</h2>
+              {t.cancelled_at ? (
+                withinRecoverWindow(t.cancelled_at) ? (
+                  <>
+                    <p className="mt-1 text-sm text-ink-soft">This tournament is cancelled and hidden from discovery. Nothing was deleted \u2014 recover it while you still can.</p>
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <form action={reopenTournament}>
+                        <input type="hidden" name="tournamentId" value={t.id} />
+                        <button className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"><RotateCcw size={15} /> Recover tournament</button>
+                      </form>
+                      <span className="text-xs text-mute">Recoverable for {recoverDaysLeft(t.cancelled_at)} more day{recoverDaysLeft(t.cancelled_at) === 1 ? "" : "s"}, then archived.</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-ink-soft">This tournament is cancelled. The 90-day recovery window has passed \u2014 it is archived and its data is kept.</p>
+                )
+              ) : (
+                <>
+                  <p className="mt-1 text-sm text-ink-soft">Cancelling stops sign-ups and hides the tournament from discovery. Nothing is deleted \u2014 registrations, divisions, brackets, and payments are kept, and you can recover it for 90 days.</p>
+                  <div className="mt-4">
+                    <DangerConfirm
+                      word="CANCEL"
+                      triggerLabel="Cancel this tournament"
+                      triggerIcon={<Trash2 size={15} />}
+                      triggerClassName="press inline-flex items-center gap-1.5 rounded-xl border border-[#dc2626]/50 bg-surface px-4 py-2.5 text-sm font-semibold text-[#dc2626] transition-colors hover:bg-[#fef2f2]"
+                      heading="Cancel this tournament?"
+                      description="Sign-ups stop and it disappears from discovery. Nothing is deleted \u2014 you can recover it for 90 days."
+                      consequences={["Registrations, divisions, brackets, and payments are all kept", "It won\u2019t appear in public listings", "Recoverable for 90 days, then archived read-only"]}
+                      confirmLabel="Cancel tournament"
+                      onConfirm={cancelTournamentById.bind(null, t.id)}
+                    />
+                  </div>
+                </>
+              )}
+            </section>
           ) : (
-            <section className="rounded-3xl border border-rule bg-surface p-5 text-sm text-mute">Only the event owner can delete this event.</section>
+            <section className="rounded-3xl border border-rule bg-surface p-5 text-sm text-mute">Only the event owner can cancel this event.</section>
           )
         }
       />

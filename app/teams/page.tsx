@@ -4,13 +4,14 @@ import { redirect } from "next/navigation";
 import { Users, Crown, ChevronRight, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
+import { TeamCrest } from "@/components/team-crest";
 import { respondTeamInvite, searchTeams } from "./actions";
 import { TeamDiscovery } from "./team-discovery";
 
 export const metadata: Metadata = { title: "Teams" };
 
 type InviteTeam = { id: string; name: string; sport_key: string; city: string | null };
-type MyTeam = { id: string; name: string; sport_key: string; category: string | null };
+type MyTeam = { id: string; name: string; sport_key: string; category: string | null; deleted_at: string | null };
 
 const ROLE_LABEL: Record<string, string> = { owner: "Owner", manager: "Manager", staff: "Staff", member: "Member" };
 
@@ -32,7 +33,7 @@ export default async function TeamsPage() {
   const inviteByTeam = new Map((invites ?? []).map((i) => [i.team_id, i.id]));
   let inviteTeams: InviteTeam[] = [];
   if (inviteTeamIds.length) {
-    const { data } = await supabase.from("teams").select("id, name, sport_key, city").in("id", inviteTeamIds);
+    const { data } = await supabase.from("teams").select("id, name, sport_key, city").is("deleted_at", null).in("id", inviteTeamIds);
     inviteTeams = (data as InviteTeam[] | null) ?? [];
   }
 
@@ -43,7 +44,7 @@ export default async function TeamsPage() {
   const memberCount = new Map<string, number>();
   if (myTeamIds.length) {
     const [{ data: ts }, { data: counts }] = await Promise.all([
-      supabase.from("teams").select("id, name, sport_key, category").in("id", myTeamIds),
+      supabase.from("teams").select("id, name, sport_key, category, deleted_at").in("id", myTeamIds),
       supabase.from("team_members").select("team_id").in("team_id", myTeamIds),
     ]);
     myTeams = (ts as MyTeam[] | null) ?? [];
@@ -60,7 +61,7 @@ export default async function TeamsPage() {
       {/* Pending invitations */}
       {inviteTeams.length > 0 ? (
         <section className="mb-8">
-          <h2 className="kicker mb-2.5 text-brand-deep">Team invitations</h2>
+          <h2 className="font-athletic mb-2.5 text-base font-bold uppercase tracking-wide text-brand-deep">Team invitations</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {inviteTeams.map((t) => {
               const meta = sportMeta(t.sport_key);
@@ -68,9 +69,9 @@ export default async function TeamsPage() {
               return (
                 <div key={t.id} className="rounded-2xl border border-brand/30 bg-surface p-4">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-tint-brand text-lg">{meta.emoji}</span>
+                    <TeamCrest name={t.name} size={40} radius={14} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-ink">{t.name}</p>
+                      <p className="truncate font-athletic text-[15px] text-ink">{t.name}</p>
                       <p className="truncate text-xs text-mute">{meta.name}{t.city ? ` · ${t.city}` : ""}</p>
                     </div>
                   </div>
@@ -95,7 +96,7 @@ export default async function TeamsPage() {
 
       {/* Your teams */}
       <section className="mb-8">
-        <h2 className="kicker mb-2.5 text-faint">Your teams</h2>
+        <h2 className="font-athletic mb-2.5 text-base font-bold uppercase tracking-wide text-ink">Your teams</h2>
         {myTeams.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-rule bg-bg/40 px-4 py-8 text-center text-sm text-mute">
             You&rsquo;re not on a team yet — create one below, or join one from the discovery list.
@@ -108,13 +109,16 @@ export default async function TeamsPage() {
               const href = t.category === "pro" ? `/team/${t.id}` : `/teams/${t.id}`;
               return (
                 <Link key={t.id} href={href} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f4f4f5] text-lg">{meta.emoji}</span>
+                  <TeamCrest name={t.name} size={44} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-bold text-ink">{t.name}</span>
+                      <span className="truncate font-athletic text-[15px] text-ink">{t.name}</span>
                       {role === "owner" ? <Crown size={13} className="shrink-0 text-pop" aria-label="Owner" /> : null}
                       {t.category === "pro" ? (
                         <span className="shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-surface">Pro</span>
+                      ) : null}
+                      {t.deleted_at ? (
+                        <span className="shrink-0 rounded-full bg-[#fef2f2] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#dc2626]">Disbanded</span>
                       ) : null}
                     </span>
                     <span className="flex items-center gap-1 text-xs text-mute">
@@ -131,7 +135,7 @@ export default async function TeamsPage() {
 
       {/* Create */}
       <section className="mb-9">
-        <h2 className="kicker mb-2.5 text-faint">Start your own team</h2>
+        <h2 className="font-athletic mb-2.5 text-base font-bold uppercase tracking-wide text-ink">Start your own team</h2>
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-rule bg-bg/40 p-4">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-tint-brand text-brand">
             <Plus size={18} />
@@ -151,7 +155,7 @@ export default async function TeamsPage() {
 
       {/* Discovery */}
       <section>
-        <h2 className="kicker mb-2.5 text-faint">Discover teams near you</h2>
+        <h2 className="font-athletic mb-2.5 text-base font-bold uppercase tracking-wide text-ink">Discover teams near you</h2>
         <TeamDiscovery initial={initial} />
       </section>
     </div>

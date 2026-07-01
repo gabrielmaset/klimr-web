@@ -8,6 +8,7 @@ import { accountActive } from "@/lib/guards";
 import { createNotification } from "@/lib/notify";
 import { logTeamEvent, notifyTeamMembers } from "@/lib/team-chat";
 import { SPORT_KEYS, sportMeta, teamSizeFor } from "@/lib/sports";
+import { withinRecoverWindow } from "@/lib/recover";
 import { lookupZip } from "@/lib/us-places";
 import type { TeamCard } from "./types";
 
@@ -462,4 +463,37 @@ export async function transferOwnership(formData: FormData) {
   });
   await logTeamEvent(teamId, { kind: "owner_transferred", actorId: user.id, targetId: memberId });
   revalidatePath(`/teams/${teamId}`);
+}
+
+/** Soft-disband a team (owner only). Keeps roster, chat, and match history; recoverable for 90 days. */
+export async function disbandTeam(teamId: string): Promise<{ error?: string } | void> {
+  if (!teamId) return { error: "Missing team." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first." };
+  const { data: me } = await supabase.from("team_members").select("role").eq("team_id", teamId).eq("user_id", user.id).maybeSingle();
+  if (!me || me.role !== "owner") return { error: "Only the team owner can disband this team." };
+  await supabase.from("teams").update({ deleted_at: new Date().toISOString() }).eq("id", teamId);
+  revalidatePath(`/team/${teamId}`);
+  revalidatePath("/teams");
+}
+
+/** Restore a disbanded team within the 90-day window. Void form action. */
+export async function restoreTeam(formData: FormData): Promise<void> {
+  const teamId = String(formData.get("teamId") ?? "");
+  if (!teamId) return;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: me } = await supabase.from("team_members").select("role").eq("team_id", teamId).eq("user_id", user.id).maybeSingle();
+  if (!me || me.role !== "owner") return;
+  const { data: t } = await supabase.from("teams").select("deleted_at").eq("id", teamId).maybeSingle();
+  if (!t || !t.deleted_at || !withinRecoverWindow(t.deleted_at)) return;
+  await supabase.from("teams").update({ deleted_at: null }).eq("id", teamId);
+  revalidatePath(`/team/${teamId}`);
+  revalidatePath("/teams");
 }

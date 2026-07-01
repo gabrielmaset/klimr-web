@@ -9,6 +9,7 @@ import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInp
 import { computePoolStandings, isRegistrationOpen, isSignupFormReady, poolSizes } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
+import { withinRecoverWindow } from "@/lib/recover";
 import { placementPoints, bracketPlaces, RESERVE_FACTOR } from "@/lib/ranking";
 import { recomputePlayerPoints } from "@/lib/points";
 import { notifyRegistration, notifyPayment } from "@/lib/emails/notify";
@@ -220,6 +221,39 @@ export async function createTournamentFromWizard(
 
 /** Permanently delete a tournament (owner only). Cascades to registrations,
  *  divisions, payments, etc. Used by the event Settings page. */
+/** Soft-cancel a tournament (keeps all data, recoverable for 90 days). Uses cancelled_at as
+ *  the flag so the tournament's lifecycle status is preserved for a clean recovery. */
+export async function cancelTournamentById(id: string): Promise<{ error?: string } | void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+  const { data: t } = await supabase.from("tournaments").select("owner_id").eq("id", id).maybeSingle();
+  if (!t) return { error: "Not found." };
+  if (t.owner_id !== user.id) return { error: "Only the owner can cancel this event." };
+  await supabase.from("tournaments").update({ cancelled_at: new Date().toISOString() }).eq("id", id);
+  revalidatePath(`/tournament/${id}/settings`);
+  revalidatePath("/tournaments");
+}
+
+/** Recover a cancelled tournament within the 90-day window. Void form action. */
+export async function reopenTournament(formData: FormData): Promise<void> {
+  const id = String(formData.get("tournamentId") ?? "");
+  if (!id) return;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: t } = await supabase.from("tournaments").select("owner_id, cancelled_at").eq("id", id).maybeSingle();
+  if (!t || t.owner_id !== user.id || !t.cancelled_at) return;
+  if (!withinRecoverWindow(t.cancelled_at)) return;
+  await supabase.from("tournaments").update({ cancelled_at: null }).eq("id", id);
+  revalidatePath(`/tournament/${id}/settings`);
+  revalidatePath("/tournaments");
+}
+
 export async function deleteTournament(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
   const {
@@ -257,7 +291,7 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   if (patch.timezone !== undefined) u.timezone = patch.timezone;
   if (patch.location_name !== undefined) u.location_name = patch.location_name;
   if (patch.location_address !== undefined) u.location_address = patch.location_address;
-  // A ZIP places the event for local discovery; resolve to coordinates (blank = keep existing).
+  if (patch.location_url !== undefined) u.location_url = patch.location_url;
   if (patch.zip && /^\d{5}$/.test(patch.zip)) {
     u.location_zip = patch.zip;
     const z = lookupZip(patch.zip);
