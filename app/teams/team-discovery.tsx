@@ -5,12 +5,13 @@ import Link from "next/link";
 import { Search, Users, ChevronRight, Loader2, Check } from "lucide-react";
 import { searchTeams } from "./actions";
 import type { TeamCard } from "./types";
-import { sportMeta } from "@/lib/sports";
+import { SPORTS, sportMeta } from "@/lib/sports";
 import { TeamCrest } from "@/components/team-crest";
 
 export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
   const [q, setQ] = useState("");
   const [list, setList] = useState<TeamCard[]>(initial);
+  const [sport, setSport] = useState<string>("all");
   const [loading, setLoading] = useState(false);
   const reqId = useRef(0);
   const mounted = useRef(false);
@@ -37,27 +38,56 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
     return () => clearTimeout(t);
   }, [q]);
 
+  const filtered = sport === "all" ? list : list.filter((t) => t.sport_key === sport);
+  // Only offer filter chips for sports that actually appear in the current list.
+  const presentSports = SPORTS.filter((s) => list.some((t) => t.sport_key === s.key));
+
   return (
     <div>
-      <div className="relative">
-        <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search teams by name or area…"
-          className="w-full rounded-xl border border-rule bg-surface py-2.5 pl-10 pr-10 text-sm text-ink outline-none transition-colors focus:border-brand"
-          autoComplete="off"
-        />
-        {loading ? <Loader2 size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-faint" /> : null}
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative flex-1">
+          <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search teams by name or area…"
+            className="w-full rounded-xl border border-rule bg-surface py-2.5 pl-10 pr-10 text-sm text-ink outline-none transition-colors focus:border-brand"
+            autoComplete="off"
+          />
+          {loading ? <Loader2 size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-faint" /> : null}
+        </div>
+        <span className="hidden shrink-0 text-xs font-medium text-mute sm:block">
+          {filtered.length} team{filtered.length === 1 ? "" : "s"} near you
+        </span>
       </div>
 
-      {list.length === 0 ? (
+      {presentSports.length > 1 ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {[{ key: "all", name: "All" }, ...presentSports].map((s) => {
+            const active = sport === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSport(s.key)}
+                className={`press rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  active ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-mute hover:text-ink"
+                }`}
+              >
+                {s.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {filtered.length === 0 ? (
         <p className="mt-6 rounded-2xl border border-dashed border-rule bg-bg/40 px-4 py-10 text-center text-sm text-mute">
-          {q.trim() ? `No teams match “${q.trim()}”.` : "No teams near you yet — be the first to start one from Settings → Teams."}
+          {q.trim() ? `No teams match “${q.trim()}”.` : "No teams near you yet — be the first to start one above."}
         </p>
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {list.map((t) => {
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((t) => {
             const meta = sportMeta(t.sport_key);
             const place = [t.city, t.state].filter(Boolean).join(", ");
             return (

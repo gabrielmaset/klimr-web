@@ -78,8 +78,8 @@ export function DivisionsEditor({
         <Info size={14} className="mt-0.5 shrink-0 text-faint" />
         <span>
           {mode === "pooled"
-            ? "Capacity is one shared total across all divisions — change the mode and the limit in Settings \u2192 Format & eligibility."
-            : "Each division has its own cap below. Switch to a shared total in Settings \u2192 Format & eligibility."}
+            ? "Capacity is one shared total across all divisions — change the mode and the limit in Settings → Format & eligibility."
+            : "Each division has its own cap below. Switch to a shared total in Settings → Format & eligibility."}
         </span>
       </div>
 

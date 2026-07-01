@@ -14,6 +14,7 @@ import { Avatar } from "@/components/avatar";
 import { rsvp, cancelRsvp, approveMember, denyMember } from "../actions";
 import { rsvpCycleStartMs } from "@/lib/event-schedule";
 import { eventKindLabel } from "@/lib/event-kinds";
+import { mapsPointFromUrl } from "@/lib/maps-url";
 import { DangerConfirm } from "@/components/danger-confirm";
 import { cancelEventById, reopenEvent } from "../actions";
 import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
@@ -137,6 +138,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   // clickable location → the organizer's exact pasted pin, else a Maps search for the venue text
   const mapsQuery = [courtData?.name ?? e.location_text, courtData?.city].filter(Boolean).join(", ");
   const mapsHref = e.location_url || (mapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}` : null);
+  // If the organizer pasted a Google Maps link, pull the exact coordinate out of
+  // it so the embedded map pin lands on the real spot rather than the city.
+  const mapPoint = courtData ? null : await mapsPointFromUrl(e.location_url);
 
   const descHtml = e.description ? (looksLikeHtml(e.description) ? sanitizeRichText(e.description) : null) : null;
   const plainDesc = (e.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -327,7 +331,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         ) : (
           <div />
         )}
-        {where ? <EventLocationMap name={courtData?.name ?? e.location_text} address={e.location_text} zip={null} lat={null} lng={null} href={mapsHref ?? undefined} /> : null}
+        {where ? <EventLocationMap name={courtData?.name ?? e.location_text} address={e.location_text} zip={null} lat={null} lng={null} point={mapPoint} href={mapsHref ?? undefined} /> : null}
       </div>
 
       {/* ORGANIZER TOOLS — everything admin-only lives here, clearly separated */}
@@ -350,16 +354,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 triggerLabel="Cancel event"
                 triggerIcon={<Ban size={14} />}
                 heading="Cancel this event?"
-                description="RSVPs stop and it drops off listings. Nothing is deleted \u2014 your photos, RSVPs, and queue history are kept, and you can recover it for 90 days."
+                description="RSVPs stop and it drops off listings. Nothing is deleted — your photos, RSVPs, and queue history are kept, and you can recover it for 90 days."
                 consequences={["Any live queue for this event is turned off", "Guests can no longer RSVP or join", "Recoverable for 90 days, then archived read-only"]}
                 confirmLabel="Cancel event"
                 onConfirm={cancelEventById.bind(null, e.id)}
               />
             ) : null}
-          </div>
-
-          <div className="mt-4">
-            <EventQueueAdmin eventId={e.id} queueEnabled={e.queue_enabled} session={session} />
           </div>
 
           {e.join_policy === "approval" && pendingProfiles.length ? (
@@ -396,7 +396,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             </div>
           ) : null}
 
-          <div className="mt-4">
+          {/* Live queue + admins are compact panels — pair them side by side on wider screens */}
+          <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+            <EventQueueAdmin eventId={e.id} queueEnabled={e.queue_enabled} session={session} />
             <EventAdmins eventId={e.id} isOwner={isOwner} meId={user.id} initialAdmins={initialAdmins} />
           </div>
         </section>

@@ -36,8 +36,8 @@ export default function ResourcesPage() {
           <Trophy size={15} className="text-pop" /> How Klimr ranking works
         </h2>
         <p className="mt-1.5 text-sm leading-relaxed text-mute">
-          You earn ranking points per sport from the matches you play. Klimr then ranks you geographically \u2014 from your ZIP and city
-          all the way to national and world \u2014 so you can see exactly where you stand against players nearby.
+          You earn ranking points per sport from the matches you play. Klimr then ranks you geographically — from your ZIP and city
+          all the way to national and world — so you can see exactly where you stand against players nearby.
         </p>
         <Link href="/rankings" className="press mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-deep hover:text-brand">
           View rankings <ChevronRight size={14} />

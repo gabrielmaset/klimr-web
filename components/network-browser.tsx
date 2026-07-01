@@ -215,7 +215,7 @@ function PersonCard({ p, tab, onFollow, onFriend }: { p: Person; tab: Tab; onFol
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-mute">
             {p.sportEmoji ? <span className="shrink-0">{p.sportEmoji}</span> : null}
-            <span className="truncate">{sub || "\u2014"}</span>
+            <span className="truncate">{sub || "—"}</span>
           </div>
           {showsFollowsYou ? <span className="mt-1.5 inline-block rounded-full bg-[#eef0ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#4f46e5]">Follows you</span> : null}
         </div>
@@ -233,7 +233,7 @@ const btnBase = "press grid h-9 w-9 place-items-center rounded-full border trans
 
 function FollowButton({ following, onClick }: { following: boolean; onClick: () => void }) {
   return following ? (
-    <button type="button" onClick={onClick} aria-label="Unfollow" title="Following \u2014 tap to unfollow" className={`${btnBase} border-transparent bg-brand text-white hover:bg-brand-deep`}>
+    <button type="button" onClick={onClick} aria-label="Unfollow" title="Following — tap to unfollow" className={`${btnBase} border-transparent bg-brand text-white hover:bg-brand-deep`}>
       <Check size={16} />
     </button>
   ) : (
@@ -246,7 +246,7 @@ function FollowButton({ following, onClick }: { following: boolean; onClick: () 
 function FriendButton({ status, onClick }: { status: FriendStatus; onClick: () => void }) {
   if (status === "friends")
     return (
-      <button type="button" onClick={onClick} aria-label="Remove friend" title="Friends \u2014 tap to remove" className={`${btnBase} border-transparent bg-success text-white hover:opacity-90`}>
+      <button type="button" onClick={onClick} aria-label="Remove friend" title="Friends — tap to remove" className={`${btnBase} border-transparent bg-success text-white hover:opacity-90`}>
         <UserCheck size={16} />
       </button>
     );
@@ -258,7 +258,7 @@ function FriendButton({ status, onClick }: { status: FriendStatus; onClick: () =
     );
   if (status === "requested")
     return (
-      <button type="button" onClick={onClick} aria-label="Cancel friend request" title="Request sent \u2014 tap to cancel" className={`${btnBase} border-rule text-faint hover:text-ink`}>
+      <button type="button" onClick={onClick} aria-label="Cancel friend request" title="Request sent — tap to cancel" className={`${btnBase} border-rule text-faint hover:text-ink`}>
         <Clock size={15} />
       </button>
     );
@@ -329,7 +329,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 function EmptyState({ tab }: { tab: Tab }) {
   const msg =
     tab === "friends"
-      ? "No friends yet. Add players from their profile \u2014 they'll appear here once they accept."
+      ? "No friends yet. Add players from their profile — they'll appear here once they accept."
       : tab === "following"
         ? "You're not following anyone yet. Follow a player to track their climb."
         : "No followers yet. As you play and post, players will start following you.";

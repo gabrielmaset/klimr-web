@@ -100,8 +100,10 @@ export function DangerConfirm({
             ) : null}
             <div className="mt-5 space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-mute">
-                  Type <span className="font-mono font-bold text-ink">{word}</span> to confirm
+                <label className="mb-1.5 block text-xs font-semibold text-mute">
+                  Type{" "}
+                  <span className="select-all rounded-md bg-ink/[0.07] px-2 py-0.5 font-mono text-sm font-bold tracking-[0.1em] text-ink">{word}</span>{" "}
+                  to confirm
                 </label>
                 <input
                   value={wordInput}
@@ -109,23 +111,23 @@ export function DangerConfirm({
                   autoComplete="off"
                   autoCapitalize="characters"
                   spellCheck={false}
-                  placeholder={word}
-                  className="w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none focus:border-[#dc2626]"
+                  placeholder="Type it here"
+                  className="w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm font-semibold tracking-wide text-ink outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-faint focus:border-[#dc2626]"
                 />
               </div>
               <div>
-                <label className="mb-1 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-mute">
-                  Then type this code:
-                  <span className="select-all rounded-md bg-ink px-2 py-0.5 font-mono text-sm font-bold tracking-[0.25em] text-white">{code}</span>
-                </label>
+                <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-mute">
+                  <span>Then type this code:</span>
+                  <span className="select-all rounded-lg bg-ink px-2.5 py-1 font-mono text-base font-bold tracking-[0.12em] text-white">{code}</span>
+                </div>
                 <input
                   value={codeInput}
                   onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                   autoComplete="off"
                   autoCapitalize="characters"
                   spellCheck={false}
-                  placeholder={code}
-                  className="w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-center font-mono text-sm font-bold tracking-[0.25em] text-ink outline-none focus:border-[#dc2626]"
+                  placeholder="Enter the code"
+                  className="w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-center font-mono text-base font-bold tracking-[0.12em] text-ink outline-none placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-faint focus:border-[#dc2626]"
                 />
               </div>
             </div>

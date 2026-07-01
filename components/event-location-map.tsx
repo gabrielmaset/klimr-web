@@ -1,4 +1,5 @@
 import { MapPin, ExternalLink } from "lucide-react";
+import type { LatLng } from "@/lib/maps-url";
 
 // A compact map card for the public event page. The iframe is the keyless Google
 // Maps embed (q + output=embed), which needs no API key and is frame-friendly. A
@@ -11,6 +12,7 @@ export function EventLocationMap({
   zip,
   lat,
   lng,
+  point,
   placeId,
   href,
   className,
@@ -20,6 +22,9 @@ export function EventLocationMap({
   zip?: string | null;
   lat: number | null;
   lng: number | null;
+  // A precise coordinate (e.g. resolved from the organizer's pasted Maps link).
+  // When present it wins over the address text so the pin lands exactly.
+  point?: LatLng | null;
   placeId?: string | null;
   href?: string;
   className?: string;
@@ -27,14 +32,23 @@ export function EventLocationMap({
   const label = (name ?? "").trim();
   const addr = (address ?? "").trim();
   const zipCode = (zip ?? "").trim();
-  // Prefer the precise street address the organizer entered, plus the ZIP for
-  // accuracy; fall back to the venue name, then to coordinates. (The stored
-  // lat/lng is only a ZIP centroid, so the address + ZIP gives the best pin.)
+  const precise = point && Number.isFinite(point.lat) && Number.isFinite(point.lng) ? point : null;
+  // Precise coordinate first (exact pin), then the street address the organizer
+  // entered plus ZIP, then the venue name, then any stored (centroid) lat/lng.
   const base = addr || label;
-  const query = base ? (zipCode ? `${base}, ${zipCode}` : base) : lat != null && lng != null ? `${lat},${lng}` : "";
+  const query = precise
+    ? `${precise.lat},${precise.lng}`
+    : base
+      ? zipCode
+        ? `${base}, ${zipCode}`
+        : base
+      : lat != null && lng != null
+        ? `${lat},${lng}`
+        : "";
   if (!query) return null;
 
-  const embedSrc = `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=14&output=embed`;
+  const zoom = precise ? 16 : 14;
+  const embedSrc = `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&output=embed`;
   const mapsHref = href || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}${placeId ? `&query_place_id=${encodeURIComponent(placeId)}` : ""}`;
   const caption = label || addr || "Venue";
 

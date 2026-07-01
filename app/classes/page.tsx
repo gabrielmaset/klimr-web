@@ -146,7 +146,7 @@ export default async function ClassesPage() {
         <div>
           <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Classes</h1>
           <p className="mt-1 text-sm text-mute">Clinics and lessons with verified Klimr coaches.</p>
-          <Link href="/archive?tab=classes" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past classes \u2192</Link>
+          <Link href="/archive?tab=classes" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past classes →</Link>
         </div>
         {provider ? (
           <Link

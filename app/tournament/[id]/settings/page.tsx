@@ -102,7 +102,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
               {t.cancelled_at ? (
                 withinRecoverWindow(t.cancelled_at) ? (
                   <>
-                    <p className="mt-1 text-sm text-ink-soft">This tournament is cancelled and hidden from discovery. Nothing was deleted \u2014 recover it while you still can.</p>
+                    <p className="mt-1 text-sm text-ink-soft">This tournament is cancelled and hidden from discovery. Nothing was deleted — recover it while you still can.</p>
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       <form action={reopenTournament}>
                         <input type="hidden" name="tournamentId" value={t.id} />
@@ -112,11 +112,11 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
                     </div>
                   </>
                 ) : (
-                  <p className="mt-1 text-sm text-ink-soft">This tournament is cancelled. The 90-day recovery window has passed \u2014 it is archived and its data is kept.</p>
+                  <p className="mt-1 text-sm text-ink-soft">This tournament is cancelled. The 90-day recovery window has passed — it is archived and its data is kept.</p>
                 )
               ) : (
                 <>
-                  <p className="mt-1 text-sm text-ink-soft">Cancelling stops sign-ups and hides the tournament from discovery. Nothing is deleted \u2014 registrations, divisions, brackets, and payments are kept, and you can recover it for 90 days.</p>
+                  <p className="mt-1 text-sm text-ink-soft">Cancelling stops sign-ups and hides the tournament from discovery. Nothing is deleted — registrations, divisions, brackets, and payments are kept, and you can recover it for 90 days.</p>
                   <div className="mt-4">
                     <DangerConfirm
                       word="CANCEL"
@@ -124,7 +124,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
                       triggerIcon={<Trash2 size={15} />}
                       triggerClassName="press inline-flex items-center gap-1.5 rounded-xl border border-[#dc2626]/50 bg-surface px-4 py-2.5 text-sm font-semibold text-[#dc2626] transition-colors hover:bg-[#fef2f2]"
                       heading="Cancel this tournament?"
-                      description="Sign-ups stop and it disappears from discovery. Nothing is deleted \u2014 you can recover it for 90 days."
+                      description="Sign-ups stop and it disappears from discovery. Nothing is deleted — you can recover it for 90 days."
                       consequences={["Registrations, divisions, brackets, and payments are all kept", "It won\u2019t appear in public listings", "Recoverable for 90 days, then archived read-only"]}
                       confirmLabel="Cancel tournament"
                       onConfirm={cancelTournamentById.bind(null, t.id)}

@@ -454,7 +454,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
                 <span className="text-xs text-mute">Recoverable for {recoverDaysLeft(t.cancelled_at)} more day{recoverDaysLeft(t.cancelled_at) === 1 ? "" : "s"}, then archived.</span>
               </div>
             ) : (
-              <p className="mt-2 text-xs text-mute">The 90-day recovery window has passed \u2014 this tournament is archived. Its data is kept.</p>
+              <p className="mt-2 text-xs text-mute">The 90-day recovery window has passed — this tournament is archived. Its data is kept.</p>
             )
           ) : null}
         </div>
