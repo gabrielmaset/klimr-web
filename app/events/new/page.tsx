@@ -16,7 +16,7 @@ export default async function NewEventPage() {
   if (!(await accountActive(supabase, user.id))) redirect("/events");
 
   return (
-    <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <BackButton fallback="/events" label="Events" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
       <div className="mb-6">
         <p className="kicker text-brand-deep">Host</p>

@@ -406,33 +406,38 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       {count > 0 ? (
         <section className="mt-7">
           <h2 className="kicker mb-3 text-faint">Who&apos;s going ({count})</h2>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-wrap gap-2">
             {goingIds.slice(0, 60).map((uid) => {
               const p = profById.get(uid);
               const owner = uid === e.created_by;
               const admin = adminIds.has(uid);
+              const tone = owner
+                ? "border-brand/40 bg-tint-brand hover:border-brand/60"
+                : admin
+                  ? "border-[#0e7490]/30 bg-[#ecfeff] hover:border-[#0e7490]/50"
+                  : "border-rule bg-surface hover:border-ink/25";
               return (
-                <div key={uid} className="flex items-center gap-2.5 rounded-2xl border border-rule bg-surface px-3 py-2">
-                  <Link href={`/profile/${uid}`} className="flex min-w-0 flex-1 items-center gap-2.5">
-                    <Avatar url={avatarUrl(p)} hue={p?.avatar_hue ?? 200} name={p?.display_name ?? "Player"} size={32} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-ink">{p?.display_name ?? "Player"}</span>
-                      {owner ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-deep">
-                          <Crown size={11} /> Organizer
-                        </span>
-                      ) : admin ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0e7490]">
-                          <Shield size={11} /> Admin
-                        </span>
-                      ) : null}
-                    </span>
-                  </Link>
-                </div>
+                <Link
+                  key={uid}
+                  href={`/profile/${uid}`}
+                  className={`press inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 transition-colors ${tone}`}
+                >
+                  <Avatar url={avatarUrl(p)} hue={p?.avatar_hue ?? 200} name={p?.display_name ?? "Player"} size={28} />
+                  <span className="max-w-[10rem] truncate text-sm font-medium text-ink">{p?.display_name ?? "Player"}</span>
+                  {owner ? (
+                    <Crown size={12} className="shrink-0 text-brand-deep" aria-label="Organizer" />
+                  ) : admin ? (
+                    <Shield size={12} className="shrink-0 text-[#0e7490]" aria-label="Admin" />
+                  ) : null}
+                </Link>
               );
             })}
+            {count > 60 ? (
+              <span className="inline-flex items-center rounded-full border border-dashed border-rule bg-bg/40 px-3.5 py-1.5 text-sm font-medium text-mute">
+                +{count - 60} more
+              </span>
+            ) : null}
           </div>
-          {count > 60 ? <p className="mt-2 text-xs text-faint">+{count - 60} more</p> : null}
         </section>
       ) : null}
 

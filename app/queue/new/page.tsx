@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS } from "@/lib/sports";
 import { NewSessionForm } from "@/components/queue/new-session-form";
+import { BackButton } from "@/components/back-button";
 
 export const metadata: Metadata = { title: "Start a live queue" };
 
@@ -25,7 +26,8 @@ export default async function NewQueuePage({ searchParams }: { searchParams: Pro
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      <BackButton fallback={`/events/${event}`} label="Event" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
       <h1 className="font-display text-3xl text-ink sm:text-4xl">Start a live queue</h1>
       <p className="mt-2 text-sm leading-relaxed text-mute">
         Set up your courts for the day. Players join from their phones, teams form first-come, and the line manages itself. Run the winner buttons from a tablet at the net.
