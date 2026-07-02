@@ -46,6 +46,33 @@ html {
   text-size-adjust: 100%;
 }
 
+/* Fluid UI scale (desktop only). The whole interface is built on rem units, so
+   scaling the root font-size proportionally shrinks everything — type, spacing,
+   column widths, the sidebar — like an automatic browser zoom. Smaller monitors
+   settle at ~80% (the comfortable density on a laptop) and it eases up to 100% on
+   large displays (≥1920px), capped there so it never scales past the user's own
+   font-size preference. rem floor/ceiling keep it accessible; vw keeps it smooth
+   with no layout jumps. Media-query breakpoints are anchored to the browser
+   default, so responsive layouts still switch at the same widths. Below md (768px)
+   the mobile layout takes over and base sizing is left untouched. */
+@media (min-width: 768px) {
+  html {
+    font-size: clamp(0.8rem, 0.833vw, 1rem);
+  }
+}
+
+/* Safe-area helpers — padding that automatically matches each device's notch,
+   Dynamic Island, home indicator, or curved corners (iPhone 17e through 17 Pro
+   Max, Galaxy, and others). Values are non-zero only where the hardware has an
+   inset and the viewport opts into viewport-fit=cover (set in layout.tsx); on
+   every other screen they resolve to 0, so they're safe to apply anywhere. */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 body {
   min-height: 100%;
   background: var(--color-bg);

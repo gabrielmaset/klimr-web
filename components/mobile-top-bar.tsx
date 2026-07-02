@@ -14,7 +14,7 @@ export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
   const calActive = pathname === "/calendar" || pathname.startsWith("/calendar/");
 
   return (
-    <header className="sticky top-0 z-40 border-b border-rule bg-surface md:hidden">
+    <header className="pt-safe px-safe sticky top-0 z-40 border-b border-rule bg-surface md:hidden">
       <div className="flex items-center justify-between px-5 py-3">
         <Link href="/" aria-label="Klimr home">
           <KlimrLogo />

@@ -28,7 +28,7 @@ export default async function PublicEventLayout({ children, params }: { children
 
   return (
     <div className="flex min-h-dvh flex-col" style={{ backgroundColor: bg }}>
-      <header className="sticky top-0 z-30 border-b border-rule/70 bg-white/70 backdrop-blur-xl backdrop-saturate-150">
+      <header className="pt-safe px-safe sticky top-0 z-30 border-b border-rule/70 bg-white/70 backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto flex max-w-page items-center justify-between gap-3 px-5 py-3">
           <Link href="/" aria-label="Klimr home" className="press">
             <KlimrLogo />

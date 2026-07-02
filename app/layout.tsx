@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/inter/standard-italic.css";
 import "@fontsource-variable/jetbrains-mono";
@@ -23,6 +23,17 @@ export const metadata: Metadata = {
   },
   description:
     "Per-sport rankings from your ZIP to the world. Verified players, real results. Tennis, pickleball, padel, and racquetball — Los Angeles first.",
+};
+
+// viewport-fit=cover lets the layout extend under the notch / Dynamic Island /
+// home indicator so we can pad precisely with env(safe-area-inset-*) — the same
+// technique native and PWA apps use to look right on every phone. Zoom stays
+// enabled (no maximum-scale) for accessibility.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({

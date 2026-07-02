@@ -280,7 +280,7 @@ export function ChatRoom({
   return (
     <div className="mx-auto flex h-dvh max-w-2xl flex-col px-0 sm:px-5">
       {/* header */}
-      <div className="flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 sm:rounded-b-2xl sm:border sm:border-t-0">
+      <div className="pt-safe flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 sm:rounded-b-2xl sm:border sm:border-t-0">
         <BackButton fallback="/chats" label="" ariaLabel="Back to chats" className="press text-mute hover:text-ink" size={20} />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold text-ink">
@@ -352,11 +352,11 @@ export function ChatRoom({
       {/* composer */}
       {status === "ready" ? (
         expired ? (
-          <div className="border-t border-rule bg-surface px-5 py-4 text-center text-sm text-mute sm:rounded-t-2xl sm:border">
+          <div className="pb-safe border-t border-rule bg-surface px-5 py-4 text-center text-sm text-mute sm:rounded-t-2xl sm:border">
             This chat has expired. Match chats close after you play.
           </div>
         ) : (
-          <div className="border-t border-rule bg-surface px-5 py-3 sm:rounded-t-2xl sm:border">
+          <div className="pb-safe border-t border-rule bg-surface px-5 py-3 sm:rounded-t-2xl sm:border">
             <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
               {QUICK_REPLIES.map((q) => (
                 <button
