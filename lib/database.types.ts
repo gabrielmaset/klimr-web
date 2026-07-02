@@ -45,9 +45,9 @@ export interface Database {
   public: {
     Tables: {
       court_sessions: {
-        Row: { id: string; code: string; event_id: string | null; organizer_id: string; title: string; sport_key: string; status: string; win_cap: number; center_lat: number | null; center_lng: number | null; radius_m: number; allow_guests: boolean; require_location: boolean; event_only: boolean; require_approval: boolean; allow_full_teams: boolean; created_at: string; ended_at: string | null };
-        Insert: { id?: string; code: string; event_id?: string | null; organizer_id: string; title?: string; sport_key: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; created_at?: string; ended_at?: string | null };
-        Update: { id?: string; code?: string; event_id?: string | null; organizer_id?: string; title?: string; sport_key?: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; created_at?: string; ended_at?: string | null };
+        Row: { id: string; code: string; event_id: string | null; organizer_id: string; title: string; sport_key: string; status: string; win_cap: number; center_lat: number | null; center_lng: number | null; radius_m: number; allow_guests: boolean; require_location: boolean; event_only: boolean; require_approval: boolean; allow_full_teams: boolean; paused: boolean; created_at: string; ended_at: string | null };
+        Insert: { id?: string; code: string; event_id?: string | null; organizer_id: string; title?: string; sport_key: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean; created_at?: string; ended_at?: string | null };
+        Update: { id?: string; code?: string; event_id?: string | null; organizer_id?: string; title?: string; sport_key?: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean; created_at?: string; ended_at?: string | null };
         Relationships: [];
       };
       queue_courts: {
@@ -233,6 +233,12 @@ export interface Database {
           last_seen_at?: string | null;
           presence_mode?: string;
         };
+        Relationships: [];
+      };
+      gate_access_codes: {
+        Row: { code: string; email: string; expires_at: string; used_at: string | null; created_at: string };
+        Insert: { code: string; email: string; expires_at: string; used_at?: string | null; created_at?: string };
+        Update: { code?: string; email?: string; expires_at?: string; used_at?: string | null; created_at?: string };
         Relationships: [];
       };
       invite_codes: {
@@ -1510,6 +1516,7 @@ export interface Database {
       code_lock_seconds: { Args: { p_bucket: string }; Returns: number };
       note_code_failure: { Args: { p_bucket: string; p_max: number; p_window_seconds: number; p_lock_seconds: number }; Returns: number };
       clear_code_attempts: { Args: { p_bucket: string }; Returns: undefined };
+      account_active_for_email: { Args: { p_email: string }; Returns: boolean };
       shift_tournament_plan: { Args: { p_tournament: string; p_shift: string }; Returns: undefined };
     };
     Enums: {

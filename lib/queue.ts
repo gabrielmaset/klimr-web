@@ -85,6 +85,7 @@ export type QSessionState = {
     eventOnly: boolean;
     requireApproval: boolean;
     allowFullTeams: boolean;
+    paused: boolean;
     centerLat: number | null;
     centerLng: number | null;
     radiusM: number;

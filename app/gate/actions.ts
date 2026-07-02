@@ -1,15 +1,40 @@
 "use server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { randomInt } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { gateCookieName, gateToken } from "@/lib/gate";
-import { clientIp } from "@/lib/ratelimit";
+import { clientIp, rateLimit } from "@/lib/ratelimit";
 import { codeLockSeconds, noteCodeFailure, clearCodeAttempts } from "@/lib/lockout";
 import { verifyTurnstile } from "@/lib/captcha";
 import { normalizeInviteCode } from "@/lib/invite";
+import { sendEmail } from "@/lib/email";
 
 const THIRTY_DAYS = 60 * 60 * 24 * 30;
 const secure = process.env.NODE_ENV === "production";
+
+// One-time gate access codes emailed to existing members.
+const ACCESS_CODE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const GATE_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no I/L/O/0/1 — matches lib/invite
+
+/** A one-time code in the same XXXX-XXXX-XXXX shape as invite codes, so the gate's
+ *  code box accepts it unchanged. Stored in gate_access_codes, never invite_codes. */
+function genGateCode(): string {
+  let s = "";
+  for (let i = 0; i < 12; i++) s += GATE_CODE_ALPHABET[randomInt(GATE_CODE_ALPHABET.length)];
+  return `${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}`;
+}
+
+function accessCodeHtml(code: string): string {
+  return `<!doctype html><html><body style="margin:0;background:#fafafa;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0a0a0b">
+  <div style="max-width:440px;margin:0 auto;padding:32px 24px">
+    <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#0a0a0b">klimr</div>
+    <p style="margin:24px 0 8px;font-size:15px;line-height:1.5">Here's your access code to enter Klimr:</p>
+    <div style="margin:16px 0;padding:16px;border-radius:12px;background:#ffffff;border:1px solid #e4e4e7;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:22px;font-weight:700;letter-spacing:0.15em;color:#0a0a0b">${code}</div>
+    <p style="margin:8px 0;font-size:13px;color:#71717a">Enter it on the Klimr welcome screen, then sign in as usual. This code works once and expires in 30 minutes.</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#71717a">If you didn't request this, you can safely ignore this email.</p>
+  </div></body></html>`;
+}
 
 /**
  * Invite-code portal for klimr.com. Validates the code WITHOUT consuming it —
@@ -39,29 +64,73 @@ export async function enterSite(formData: FormData) {
     .eq("code", code)
     .maybeSingle();
 
-  // Must be a real, active, not-yet-exhausted invite — uses is NOT incremented here.
-  if (!data || !data.active || data.uses >= data.max_uses) {
-    await noteCodeFailure(bucket);
-    redirect("/gate?error=invalid");
+  // 1) A real, active, not-yet-exhausted invite — uses is NOT incremented here.
+  if (data && data.active && data.uses < data.max_uses) {
+    await clearCodeAttempts(bucket);
+    const jar = await cookies();
+    jar.set(gateCookieName("site"), gateToken("site"), { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: THIRTY_DAYS });
+    // Plain code, read back by /signup to prefill. Not security-sensitive.
+    jar.set("klimr_invite", code, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: THIRTY_DAYS });
+    redirect("/");
   }
 
-  await clearCodeAttempts(bucket);
+  // 2) Otherwise it may be a one-time code we emailed to an existing member.
+  //    Claim it atomically: only succeeds if unused and unexpired.
+  const nowIso = new Date().toISOString();
+  const { data: claimed } = await admin
+    .from("gate_access_codes")
+    .update({ used_at: nowIso })
+    .eq("code", code)
+    .is("used_at", null)
+    .gt("expires_at", nowIso)
+    .select("code")
+    .maybeSingle();
 
-  const jar = await cookies();
-  jar.set(gateCookieName("site"), gateToken("site"), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure,
-    path: "/",
-    maxAge: THIRTY_DAYS,
-  });
-  // Plain code, read back by /signup to prefill. Not security-sensitive.
-  jar.set("klimr_invite", code, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure,
-    path: "/",
-    maxAge: THIRTY_DAYS,
-  });
-  redirect("/");
+  if (claimed) {
+    await clearCodeAttempts(bucket);
+    const jar = await cookies();
+    // Gate cookie only — a returning member isn't signing up, so no prefill.
+    jar.set(gateCookieName("site"), gateToken("site"), { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: THIRTY_DAYS });
+    redirect("/login");
+  }
+
+  // Neither an invite nor a valid access code.
+  await noteCodeFailure(bucket);
+  redirect("/gate?error=invalid");
+}
+
+/**
+ * "Already have an account?" bypass. If the address belongs to an active account,
+ * email it a one-time code that opens the gate. To prevent account enumeration we
+ * ALWAYS finish the same way — the caller is never told whether an account exists.
+ */
+export async function requestAccessCode(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const captchaToken = String(formData.get("captchaToken") ?? "") || null;
+  const ip = await clientIp();
+
+  const okCaptcha = await verifyTurnstile(captchaToken, ip);
+  const looksLikeEmail = email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  // Throttle by IP (abuse) and by address (email-bombing). Over limit → simply
+  // don't send; the user still sees the same neutral message.
+  const underIpLimit = await rateLimit(`gateemail:ip:${ip}`, 5, 900);
+  const underAddrLimit = looksLikeEmail ? await rateLimit(`gateemail:addr:${email}`, 3, 3600) : true;
+
+  if (okCaptcha && looksLikeEmail && underIpLimit && underAddrLimit) {
+    const admin = createAdminClient();
+    const { data: active } = await admin.rpc("account_active_for_email", { p_email: email });
+    if (active === true) {
+      const code = genGateCode();
+      const expiresAt = new Date(new Date().getTime() + ACCESS_CODE_TTL_MS).toISOString();
+      // Keep at most one live code per address.
+      await admin.from("gate_access_codes").delete().eq("email", email).is("used_at", null);
+      const { error: insErr } = await admin.from("gate_access_codes").insert({ code, email, expires_at: expiresAt });
+      if (!insErr) {
+        await sendEmail({ to: email, subject: "Your Klimr access code", html: accessCodeHtml(code) });
+      }
+    }
+  }
+
+  // Never reveal whether the address has an account.
+  redirect("/gate?sent=1");
 }

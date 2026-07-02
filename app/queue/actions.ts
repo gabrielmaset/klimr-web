@@ -9,6 +9,7 @@ import { SPORT_KEYS } from "@/lib/sports";
 import { LEVELS, metersBetween } from "@/lib/queue";
 import { pickupMatchPoints } from "@/lib/ranking";
 import { recomputePlayerPoints } from "@/lib/points";
+import type { Database } from "@/lib/database.types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Result = { ok?: true; error?: string };
@@ -31,7 +32,7 @@ async function currentUserId(): Promise<string | null> {
 async function sessionRow(admin: Admin, id: string) {
   const { data } = await admin
     .from("court_sessions")
-    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams")
+    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams, paused")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -212,6 +213,7 @@ type Session = NonNullable<Awaited<ReturnType<typeof sessionRow>>>;
 /** Every gate that must pass before a person may join or request to join. */
 async function validateJoin(admin: Admin, court: CourtLite, s: Session, member: Member, coords: { lat?: number; lng?: number }): Promise<Result> {
   if (s.status !== "live") return { error: "This session hasn't opened the queue yet." };
+  if (s.paused) return { error: "The queue is paused — hang tight until the organizer resumes it." };
   if (!member.user_id && !s.allow_guests) return { error: "Walk-up sign-ups are turned off for this session." };
 
   if (s.require_location && s.center_lat != null && s.center_lng != null) {
@@ -377,6 +379,86 @@ export async function setAllowFullTeams(formData: FormData): Promise<Result> {
   return { ok: true };
 }
 
+/** Pause or resume a live queue. Paused holds everyone in place (no joins, no new
+ *  matches) without ending the session. */
+export async function setPaused(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const sessionId = String(formData.get("sessionId") || "");
+  const on = formData.get("on") === "1";
+  const s = await sessionRow(admin, sessionId);
+  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can change this." };
+  await admin.from("court_sessions").update({ paused: on }).eq("id", sessionId);
+  revalidatePath(`/queue/${sessionId}`);
+  return { ok: true };
+}
+
+/** Turn the queue off and reset it: clear every team, match, and pending request,
+ *  and return the session to 'setup' so the next start begins completely fresh.
+ *  The session row (and its walk-up code/link) is kept, as are the courts. */
+export async function resetSession(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const sessionId = String(formData.get("sessionId") || "");
+  const s = await sessionRow(admin, sessionId);
+  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can do that." };
+  // Members cascade when their team is deleted.
+  await admin.from("queue_matches").delete().eq("session_id", sessionId);
+  await admin.from("queue_teams").delete().eq("session_id", sessionId);
+  await admin.from("queue_join_requests").delete().eq("session_id", sessionId);
+  await admin.from("court_sessions").update({ status: "setup", paused: false, ended_at: null }).eq("id", sessionId);
+  revalidatePath(`/queue/${sessionId}`);
+  return { ok: true };
+}
+
+/** Update session-level settings post-creation. Only the fields present in the
+ *  form are touched, so each control can save just its own slice. */
+export async function updateSessionSettings(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const sessionId = String(formData.get("sessionId") || "");
+  const s = await sessionRow(admin, sessionId);
+  if (!s) return { error: "Session not found." };
+  if (s.organizer_id !== userId) return { error: "Only the organizer can change settings." };
+
+  const patch: Database["public"]["Tables"]["court_sessions"]["Update"] = {};
+
+  if (formData.has("title")) {
+    const t = String(formData.get("title") || "").trim();
+    if (t.length < 2) return { error: "Give the session a name." };
+    patch.title = t.slice(0, 80);
+  }
+  if (formData.has("winCap")) {
+    const wc = parseInt(String(formData.get("winCap") || "1"), 10);
+    patch.win_cap = Math.max(1, Math.min(10, Number.isFinite(wc) ? wc : 1));
+  }
+  if (formData.has("allowGuests")) patch.allow_guests = formData.get("allowGuests") === "1";
+  if (formData.has("requireApproval")) patch.require_approval = formData.get("requireApproval") === "1";
+  if (formData.has("allowFullTeams")) patch.allow_full_teams = formData.get("allowFullTeams") === "1";
+  if (formData.has("eventOnly")) patch.event_only = formData.get("eventOnly") === "1";
+  if (formData.has("requireLocation")) {
+    const on = formData.get("requireLocation") === "1";
+    patch.require_location = on;
+    if (on) {
+      const lat = parseFloat(String(formData.get("centerLat") || ""));
+      const lng = parseFloat(String(formData.get("centerLng") || ""));
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return { error: "Allow location access to turn on the on-site check, then try again." };
+      }
+      patch.center_lat = lat;
+      patch.center_lng = lng;
+    }
+  }
+
+  if (Object.keys(patch).length === 0) return { ok: true };
+  await admin.from("court_sessions").update(patch).eq("id", sessionId);
+  revalidatePath(`/queue/${sessionId}`);
+  return { ok: true };
+}
+
 // ---------- leaving / management ----------
 
 async function settleTeamAfterRemoval(admin: Admin, teamId: string, teamSize: number, status: string) {
@@ -510,6 +592,9 @@ async function awardQueueMatchPoints(admin: Admin, match: MatchRow, winnerId: st
 
 /** Core next-match logic (holder first, then earliest queued). No auth here. */
 async function applyStartNext(admin: Admin, courtId: string, sessionId: string): Promise<Result> {
+  const { data: sess } = await admin.from("court_sessions").select("paused").eq("id", sessionId).maybeSingle();
+  if (sess?.paused) return { error: "The queue is paused — resume it to start the next match." };
+
   const { data: liveExisting } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
   if (liveExisting) return { error: "A match is already live on this court." };
 

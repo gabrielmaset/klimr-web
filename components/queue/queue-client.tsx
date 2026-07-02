@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, Square, UserCheck, Power, RotateCcw, ArrowLeft, Users } from "lucide-react";
+import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, UserCheck, Power, RotateCcw, ArrowLeft, Pause, Settings, ChevronDown, MapPin } from "lucide-react";
 import type { QSessionState, QCourtState, QTeam } from "@/lib/queue";
 import { LEVELS, levelLabel, formationLabel, FORMATIONS } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
 import { useQueueState } from "@/components/queue/use-queue-state";
-import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, endSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setAllowFullTeams } from "@/app/queue/actions";
+import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings } from "@/app/queue/actions";
 
 type Action = (fd: FormData) => Promise<{ ok?: true; error?: string }>;
 
@@ -68,6 +68,40 @@ function MemberList({ team, canEdit, onRemove }: { team: QTeam; canEdit: boolean
   );
 }
 
+/** A correctly-aligned toggle: the knob is anchored (left-0.5) and slides a fixed
+ *  distance, so it always sits inside the track. */
+function Switch({ on, disabled, onToggle, label }: { on: boolean; disabled?: boolean; onToggle: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onToggle}
+      className="press relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50"
+      style={{ background: on ? "#16a34a" : "var(--color-rule)" }}
+    >
+      <span
+        className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+        style={{ transform: on ? "translateX(20px)" : "translateX(0)" }}
+      />
+    </button>
+  );
+}
+
+function SettingRow({ title, desc, on, disabled, onToggle }: { title: React.ReactNode; desc: string; on: boolean; disabled?: boolean; onToggle: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-rule bg-bg/40 px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-ink">{title}</p>
+        <p className="mt-0.5 text-xs text-mute">{desc}</p>
+      </div>
+      <Switch on={on} disabled={disabled} onToggle={onToggle} label={typeof title === "string" ? title : undefined} />
+    </div>
+  );
+}
+
 export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; isOrganizer: boolean }) {
   const sid = initial.session.id;
   const { state, refetch } = useQueueState(sid, initial, 3000);
@@ -75,6 +109,8 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(initial.session.title);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -111,6 +147,27 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
   const courtLabel = (id: string) => courts.find((c) => c.id === id)?.label ?? "a court";
   const walkUrl = origin ? `${origin}/q/${session.code}` : "";
 
+  // Turning the on-site check ON needs the venue coordinates (like at creation);
+  // turning it OFF is a plain flag flip.
+  const toggleRequireLocation = () => {
+    if (session.requireLocation) {
+      run(updateSessionSettings, fd({ sessionId: sid, requireLocation: "0" }));
+      return;
+    }
+    setErr(null);
+    start(async () => {
+      const c = await getCoords();
+      if (!c) {
+        setErr("Allow location access to turn on the on-site check, then try again.");
+        return;
+      }
+      const res = await updateSessionSettings(fd({ sessionId: sid, requireLocation: "1", centerLat: String(c.lat), centerLng: String(c.lng) }));
+      if (res?.error) setErr(res.error);
+      await refetch();
+    });
+  };
+  const settingsPatch = (k: string, v: string) => run(updateSessionSettings, fd({ sessionId: sid, [k]: v }));
+
   return (
     <div className="space-y-5">
       {/* back to the event this queue belongs to */}
@@ -134,26 +191,30 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-bold shadow-sm"
             style={
-              session.status === "live"
+              session.status === "live" && !session.paused
                 ? { background: "#16a34a", color: "#fff" }
-                : session.status === "ended"
-                  ? { background: "#f4f4f5", color: "#52525b" }
-                  : { background: "#fff7e6", color: "#b45309" }
+                : session.status === "live" && session.paused
+                  ? { background: "#fffbeb", color: "#b45309" }
+                  : session.status === "ended"
+                    ? { background: "#f4f4f5", color: "#52525b" }
+                    : { background: "#fff7e6", color: "#b45309" }
             }
           >
-            {session.status === "live" ? (
+            {session.status === "live" && !session.paused ? (
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
               </span>
+            ) : session.status === "live" && session.paused ? (
+              <Pause size={12} fill="currentColor" />
             ) : null}
-            {session.status === "live" ? "Live" : session.status === "ended" ? "Ended" : "Setup"}
+            {session.status === "live" ? (session.paused ? "Paused" : "Live") : session.status === "ended" ? "Ended" : "Setup"}
           </span>
         </div>
 
-        {/* organizer: setup / start / share / end */}
+        {/* organizer: lifecycle + settings */}
         {isOrganizer ? (
-          <div className="mt-4 border-t border-rule pt-4">
+          <div className="mt-4 space-y-3 border-t border-rule pt-4">
             {session.status === "setup" ? (
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -162,12 +223,12 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                   onClick={() => run(startSession, fd({ sessionId: sid }), true)}
                   className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
                 >
-                  <Play size={15} /> Start session
+                  <Play size={15} /> Turn on queue
                 </button>
-                <span className="text-xs text-mute">{session.requireLocation ? "Uses your current location to verify players are on-site." : "Players can join once the session is live."}</span>
+                <span className="text-xs text-mute">{session.requireLocation ? "Uses your current location to verify players are on-site." : "Players can join once the queue is live."}</span>
               </div>
             ) : session.status === "live" ? (
-              <div className="space-y-3">
+              <>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -184,45 +245,138 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                     {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />} {copied ? "Copied" : "Copy walk-up link"}
                   </button>
                   {session.allowGuests ? <span className="text-xs text-faint">Walk-ups join at {walkUrl ? <span className="font-mono">{walkUrl.replace(/^https?:\/\//, "")}</span> : "your link"}</span> : <span className="text-xs text-faint">Walk-up sign-ups are off.</span>}
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      if (confirm("End the live queue for everyone? This closes the queue only and will not cancel the event or its recurring series.")) run(endSession, fd({ sessionId: sid }));
-                    }}
-                    className="press ml-auto inline-flex items-center gap-1.5 rounded-full border border-rule bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-bg"
-                  >
-                    <Square size={12} /> End session
-                  </button>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-2xl border border-rule bg-bg/40 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-                      <Users size={15} /> Full teams can join at once
-                    </p>
-                    <p className="mt-0.5 text-xs text-mute">Let a group drop a complete team straight into the line.</p>
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => run(setPaused, fd({ sessionId: sid, on: session.paused ? "0" : "1" }))}
+                      className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-bg"
+                    >
+                      {session.paused ? <><Play size={13} /> Resume</> : <><Pause size={13} /> Pause</>}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => {
+                        if (confirm("Turn off and reset this queue? Everyone in line is cleared and it starts fresh the next time you turn it on. This won't cancel the event or its recurring series.")) run(resetSession, fd({ sessionId: sid }));
+                      }}
+                      className="press inline-flex items-center gap-1.5 rounded-full border border-[#fecaca] bg-white px-3 py-1.5 text-xs font-semibold text-[#b91c1c] hover:bg-[#fef2f2]"
+                    >
+                      <Power size={13} /> Turn off
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={session.allowFullTeams}
-                    disabled={pending}
-                    onClick={() => run(setAllowFullTeams, fd({ sessionId: sid, on: session.allowFullTeams ? "0" : "1" }))}
-                    className="press relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50"
-                    style={{ background: session.allowFullTeams ? "#16a34a" : "var(--color-rule)" }}
-                    title="Let groups drop a complete team straight into the line"
-                  >
-                    <span className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform" style={{ transform: session.allowFullTeams ? "translateX(22px)" : "translateX(2px)" }} />
-                  </button>
                 </div>
+                {session.paused ? (
+                  <p className="rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-xs font-semibold text-[#b45309]">
+                    Queue paused — players can&rsquo;t join or start matches until you resume.
+                  </p>
+                ) : null}
                 <p className="text-xs text-mute">
                   Courtside screen on a separate tablet? Open <span className="font-mono font-semibold text-ink">klimr.com/q</span> and enter code <span className="font-mono font-bold tracking-wider text-ink">{session.code}</span> + the court number.
                 </p>
-                <p className="text-xs text-faint">Ending the session closes this live queue only — it won&rsquo;t cancel the event or its recurring series.</p>
-              </div>
+                <p className="text-xs text-faint">Turning off resets the queue and stops it — it won&rsquo;t cancel the event or its recurring series.</p>
+              </>
             ) : (
-              <p className="text-sm text-mute">This session has ended.</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-sm text-mute">This session has ended.</p>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(startSession, fd({ sessionId: sid }), true)}
+                  className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-white px-3.5 py-1.5 text-xs font-semibold text-ink hover:bg-bg"
+                >
+                  <RotateCcw size={13} /> Start a new session
+                </button>
+              </div>
             )}
+
+            {/* Settings — everything from creation, editable here (setup or live) */}
+            {session.status !== "ended" ? (
+              <div className="rounded-2xl border border-rule bg-bg/40">
+                <button
+                  type="button"
+                  onClick={() => setShowSettings((v) => !v)}
+                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+                >
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink"><Settings size={15} /> Session settings</span>
+                  <ChevronDown size={16} className={`text-faint transition-transform ${showSettings ? "rotate-180" : ""}`} />
+                </button>
+                {showSettings ? (
+                  <div className="space-y-3 border-t border-rule px-4 py-4">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-mute">Session name</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={titleDraft}
+                          onChange={(e) => setTitleDraft(e.target.value)}
+                          maxLength={80}
+                          className="w-full rounded-xl border border-rule bg-white px-3 py-2 text-sm outline-none focus:border-brand"
+                        />
+                        <button
+                          type="button"
+                          disabled={pending || titleDraft.trim().length < 2 || titleDraft.trim() === session.title}
+                          onClick={() => settingsPatch("title", titleDraft.trim())}
+                          className="press shrink-0 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-mute">Win rule</label>
+                      <select
+                        value={String(session.winCap)}
+                        disabled={pending}
+                        onChange={(e) => settingsPatch("winCap", e.target.value)}
+                        className="w-full rounded-xl border border-rule bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="1">Play once — re-form a new team every game</option>
+                        <option value="2">Winners stay until 2 wins, then re-form</option>
+                        <option value="3">Winners stay until 3 wins, then re-form</option>
+                        <option value="5">Winners stay until 5 wins, then re-form</option>
+                      </select>
+                    </div>
+                    <SettingRow
+                      title="Walk-up sign-ups"
+                      desc="Let people without a Klimr account join by name."
+                      on={session.allowGuests}
+                      disabled={pending}
+                      onToggle={() => settingsPatch("allowGuests", session.allowGuests ? "0" : "1")}
+                    />
+                    <SettingRow
+                      title={<span className="inline-flex items-center gap-1.5"><MapPin size={14} /> On-site check</span>}
+                      desc="Verify players are within ~150m of the court when they join. Turning this on pins the court to your current location."
+                      on={session.requireLocation}
+                      disabled={pending}
+                      onToggle={toggleRequireLocation}
+                    />
+                    <SettingRow
+                      title="Approve each player"
+                      desc="Review and approve players before they enter the line."
+                      on={session.requireApproval}
+                      disabled={pending}
+                      onToggle={() => settingsPatch("requireApproval", session.requireApproval ? "0" : "1")}
+                    />
+                    <SettingRow
+                      title="Full teams can join at once"
+                      desc="Let a group drop a complete team straight into the line."
+                      on={session.allowFullTeams}
+                      disabled={pending}
+                      onToggle={() => settingsPatch("allowFullTeams", session.allowFullTeams ? "0" : "1")}
+                    />
+                    {session.eventId ? (
+                      <SettingRow
+                        title="Event RSVPs only"
+                        desc="Only players who RSVP'd to this event can join (turns off walk-ups)."
+                        on={session.eventOnly}
+                        disabled={pending}
+                        onToggle={() => settingsPatch("eventOnly", session.eventOnly ? "0" : "1")}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
