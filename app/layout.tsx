@@ -3,6 +3,9 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/inter/standard-italic.css";
 import "@fontsource-variable/jetbrains-mono";
 import "@fontsource-variable/oswald";
+import "@fontsource-variable/hanken-grotesk";
+import "@fontsource/space-mono/400.css";
+import "@fontsource/space-mono/700.css";
 import "@fontsource-variable/fraunces/full.css"; // logotype only — see components/logo.tsx
 import "./globals.css";
 import Script from "next/script";

@@ -73,6 +73,33 @@ html {
   padding-right: env(safe-area-inset-right);
 }
 
+/* ── Tournament public page ("Ales Cup" editorial theme) ──────────────────────
+   Scoped to .tp so it never touches the rest of the app. A warm "kraft/beach"
+   palette on paper, with Hanken Grotesk for display/body and Space Mono for
+   small technical accents. Colors are exposed as CSS variables and also used
+   directly as Tailwind arbitrary values within the page. */
+.tp {
+  font-family: "Hanken Grotesk Variable", system-ui, -apple-system, sans-serif;
+  color: #17190f;
+  --tp-bg: #f6f6f2;
+  --tp-paper: #fcfcfa;
+  --tp-panel: #ffffff;
+  --tp-ink: #17190f;
+  --tp-ink-2: #14170e;
+  --tp-text: #3f423a;
+  --tp-mute: #6b6e60;
+  --tp-faint: #8a8d80;
+  --tp-line: #e7e7e1;
+  --tp-line-2: #ededc6;
+  --tp-accent: #e4713a;
+  --tp-accent-deep: #8e4720;
+  --tp-gold: #c99a12;
+  --tp-olive: #3f6314;
+}
+.tp-mono {
+  font-family: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 body {
   min-height: 100%;
   background: var(--color-bg);

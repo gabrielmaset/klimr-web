@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Users, Trophy, Check, Dices, FileText, Megaphone, Pin, ChevronDown, RotateCcw } from "lucide-react";
+import { CalendarClock, Users, Trophy, Check, Dices, FileText, Megaphone, Pin, ChevronDown, RotateCcw, Hourglass, MapPin } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { formatFee, isRegistrationOpen, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
-import { EventHero } from "@/components/event-hero";
 import { PremiumSponsorAd } from "@/components/sponsor-ad";
-import { WeatherForecastCard } from "@/components/weather-card";
+import { WeatherForecastCard, WeatherComingSoon } from "@/components/weather-card";
 import { EventLocationMap } from "@/components/event-location-map";
 import { reopenTournament } from "@/app/tournaments/actions";
 import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
@@ -223,13 +223,23 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const dateText = t.starts_at
     ? new Date(t.starts_at).toLocaleDateString(undefined, { weekday: "short", month: "long", day: "numeric", year: "numeric" })
     : null;
+  // eslint-disable-next-line react-hooks/purity -- server component; current-time comparison is intentional
+  const daysToGo = t.starts_at ? Math.ceil((new Date(t.starts_at).getTime() - Date.now()) / 86_400_000) : null;
+  const startTimeSub = t.starts_at
+    ? `First serve ${new Date(t.starts_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+    : "Schedule TBA";
   const forecast = t.weather_enabled
     ? await getEventForecast({ lat: t.location_lat, lng: t.location_lng, startsAt: t.starts_at, timezone: t.timezone })
     : null;
   // Status row is up to three columns: registration · venue map · weather. The map
   // shows when we have a location; registration widens to fill any empty columns.
   const hasMap = !!(t.location_url || t.location_address || t.location_name || (t.location_lat != null && t.location_lng != null));
-  const sideCount = (hasMap ? 1 : 0) + (forecast ? 1 : 0);
+  // Weather applies to a future, geolocated event with weather turned on. If we
+  // have no forecast yet (still beyond the ~16-day horizon), keep the slot with a
+  // "coming soon" placeholder rather than dropping it.
+  // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
+  const weatherPending = !!t.weather_enabled && t.location_lat != null && t.location_lng != null && !forecast && !!t.starts_at && new Date(t.starts_at).getTime() >= Date.now() - 86_400_000;
+  const sideCount = (hasMap ? 1 : 0) + (forecast || weatherPending ? 1 : 0);
   const regSpan = sideCount === 2 ? "lg:col-span-1" : sideCount === 1 ? "lg:col-span-2" : "lg:col-span-3";
   // Capacity shown WITH its unit so it can't be misread against per-player fees.
   const capUnit = fc.capacity_unit === "person" ? "players" : t.entry_type === "team" ? "teams" : "players";
@@ -428,17 +438,64 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
     });
 
   return (
-    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      {/* hero */}
-      <EventHero
-        kicker={`${meta.name} · ${t.entry_type === "team" ? "Team event" : "Individual event"}`}
-        title={t.title}
-        summary={t.summary}
-        dateText={dateText}
-        locationName={t.location_name}
-        emoji={meta.emoji}
-        photos={photos}
-      />
+    <div className="tp min-h-dvh bg-[#F6F6F2] pb-14">
+      {/* HERO — dark, photographic, with the tournament's own cover */}
+      <section className="relative isolate overflow-hidden">
+        {photos[0] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photos[0]} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0" style={{ background: "linear-gradient(135deg,#26320f,#14170E)" }} />
+        )}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg,rgba(20,23,14,.32) 0%,rgba(20,23,14,.86) 100%)" }} />
+        <div className="relative mx-auto max-w-[1200px] px-5 pb-9 pt-14 sm:px-8 sm:pt-24">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
+              <span aria-hidden>{meta.emoji}</span> {meta.name}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
+              <Users size={13} /> {t.entry_type === "team" ? "Team event" : "Individual event"}
+            </span>
+            {canSignUp ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "#E4713A", boxShadow: "0 2px 10px rgba(228,113,58,.4)" }}>
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                </span>
+                Registration open
+              </span>
+            ) : null}
+          </div>
+          <h1 className="mt-4 max-w-3xl text-4xl font-extrabold leading-[0.98] tracking-tight text-white sm:text-6xl" style={{ textShadow: "0 2px 24px rgba(0,0,0,.35)" }}>
+            {t.title}
+          </h1>
+          {t.summary ? <p className="mt-3 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">{t.summary}</p> : null}
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            {([
+              dateText ? { Icon: CalendarClock, main: dateText, sub: startTimeSub } : null,
+              t.location_name ? { Icon: MapPin, main: t.location_name, sub: [t.location_address, t.location_zip].filter(Boolean).join(" · ") || (t.location_name ? "Venue" : "") } : null,
+              daysToGo != null && daysToGo > 0
+                ? { Icon: Hourglass, main: `${daysToGo} day${daysToGo === 1 ? "" : "s"}`, sub: "until first serve" }
+                : daysToGo === 0
+                  ? { Icon: Hourglass, main: "Today", sub: "first serve" }
+                  : null,
+            ].filter(Boolean) as { Icon: LucideIcon; main: string; sub: string }[]).map((c, i) => {
+              const Ic = c.Icon;
+              return (
+                <div key={i} className="flex items-start gap-3 rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-sm">
+                  <Ic size={18} className="mt-0.5 shrink-0 text-white/80" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">{c.main}</p>
+                    {c.sub ? <p className="truncate text-xs text-white/70">{c.sub}</p> : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1200px] px-5 pt-6 sm:px-8">
 
       {t.cancelled_at ? (
         <div className="mt-4 rounded-3xl border border-[#f5b8a6] bg-[#fff5f1] px-5 py-4">
@@ -571,6 +628,8 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         ) : null}
         {forecast ? (
           <WeatherForecastCard forecast={forecast} dateText={dateText} locationName={t.location_name} className="lg:col-span-1 lg:self-start" />
+        ) : weatherPending ? (
+          <WeatherComingSoon dateText={dateText} locationName={t.location_name} className="lg:col-span-1 lg:self-start" />
         ) : null}
       </div>
 
@@ -789,6 +848,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           </div>
         </section>
       ) : null}
+      </div>
     </div>
   );
 }

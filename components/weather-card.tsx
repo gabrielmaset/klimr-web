@@ -1,4 +1,4 @@
-import { Sun, CloudSun, Cloud, CloudFog, CloudDrizzle, CloudRain, CloudSnow, CloudLightning, Droplets, Wind } from "lucide-react";
+import { Sun, CloudSun, Cloud, CloudFog, CloudDrizzle, CloudRain, CloudSnow, CloudLightning, Droplets, Wind, Clock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { EventForecast, WeatherKind } from "@/lib/weather";
 
@@ -56,6 +56,46 @@ export function WeatherForecastCard({
             ) : null}
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+// Shown when weather applies (a future, geolocated event) but the forecast isn't
+// available yet — e.g. the event is still beyond the ~16-day forecast horizon.
+// Keeps the weather slot present with a calm "coming soon" state instead of a gap,
+// so every tournament page has a consistent layout. It fills in automatically as
+// the date approaches (the page re-fetches on each load).
+export function WeatherComingSoon({
+  dateText,
+  locationName,
+  className,
+}: {
+  dateText?: string | null;
+  locationName?: string | null;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-3xl p-5 text-white sm:p-6 ${className ?? ""}`}
+      style={{ backgroundImage: "linear-gradient(135deg,#94a3b8,#64748b)" }}
+    >
+      <CloudSun aria-hidden size={150} strokeWidth={1.5} className="pointer-events-none absolute -right-6 -top-8 text-white/15" />
+      <div className="relative">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="kicker text-white/75">Forecast{dateText ? ` · ${dateText}` : ""}</p>
+            <p className="mt-0.5 text-lg font-bold leading-tight">Weather coming soon</p>
+            {locationName ? <p className="truncate text-sm text-white/80">{locationName}</p> : null}
+          </div>
+          <CloudSun aria-hidden size={36} strokeWidth={1.75} className="shrink-0 text-white/90" />
+        </div>
+        <p className="mt-4 text-sm leading-snug text-white/85">
+          The day-of forecast appears here about two weeks before the event.
+        </p>
+        <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white/90">
+          <Clock size={12} /> Updates automatically
+        </span>
       </div>
     </div>
   );
