@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sportMeta } from "@/lib/sports";
 import { NetworkBrowser, type Person, type Tab, type FriendStatus } from "@/components/network-browser";
+import { PymkRail } from "@/components/pymk-rail";
+import { getPeopleYouMayKnow } from "@/lib/social-server";
 
 export const metadata: Metadata = { title: "Network" };
 
@@ -28,10 +30,19 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/network");
 
-  const [{ data: fr }, { data: flw }, { data: flwr }] = await Promise.all([
-    supabase.from("friendships").select("requester_id, addressee_id, status, created_at, responded_at").or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),
-    supabase.from("follows").select("followee_id, created_at").eq("follower_id", user.id),
-    supabase.from("follows").select("follower_id, created_at").eq("followee_id", user.id),
+  // Bounded reads: most recent 300 per relation (exact totals come from the
+  // denormalized profile counters), plus my counters and the recommendations.
+  const [{ data: fr }, { data: flw }, { data: flwr }, { data: myCounts }, pymk] = await Promise.all([
+    supabase
+      .from("friendships")
+      .select("requester_id, addressee_id, status, created_at, responded_at")
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .order("created_at", { ascending: false })
+      .limit(300),
+    supabase.from("follows").select("followee_id, created_at").eq("follower_id", user.id).order("created_at", { ascending: false }).limit(300),
+    supabase.from("follows").select("follower_id, created_at").eq("followee_id", user.id).order("created_at", { ascending: false }).limit(300),
+    supabase.from("profiles").select("connections_count, followers_count, following_count").eq("id", user.id).maybeSingle(),
+    getPeopleYouMayKnow(supabase, user.id, 8),
   ]);
 
   const friendAddedAt = new Map<string, string>();
@@ -113,6 +124,11 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
   const following = [...iFollowAt.entries()].map(([id, t]) => toPerson(id, t)).filter(isPerson);
   const followers = [...followsMeAt.entries()].map(([id, t]) => toPerson(id, t)).filter(isPerson);
 
+  const pymkAvatars: Record<string, string | null> = {};
+  for (const p of pymk) {
+    pymkAvatars[p.user_id] = p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
+  }
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
@@ -120,7 +136,18 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Friends &amp; followers</h1>
         <p className="mt-1.5 text-sm text-mute">Everyone in your circle — search, filter, and jump to any player.</p>
       </div>
-      <NetworkBrowser friends={friends} following={following} followers={followers} initialTab={initialTab} />
+      <PymkRail people={pymk} avatarUrlFor={pymkAvatars} />
+      <NetworkBrowser
+        friends={friends}
+        following={following}
+        followers={followers}
+        initialTab={initialTab}
+        totals={{
+          friends: myCounts?.connections_count ?? friends.length,
+          following: myCounts?.following_count ?? following.length,
+          followers: myCounts?.followers_count ?? followers.length,
+        }}
+      />
     </div>
   );
 }

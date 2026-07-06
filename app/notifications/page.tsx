@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Bell, CalendarClock, Trophy, Swords, ShoppingBag, Sparkles, Megaphone, CheckCheck } from "lucide-react";
+import { Bell, CalendarClock, Trophy, Swords, ShoppingBag, Sparkles, Megaphone, CheckCheck, UserPlus, UserCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { markAllRead } from "./actions";
 
@@ -19,6 +19,8 @@ type Row = {
 
 const KIND_META: Record<string, { Icon: typeof Bell; tint: string; ink: string }> = {
   match_invite: { Icon: CalendarClock, tint: "#fff1ed", ink: "#d63a0f" },
+  friend_request: { Icon: UserPlus, tint: "#eef2ff", ink: "#4338ca" },
+  friend_accept: { Icon: UserCheck, tint: "#f0fdf4", ink: "#15803d" },
   match_join: { Icon: CalendarClock, tint: "#f0fdf4", ink: "#15803d" },
   match_confirm: { Icon: CalendarClock, tint: "#f0fdf4", ink: "#15803d" },
   ranking: { Icon: Trophy, tint: "#fff8e6", ink: "#8a6d0b" },

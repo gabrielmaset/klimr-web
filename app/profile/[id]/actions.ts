@@ -20,9 +20,13 @@ export async function blockUser(formData: FormData) {
   const { supabase, user } = await ctx();
   if (!user) redirect(`/login?next=/profile/${target}`);
   if (target && target !== user.id) {
-    await supabase.from("blocks").insert({ blocker_id: user.id, blocked_id: target });
+    // The RPC severs everything at once: block row + friendship + follows in
+    // both directions + recommendation caches (migration 0099).
+    const { error } = await supabase.rpc("block_player", { p_target: target });
+    if (error) console.error("[social] block failed", error.code, error.message);
   }
   revalidatePath(`/profile/${target}`);
+  revalidatePath("/network");
 }
 
 export async function unblockUser(formData: FormData) {

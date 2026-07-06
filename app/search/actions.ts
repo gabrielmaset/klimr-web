@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { SearchResult } from "./types";
+import { blockSetsFor } from "@/lib/social-server";
 
 const joinLoc = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(", ") || null;
 
@@ -23,6 +24,10 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
 
   const like = `%${q.replace(/[%_\\]/g, "")}%`;
 
+  // Blocked pairs never meet in search — either direction. "Who blocked me" is
+  // invisible to the viewer's RLS, so the set comes through the service role.
+  const { all: blockedIds } = await blockSetsFor(user.id);
+
   const [players, courts, teams, events] = await Promise.all([
     supabase
       .from("profiles")
@@ -30,7 +35,7 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
       .ilike("display_name", like)
       .eq("account_status", "active")
       .neq("id", user.id)
-      .limit(5),
+      .limit(8),
     supabase.from("courts").select("id, name, neighborhood, city").ilike("name", like).limit(4),
     supabase.from("teams").select("id, name, city").ilike("name", like).limit(3),
     supabase.from("events").select("id, title, starts_at").ilike("title", like).eq("status", "active").limit(3),
@@ -38,7 +43,7 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
 
   const out: SearchResult[] = [];
 
-  for (const p of players.data ?? []) {
+  for (const p of (players.data ?? []).filter((p) => !blockedIds.has(p.id)).slice(0, 5)) {
     out.push({
       type: "player",
       id: p.id,

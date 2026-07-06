@@ -12,12 +12,15 @@ import {
   Pencil,
   Sparkles,
   Medal,
+  Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AvatarLightbox } from "@/components/avatar-lightbox";
 import { sportMeta } from "@/lib/sports";
 import { displayAge } from "@/lib/age";
 import { RelationshipButtons, type FriendStatus } from "@/components/relationship-buttons";
+import { mapFriendshipRow, buildContextChips, type RelationshipContext } from "@/lib/social";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { blockUser, unblockUser, reportUser } from "./actions";
 
 export const metadata: Metadata = { title: "Player" };
@@ -148,12 +151,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
   // Viewer's safety state toward this player.
   let blocked = false;
+  let blockedMe = false;
   let reported = false;
   let friendStatus: FriendStatus = "none";
   let isFollowing = false;
+  let context: RelationshipContext | null = null;
+  let mutualNames: string[] = [];
   if (!isSelf) {
-    const [{ data: b }, { data: r }, { data: fr }, { data: fol }] = await Promise.all([
+    const admin = createAdminClient();
+    const [{ data: b }, { data: bm }, { data: r }, { data: fr }, { data: fol }] = await Promise.all([
       supabase.from("blocks").select("blocked_id").eq("blocker_id", user.id).eq("blocked_id", id).maybeSingle(),
+      // Their block on me is invisible to my RLS — the service role answers it.
+      admin.from("blocks").select("blocker_id").eq("blocker_id", id).eq("blocked_id", user.id).maybeSingle(),
       supabase.from("reports").select("id").eq("reporter_id", user.id).eq("reported_id", id).limit(1).maybeSingle(),
       supabase
         .from("friendships")
@@ -163,13 +172,38 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
       supabase.from("follows").select("followee_id").eq("follower_id", user.id).eq("followee_id", id).maybeSingle(),
     ]);
     blocked = !!b;
+    blockedMe = !!bm;
     reported = !!r;
     isFollowing = !!fol;
-    if (fr) {
-      if (fr.status === "accepted") friendStatus = "friends";
-      else friendStatus = fr.requester_id === user.id ? "requested" : "incoming";
+    friendStatus = mapFriendshipRow(user.id, fr);
+
+    if (!blocked && !blockedMe) {
+      const [{ data: ctxRows }, { data: muts }] = await Promise.all([
+        supabase.rpc("relationship_context", { p_other: id }),
+        supabase.rpc("mutual_connections", { p_other: id, p_limit: 3 }),
+      ]);
+      context = ctxRows?.[0] ?? null;
+      mutualNames = (muts ?? []).map((m) => m.display_name);
     }
   }
+
+  // If they've blocked the viewer, the profile simply isn't available — same
+  // answer as a missing profile, so blocking is never announced.
+  if (blockedMe) {
+    return (
+      <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+        <div className="rounded-2xl border border-dashed border-rule bg-surface p-10 text-center">
+          <p className="text-lg font-bold text-ink">This profile isn&rsquo;t available.</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-mute">The player may have changed their settings or is no longer active.</p>
+          <Link href="/network" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface">
+            Back to your network
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const contextChips = context ? buildContextChips(context, { max: 3, areaLabel: profile.neighborhood ?? profile.city }) : [];
 
   const avatarUrl = profile.avatar_path
     ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl
@@ -225,6 +259,26 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </span>
               <span className="text-xs text-faint">Member since {memberSince}</span>
             </div>
+            {!isSelf && !blocked && (mutualNames.length > 0 || contextChips.length > 0) ? (
+              <div className="mt-3 space-y-1.5">
+                {context && context.mutual_count > 0 ? (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-mute">
+                    <Users size={13} className="text-faint" />
+                    Connected with {mutualNames.slice(0, 2).join(", ")}
+                    {context.mutual_count > 2 ? ` and ${context.mutual_count - 2} other${context.mutual_count - 2 === 1 ? "" : "s"}` : ""}
+                  </p>
+                ) : null}
+                {contextChips.filter((c) => !c.includes("mutual connection")).length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {contextChips
+                      .filter((c) => !c.includes("mutual connection"))
+                      .map((c) => (
+                        <span key={c} className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-semibold text-mute">{c}</span>
+                      ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         {isSelf ? (

@@ -101,11 +101,14 @@ export function MemberControls({
                 type="button"
                 disabled={pending}
                 onClick={() => {
-                  if (confirm(`Make ${name} the owner? You'll become a manager.`)) run(transferOwnership, {});
+                  const msg = isPro
+                    ? `Make ${name} the owner? You'll become a manager.`
+                    : `Make ${name} the team manager? You'll stay on the squad as a player.`;
+                  if (confirm(msg)) run(transferOwnership, {});
                 }}
                 className="press flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink hover:bg-bg"
               >
-                <ArrowUpCircle size={14} /> Make owner
+                <ArrowUpCircle size={14} /> {isPro ? "Make owner" : "Make team manager"}
               </button>
             ) : null}
             <button

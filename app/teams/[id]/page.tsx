@@ -206,12 +206,15 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
                   <div className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5">
                       <Link href={`/profile/${m.user_id}`} className="press truncate text-sm font-bold text-ink">{p?.display_name ?? "Player"}</Link>
-                      {m.role === "owner" ? <Crown size={13} className="shrink-0 text-pop" aria-label="Owner" /> : null}
+                      {m.role === "owner" ? <Crown size={13} className="shrink-0 text-pop" aria-label={isPro ? "Owner" : "Team manager"} /> : null}
                       {m.user_id === user.id ? <span className="text-[11px] text-faint">· you</span> : null}
                     </span>
                     <span className="mt-1 flex flex-wrap items-center gap-1">
                       {isPro && ROLE_LABEL[m.role] ? (
                         <span className="font-athletic rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">{ROLE_LABEL[m.role]}</span>
+                      ) : null}
+                      {!isPro && m.role === "owner" ? (
+                        <span className="font-athletic rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">Team manager</span>
                       ) : null}
                       {m.designation && DESIG_LABEL[m.designation] ? (
                         <span className="font-athletic rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: kit.primary }}>{DESIG_LABEL[m.designation]}</span>
@@ -255,17 +258,27 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         </section>
       ) : null}
 
-      {/* ===== club structure ===== */}
+      {/* ===== team / club structure ===== */}
       <section className="mt-8 rounded-2xl border border-rule bg-surface p-5">
-        <h2 className="font-athletic text-xl font-bold uppercase tracking-wide text-ink">Club structure</h2>
-        <p className="mt-1 text-sm text-mute">A verified player owns the team, and only verified players can join — so the identity guarantee extends to every name on the roster.</p>
+        <h2 className="font-athletic text-xl font-bold uppercase tracking-wide text-ink">{isPro ? "Club structure" : "Team structure"}</h2>
+        <p className="mt-1 text-sm text-mute">
+          {isPro
+            ? "A verified player owns the team, and only verified players can join — so the identity guarantee extends to every name on the roster."
+            : "Recreational teams stay simple: whoever created the team runs it, and everyone else just plays. Only verified players can join, so the identity guarantee still extends to every name on the roster."}
+        </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {[
-            { r: "Owner", d: "Full control · transfers ownership" },
-            { r: "Manager", d: "Roster, scheduling, invites" },
-            { r: "Staff", d: "Support role · can invite" },
-            { r: "Member", d: "Captain · Co-captain · Sub" },
-          ].map((row) => (
+          {(isPro
+            ? [
+                { r: "Owner", d: "Full control · transfers ownership" },
+                { r: "Manager", d: "Roster, scheduling, invites" },
+                { r: "Staff", d: "Support role · can invite" },
+                { r: "Member", d: "Captain · Co-captain · Sub" },
+              ]
+            : [
+                { r: "Team manager", d: "Runs the team · whoever created it" },
+                { r: "Player", d: "Everyone else on the squad" },
+              ]
+          ).map((row) => (
             <div key={row.r} className="flex items-center justify-between gap-3 rounded-xl border border-rule bg-bg px-4 py-3">
               <span className="font-athletic text-sm font-bold uppercase tracking-wider text-ink">{row.r}</span>
               <span className="text-right text-xs text-mute">{row.d}</span>
@@ -279,7 +292,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         <form action={leaveTeam} className="mt-8">
           <input type="hidden" name="teamId" value={team.id} />
           <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-brand/40 hover:text-brand-deep">
-            {isOwner ? "Leave team (ownership passes on)" : "Leave team"}
+            {isOwner ? (isPro ? "Leave team (ownership passes on)" : "Leave team (team management passes on)") : "Leave team"}
           </button>
         </form>
       ) : null}

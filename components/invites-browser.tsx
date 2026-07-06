@@ -78,6 +78,9 @@ export function InvitesBrowser({ items: items0, initialDir, initialKind }: { ite
         break;
       case "friendRemove":
         fd.set("userId", item.friendUserId ?? "");
+        // Declining someone's request (received) arms the re-request cooldown;
+        // canceling my own sent request must not.
+        fd.set("declined", item.dir === "received" ? "1" : "0");
         fn = removeFriend;
         break;
       case "teamAccept":

@@ -53,11 +53,15 @@ export function NetworkBrowser({
   following: following0,
   followers: followers0,
   initialTab,
+  totals,
 }: {
   friends: Person[];
   following: Person[];
   followers: Person[];
   initialTab: Tab;
+  /** Exact totals from the denormalized profile counters — lists themselves are
+   *  capped server-side, so labels must not rely on array lengths. */
+  totals?: { friends: number; following: number; followers: number };
 }) {
   const [friends, setFriends] = useState(friends0);
   const [following, setFollowing] = useState(following0);
@@ -178,9 +182,9 @@ export function NetworkBrowser({
     });
 
   const TABS: { key: Tab; label: string; n: number }[] = [
-    { key: "friends", label: "Friends", n: friends.length },
-    { key: "following", label: "Following", n: following.length },
-    { key: "followers", label: "Followers", n: followers.length },
+    { key: "friends", label: "Friends", n: totals?.friends ?? friends.length },
+    { key: "following", label: "Following", n: totals?.following ?? following.length },
+    { key: "followers", label: "Followers", n: totals?.followers ?? followers.length },
   ];
 
   return (
@@ -270,6 +274,7 @@ export function NetworkBrowser({
       <p className="mb-3 text-xs text-faint">
         {hasMore ? `Showing ${visible.length} of ${filtered.length}` : `${filtered.length} ${filtered.length === 1 ? "person" : "people"}`}
         {(sport !== "all" || q || partnersOnly) && !hasMore ? " matching" : ""}
+        {totals && active.length >= 300 && (totals[tab] ?? 0) > active.length ? ` · showing your most recent ${active.length}` : ""}
       </p>
 
       {active.length === 0 ? (

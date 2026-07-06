@@ -165,7 +165,7 @@ export default async function TeamsPage() {
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-mute">
                       {role === "owner" ? <Crown size={12} className="text-pop" /> : null}
-                      {ROLE_LABEL[role] ?? "Member"}
+                      {t.category === "pro" ? (ROLE_LABEL[role] ?? "Member") : role === "owner" ? "Team manager" : "Player"}
                     </span>
                   </div>
 

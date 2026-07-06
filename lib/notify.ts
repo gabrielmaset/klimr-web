@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 type Kind =
   | "match_invite"
+  | "friend_request"
+  | "friend_accept"
   | "match_join"
   | "match_confirm"
   | "ranking"

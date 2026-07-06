@@ -172,6 +172,9 @@ export interface Database {
           created_at: string;
           last_seen_at: string | null;
           presence_mode: string;
+          connections_count: number;
+          followers_count: number;
+          following_count: number;
         };
         Insert: {
           id: string;
@@ -203,6 +206,9 @@ export interface Database {
           created_at?: string;
           last_seen_at?: string | null;
           presence_mode?: string;
+          connections_count?: number;
+          followers_count?: number;
+          following_count?: number;
         };
         Update: {
           display_name?: string;
@@ -232,6 +238,9 @@ export interface Database {
           suspended_until?: string | null;
           last_seen_at?: string | null;
           presence_mode?: string;
+          connections_count?: number;
+          followers_count?: number;
+          following_count?: number;
         };
         Relationships: [];
       };
@@ -589,6 +598,75 @@ export interface Database {
           preserved_until?: string | null;
           notes?: string | null;
         };
+        Relationships: [];
+      };
+      pymk_cache: {
+        Row: { user_id: string; payload: Json; computed_at: string };
+        Insert: { user_id: string; payload: Json; computed_at?: string };
+        Update: { payload?: Json; computed_at?: string };
+        Relationships: [];
+      };
+      connection_declines: {
+        Row: { pair_lo: string; pair_hi: string; declined_by: string; declined_at: string };
+        Insert: { pair_lo: string; pair_hi: string; declined_by: string; declined_at?: string };
+        Update: { declined_by?: string; declined_at?: string };
+        Relationships: [];
+      };
+      support_tickets: {
+        Row: {
+          id: string;
+          user_id: string;
+          source: string;
+          category: string;
+          severity: string;
+          status: string;
+          subject: string;
+          body: string | null;
+          ai_summary: string | null;
+          conversation_id: string | null;
+          admin_note: string | null;
+          external_ref: string | null;
+          created_at: string;
+          updated_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          source?: string;
+          category?: string;
+          severity?: string;
+          status?: string;
+          subject: string;
+          body?: string | null;
+          ai_summary?: string | null;
+          conversation_id?: string | null;
+          admin_note?: string | null;
+          external_ref?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: {
+          severity?: string;
+          status?: string;
+          admin_note?: string | null;
+          external_ref?: string | null;
+          updated_at?: string;
+          resolved_at?: string | null;
+        };
+        Relationships: [];
+      };
+      support_conversations: {
+        Row: { id: string; user_id: string; escalated: boolean; created_at: string; updated_at: string };
+        Insert: { id?: string; user_id: string; escalated?: boolean; created_at?: string; updated_at?: string };
+        Update: { escalated?: boolean; updated_at?: string };
+        Relationships: [];
+      };
+      support_messages: {
+        Row: { id: number; conversation_id: string; role: string; content: string; created_at: string };
+        Insert: { conversation_id: string; role: string; content: string; created_at?: string };
+        Update: { content?: string };
         Relationships: [];
       };
       admin_users: {
@@ -1508,6 +1586,49 @@ export interface Database {
         }[];
       };
       current_admin_role: { Args: Record<string, never>; Returns: string };
+      request_connection: { Args: { p_target: string }; Returns: string };
+      accept_connection: { Args: { p_requester: string }; Returns: boolean };
+      remove_connection: { Args: { p_other: string; p_as_decline?: boolean }; Returns: undefined };
+      follow_player: { Args: { p_target: string }; Returns: boolean };
+      unfollow_player: { Args: { p_target: string }; Returns: undefined };
+      block_player: { Args: { p_target: string }; Returns: undefined };
+      is_blocked_pair: { Args: { a: string; b: string }; Returns: boolean };
+      mutual_connections: {
+        Args: { p_other: string; p_limit?: number };
+        Returns: { user_id: string; display_name: string; avatar_hue: number; avatar_path: string | null }[];
+      };
+      mutual_connections_count: { Args: { p_other: string }; Returns: number };
+      relationship_context: {
+        Args: { p_other: string };
+        Returns: {
+          mutual_count: number;
+          shared_sports: string[];
+          same_city: boolean;
+          same_neighborhood: boolean;
+          played_together: number;
+          shared_team: string | null;
+          co_tournaments: number;
+        }[];
+      };
+      people_you_may_know: {
+        Args: { p_limit?: number };
+        Returns: {
+          user_id: string;
+          display_name: string;
+          avatar_hue: number;
+          avatar_path: string | null;
+          verification_status: VerificationStatus;
+          city: string | null;
+          neighborhood: string | null;
+          primary_sport: string | null;
+          score: number;
+          mutual_count: number;
+          shared_sports: string[];
+          played_together: number;
+          shared_team: boolean;
+          same_area: string | null;
+        }[];
+      };
       chat_unread_count: { Args: Record<string, never>; Returns: number };
       claim_live_search: { Args: { p_month: string; p_cap: number }; Returns: boolean };
       generate_invite_codes: { Args: { p_count: number; p_max_uses?: number; p_note?: string | null }; Returns: string[] };

@@ -450,15 +450,19 @@ export async function transferOwnership(formData: FormData) {
   // Target must already be a member.
   const { data: target } = await admin.from("team_members").select("user_id").eq("team_id", teamId).eq("user_id", memberId).maybeSingle();
   if (!target) return;
+  // Manager is a Pro-only role — on recreational teams the outgoing team
+  // manager simply rejoins the squad as a regular member.
+  const { data: team } = await admin.from("teams").select("category").eq("id", teamId).maybeSingle();
+  const isPro = team?.category === "pro";
   await admin.from("team_members").update({ role: "owner" }).eq("team_id", teamId).eq("user_id", memberId);
-  await admin.from("team_members").update({ role: "manager" }).eq("team_id", teamId).eq("user_id", user.id);
+  await admin.from("team_members").update({ role: isPro ? "manager" : "member" }).eq("team_id", teamId).eq("user_id", user.id);
   await admin.from("teams").update({ created_by: memberId }).eq("id", teamId);
 
   await createNotification({
     userId: memberId,
     kind: "system",
-    title: "You're now a team owner",
-    body: "Ownership of your team was transferred to you.",
+    title: isPro ? "You're now a team owner" : "You're now the team manager",
+    body: isPro ? "Ownership of your team was transferred to you." : "Your team was handed over to you — you now run it.",
     linkUrl: `/teams/${teamId}`,
   });
   await logTeamEvent(teamId, { kind: "owner_transferred", actorId: user.id, targetId: memberId });
