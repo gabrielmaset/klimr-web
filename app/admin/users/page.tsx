@@ -15,7 +15,7 @@ type Row = {
   last_seen_at: string | null;
 };
 
-const STATUS_TONE: Record<string, string> = { active: "#16a34a", suspended: "#b8860b", banned: "#d63a0f" };
+const STATUS_TONE: Record<string, string> = { active: "var(--color-success)", suspended: "var(--color-warning)", banned: "var(--color-brand-deep)" };
 
 export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ q?: string; verification?: string; status?: string }> }) {
   await requireAdmin("support");
@@ -76,14 +76,14 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {u.last_seen_at && Date.parse(u.last_seen_at) > onlineCutoff ? (
-                  <span className="inline-flex items-center gap-1 kicker rounded-full bg-[#16a34a]/10 px-2 py-0.5 text-[9px]" style={{ color: "#16a34a" }}>
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#16a34a" }} /> online
+                  <span className="inline-flex items-center gap-1 kicker rounded-full bg-success/10 px-2 py-0.5 text-[9px]" style={{ color: "var(--color-success)" }}>
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-success)" }} /> online
                   </span>
                 ) : null}
                 {u.verification_status === "verified" ? <span className="kicker rounded-full bg-tint-brand px-2 py-0.5 text-[9px] text-brand-deep">verified</span> : null}
-                {u.verification_status === "pending" ? <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "#fff1ed", color: "#d63a0f" }}>pending</span> : null}
+                {u.verification_status === "pending" ? <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-tint-brand)", color: "var(--color-brand-deep)" }}>pending</span> : null}
                 {u.account_status !== "active" ? (
-                  <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "#f4f4f5", color: STATUS_TONE[u.account_status] }}>{u.account_status}</span>
+                  <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[u.account_status] }}>{u.account_status}</span>
                 ) : null}
               </div>
             </Link>

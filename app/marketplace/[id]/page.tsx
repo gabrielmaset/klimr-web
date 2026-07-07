@@ -76,7 +76,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {l.status === "closed" ? (
-        <div className="mt-3 rounded-xl border border-rule bg-[#f4f4f5] px-4 py-2.5 text-sm font-semibold text-mute">This listing is closed.</div>
+        <div className="mt-3 rounded-xl border border-rule bg-bg px-4 py-2.5 text-sm font-semibold text-mute">This listing is closed.</div>
       ) : null}
 
       {l.description ? <p className="mt-5 text-sm leading-relaxed text-ink-soft">{l.description}</p> : null}
@@ -105,7 +105,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           <input type="hidden" name="listingId" value={l.id} />
           <button
             className={`press inline-flex items-center gap-1.5 rounded-full border px-4 py-3 text-sm font-semibold transition-colors ${
-              saved ? "border-brand/40 bg-tint-brand text-brand-deep" : "border-rule text-ink hover:bg-[#f4f4f5]"
+              saved ? "border-brand/40 bg-tint-brand text-brand-deep" : "border-rule text-ink hover:bg-bg"
             }`}
           >
             <Heart size={15} className={saved ? "fill-brand text-brand" : ""} /> {saved ? "Saved" : "Save"}

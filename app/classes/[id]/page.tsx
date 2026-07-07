@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { ArrowLeft, MapPin, Users, Check, X, CalendarDays, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, sportSlug } from "@/lib/sports";
 import { formatClassPrice, spotsLeft, takesSeat, enrollmentLabel, paymentLabel } from "@/lib/classes";
 import { LocalTime } from "@/components/local-time";
 import { EventLocationMap } from "@/components/event-location-map";
@@ -106,7 +106,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       {/* Header */}
       <div className="rounded-3xl border border-rule bg-surface p-6">
         <div className="flex items-start gap-4">
-          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-tint-brand text-3xl">{m.emoji}</span>
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-3xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sport_key)}) 16%, transparent)` }}>{m.emoji}</span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="kicker text-brand-deep">{m.name}</span>

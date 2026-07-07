@@ -13,7 +13,7 @@ Every major competitor is **single-sport** and **rating-first**. Klimr is **mult
 That is *exactly* what Klimr's geographic-zoom rankings do for racquet sports. **"You could be the best in Mar Vista"** is a more powerful hook than "you're a 3.5." Everything below is built to make that hook visible and repeatable.
 
 **Klimr's four advantages over the field:**
-1. **One app, four sports** — tennis, pickleball, padel, racquetball. Cross-sport players (very common: most padel/pickleball players also play tennis) have to juggle 2–3 apps today.
+1. **One app, five sports** — tennis, pickleball, padel, racquetball, beach volleyball. Cross-sport players (very common: most padel/pickleball players also play tennis) have to juggle 2–3 apps today. *(Beach volleyball replaced golf as the fifth sport when the production app was built.)*
 2. **Geographic-zoom rankings** — neighborhood → ZIP → city → metro → region → national. The Strava-segment idea applied to racquet sports.
 3. **Verified identity** — a trust/safety moat (your 18+ invite-only beta leans into this). DUPR sells a "reliability score"; Klimr can sell *real verified humans*.
 4. **Racquetball white space** — there is no modern consumer app for racquetball. Rankings exist only inside R2 Sports / USA Racquetball, gated behind sanctioned tournaments and paid memberships. Recreational racquetball players have *nowhere* to track skill or find a game. Klimr can own that sport outright.
@@ -116,7 +116,7 @@ Each idea tagged with its inspiration → **Klimr twist**. Priorities: **[Now]**
 
 **Challenges**
 - Time-bound **individual + group challenges** with badges + public cabinet. *(Strava.)* **[Next]**
-- Cross-sport challenges only Klimr can run: "play all four sports this month," "beat someone 0.5 above you." **[Next]**
+- Cross-sport challenges only Klimr can run: "play all five sports this month," "beat someone 0.5 above you." **[Next]**
 - **Sponsored challenges** → direct local-sponsor revenue. *(Strava sponsored segments.)* **[Later]**
 
 **Teams**
@@ -155,3 +155,17 @@ Each idea tagged with its inspiration → **Klimr twist**. Priorities: **[Now]**
 3. Anything from Section 5 you want me to prioritize first (otherwise I'll start with the **[Now]** items most relevant to the hero we choose — likely the Invites bootstrap + Feed reactions + Play open-matches groundwork).
 
 *The cover-photo fix is already done and in the latest zip — independent of all of the above.*
+
+---
+
+## 7. Implementation status — addendum, July 6, 2026
+
+*This document was written June 19 as a planning artifact. Two and a half weeks of building later, most of it shipped — often in evolved form. This addendum records what happened so the analysis above reads as history, not as an open to-do list.*
+
+**Resolved decisions.** Page width went **beyond** the §3 recommendation: the standard is `max-w-page` (80rem, ~1280px) with multi-column layouts, now a durable rule in `docs/DESIGN_DECISIONS.md`. The §4 hero band was **not** adopted as a universal component; its ideas were absorbed where they earn their place (profile standing, tournament-page hero, PYMK "local scene" energy on Network).
+
+**Shipped from §5** (partial list): open-matches board with join requests + recurring matches · score entry with two-sided confirmation feeding rankings · per-match/event chats (the UTR complaint, fixed) · geo-zoom ranking ladders · Network page with connections/follows, **mutual connections, relationship-context chips, and People You May Know** (sports-aware scoring) · invites hub with accept/decline/cancel · courts with verified-player reviews and add-a-court · events with per-sport types + calendar page (month/week/day) · **full tournament lifecycle** (divisions/fees, waitlist, payment proof, logged random draws, schedule, standings/brackets, public page) · teams as clubs with team-vs-team competition (0092) · marketplace + sponsorships (player sponsorships live) · resources → a full **help center** with an AI assistant · notifications with typed kinds. Beyond this doc's scope, the platform also gained: **live court queues with a courtside display**, classes + admin-vetted professional status, a 90-day recovery archive, an admin console, and a support/ticketing system with a third-party helpdesk integration seam.
+
+**Still open from §5** (deliberately): rating-history graphs + achievement cabinet + racquet passport (profile analytics wave) · Feed tabs/user posting with reactions (feed is admin-published for now) · weekly recap digest · rank-change alerts · split court-fee tracking · booking integration · sponsored challenges · brand discounts/premium tier. These are post-launch engagement work, tracked in the handoff's roadmap section.
+
+**Superseded:** nothing in §1–2 (wedge + competitive read) — that analysis still holds and now describes a product that exists.

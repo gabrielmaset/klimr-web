@@ -18,10 +18,10 @@ const FILTERS = [
 ];
 
 const STATUS_TONE: Record<string, string> = {
-  open: "#d63a0f",
-  in_progress: "#b8860b",
-  resolved: "#16a34a",
-  closed: "#71717a",
+  open: "var(--color-brand-deep)",
+  in_progress: "var(--color-warning)",
+  resolved: "var(--color-success)",
+  closed: "var(--color-mute)",
 };
 
 export default async function AdminSupport({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
@@ -57,7 +57,7 @@ export default async function AdminSupport({ searchParams }: { searchParams: Pro
               key={f.key}
               href={f.key === "open" ? "/admin/support" : `/admin/support?status=${f.key}`}
               className={`press rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-                status === f.key ? "bg-ink text-white" : "text-mute hover:bg-[#f4f4f5] hover:text-ink"
+                status === f.key ? "bg-ink text-white" : "text-mute hover:bg-bg hover:text-ink"
               }`}
             >
               {f.label}
@@ -71,15 +71,15 @@ export default async function AdminSupport({ searchParams }: { searchParams: Pro
           {tickets.map((t, i) => (
             <li key={t.id} className={i > 0 ? "border-t border-rule" : ""}>
               <Link href={`/admin/support/${t.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg">
-                <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_TONE[t.status] ?? "#71717a" }} />
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f4f4f5] text-mute">
+                <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_TONE[t.status] ?? "var(--color-mute)" }} />
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-bg text-mute">
                   {t.source === "ai_chat" ? <Sparkles size={15} /> : <Mail size={15} />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="truncate text-sm font-bold text-ink">{t.subject}</span>
                     {t.severity === "urgent" ? (
-                      <span className="shrink-0 rounded-full bg-[#fdeceb] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#c0271d]">Urgent</span>
+                      <span className="shrink-0 rounded-full bg-tint-danger px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-danger">Urgent</span>
                     ) : null}
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-faint">

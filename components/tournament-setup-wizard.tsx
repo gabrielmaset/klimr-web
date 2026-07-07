@@ -190,7 +190,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                 aria-current={current ? "step" : undefined}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${current ? "bg-tint-brand" : "hover:bg-bg"}`}
               >
-                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${done ? "bg-success text-white" : current ? "bg-brand text-white" : "bg-[#f4f4f5] text-mute"}`}>
+                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${done ? "bg-success text-white" : current ? "bg-brand text-white" : "bg-bg text-mute"}`}>
                   {done ? <Check size={14} /> : i + 1}
                 </span>
                 <span className={`text-sm font-semibold ${current ? "text-brand-deep" : done ? "text-ink" : "text-mute"}`}>{label}</span>

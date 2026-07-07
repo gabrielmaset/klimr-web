@@ -37,7 +37,7 @@ export function BottomNav({
   return (
     <>
       {/* reserve space so the fixed bar never covers content (incl. the home-indicator inset) */}
-      <div className="md:hidden" style={{ height: "calc(5.25rem + env(safe-area-inset-bottom))" }} aria-hidden />
+      <div className="md:hidden" style={{ height: "calc(var(--bottom-nav-h) + env(safe-area-inset-bottom))" }} aria-hidden />
       <nav
         className="pb-safe px-safe fixed bottom-0 left-0 right-0 z-40 border-t border-rule/70 bg-white/80 backdrop-blur-xl backdrop-saturate-150 md:hidden"
         aria-label="Primary"

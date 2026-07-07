@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Users, Crown, ChevronRight, Plus, Trophy, Building2, CalendarPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
+import { SportDot } from "@/components/sport-chip";
 import { TeamCrest } from "@/components/team-crest";
 import { respondTeamInvite, searchTeams } from "./actions";
 import { TeamDiscovery } from "./team-discovery";
@@ -22,15 +23,6 @@ type MyTeam = {
 };
 
 const ROLE_LABEL: Record<string, string> = { owner: "Owner", manager: "Manager", staff: "Staff", member: "Member" };
-
-// Presentational accent per sport (the small dot on each card's sport badge).
-const SPORT_DOT: Record<string, string> = {
-  tennis: "#84cc16",
-  pickleball: "#eab308",
-  padel: "#3b82f6",
-  racquetball: "#8b5cf6",
-  beach_volleyball: "#f97316",
-};
 
 export default async function TeamsPage() {
   const supabase = await createClient();
@@ -154,13 +146,12 @@ export default async function TeamsPage() {
               const href = t.category === "pro" ? `/team/${t.id}` : `/teams/${t.id}`;
               const count = memberCount.get(t.id) ?? 1;
               const place = t.neighborhood || t.city;
-              const dot = SPORT_DOT[t.sport_key] ?? "#9ca3af";
               return (
                 <div key={t.id} className="flex flex-col overflow-hidden rounded-2xl border border-rule bg-surface transition-shadow hover:shadow-[0_2px_18px_-6px_rgba(0,0,0,0.12)]">
                   {/* sport badge + role */}
                   <div className="flex items-center justify-between gap-2 px-4 pt-3.5">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/[0.04] px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dot }} />
+                      <SportDot sport={t.sport_key} />
                       {meta.name}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-mute">
@@ -179,7 +170,7 @@ export default async function TeamsPage() {
                           <span className="shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-surface">Pro</span>
                         ) : null}
                         {t.deleted_at ? (
-                          <span className="shrink-0 rounded-full bg-[#fef2f2] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#dc2626]">Disbanded</span>
+                          <span className="shrink-0 rounded-full bg-tint-danger px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-danger">Disbanded</span>
                         ) : null}
                       </span>
                       <span className="mt-1 flex items-center gap-1 text-xs text-mute">

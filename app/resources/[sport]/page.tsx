@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, Users, Maximize } from "lucide-react";
 import { BackButton } from "@/components/back-button";
-import { SPORTS, sportMeta } from "@/lib/sports";
+import { SPORTS, sportMeta, sportSlug } from "@/lib/sports";
 import { RESOURCES } from "@/lib/resources";
 
 export function generateStaticParams() {
@@ -27,7 +27,7 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
       <BackButton fallback="/resources" label="Sport resources" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <div className="flex items-center gap-3">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-3xl bg-tint-brand text-3xl">{meta.emoji}</span>
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-3xl text-3xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(sport)}) 16%, transparent)` }}>{meta.emoji}</span>
         <div>
           <h1 className="font-display text-3xl leading-tight text-ink sm:text-4xl">{meta.name}</h1>
           <p className="text-sm text-mute">{r.tagline}</p>
@@ -86,7 +86,7 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
       </section>
 
       <div className="mt-7 flex flex-wrap gap-2">
-        <Link href={`/courts?sport=${sport}`} className="press rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
+        <Link href={`/courts?sport=${sport}`} className="press rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg">
           Find {meta.name.toLowerCase()} courts
         </Link>
         <Link href="/play" className="press rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">

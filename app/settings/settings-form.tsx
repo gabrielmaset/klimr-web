@@ -29,7 +29,7 @@ function Toggle({ label, hint, on, onChange }: { label: string; hint?: string; o
       </span>
       <span
         className="relative h-6 w-10 shrink-0 rounded-full transition-colors"
-        style={{ background: on ? "#ff4e1b" : "#e4e4e7" }}
+        style={{ background: on ? "var(--color-brand)" : "var(--color-rule)" }}
       >
         <span
           className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all"
@@ -59,7 +59,7 @@ function Segmented({
         <span className="block text-sm font-semibold text-ink">{label}</span>
         {hint ? <span className="mt-0.5 block text-xs text-mute">{hint}</span> : null}
       </div>
-      <div className="inline-flex flex-wrap gap-1 rounded-xl border border-rule bg-[#f4f4f5] p-1">
+      <div className="inline-flex flex-wrap gap-1 rounded-xl border border-rule bg-bg p-1">
         {options.map((o) => {
           const on = value === o.value;
           return (
@@ -69,7 +69,7 @@ function Segmented({
               onClick={() => onChange(o.value)}
               aria-pressed={on}
               className="press rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={{ background: on ? "#ffffff" : "transparent", color: on ? "#0a0a0b" : "#71717a", boxShadow: on ? "0 1px 2px rgba(10,10,11,0.12)" : "none" }}
+              style={{ background: on ? "var(--color-surface)" : "transparent", color: on ? "var(--color-ink)" : "var(--color-mute)", boxShadow: on ? "0 1px 2px rgba(10,10,11,0.12)" : "none" }}
             >
               {o.label}
             </button>

@@ -5,7 +5,7 @@ import { CalendarClock, MapPin, Users, Repeat, BadgeCheck, Check, Lock, MessageC
 import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, sportSlug } from "@/lib/sports";
 import { joinMatch, leaveMatch, confirmSpot, joinWaitlist, leaveWaitlist, cancelMatch } from "./actions";
 import { MatchInvite } from "./MatchInvite";
 
@@ -128,8 +128,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     : full
       ? "Roster full"
       : "Open — joining";
-  const statusColor = !joinable ? "#71717a" : full ? "#71717a" : "#d63a0f";
-  const statusBg = !joinable || full ? "#f4f4f5" : "#fff1ed";
+  const statusColor = !joinable ? "var(--color-mute)" : full ? "var(--color-mute)" : "var(--color-brand-deep)";
+  const statusBg = !joinable || full ? "var(--color-bg)" : "var(--color-tint-brand)";
 
   const slots = Array.from({ length: match.total_slots }, (_, i) => participants[i] ?? null);
 
@@ -147,7 +147,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       <div className="mt-4 flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <span className="text-4xl" aria-hidden>{meta.emoji}</span>
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-3xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(match.sport_key)}) 16%, transparent)` }} aria-hidden>{meta.emoji}</span>
             <div>
               <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">
                 {meta.name} · {match.format === "doubles" ? "Doubles" : "Singles"}
@@ -201,7 +201,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                 key={p.user_id}
                 href={`/profile/${p.user_id}`}
                 className="lift flex items-center gap-3 rounded-xl border px-4 py-3"
-                style={{ background: you ? "#fff1ed" : "#ffffff", borderColor: you ? "#ff4e1b" : "#e4e4e7" }}
+                style={{ background: you ? "var(--color-tint-brand)" : "var(--color-surface)", borderColor: you ? "var(--color-brand)" : "var(--color-rule)" }}
               >
                 <Avatar url={null} hue={prof?.avatar_hue ?? 200} name={prof?.display_name ?? "Player"} size={36} />
                 <div className="min-w-0 flex-1">

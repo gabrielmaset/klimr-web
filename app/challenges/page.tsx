@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronRight, Flag } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sportMeta } from "@/lib/sports";
+import { SportChip } from "@/components/sport-chip";
 import { computeSide, splitPct } from "@/lib/challenges";
 
 export const metadata: Metadata = { title: "Region challenges" };
@@ -59,7 +59,6 @@ export default async function ChallengesPage() {
       ) : (
         <div className="space-y-3">
           {cards.map(({ c, a, b, repping }) => {
-            const meta = sportMeta(c.sport_key);
             const pct = splitPct(a.points, b.points);
             const aLead = a.points > b.points;
             const bLead = b.points > a.points;
@@ -67,7 +66,7 @@ export default async function ChallengesPage() {
             return (
               <Link key={c.id} href={`/challenges/${c.id}`} className="lift block rounded-2xl border border-rule bg-surface p-4">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="kicker text-faint">{meta.emoji} {meta.name}</span>
+                  <SportChip sport={c.sport_key} size="sm" />
                   <span className="flex items-center gap-2 text-xs text-faint">
                     {repping ? <span className="rounded-full bg-tint-brand px-2 py-0.5 font-semibold text-brand-deep">Repping {repping}</span> : null}
                     {dl !== null ? <span>{dl}d left</span> : <span>Ongoing</span>}
@@ -87,8 +86,8 @@ export default async function ChallengesPage() {
                 </div>
 
                 {/* split bar */}
-                <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-[#f4f4f5]">
-                  <span className="h-full" style={{ width: `${pct}%`, background: "#ff4e1b" }} />
+                <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-bg">
+                  <span className="h-full" style={{ width: `${pct}%`, background: "var(--color-brand)" }} />
                   <span className="h-full flex-1" style={{ background: "#3f3f46" }} />
                 </div>
 

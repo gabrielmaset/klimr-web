@@ -85,7 +85,7 @@ export function SupportChat({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="press fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-bold text-white shadow-xl shadow-black/20 transition-transform hover:scale-[1.03] md:bottom-6 md:right-6"
+          className="press fixed bottom-[calc(var(--bottom-nav-h)+0.5rem+env(safe-area-inset-bottom))] right-4 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-bold text-white shadow-xl shadow-black/20 transition-transform hover:scale-[1.03] md:bottom-6 md:right-6"
           aria-label="Ask the Klimr Assistant"
         >
           <Sparkles size={16} className="text-pop" /> Ask Klimr
@@ -95,7 +95,7 @@ export function SupportChat({
       {/* Panel */}
       {open ? (
         <div
-          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-rule bg-bg shadow-2xl shadow-black/25 md:bottom-6 md:right-6"
+          className="fixed bottom-[calc(var(--bottom-nav-h)+0.5rem+env(safe-area-inset-bottom))] right-4 z-50 flex w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-rule bg-bg shadow-2xl shadow-black/25 md:bottom-6 md:right-6"
           style={{ height: "min(600px, calc(100dvh - 8rem))" }}
           role="dialog"
           aria-label="Klimr Assistant"

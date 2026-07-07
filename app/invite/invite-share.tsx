@@ -45,7 +45,7 @@ export function InviteShare({ code }: { code: string }) {
           <span className="font-mono text-2xl font-bold tracking-[0.12em] text-ink">{code}</span>
           <button
             onClick={() => copy("code")}
-            className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#f4f4f5]"
+            className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-bg"
           >
             {copied === "code" ? <Check size={14} className="text-success" /> : <Copy size={14} />}
             {copied === "code" ? "Copied" : "Copy"}
@@ -71,14 +71,14 @@ export function InviteShare({ code }: { code: string }) {
           {canShare ? (
             <button
               onClick={share}
-              className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]"
+              className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
             >
               <Share2 size={15} /> Share
             </button>
           ) : null}
           <a
             href={`mailto:?subject=${encodeURIComponent("Join me on Klimr")}&body=${encodeURIComponent(`${shareText}\n\n${link}`)}`}
-            className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]"
+            className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
           >
             Email it
           </a>

@@ -76,7 +76,7 @@ export function InviteSearch({ teamId, friends }: { teamId: string; friends: Fri
                 type="button"
                 onClick={() => invite(p.id)}
                 disabled={pending}
-                className="press inline-flex items-center gap-1 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#f4f4f5] disabled:opacity-60"
+                className="press inline-flex items-center gap-1 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-bg disabled:opacity-60"
               >
                 {pending ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />} Invite
               </button>

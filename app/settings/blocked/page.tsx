@@ -50,7 +50,7 @@ export default async function BlockedPlayersPage() {
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{b.display_name || "Player"}</span>
                 <form action={unblockPlayer}>
                   <input type="hidden" name="userId" value={b.id} />
-                  <button className="press rounded-full border border-rule px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
+                  <button className="press rounded-full border border-rule px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-bg">
                     Unblock
                   </button>
                 </form>

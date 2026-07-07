@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Inbox, BadgeCheck, Check, X, Clock, Swords } from "lucide-react";
 import { Avatar } from "@/components/avatar";
+import { SportDot } from "@/components/sport-chip";
 import { acceptFriendRequest, removeFriend } from "@/app/network/actions";
 import { respondTeamInvite } from "@/app/teams/actions";
 import { acceptMatchInvite, declineMatchInvite, cancelMatchInvite } from "@/app/play/[id]/actions";
@@ -18,6 +19,8 @@ export type InviteItem = {
   kind: ItemKind;
   title: string;
   sub: string | null;
+  /** sport key for the accent dot next to the sub line (null = none) */
+  sportKey: string | null;
   href: string;
   avatarUrl: string | null;
   hue: number;
@@ -257,7 +260,12 @@ function InviteCard({ item, perform }: { item: InviteItem; perform: (i: InviteIt
             <span className="truncate text-sm font-bold text-ink">{item.title}</span>
             {item.verified ? <BadgeCheck size={14} className="shrink-0 text-brand" aria-label="Verified" /> : null}
           </div>
-          {item.sub ? <span className="mt-0.5 block truncate text-xs text-mute">{item.sub}</span> : null}
+          {item.sub ? (
+            <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-mute">
+              {item.sportKey ? <SportDot sport={item.sportKey} size={7} /> : null}
+              <span className="truncate">{item.sub}</span>
+            </span>
+          ) : null}
         </div>
       </Link>
 

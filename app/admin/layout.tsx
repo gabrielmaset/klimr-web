@@ -6,7 +6,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { role } = await requireAdmin("support");
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-pop">
@@ -35,7 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link
             key={t.href}
             href={t.href}
-            className="press rounded-full px-3 py-1.5 text-sm font-semibold text-mute transition-colors hover:bg-[#f4f4f5] hover:text-ink"
+            className="press rounded-full px-3 py-1.5 text-sm font-semibold text-mute transition-colors hover:bg-bg hover:text-ink"
           >
             {t.label}
           </Link>

@@ -73,7 +73,7 @@ function Disc({ row, you, size = 36 }: { row: RankedRow; you: boolean; size?: nu
         height: size,
         fontSize: size * 0.4,
         background: `linear-gradient(145deg, hsl(${row.avatar_hue},70%,52%), hsl(${mod(row.avatar_hue + 24, 360)},66%,42%))`,
-        boxShadow: you ? "0 0 0 2px #fff, 0 0 0 3.5px #ff4e1b" : "none",
+        boxShadow: you ? "0 0 0 2px #fff, 0 0 0 3.5px var(--color-brand)" : "none",
       }}
     >
       {initials(row.display_name)}
@@ -205,9 +205,9 @@ function Leaders({ rows, place, userId }: { rows: RankedRow[]; place: string; us
               key={r.user_id}
               href={`/profile/${r.user_id}`}
               className="lift flex items-center gap-3 rounded-xl border px-3 py-3"
-              style={{ background: you ? "#fff1ed" : "#f6f6f7", borderColor: you ? "#ff4e1b" : "#e4e4e7" }}
+              style={{ background: you ? "var(--color-tint-brand)" : "var(--color-bg)", borderColor: you ? "var(--color-brand)" : "var(--color-rule)" }}
             >
-              <span className="font-mono text-sm font-bold tabular" style={{ color: you ? "#ff4e1b" : "#a1a1aa" }}>#{r.rank}</span>
+              <span className="font-mono text-sm font-bold tabular" style={{ color: you ? "var(--color-brand)" : "var(--color-faint)" }}>#{r.rank}</span>
               <Disc row={r} you={you} />
               <span className="flex-1 truncate font-bold text-ink">{you ? "You" : r.display_name}</span>
               <span className="font-mono text-sm text-mute">{fmt(r.points)} pts</span>
@@ -304,7 +304,7 @@ export function RankingsBoard({
   const countFor = (k: ScopeKey) => cache[`${sport.key}:${k}`]?.length ?? 0;
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {/* header */}
       <div className="flex flex-col gap-1">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Rankings</h1>
@@ -323,9 +323,9 @@ export function RankingsBoard({
                 aria-pressed={on}
                 className="press flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors"
                 style={{
-                  borderColor: on ? "#ff4e1b" : "#e4e4e7",
-                  background: on ? "#ff4e1b" : "transparent",
-                  color: on ? "#fff" : "#71717a",
+                  borderColor: on ? "var(--color-brand)" : "var(--color-rule)",
+                  background: on ? "var(--color-brand)" : "transparent",
+                  color: on ? "#fff" : "var(--color-mute)",
                 }}
               >
                 <span aria-hidden>{s.emoji}</span>
@@ -351,10 +351,10 @@ export function RankingsBoard({
             return (
               <div key={s.key} className="relative flex flex-1 items-center justify-center" style={{ height: 36 }}>
                 {i > 0 && (
-                  <span className="pointer-events-none absolute top-1/2 h-px -translate-y-1/2" style={{ left: 0, right: "calc(50% + 19px)", background: i <= scopeIdx ? "#ff4e1b" : "#e4e4e7" }} />
+                  <span className="pointer-events-none absolute top-1/2 h-px -translate-y-1/2" style={{ left: 0, right: "calc(50% + 19px)", background: i <= scopeIdx ? "var(--color-brand)" : "var(--color-rule)" }} />
                 )}
                 {i < scopes.length - 1 && (
-                  <span className="pointer-events-none absolute top-1/2 h-px -translate-y-1/2" style={{ right: 0, left: "calc(50% + 19px)", background: i + 1 <= scopeIdx ? "#ff4e1b" : "#e4e4e7" }} />
+                  <span className="pointer-events-none absolute top-1/2 h-px -translate-y-1/2" style={{ right: 0, left: "calc(50% + 19px)", background: i + 1 <= scopeIdx ? "var(--color-brand)" : "var(--color-rule)" }} />
                 )}
                 <button
                   onClick={() => setScopeIdx(i)}
@@ -364,11 +364,11 @@ export function RankingsBoard({
                   style={{
                     height: 28,
                     width: 28,
-                    background: on ? "#ff4e1b" : passed ? "#ffffff" : "#f6f6f7",
-                    border: `1px solid ${on ? "#ff4e1b" : passed ? "#d4d4d8" : "#e4e4e7"}`,
-                    color: on ? "#fff" : passed ? "#0a0a0b" : "#a1a1aa",
+                    background: on ? "var(--color-brand)" : passed ? "var(--color-surface)" : "var(--color-bg)",
+                    border: `1px solid ${on ? "var(--color-brand)" : passed ? "var(--color-faint)" : "var(--color-rule)"}`,
+                    color: on ? "#fff" : passed ? "var(--color-ink)" : "var(--color-faint)",
                     transform: on ? "scale(1.14)" : "scale(1)",
-                    boxShadow: on ? "0 6px 18px -6px #ff4e1b" : "none",
+                    boxShadow: on ? "0 6px 18px -6px var(--color-brand)" : "none",
                   }}
                 >
                   {i + 1}

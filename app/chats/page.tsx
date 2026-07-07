@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Lock, MessageCircle, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, sportSlug } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "Chats" };
 
@@ -123,7 +123,7 @@ export default async function ChatsPage() {
                 href={`/chats/${m.id}`}
                 className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4"
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg" style={{ background: "#f4f4f5" }}>
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(m.sport_key)}) 16%, transparent)` }}>
                   {meta.emoji}
                 </span>
                 <span className="min-w-0 flex-1">

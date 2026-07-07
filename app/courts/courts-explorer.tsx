@@ -49,7 +49,7 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
           <span className="flex items-center gap-2">
             <span className="truncate text-sm font-bold text-ink">{c.name}</span>
             {c.private ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-semibold text-mute">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[10px] font-semibold text-mute">
                 <Lock size={10} /> Private
               </span>
             ) : null}
@@ -204,9 +204,9 @@ export function CourtsExplorer({
       : resp?.message ?? (resp?.status === "empty" ? "No courts found within 50 miles." : null);
 
   const chipStyle = (on: boolean) => ({
-    borderColor: on ? "#ff4e1b" : "#e4e4e7",
-    background: on ? "#fff1ed" : "transparent",
-    color: on ? "#d63a0f" : "#71717a",
+    borderColor: on ? "var(--color-brand)" : "var(--color-rule)",
+    background: on ? "var(--color-tint-brand)" : "transparent",
+    color: on ? "var(--color-brand-deep)" : "var(--color-mute)",
   });
 
   return (
@@ -233,7 +233,7 @@ export function CourtsExplorer({
               aria-label="ZIP code or city"
               autoComplete="off"
               className="h-11 w-full rounded-2xl border border-rule bg-bg pl-10 pr-9 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
-              style={locMsg ? { borderColor: "#ef4444" } : undefined}
+              style={locMsg ? { borderColor: "var(--color-danger)" } : undefined}
             />
             {selected ? (
               <Check size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500" />
@@ -266,12 +266,12 @@ export function CourtsExplorer({
             {loading ? "Searching…" : "Find courts"}
           </button>
         </div>
-        {locMsg ? <p className="mt-2 px-1 text-xs text-[#dc2626]">{locMsg}</p> : null}
+        {locMsg ? <p className="mt-2 px-1 text-xs text-danger">{locMsg}</p> : null}
 
         {/* Radius */}
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="kicker text-faint">Within</span>
-          <div className="inline-flex flex-wrap gap-1 rounded-xl border border-rule bg-[#f4f4f5] p-1">
+          <div className="inline-flex flex-wrap gap-1 rounded-xl border border-rule bg-bg p-1">
             {RADII_MI.map((r) => {
               const on = radiusMi === r;
               return (
@@ -279,7 +279,7 @@ export function CourtsExplorer({
                   key={r}
                   onClick={() => setRadiusMi(r)}
                   className="press rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                  style={{ background: on ? "#fff" : "transparent", color: on ? "#0a0a0b" : "#71717a", boxShadow: on ? "0 1px 2px rgba(10,10,11,.12)" : "none" }}
+                  style={{ background: on ? "var(--color-surface)" : "transparent", color: on ? "var(--color-ink)" : "var(--color-mute)", boxShadow: on ? "0 1px 2px rgba(10,10,11,.12)" : "none" }}
                 >
                   {r} mi
                 </button>

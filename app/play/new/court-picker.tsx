@@ -154,14 +154,14 @@ export function CourtPicker({
                   onClick={() => onSelect(c)}
                   className="lift flex w-full items-center gap-3 rounded-2xl border border-rule bg-surface p-3.5 text-left"
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5]">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg">
                     <MapPin size={16} className="text-ink" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-sm font-bold text-ink">{c.name}</span>
                       {c.private ? (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-semibold text-mute">
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[10px] font-semibold text-mute">
                           <Lock size={10} /> Private
                         </span>
                       ) : null}

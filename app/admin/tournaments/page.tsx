@@ -20,14 +20,14 @@ type Row = {
 type Prof = { id: string; display_name: string };
 
 const STATUS_TONE: Record<string, string> = {
-  draft: "#71717a",
+  draft: "var(--color-mute)",
   published: "#0e7490",
-  registration_open: "#16a34a",
-  registration_closed: "#b8860b",
-  in_progress: "#2563eb",
-  completed: "#16a34a",
-  archived: "#71717a",
-  cancelled: "#d63a0f",
+  registration_open: "var(--color-success)",
+  registration_closed: "var(--color-warning)",
+  in_progress: "var(--color-info)",
+  completed: "var(--color-success)",
+  archived: "var(--color-mute)",
+  cancelled: "var(--color-brand-deep)",
 };
 
 export default async function AdminTournaments() {
@@ -72,7 +72,7 @@ export default async function AdminTournaments() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-lg">{meta.emoji}</span>
                       <span className="font-display text-lg text-ink">{t.title}</span>
-                      <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "#f4f4f5", color: STATUS_TONE[t.status] ?? "#71717a" }}>
+                      <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[t.status] ?? "var(--color-mute)" }}>
                         {t.status}
                       </span>
                       {suspended ? <span className="kicker rounded-full bg-brand px-2 py-0.5 text-[9px] text-white">Suspended</span> : null}

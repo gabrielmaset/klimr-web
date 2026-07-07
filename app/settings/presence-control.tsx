@@ -6,10 +6,10 @@ import { setPresenceMode } from "@/app/account/presence-actions";
 import type { PresenceMode } from "@/app/account/presence";
 
 const OPTS: { mode: PresenceMode; dot: string; label: string; sub: string }[] = [
-  { mode: "auto", dot: "#16a34a", label: "Automatic", sub: "Online while you're active, away when idle. Recommended." },
-  { mode: "online", dot: "#16a34a", label: "Always online", sub: "Always show the green dot while signed in." },
-  { mode: "away", dot: "#f59e0b", label: "Away", sub: "Always show the amber dot." },
-  { mode: "offline", dot: "#a1a1aa", label: "Appear offline", sub: "Browse privately — others won't see a status dot." },
+  { mode: "auto", dot: "var(--color-success)", label: "Automatic", sub: "Online while you're active, away when idle. Recommended." },
+  { mode: "online", dot: "var(--color-success)", label: "Always online", sub: "Always show the green dot while signed in." },
+  { mode: "away", dot: "var(--color-warning)", label: "Away", sub: "Always show the amber dot." },
+  { mode: "offline", dot: "var(--color-faint)", label: "Appear offline", sub: "Browse privately — others won't see a status dot." },
 ];
 
 export function PresenceControl({ initialMode }: { initialMode: PresenceMode }) {

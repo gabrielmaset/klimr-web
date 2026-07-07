@@ -59,9 +59,9 @@ export function CreateMatchForm({
                     aria-pressed={on}
                     className="press flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors"
                     style={{
-                      borderColor: on ? "#ff4e1b" : "#e4e4e7",
-                      background: on ? "#fff1ed" : "transparent",
-                      color: on ? "#d63a0f" : "#71717a",
+                      borderColor: on ? "var(--color-brand)" : "var(--color-rule)",
+                      background: on ? "var(--color-tint-brand)" : "transparent",
+                      color: on ? "var(--color-brand-deep)" : "var(--color-mute)",
                     }}
                   >
                     <span aria-hidden>{s.emoji}</span> {s.name}
@@ -83,7 +83,7 @@ export function CreateMatchForm({
                     type="button"
                     onClick={() => setFormat(f)}
                     className="press rounded-full px-4 py-1.5 text-sm font-semibold transition-colors"
-                    style={{ background: on ? "#0a0a0b" : "transparent", color: on ? "#fff" : "#71717a" }}
+                    style={{ background: on ? "var(--color-ink)" : "transparent", color: on ? "#fff" : "var(--color-mute)" }}
                   >
                     {f === "singles" ? "Singles" : "Doubles"}
                   </button>

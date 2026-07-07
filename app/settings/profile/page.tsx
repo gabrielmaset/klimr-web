@@ -48,7 +48,7 @@ export default async function EditProfilePage() {
 
       {/* Cover photo — edited inline on the public profile */}
       <Link href="/me" className="lift mt-4 flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-ink">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-ink">
           <ImageIcon size={17} />
         </span>
         <span className="min-w-0 flex-1">

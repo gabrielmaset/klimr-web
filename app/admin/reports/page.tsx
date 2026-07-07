@@ -26,10 +26,10 @@ const REASON: Record<string, string> = {
   other: "Something else",
 };
 const STATUS_TONE: Record<string, string> = {
-  open: "#d63a0f",
-  reviewing: "#b8860b",
-  actioned: "#16a34a",
-  dismissed: "#71717a",
+  open: "var(--color-brand-deep)",
+  reviewing: "var(--color-warning)",
+  actioned: "var(--color-success)",
+  dismissed: "var(--color-mute)",
 };
 const RANK: Record<string, number> = { open: 0, reviewing: 1, actioned: 2, dismissed: 3 };
 
@@ -68,7 +68,7 @@ export default async function AdminReports() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-display text-lg text-ink">{REASON[r.reason] ?? r.reason}</span>
-                    <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "#f4f4f5", color: STATUS_TONE[r.status] ?? "#71717a" }}>
+                    <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[r.status] ?? "var(--color-mute)" }}>
                       {r.status}
                     </span>
                   </div>
@@ -79,7 +79,7 @@ export default async function AdminReports() {
                     {" · "}
                     {new Date(r.created_at).toLocaleString("en-US")}
                   </p>
-                  {r.context ? <p className="mt-2 max-w-2xl rounded-xl bg-[#f6f6f7] px-3 py-2 text-sm text-ink">{r.context}</p> : null}
+                  {r.context ? <p className="mt-2 max-w-2xl rounded-xl bg-bg px-3 py-2 text-sm text-ink">{r.context}</p> : null}
                   {r.resolution ? <p className="mt-2 text-xs text-faint">Resolution: {r.resolution}</p> : null}
                 </div>
                 <Link href={`/admin/users/${r.reported_id}`} className="press shrink-0 rounded-full border border-rule px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-faint">

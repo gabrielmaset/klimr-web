@@ -5,6 +5,7 @@ import { Trophy, Users, Flag } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
+import { SportChip } from "@/components/sport-chip";
 import { Avatar } from "@/components/avatar";
 import { computeSide, splitPct, type Side } from "@/lib/challenges";
 
@@ -62,7 +63,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
       <BackButton fallback="/challenges" label="Region challenges" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <div className="flex items-center gap-2 text-sm text-mute">
-        <span className="rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink">{meta.emoji} {meta.name}</span>
+        <SportChip sport={c.sport_key} />
         <span className="text-xs text-faint">{dl !== null ? `${dl} days left` : "Ongoing"}</span>
       </div>
       <h1 className="mt-2 font-display text-3xl leading-tight text-ink sm:text-4xl">
@@ -70,8 +71,8 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
       </h1>
 
       {/* split bar */}
-      <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-[#f4f4f5]">
-        <span className="h-full" style={{ width: `${pct}%`, background: "#ff4e1b" }} />
+      <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-bg">
+        <span className="h-full" style={{ width: `${pct}%`, background: "var(--color-brand)" }} />
         <span className="h-full flex-1" style={{ background: "#3f3f46" }} />
       </div>
       <div className="mt-1 flex justify-between text-xs text-faint tabular">

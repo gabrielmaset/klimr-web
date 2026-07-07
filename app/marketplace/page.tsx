@@ -29,7 +29,7 @@ function ListingCard({ l, saved }: { l: Listing; saved: boolean }) {
     <div className="relative">
       <Link href={`/marketplace/${l.id}`} className="lift block rounded-2xl border border-rule bg-surface p-4 pr-14">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f4f4f5]">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bg">
             {l.kind === "coaching" ? <GraduationCap size={18} className="text-ink" /> : <ShoppingBag size={18} className="text-ink" />}
           </span>
           <span className="min-w-0 flex-1">
@@ -126,7 +126,7 @@ export default async function MarketplacePage({
         <Link
           href={savedView ? "/marketplace" : "/marketplace?view=saved"}
           className={`press flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
-            savedView ? "border-brand bg-tint-brand text-brand-deep" : "border-rule text-ink hover:bg-[#f4f4f5]"
+            savedView ? "border-brand bg-tint-brand text-brand-deep" : "border-rule text-ink hover:bg-bg"
           }`}
         >
           <Heart size={14} className={savedView ? "fill-brand text-brand" : ""} /> Saved{savedSet.size ? ` ${savedSet.size}` : ""}
@@ -151,7 +151,7 @@ export default async function MarketplacePage({
         <h2 className="mb-4 text-sm font-semibold text-mute">Your saved listings</h2>
       ) : (
         <>
-          <div className="mb-4 flex gap-1 rounded-2xl bg-[#f4f4f5] p-1">
+          <div className="mb-4 flex gap-1 rounded-2xl bg-bg p-1">
             {tabLink("coaching", "Coaching", GraduationCap)}
             {tabLink("gear", "Gear", ShoppingBag)}
           </div>

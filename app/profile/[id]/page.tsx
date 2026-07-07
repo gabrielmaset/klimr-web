@@ -17,6 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { AvatarLightbox } from "@/components/avatar-lightbox";
 import { sportMeta } from "@/lib/sports";
+import { SportChip } from "@/components/sport-chip";
 import { displayAge } from "@/lib/age";
 import { RelationshipButtons, type FriendStatus } from "@/components/relationship-buttons";
 import { mapFriendshipRow, buildContextChips, type RelationshipContext } from "@/lib/social";
@@ -211,7 +212,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const memberSince = new Date(profile.created_at).toLocaleString("en-US", { month: "long", year: "numeric" });
   const age = displayAge(profile.date_of_birth, profile.birth_year);
   const place = [profile.neighborhood, profile.city, profile.state].filter(Boolean).join(", ") || "Location not set";
-  const primary = profile.primary_sport ? sportMeta(profile.primary_sport) : null;
 
   // Active sponsor, if any (Klimr's amateur-sponsorship feature).
   let sponsor: { id: string; name: string } | null = null;
@@ -251,7 +251,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-mute">
               <span className="flex items-center gap-1.5"><MapPin size={14} className="text-faint" /> {place}</span>
               {age !== null ? <span className="flex items-center gap-1.5">{age} yrs</span> : null}
-              {primary ? <span className="flex items-center gap-1.5">{primary.emoji} {primary.name}</span> : null}
+              {profile.primary_sport ? <SportChip sport={profile.primary_sport} /> : null}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-tint-success px-2.5 py-1 text-xs font-semibold text-success">
@@ -301,9 +301,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               key={b.label}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold"
               style={{
-                borderColor: b.tone === "brand" ? "#ff4e1b" : b.tone === "gold" ? "rgba(184,134,11,.4)" : "#e4e4e7",
-                background: b.tone === "brand" ? "#fff1ed" : b.tone === "gold" ? "rgba(184,134,11,.08)" : "#f6f6f7",
-                color: b.tone === "brand" ? "#d63a0f" : b.tone === "gold" ? "#8a6d0b" : "#52525b",
+                borderColor: b.tone === "brand" ? "var(--color-brand)" : b.tone === "gold" ? "rgba(184,134,11,.4)" : "var(--color-rule)",
+                background: b.tone === "brand" ? "var(--color-tint-brand)" : b.tone === "gold" ? "rgba(184,134,11,.08)" : "var(--color-bg)",
+                color: b.tone === "brand" ? "var(--color-brand-deep)" : b.tone === "gold" ? "#8a6d0b" : "#52525b",
               }}
             >
               {b.tone === "gold" ? <Medal size={13} /> : b.tone === "brand" ? <BadgeCheck size={13} /> : <Sparkles size={13} />}
@@ -358,7 +358,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                         <div
                           key={r.label}
                           className="rounded-xl border px-2 py-2.5 text-center"
-                          style={{ borderColor: has ? "#e4e4e7" : "#efeff1", background: has ? "#ffffff" : "#fafafa" }}
+                          style={{ borderColor: has ? "var(--color-rule)" : "#efeff1", background: has ? "var(--color-surface)" : "var(--color-bg)" }}
                         >
                           <div className="kicker text-[8px] text-faint">{r.label}</div>
                           <div className="mt-1 font-display leading-none text-ink" style={{ fontSize: 22, opacity: has ? 1 : 0.3 }}>
@@ -390,7 +390,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             ) : null}
 
             {reported ? (
-              <span className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-mute" style={{ background: "#f6f6f7" }}>
+              <span className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-mute" style={{ background: "var(--color-bg)" }}>
                 <Flag size={15} /> You reported this player
               </span>
             ) : (

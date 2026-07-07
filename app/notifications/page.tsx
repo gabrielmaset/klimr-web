@@ -18,16 +18,16 @@ type Row = {
 };
 
 const KIND_META: Record<string, { Icon: typeof Bell; tint: string; ink: string }> = {
-  match_invite: { Icon: CalendarClock, tint: "#fff1ed", ink: "#d63a0f" },
-  friend_request: { Icon: UserPlus, tint: "#eef2ff", ink: "#4338ca" },
-  friend_accept: { Icon: UserCheck, tint: "#f0fdf4", ink: "#15803d" },
-  match_join: { Icon: CalendarClock, tint: "#f0fdf4", ink: "#15803d" },
-  match_confirm: { Icon: CalendarClock, tint: "#f0fdf4", ink: "#15803d" },
+  match_invite: { Icon: CalendarClock, tint: "var(--color-tint-brand)", ink: "var(--color-brand-deep)" },
+  friend_request: { Icon: UserPlus, tint: "var(--color-tint-info)", ink: "var(--color-info)" },
+  friend_accept: { Icon: UserCheck, tint: "var(--color-tint-success)", ink: "var(--color-success)" },
+  match_join: { Icon: CalendarClock, tint: "var(--color-tint-success)", ink: "var(--color-success)" },
+  match_confirm: { Icon: CalendarClock, tint: "var(--color-tint-success)", ink: "var(--color-success)" },
   ranking: { Icon: Trophy, tint: "#fff8e6", ink: "#8a6d0b" },
-  region_challenge: { Icon: Swords, tint: "#fff1ed", ink: "#d63a0f" },
-  marketplace: { Icon: ShoppingBag, tint: "#f4f4f5", ink: "#52525b" },
-  sponsorship: { Icon: Sparkles, tint: "#fff1ed", ink: "#d63a0f" },
-  system: { Icon: Megaphone, tint: "#f4f4f5", ink: "#52525b" },
+  region_challenge: { Icon: Swords, tint: "var(--color-tint-brand)", ink: "var(--color-brand-deep)" },
+  marketplace: { Icon: ShoppingBag, tint: "var(--color-bg)", ink: "#52525b" },
+  sponsorship: { Icon: Sparkles, tint: "var(--color-tint-brand)", ink: "var(--color-brand-deep)" },
+  system: { Icon: Megaphone, tint: "var(--color-bg)", ink: "#52525b" },
 };
 
 function timeAgo(iso: string) {
@@ -64,7 +64,7 @@ export default async function NotificationsPage() {
         </div>
         {unread > 0 ? (
           <form action={markAllRead}>
-            <button className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
+            <button className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg">
               <CheckCheck size={15} /> Mark all read
             </button>
           </form>

@@ -122,11 +122,11 @@ export function SideNav({
   }, [menuOpen]);
 
   const navLink = (active: boolean) =>
-    `flex ${compact ? "h-10" : "h-11"} items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
+    `group flex ${compact ? "h-10" : "h-11"} items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
       active ? "bg-rail-activebg text-rail-active" : "text-rail-fg hover:bg-rail-hover hover:text-white"
     }`;
   const footerLink = (active: boolean) =>
-    `flex h-10 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
+    `group flex h-10 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${
       active ? "bg-rail-activebg text-rail-active" : "text-rail-fg hover:bg-rail-hover hover:text-white"
     }`;
   const menuItem = "flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-ink transition-colors hover:bg-bg";
@@ -135,14 +135,14 @@ export function SideNav({
     const active = isActive(href);
     return (
       <Link key={href} href={href} aria-current={active ? "page" : undefined} className={navLink(active)}>
-        <Icon size={18} className={active ? "text-brand" : "text-rail-muted"} />
+        <Icon size={18} className={active ? "text-rail-active" : "text-rail-muted group-hover:text-white"} />
         {label}
       </Link>
     );
   };
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
+    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 self-start p-3 md:block lg:w-64">
       <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
         <Link href="/" aria-label="Klimr home" className="shrink-0 px-3">
           <KlimrLogo tone="light" />
@@ -191,7 +191,7 @@ export function SideNav({
         {/* Admin — special destination above the account divider. */}
         {adminRole ? (
           <Link href="/admin" aria-current={isActive("/admin") ? "page" : undefined} className={`shrink-0 mt-4 ${footerLink(isActive("/admin"))}`}>
-            <ShieldCheck size={17} className={isActive("/admin") ? "text-brand" : "text-rail-muted"} />
+            <ShieldCheck size={17} className={isActive("/admin") ? "text-rail-active" : "text-rail-muted group-hover:text-white"} />
             Admin
           </Link>
         ) : null}
@@ -200,7 +200,7 @@ export function SideNav({
         <div className="shrink-0 mt-3 border-t border-rail-border pt-3">
           <p className="kicker mb-1 px-3 text-rail-muted">Account</p>
           <Link href="/invite" aria-current={isActive("/invite") ? "page" : undefined} className={footerLink(isActive("/invite"))}>
-            <Gift size={17} className={isActive("/invite") ? "text-brand" : "text-rail-muted"} />
+            <Gift size={17} className={isActive("/invite") ? "text-rail-active" : "text-rail-muted group-hover:text-white"} />
             Invite friends
             <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rail-muted">Soon</span>
           </Link>

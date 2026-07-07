@@ -140,7 +140,7 @@ export default async function AdminUpdatesPage({
             <div key={it.id} className="flex items-start justify-between gap-3 rounded-xl border border-rule bg-surface px-4 py-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="kicker rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[9px] text-mute">{KIND_LABEL[it.kind] ?? it.kind}</span>
+                  <span className="kicker rounded-full bg-bg px-2 py-0.5 text-[9px] text-mute">{KIND_LABEL[it.kind] ?? it.kind}</span>
                   {it.sport_key ? <span className="text-xs capitalize text-faint">{it.sport_key}</span> : null}
                   <span className="text-xs text-faint">· {new Date(it.published_at).toLocaleString("en-US")}</span>
                   {it.created_by ? <span className="text-xs text-faint">· {nameMap.get(it.created_by) ?? "—"}</span> : null}

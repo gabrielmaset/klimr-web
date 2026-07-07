@@ -22,7 +22,7 @@ export default async function EmailSettingsPage() {
 
       <div className="mt-6 rounded-2xl border border-rule bg-surface p-6">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-ink"><Mail size={19} /></span>
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-bg text-ink"><Mail size={19} /></span>
           <div className="min-w-0">
             <div className="kicker text-faint">Email address</div>
             <div className="mt-0.5 truncate font-mono text-sm text-ink">{user.email}</div>
@@ -36,7 +36,7 @@ export default async function EmailSettingsPage() {
 
       <div className="mt-4 space-y-2">
         <Link href="/account/security" className="lift flex items-center gap-3 rounded-xl border border-rule bg-surface p-3.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-ink"><KeyRound size={17} /></span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-ink"><KeyRound size={17} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold text-ink">Sign-in &amp; security</span>
             <span className="block text-xs text-mute">Magic link and two-factor</span>
@@ -44,7 +44,7 @@ export default async function EmailSettingsPage() {
           <ChevronLeft size={16} className="shrink-0 rotate-180 text-faint" />
         </Link>
         <Link href="/settings" className="lift flex items-center gap-3 rounded-xl border border-rule bg-surface p-3.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-ink"><Bell size={17} /></span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-ink"><Bell size={17} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold text-ink">Email notifications</span>
             <span className="block text-xs text-mute">Choose your email digest in Settings</span>

@@ -80,7 +80,7 @@ function Switch({ on, disabled, onToggle, label }: { on: boolean; disabled?: boo
       disabled={disabled}
       onClick={onToggle}
       className="press relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50"
-      style={{ background: on ? "#16a34a" : "var(--color-rule)" }}
+      style={{ background: on ? "var(--color-success)" : "var(--color-rule)" }}
     >
       <span
         className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
@@ -192,12 +192,12 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
             className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-bold shadow-sm"
             style={
               session.status === "live" && !session.paused
-                ? { background: "#16a34a", color: "#fff" }
+                ? { background: "var(--color-success)", color: "#fff" }
                 : session.status === "live" && session.paused
-                  ? { background: "#fffbeb", color: "#b45309" }
+                  ? { background: "var(--color-tint-warning)", color: "var(--color-warning)" }
                   : session.status === "ended"
-                    ? { background: "#f4f4f5", color: "#52525b" }
-                    : { background: "#fff7e6", color: "#b45309" }
+                    ? { background: "var(--color-bg)", color: "#52525b" }
+                    : { background: "var(--color-tint-warning)", color: "var(--color-warning)" }
             }
           >
             {session.status === "live" && !session.paused ? (

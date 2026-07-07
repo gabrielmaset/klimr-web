@@ -103,14 +103,14 @@ export function CourtsMap({ token, courts, tall = false }: { token: string | nul
       const lat = c.lat as number;
       const el = document.createElement("div");
       el.style.cssText =
-        "display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:9999px;background:#ff4e1b;border:2.5px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35);color:#fff;font:700 12px Inter,system-ui,sans-serif;cursor:pointer";
+        "display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:9999px;background:var(--color-brand);border:2.5px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35);color:#fff;font:700 12px Inter,system-ui,sans-serif;cursor:pointer";
       el.textContent = c.label ?? "";
       const place = escapeHtml([c.neighborhood, c.city].filter(Boolean).join(", "));
       const heading = c.label ? `${escapeHtml(c.label)}. ${escapeHtml(c.name)}` : escapeHtml(c.name);
       const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(
-        `<div style="font:600 13px Inter,system-ui,sans-serif;color:#18181b">${heading}</div>` +
-          (place ? `<div style="font:500 11px Inter,system-ui,sans-serif;color:#71717a;margin-top:2px">${place}</div>` : "") +
-          `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([c.name, c.neighborhood, c.city].filter(Boolean).join(", "))}" target="_blank" rel="noopener" style="font:600 11px Inter,system-ui,sans-serif;color:#d63a0f;margin-top:6px;display:inline-block;text-decoration:none">Open in Maps →</a>`,
+        `<div style="font:600 13px Inter,system-ui,sans-serif;color:var(--color-ink-soft)">${heading}</div>` +
+          (place ? `<div style="font:500 11px Inter,system-ui,sans-serif;color:var(--color-mute);margin-top:2px">${place}</div>` : "") +
+          `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([c.name, c.neighborhood, c.city].filter(Boolean).join(", "))}" target="_blank" rel="noopener" style="font:600 11px Inter,system-ui,sans-serif;color:var(--color-brand-deep);margin-top:6px;display:inline-block;text-decoration:none">Open in Maps →</a>`,
       );
       const marker = new mapboxgl.Marker(el).setLngLat([lng, lat]).setPopup(popup).addTo(map);
       markersRef.current.push(marker);

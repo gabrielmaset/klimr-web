@@ -51,7 +51,7 @@ export default async function AdminTicket({ params }: { params: Promise<{ id: st
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-extrabold text-ink">{t.subject}</h2>
             {t.severity === "urgent" ? (
-              <span className="rounded-full bg-[#fdeceb] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#c0271d]">Urgent</span>
+              <span className="rounded-full bg-tint-danger px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-danger">Urgent</span>
             ) : null}
           </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-faint">

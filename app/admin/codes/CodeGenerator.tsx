@@ -125,7 +125,7 @@ export function CodeGenerator() {
       {state.emailWarning ? <p className="mt-3 text-sm text-brand-deep">{state.emailWarning}</p> : null}
 
       {state.ok && state.codes && state.codes.length > 0 ? (
-        <div className="mt-5 rounded-xl border border-rule bg-[#fafafa] p-4">
+        <div className="mt-5 rounded-xl border border-rule bg-bg p-4">
           <div className="flex items-center justify-between gap-2">
             <span className="kicker text-faint">
               {state.codes.length} new {state.codeType} code{state.codes.length === 1 ? "" : "s"}

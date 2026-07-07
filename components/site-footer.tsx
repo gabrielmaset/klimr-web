@@ -21,7 +21,7 @@ export function SiteFooter({ authed = false }: { authed?: boolean }) {
   if (authed) {
     return (
       <footer className="bg-transparent">
-        <div className="mx-auto max-w-7xl px-5 pb-10 pt-14">
+        <div className="mx-auto max-w-page px-5 pb-10 pt-14">
           <div className="border-t border-rule/60 pt-7">
             <AdSlot label="Local sponsor" />
             <div className="mt-5 flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
@@ -36,7 +36,7 @@ export function SiteFooter({ authed = false }: { authed?: boolean }) {
 
   return (
     <footer className="border-t border-rule bg-surface">
-      <div className="mx-auto max-w-6xl px-5 py-12">
+      <div className="mx-auto max-w-page px-5 py-12">
         <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <KlimrLogo markSize={30} textClassName="text-3xl" />

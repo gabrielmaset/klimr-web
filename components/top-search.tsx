@@ -193,7 +193,7 @@ export function TopSearch() {
                     {r.type === "player" ? (
                       <Avatar url={r.avatarUrl ?? null} hue={r.hue ?? 200} name={r.title} size={30} />
                     ) : (
-                      <span className={`grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg ${sel ? "bg-surface text-brand-deep" : "bg-[#f4f4f5] text-mute"}`}>
+                      <span className={`grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg ${sel ? "bg-surface text-brand-deep" : "bg-bg text-mute"}`}>
                         <Icon size={15} />
                       </span>
                     )}

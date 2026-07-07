@@ -170,7 +170,7 @@ export default async function AdminProvidersPage() {
                       <form action={setClassProvider} className="inline">
                         <input type="hidden" name="userId" value={r.user_id} />
                         <input type="hidden" name="action" value={r.status === "approved" ? "revoke" : "approve"} />
-                        <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
+                        <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-bg">
                           {r.status === "approved" ? "Revoke" : "Re-approve"}
                         </button>
                       </form>

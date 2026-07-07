@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarClock, MapPin, Users, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { SPORTS, sportMeta } from "@/lib/sports";
+import { SPORTS, sportMeta, sportSlug } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "Play" };
 
@@ -123,10 +123,10 @@ export default async function PlayPage({
             return (
               <Link key={m.id} href={`/play/${m.id}`} className="lift block rounded-2xl border border-rule bg-surface p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl" aria-hidden>{meta.emoji}</span>
+                  <span className="grid h-11 w-11 place-items-center rounded-2xl text-xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(m.sport_key)}) 16%, transparent)` }} aria-hidden>{meta.emoji}</span>
                   <span
                     className="kicker rounded-full px-2 py-1 text-[9px]"
-                    style={{ background: full ? "#f4f4f5" : "#fff1ed", color: full ? "#71717a" : "#d63a0f" }}
+                    style={{ background: full ? "var(--color-bg)" : "var(--color-tint-brand)", color: full ? "var(--color-mute)" : "var(--color-brand-deep)" }}
                   >
                     {full ? "Full · waitlist" : `${left} spot${left === 1 ? "" : "s"} left`}
                   </span>
@@ -160,9 +160,9 @@ function FilterPill({ href, active, label }: { href: string; active: boolean; la
       href={href}
       className="press rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors"
       style={{
-        borderColor: active ? "#0a0a0b" : "#e4e4e7",
-        background: active ? "#0a0a0b" : "transparent",
-        color: active ? "#ffffff" : "#71717a",
+        borderColor: active ? "var(--color-ink)" : "var(--color-rule)",
+        background: active ? "var(--color-ink)" : "transparent",
+        color: active ? "var(--color-surface)" : "var(--color-mute)",
       }}
     >
       {label}

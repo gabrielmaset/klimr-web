@@ -17,13 +17,13 @@ export function SendSignInLinkButton({ userId }: { userId: string }) {
         {pending ? (
           <Loader2 size={14} className="animate-spin" />
         ) : state?.ok ? (
-          <Check size={14} style={{ color: "#16a34a" }} />
+          <Check size={14} style={{ color: "var(--color-success)" }} />
         ) : (
           <Mail size={14} />
         )}
         {state?.ok ? "Sign-in link sent" : "Send sign-in link"}
       </button>
-      {state?.error ? <span className="text-xs" style={{ color: "#d63a0f" }}>{state.error}</span> : null}
+      {state?.error ? <span className="text-xs" style={{ color: "var(--color-brand-deep)" }}>{state.error}</span> : null}
     </form>
   );
 }

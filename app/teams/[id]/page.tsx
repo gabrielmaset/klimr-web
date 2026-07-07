@@ -211,16 +211,16 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
                     </span>
                     <span className="mt-1 flex flex-wrap items-center gap-1">
                       {isPro && ROLE_LABEL[m.role] ? (
-                        <span className="font-athletic rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">{ROLE_LABEL[m.role]}</span>
+                        <span className="font-athletic rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">{ROLE_LABEL[m.role]}</span>
                       ) : null}
                       {!isPro && m.role === "owner" ? (
-                        <span className="font-athletic rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">Team manager</span>
+                        <span className="font-athletic rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-soft">Team manager</span>
                       ) : null}
                       {m.designation && DESIG_LABEL[m.designation] ? (
                         <span className="font-athletic rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: kit.primary }}>{DESIG_LABEL[m.designation]}</span>
                       ) : null}
                       {!isPro && m.role !== "owner" && !m.designation ? (
-                        <span className="font-athletic rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-mute">Player</span>
+                        <span className="font-athletic rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-mute">Player</span>
                       ) : null}
                     </span>
                   </div>

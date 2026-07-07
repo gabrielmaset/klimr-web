@@ -13,7 +13,7 @@ export function ArchiveUserButton({ userId }: { userId: string }) {
         type="button"
         onClick={() => setOpen(true)}
         className="press inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-white transition-colors"
-        style={{ background: "#d63a0f" }}
+        style={{ background: "var(--color-danger)" }}
       >
         <Trash2 size={14} /> Delete account…
       </button>
@@ -42,7 +42,7 @@ export function ArchiveUserButton({ userId }: { userId: string }) {
         <button
           type="submit"
           className="press rounded-full px-3.5 py-2 text-sm font-semibold text-white transition-colors"
-          style={{ background: "#d63a0f" }}
+          style={{ background: "var(--color-danger)" }}
         >
           Delete account
         </button>

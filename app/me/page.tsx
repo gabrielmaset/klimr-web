@@ -7,21 +7,19 @@ import { createClient } from "@/lib/supabase/server";
 import { getCalendarEvents } from "@/lib/calendar";
 import { Avatar } from "@/components/avatar";
 import { CoverUploader } from "@/components/cover-uploader";
-import { sportMeta, SPORTS } from "@/lib/sports";
+import { sportMeta, sportSlug, SPORTS } from "@/lib/sports";
+import { SportChip } from "@/components/sport-chip";
 
 export const metadata: Metadata = { title: "My profile" };
 
 type PS = { sport_key: string; points: number; skill_rating: number | null; matches_played: number; wins: number; skill_level: string };
 type MatchRow = { id: string; sport_key: string; format: string; scheduled_at: string | null; status: string; location_text: string | null };
 
-// Per-sport accent colors (shared with the teams hub).
-const SPORT_COLOR: Record<string, string> = {
-  tennis: "#84cc16",
-  pickleball: "#eab308",
-  padel: "#3b82f6",
-  racquetball: "#8b5cf6",
-  beach_volleyball: "#f97316",
-};
+/** Sport-accent tint from the tokens (the single sport-colour source of truth).
+ *  Replaces the old local SPORT_COLOR map + hex-alpha suffixes with color-mix at
+ *  the same strengths (0x14≈8%, 0x1f≈12%, 0x26≈15%). */
+const sportTint = (key: string, pct: number) =>
+  `color-mix(in oklab, var(--color-sport-${sportSlug(key)}) ${pct}%, transparent)`;
 const KIND_DOT: Record<string, string> = { match: "#ea580c", event: "#2563eb", class: "#7c3aed", tournament: "#d97706" };
 const KIND_LABEL: Record<string, string> = { match: "Match", event: "Event", class: "Class", tournament: "Tournament" };
 
@@ -70,7 +68,6 @@ export default async function MyProfilePage() {
   const place = [profile.neighborhood, profile.city, profile.state].filter(Boolean).join(", ") || profile.home_zip || "Location not set";
   const memberSince = profile.created_at ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : null;
   const age = displayAge(profile.date_of_birth, profile.birth_year);
-  const primaryMeta = profile.primary_sport ? sportMeta(profile.primary_sport) : null;
 
   // Sports the player has signed up for (one player_sports row each).
   const { data: psData } = await supabase
@@ -142,11 +139,7 @@ export default async function MyProfilePage() {
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{profile.display_name}</h1>
           {verified ? <BadgeCheck size={22} className="shrink-0 text-brand" aria-label="Identity verified" /> : null}
-          {primaryMeta ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-tint-brand px-2.5 py-1 text-xs font-semibold text-brand-deep">
-              <span aria-hidden>{primaryMeta.emoji}</span> {primaryMeta.name}
-            </span>
-          ) : null}
+          {profile.primary_sport ? <SportChip sport={profile.primary_sport} /> : null}
         </div>
 
         <p className="mt-2 flex items-center gap-1.5 text-sm text-mute">
@@ -228,26 +221,26 @@ export default async function MyProfilePage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sports.map((s) => {
               const meta = sportMeta(s.sport_key);
-              const color = SPORT_COLOR[s.sport_key] ?? "#71717a";
+              const accent = `var(--color-sport-${sportSlug(s.sport_key)})`;
               const isPrimary = s.sport_key === profile.primary_sport;
               const winPct = s.matches_played > 0 ? Math.round((s.wins / s.matches_played) * 100) : null;
               return (
                 <div key={s.sport_key} className="overflow-hidden rounded-2xl border border-rule bg-surface">
-                  <div className="flex items-center justify-between px-4 py-3" style={{ background: `${color}14` }}>
+                  <div className="flex items-center justify-between px-4 py-3" style={{ background: sportTint(s.sport_key, 8) }}>
                     <div className="flex items-center gap-2.5">
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `${color}26` }} aria-hidden>
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg" style={{ background: sportTint(s.sport_key, 15) }} aria-hidden>
                         {meta.emoji}
                       </span>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-bold text-ink">{meta.name}</div>
                         {isPrimary ? (
-                          <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>Primary sport</div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: accent }}>Primary sport</div>
                         ) : (
                           <div className="text-[10px] uppercase tracking-wide text-faint">{s.skill_level || "Player"}</div>
                         )}
                       </div>
                     </div>
-                    <Trophy size={15} style={{ color }} />
+                    <Trophy size={15} style={{ color: accent }} />
                   </div>
                   <div className="grid grid-cols-3 divide-x divide-rule border-t border-rule text-center">
                     <div className="py-3">
@@ -289,10 +282,9 @@ export default async function MyProfilePage() {
             <div className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface">
               {teams.map((t) => {
                 const meta = sportMeta(t.sport_key);
-                const color = SPORT_COLOR[t.sport_key] ?? "#a1a1aa";
                 return (
                   <Link key={t.id} href={`/teams/${t.id}`} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-bg">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: `${color}1f` }} aria-hidden>{meta.emoji}</span>
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: sportTint(t.sport_key, 12) }} aria-hidden>{meta.emoji}</span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-sm font-bold text-ink">{t.name}</span>
@@ -331,10 +323,9 @@ export default async function MyProfilePage() {
             <div className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface">
               {recent.map((m) => {
                 const meta = sportMeta(m.sport_key);
-                const color = SPORT_COLOR[m.sport_key] ?? "#a1a1aa";
                 return (
                   <Link key={m.id} href={`/play/${m.id}`} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-bg">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: `${color}1f` }} aria-hidden>{meta.emoji}</span>
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: sportTint(m.sport_key, 12) }} aria-hidden>{meta.emoji}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold text-ink">{meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}</span>
                       <span className="flex items-center gap-1.5 text-xs text-mute">
@@ -344,7 +335,7 @@ export default async function MyProfilePage() {
                     </span>
                     <span
                       className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize"
-                      style={{ background: m.status === "open" ? "#fff1ed" : "#f4f4f5", color: m.status === "open" ? "#d63a0f" : "#71717a" }}
+                      style={{ background: m.status === "open" ? "var(--color-tint-brand)" : "var(--color-bg)", color: m.status === "open" ? "var(--color-brand-deep)" : "var(--color-mute)" }}
                     >
                       {m.status}
                     </span>

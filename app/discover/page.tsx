@@ -11,9 +11,9 @@ import { suggestedOpponents } from "@/lib/match-intel";
 export const metadata: Metadata = { title: "Discover players" };
 
 function scoreColor(s: number): { bg: string; fg: string } {
-  if (s >= 70) return { bg: "#ecfdf3", fg: "#15803d" };
-  if (s >= 45) return { bg: "#fff7e6", fg: "#b45309" };
-  return { bg: "#f1f5f9", fg: "#475569" };
+  if (s >= 70) return { bg: "var(--color-tint-success)", fg: "var(--color-success)" };
+  if (s >= 45) return { bg: "var(--color-tint-warning)", fg: "var(--color-warning)" };
+  return { bg: "var(--color-bg)", fg: "var(--color-mute)" };
 }
 
 /* A match-score gauge ring drawn around the player's avatar. */
@@ -27,7 +27,7 @@ function ScoredAvatar({ score, url, hue, name, size }: { score: number; url: str
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 -rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8e8ec" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-rule)" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={col} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={off} />
       </svg>
       <div className="absolute inset-0 grid place-items-center">
@@ -50,7 +50,7 @@ function FactorBars({ factors }: { factors: { location: number; skill: number; a
       {rows.map(([label, v]) => (
         <div key={label} className="flex items-center gap-2.5">
           <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-faint">{label}</span>
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#ececed]">
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-rule">
             <span className="block h-full rounded-full transition-all" style={{ width: `${v}%`, background: scoreColor(v).fg }} />
           </span>
           <span className="w-6 shrink-0 text-right text-[10px] font-semibold tabular text-mute">{v}</span>
@@ -166,7 +166,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                     key={k}
                     href={`/discover?sport=${k}`}
                     className="press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                    style={{ borderColor: on ? "transparent" : "rgba(255,255,255,0.2)", background: on ? "#ff4e1b" : "rgba(255,255,255,0.08)", color: on ? "#fff" : "rgba(255,255,255,0.78)" }}
+                    style={{ borderColor: on ? "transparent" : "rgba(255,255,255,0.2)", background: on ? "var(--color-brand)" : "rgba(255,255,255,0.08)", color: on ? "#fff" : "rgba(255,255,255,0.78)" }}
                   >
                     {m.emoji} {m.name}
                   </Link>
@@ -208,7 +208,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                     {top.reasons.length ? (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {top.reasons.slice(0, 3).map((r) => (
-                          <span key={r} className="rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+                          <span key={r} className="rounded-full bg-bg px-2 py-0.5 text-[11px] font-medium text-ink-soft">
                             {r}
                           </span>
                         ))}

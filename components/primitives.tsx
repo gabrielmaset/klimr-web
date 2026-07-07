@@ -1,0 +1,88 @@
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/button";
+
+/**
+ * Small shared primitives that codify patterns already used ad-hoc across the
+ * app, so they stay consistent and honest.
+ */
+
+/** The athletic uppercase section label (Oswald, tracked) used site-wide. */
+export function SectionHeader({
+  title,
+  action,
+  className,
+}: {
+  title: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("mb-3 flex items-center justify-between gap-3", className)}>
+      <h2 className="font-athletic text-base font-bold uppercase tracking-wide text-ink">
+        {title}
+      </h2>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+/** A labeled figure — mono, tabular — for profile / team / rankings stat rows. */
+export function Stat({
+  value,
+  label,
+  className,
+}: {
+  value: React.ReactNode;
+  label: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col", className)}>
+      <span className="font-mono text-xl font-semibold tabular-nums text-ink">{value}</span>
+      <span className="kicker text-mute">{label}</span>
+    </div>
+  );
+}
+
+/**
+ * The honest, branded empty state — dashed card + optional icon + optional CTA.
+ * Codifies the "dashed-border card with a branded action" pattern already used
+ * (e.g. the recent-matches empty state). Honest by policy: never fabricates data.
+ */
+export function EmptyState({
+  icon,
+  title,
+  description,
+  cta,
+  className,
+}: {
+  icon?: React.ReactNode;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  cta?: { label: string; href: string };
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center rounded-2xl border border-dashed border-rule bg-surface px-6 py-12 text-center",
+        className,
+      )}
+    >
+      {icon ? <div className="mb-3 text-faint">{icon}</div> : null}
+      <p className="font-display text-lg text-ink">{title}</p>
+      {description ? (
+        <p className="mt-1 max-w-sm text-sm text-mute">{description}</p>
+      ) : null}
+      {cta ? (
+        <Link
+          href={cta.href}
+          className={cn("mt-5", buttonVariants({ variant: "primary", size: "md" }))}
+        >
+          {cta.label}
+        </Link>
+      ) : null}
+    </div>
+  );
+}

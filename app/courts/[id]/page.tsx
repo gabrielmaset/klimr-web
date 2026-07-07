@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { MapPin, Star, ShieldCheck, UserCheck, Flame, Clock, BadgeCheck } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
-import { sportMeta } from "@/lib/sports";
+import { SportChip } from "@/components/sport-chip";
 import { Avatar } from "@/components/avatar";
 import { addReview, checkInCourt } from "../actions";
 import { courtReviewEligibility } from "@/lib/court-access";
@@ -90,14 +90,9 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
         <MapPin size={14} /> {[court.neighborhood, court.city, court.state].filter(Boolean).join(", ")}
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {court.sports.map((s) => {
-          const m = sportMeta(s);
-          return (
-            <span key={s} className="rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink">
-              {m.emoji} {m.name}
-            </span>
-          );
-        })}
+        {court.sports.map((s) => (
+          <SportChip key={s} sport={s} />
+        ))}
       </div>
 
       {/* map */}
@@ -139,7 +134,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
         <div className="flex items-center gap-3">
           <span
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full"
-            style={{ background: active > 0 ? "#fff1ed" : "#f4f4f5", color: active > 0 ? "#d63a0f" : "#71717a" }}
+            style={{ background: active > 0 ? "var(--color-tint-brand)" : "var(--color-bg)", color: active > 0 ? "var(--color-brand-deep)" : "var(--color-mute)" }}
           >
             {active > 0 ? <Flame size={18} /> : <Clock size={18} />}
           </span>
@@ -166,7 +161,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
           <h2 className="kicker mb-2 text-faint">Amenities</h2>
           <div className="flex flex-wrap gap-1.5">
             {court.amenities.map((a) => (
-              <span key={a} className="rounded-full bg-[#f4f4f5] px-3 py-1 text-xs font-medium text-ink-soft">{a}</span>
+              <span key={a} className="rounded-full bg-bg px-3 py-1 text-xs font-medium text-ink-soft">{a}</span>
             ))}
           </div>
         </section>

@@ -92,7 +92,7 @@ export function AvailabilityEditor({ initial }: { initial: Range[] }) {
                     <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
-                <button type="button" onClick={() => remove(i)} aria-label="Remove time block" className="press ml-auto grid h-7 w-7 place-items-center rounded-full text-mute transition-colors hover:bg-[#f4f4f5] hover:text-ink">
+                <button type="button" onClick={() => remove(i)} aria-label="Remove time block" className="press ml-auto grid h-7 w-7 place-items-center rounded-full text-mute transition-colors hover:bg-bg hover:text-ink">
                   <X size={15} />
                 </button>
               </li>

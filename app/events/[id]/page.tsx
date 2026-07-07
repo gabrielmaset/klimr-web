@@ -201,7 +201,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
       {/* status notices */}
       {cancelled ? (
-        <div className="mt-5 rounded-2xl border border-[#f5b8a6] bg-[#fff5f1] px-4 py-3.5">
+        <div className="mt-5 rounded-2xl border border-brand/30 bg-tint-brand px-4 py-3.5">
           <p className="text-sm font-semibold text-brand-deep">This event was cancelled.</p>
           {isOwner ? (
             withinRecoverWindow(e.cancelled_at) ? (
@@ -220,7 +220,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           ) : null}
         </div>
       ) : past ? (
-        <div className="mt-5 rounded-2xl border border-rule bg-[#f4f4f5] px-4 py-3 text-sm font-semibold text-mute">This event has ended.</div>
+        <div className="mt-5 rounded-2xl border border-rule bg-bg px-4 py-3 text-sm font-semibold text-mute">This event has ended.</div>
       ) : null}
 
       {/* primary actions (attendee-facing) */}
@@ -236,12 +236,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           ) : myStatus === "pending" ? (
             <form action={cancelRsvp}>
               <input type="hidden" name="eventId" value={e.id} />
-              <button className="press inline-flex items-center gap-1.5 rounded-full border border-[#f5d08a] bg-[#fff7e6] px-5 py-2.5 text-sm font-semibold text-[#b45309]">
+              <button className="press inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-tint-warning px-5 py-2.5 text-sm font-semibold text-warning">
                 <Clock size={15} /> Awaiting approval · cancel
               </button>
             </form>
           ) : full ? (
-            <span className="rounded-full border border-rule bg-[#f4f4f5] px-5 py-2.5 text-sm font-semibold text-mute">Event full</span>
+            <span className="rounded-full border border-rule bg-bg px-5 py-2.5 text-sm font-semibold text-mute">Event full</span>
           ) : (
             <form action={rsvp}>
               <input type="hidden" name="eventId" value={e.id} />
@@ -263,7 +263,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         ) : null}
 
         {!cancelled ? (
-          <a href={gcal} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]">
+          <a href={gcal} target="_blank" rel="noopener noreferrer" className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg">
             <CalendarPlus size={15} /> Google Calendar
           </a>
         ) : null}
@@ -276,7 +276,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
       {/* member-facing LIVE entry */}
       {queueLiveForMembers && myStatus === "going" && !isAdmin && session ? (
-        <Link href={`/queue/${session.id}`} className="lift mt-5 flex items-center gap-3 overflow-hidden rounded-3xl border border-brand/30 bg-gradient-to-r from-[#fff1ed] to-surface p-4">
+        <Link href={`/queue/${session.id}`} className="lift mt-5 flex items-center gap-3 overflow-hidden rounded-3xl border border-brand/30 bg-gradient-to-r from-tint-brand to-surface p-4">
           <span className="relative flex h-3.5 w-3.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-75" />
             <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-brand" />
@@ -363,8 +363,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </div>
 
           {e.join_policy === "approval" && pendingProfiles.length ? (
-            <div className="mt-4 rounded-3xl border border-[#f5d08a] bg-[#fffaf0] p-4">
-              <p className="kicker mb-3 flex items-center gap-1.5 text-[#b45309]">
+            <div className="mt-4 rounded-3xl border border-warning/30 bg-tint-warning p-4">
+              <p className="kicker mb-3 flex items-center gap-1.5 text-warning">
                 <UserCheck size={14} /> Requests to join · {pendingProfiles.length}
               </p>
               <ul className="grid gap-2 sm:grid-cols-2">

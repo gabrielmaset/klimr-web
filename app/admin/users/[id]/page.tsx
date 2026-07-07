@@ -39,7 +39,7 @@ const REASON: Record<string, string> = {
   fake_profile: "Fake profile",
   other: "Other",
 };
-const STATUS_TONE: Record<string, string> = { active: "#16a34a", suspended: "#b8860b", banned: "#d63a0f" };
+const STATUS_TONE: Record<string, string> = { active: "var(--color-success)", suspended: "var(--color-warning)", banned: "var(--color-brand-deep)" };
 
 export default async function AdminUserDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -98,7 +98,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
               <h2 className="font-display text-2xl text-ink">{p.display_name || "Player"}</h2>
               {p.verification_status === "verified" ? <BadgeCheck size={18} className="text-brand" /> : null}
               {p.account_status !== "active" ? (
-                <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "#f4f4f5", color: STATUS_TONE[p.account_status] }}>{p.account_status}</span>
+                <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[p.account_status] }}>{p.account_status}</span>
               ) : null}
             </div>
             <p className="mt-1 text-sm text-mute">{place} · {p.primary_sport ? sportMeta(p.primary_sport).name : "no primary sport"}</p>
@@ -149,7 +149,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
                 <form action={setAccountStatus}>
                   <input type="hidden" name="userId" value={p.id} />
                   <input type="hidden" name="status" value="banned" />
-                  <button className="press rounded-full px-3.5 py-2 text-sm font-semibold text-white transition-colors" style={{ background: "#d63a0f" }}>Ban</button>
+                  <button className="press rounded-full px-3.5 py-2 text-sm font-semibold text-white transition-colors" style={{ background: "var(--color-danger)" }}>Ban</button>
                 </form>
               ) : null}
             </>

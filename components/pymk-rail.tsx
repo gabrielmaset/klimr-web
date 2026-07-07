@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
-import { UserPlus, Check, X, BadgeCheck, Sparkles } from "lucide-react";
-import { Avatar } from "@/components/avatar";
+import { UserPlus, Check, X, Sparkles } from "lucide-react";
+import { PlayerCard } from "@/components/player-card";
 import { requestConnection } from "@/app/network/actions";
 import { pymkReason, type PymkRow } from "@/lib/social";
 
@@ -50,43 +49,44 @@ export function PymkRail({ people, avatarUrlFor }: { people: PymkRow[]; avatarUr
         {rows.slice(0, 8).map((p) => {
           const sent = requested.has(p.user_id);
           return (
-            <div key={p.user_id} className="relative rounded-2xl border border-rule bg-surface p-4">
+            <div key={p.user_id} className="relative">
               <button
                 type="button"
                 onClick={() => dismiss(p.user_id)}
                 aria-label="Dismiss suggestion"
-                className="press absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full text-faint hover:bg-bg hover:text-ink"
+                className="press absolute right-2 top-2 z-20 grid h-7 w-7 place-items-center rounded-full bg-surface/80 text-faint backdrop-blur hover:bg-bg hover:text-ink"
               >
                 <X size={14} />
               </button>
-              <Link href={`/profile/${p.user_id}`} className="press flex items-center gap-3">
-                <Avatar url={avatarUrlFor[p.user_id] ?? null} hue={p.avatar_hue} name={p.display_name} size={44} ring />
-                <span className="min-w-0">
-                  <span className="flex items-center gap-1">
-                    <span className="truncate text-sm font-bold text-ink">{p.display_name}</span>
-                    {p.verification_status === "verified" ? <BadgeCheck size={14} className="shrink-0 text-brand" /> : null}
-                  </span>
-                  <span className="block truncate text-xs text-mute">{pymkReason(p)}</span>
-                </span>
-              </Link>
-              <button
-                type="button"
-                disabled={sent}
-                onClick={() => connect(p.user_id)}
-                className={`press mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
-                  sent ? "bg-tint-success text-success" : "bg-ink text-surface hover:bg-ink-soft"
-                }`}
-              >
-                {sent ? (
-                  <>
-                    <Check size={13} /> Requested
-                  </>
-                ) : (
-                  <>
-                    <UserPlus size={13} /> Connect
-                  </>
-                )}
-              </button>
+              <PlayerCard
+                name={p.display_name}
+                href={`/profile/${p.user_id}`}
+                avatarUrl={avatarUrlFor[p.user_id] ?? null}
+                verified={p.verification_status === "verified"}
+                primarySport={p.primary_sport ?? undefined}
+                location={p.neighborhood ?? p.city ?? null}
+                contextChip={pymkReason(p)}
+                footerAction={
+                  <button
+                    type="button"
+                    disabled={sent}
+                    onClick={() => connect(p.user_id)}
+                    className={`press inline-flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                      sent ? "bg-tint-success text-success" : "bg-ink text-surface hover:bg-ink-soft"
+                    }`}
+                  >
+                    {sent ? (
+                      <>
+                        <Check size={13} /> Requested
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={13} /> Connect
+                      </>
+                    )}
+                  </button>
+                }
+              />
             </div>
           );
         })}

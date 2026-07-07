@@ -7,7 +7,7 @@ import { logger, type LogEntry } from "@/lib/logger";
 const LEVEL = {
   error: { Icon: CircleAlert, cls: "text-brand-deep", tint: "bg-tint-brand" },
   warn: { Icon: TriangleAlert, cls: "text-[#b45309]", tint: "bg-[#fffbeb]" },
-  info: { Icon: Info, cls: "text-mute", tint: "bg-[#f4f4f5]" },
+  info: { Icon: Info, cls: "text-mute", tint: "bg-bg" },
 } as const;
 
 export function LogViewer() {

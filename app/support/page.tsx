@@ -13,7 +13,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   open: { label: "Open", cls: "bg-tint-brand text-brand-deep" },
   in_progress: { label: "In progress", cls: "bg-[#fdf6e3] text-[#a16207]" },
   resolved: { label: "Resolved", cls: "bg-tint-success text-success" },
-  closed: { label: "Closed", cls: "bg-[#f4f4f5] text-mute" },
+  closed: { label: "Closed", cls: "bg-bg text-mute" },
 };
 
 export default async function SupportPage() {

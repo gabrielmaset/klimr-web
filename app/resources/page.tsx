@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Trophy } from "lucide-react";
-import { SPORTS } from "@/lib/sports";
+import { SPORTS, sportSlug } from "@/lib/sports";
 import { RESOURCES } from "@/lib/resources";
 
 export const metadata: Metadata = { title: "Sport resources" };
@@ -20,7 +20,7 @@ export default function ResourcesPage() {
           if (!r) return null;
           return (
             <Link key={s.key} href={`/resources/${s.key}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#f4f4f5] text-2xl">{s.emoji}</span>
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-2xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(s.key)}) 16%, transparent)` }}>{s.emoji}</span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-ink">{s.name}</span>
                 <span className="block truncate text-xs text-mute">{r.tagline}</span>

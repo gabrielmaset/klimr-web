@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GraduationCap, MapPin, Plus, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, sportSlug } from "@/lib/sports";
 import { formatClassPrice, enrollmentLabel } from "@/lib/classes";
 import { isApprovedProvider } from "@/app/classes/actions";
 import { LocalTime } from "@/components/local-time";
@@ -36,7 +36,7 @@ function ClassCard({ c, nextStart }: { c: Cls; nextStart?: string }) {
   return (
     <Link href={`/classes/${c.id}`} className="lift block rounded-2xl border border-rule bg-surface p-4">
       <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-tint-brand text-xl">{m.emoji}</span>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sport_key)}) 16%, transparent)` }}>{m.emoji}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="kicker text-brand-deep">{m.name}</span>
@@ -166,7 +166,7 @@ export default async function ClassesPage() {
               const m = sportMeta(u.sportKey);
               return (
                 <Link key={u.enrollmentId} href={`/classes/${u.classId}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-tint-brand text-lg">{m.emoji}</span>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(u.sportKey)}) 16%, transparent)` }}>{m.emoji}</span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-bold text-ink">{u.title}</div>
                     <div className="text-xs text-mute">

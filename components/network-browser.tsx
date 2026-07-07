@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } f
 import Link from "next/link";
 import { Search, BadgeCheck, Users, UserPlus, UserCheck, ArrowUpDown, X, Rss, Check, Clock, ChevronDown, Zap } from "lucide-react";
 import { Avatar } from "@/components/avatar";
+import { SportDot } from "@/components/sport-chip";
 import { followUser, unfollowUser, sendFriendRequest, acceptFriendRequest, removeFriend } from "@/app/network/actions";
 
 export type Tab = "friends" | "following" | "followers";
@@ -322,16 +323,16 @@ function PersonRow({ p, tab, onFollow, onFriend }: { p: Person; tab: Tab; onFoll
             {p.verified ? <BadgeCheck size={14} className="shrink-0 text-brand" aria-label="Verified" /> : null}
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-mute">
-            {p.sportEmoji ? <span className="shrink-0">{p.sportEmoji}</span> : null}
+            {p.sportKey ? <SportDot sport={p.sportKey} /> : null}
             <span className="truncate">{sub || "—"}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {p.playedTogether > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff7e6] px-1.5 py-0.5 text-[10px] font-bold text-[#b45309]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-tint-warning px-1.5 py-0.5 text-[10px] font-bold text-warning">
                 <Zap size={10} /> {p.playedTogether} {p.playedTogether === 1 ? "match" : "matches"}
               </span>
             ) : null}
-            {showsFollowsYou ? <span className="inline-block rounded-full bg-[#eef0ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#4f46e5]">Follows you</span> : null}
+            {showsFollowsYou ? <span className="inline-block rounded-full bg-tint-info px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-info">Follows you</span> : null}
           </div>
         </div>
       </Link>

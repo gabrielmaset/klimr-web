@@ -16,6 +16,13 @@ export function sportMeta(key: string): { key: string; name: string; emoji: stri
   return SPORTS.find((s) => s.key === key) ?? { key, name: key, emoji: "•" };
 }
 
+/** Slug for the per-sport color token `--color-sport-<slug>` (see app/globals.css
+ *  and components/sport-chip.tsx). The DB key `beach_volleyball` maps to the
+ *  shorter `beach`; every other sport uses its key unchanged. */
+export function sportSlug(key: string): string {
+  return key === "beach_volleyball" ? "beach" : key;
+}
+
 
 /** Per-sport team (squad) size. Min is always 2 — a one-person team can't exist.
  *  Default is what the create wizard starts at; max is the hard cap on the roster. */

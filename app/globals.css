@@ -8,6 +8,13 @@
   --container-page: 80rem;        /* standard content pages (was a mix of 4xl–7xl) */
   --container-page-narrow: 48rem; /* legal text, settings forms, registration */
 
+  /* Mobile bottom-nav height — the single source of truth for how much space the
+     fixed bottom nav occupies. The nav's spacer reserves exactly this (plus the
+     home-indicator inset); the floating support widget sits 0.5rem above it. Keep
+     both expressed in terms of this token so changing the bar height never leaves
+     the widget overlapping it. */
+  --bottom-nav-h: 5.25rem;
+
   /* Klimr palette — canonical with the investor demo */
   --color-bg: #fafafa;
   --color-surface: #ffffff;
@@ -37,6 +44,46 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-athletic: "Oswald Variable", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Semantic status ───────────────────────────────────────────────
+     Destructive / warning / info. These were ad-hoc raw hex scattered across
+     pages (#dc2626 ×21, #b91c1c ×10, …); tokenizing makes danger consistent
+     everywhere and lets the whole status layer be retuned in one place. */
+  --color-danger: #dc2626;
+  --color-danger-deep: #b91c1c;
+  --color-tint-danger: #fef2f2;
+  --color-warning: #d97706;
+  --color-tint-warning: #fffbeb;
+  --color-info: #2563eb;
+  --color-tint-info: #eff6ff;
+
+  /* ── Per-sport identity accents ────────────────────────────────────
+     One fixed accent per sport — evolved from the investor demo's per-sport
+     hues, now fixed, mutually distinct across the wheel, and extended to beach
+     volleyball. Consumed as solid dots and color-mix tinted chips
+     (components/sport-chip.tsx). NOTE: this is sport identity — distinct from
+     the per-team generated kit colors in lib/team-kit.ts. `beach` is the slug
+     for the `beach_volleyball` sport key. */
+  --color-sport-tennis: #84cc16;       /* lime — the app's established tennis accent */
+  --color-sport-pickleball: #eab308;   /* ball gold (established; distinct from brand + pop) */
+  --color-sport-padel: #3b82f6;        /* court blue (established) */
+  --color-sport-racquetball: #8b5cf6;  /* violet (established) */
+  --color-sport-beach: #0d9aa6;        /* ocean teal — beach's established orange (#f97316) collided with the brand */
+
+  /* ── Elevation ─────────────────────────────────────────────────────
+     A small, consistent shadow scale so surfaces read layered, not flat.
+     e1 = resting card · e2 = raised / hover · e3 = popover / modal. */
+  --shadow-e1: 0 1px 2px -1px rgba(10, 10, 11, 0.06), 0 1px 3px rgba(10, 10, 11, 0.05);
+  --shadow-e2: 0 4px 12px -4px rgba(10, 10, 11, 0.10), 0 2px 6px -2px rgba(10, 10, 11, 0.06);
+  --shadow-e3: 0 16px 40px -12px rgba(10, 10, 11, 0.22), 0 6px 16px -8px rgba(10, 10, 11, 0.12);
+
+  /* ── Radius roles ──────────────────────────────────────────────────
+     Semantic aliases over the raw scale so control / card / pill radii stay
+     consistent as the system evolves (existing rounded-xl/2xl/3xl/full remain
+     valid; these map onto the same values). */
+  --radius-control: 0.75rem;  /* inputs, non-pill small buttons (≡ rounded-xl) */
+  --radius-card: 1rem;        /* the standard card corner (≡ rounded-2xl) */
+  --radius-pill: 9999px;      /* pill buttons, chips */
 }
 
 html {

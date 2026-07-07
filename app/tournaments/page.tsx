@@ -14,14 +14,14 @@ const REGION_MILES = 250;
 
 // Badge shown over the cover image. White "Upcoming" reads as an ad; live/open get color.
 const STATUS_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
-  registration_open: { label: "Registration open", bg: "#16a34a", fg: "#ffffff" },
-  published: { label: "Upcoming", bg: "#ffffff", fg: "#0a0a0b" },
-  registration_closed: { label: "Registration closed", bg: "#d97706", fg: "#ffffff" },
-  in_progress: { label: "Live now", bg: "#2563eb", fg: "#ffffff" },
+  registration_open: { label: "Registration open", bg: "var(--color-success)", fg: "#ffffff" },
+  published: { label: "Upcoming", bg: "var(--color-surface)", fg: "#0a0a0b" },
+  registration_closed: { label: "Registration closed", bg: "var(--color-warning)", fg: "#ffffff" },
+  in_progress: { label: "Live now", bg: "var(--color-info)", fg: "#ffffff" },
   completed: { label: "Completed", bg: "#52525b", fg: "#ffffff" },
   archived: { label: "Archived", bg: "#52525b", fg: "#ffffff" },
-  cancelled: { label: "Cancelled", bg: "#dc2626", fg: "#ffffff" },
-  draft: { label: "Draft", bg: "#71717a", fg: "#ffffff" },
+  cancelled: { label: "Cancelled", bg: "var(--color-danger)", fg: "#ffffff" },
+  draft: { label: "Draft", bg: "var(--color-mute)", fg: "#ffffff" },
 };
 
 // Sport-themed gradients for cover-less tournaments — keeps the grid graphical.

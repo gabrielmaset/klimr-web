@@ -34,14 +34,14 @@ function Section({ title, rows }: { title: string; rows: RowDef[] }) {
         {rows.map((r) => {
           const inner = (
             <>
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-ink">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-ink">
                 <r.Icon size={17} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-ink">{r.title}</span>
                   {r.soon ? (
-                    <span className="rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
+                    <span className="rounded-full bg-bg px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
                   ) : null}
                 </span>
                 <span className="mt-0.5 block text-xs text-mute">{r.desc}</span>

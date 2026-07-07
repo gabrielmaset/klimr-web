@@ -189,7 +189,7 @@ export function CommandPalette() {
                     onClick={() => go(a.href)}
                     className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-sm font-semibold transition-colors ${sel ? "bg-tint-brand text-brand-deep" : "text-ink"}`}
                   >
-                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${sel ? "bg-surface text-brand-deep" : "bg-[#f4f4f5] text-mute"}`}>
+                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${sel ? "bg-surface text-brand-deep" : "bg-bg text-mute"}`}>
                       <a.Icon size={16} />
                     </span>
                     {a.label}
@@ -217,7 +217,7 @@ export function CommandPalette() {
                   {r.type === "player" ? (
                     <Avatar url={r.avatarUrl ?? null} hue={r.hue ?? 200} name={r.title} size={32} />
                   ) : (
-                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${sel ? "bg-surface text-brand-deep" : "bg-[#f4f4f5] text-mute"}`}>
+                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${sel ? "bg-surface text-brand-deep" : "bg-bg text-mute"}`}>
                       <Icon size={16} />
                     </span>
                   )}
@@ -225,7 +225,7 @@ export function CommandPalette() {
                     <span className="block truncate text-sm font-semibold text-ink">{r.title}</span>
                     {r.subtitle ? <span className="block truncate text-xs text-mute">{r.subtitle}</span> : null}
                   </span>
-                  <span className="shrink-0 rounded-md bg-[#f4f4f5] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-faint">{TYPE_LABEL[r.type]}</span>
+                  <span className="shrink-0 rounded-md bg-bg px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-faint">{TYPE_LABEL[r.type]}</span>
                   <CornerDownLeft size={14} className={`shrink-0 text-faint transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
                 </button>
               );

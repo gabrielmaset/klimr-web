@@ -92,7 +92,7 @@ function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key:
         aria-label={`Switch to ${t.name}`}
         className="press ml-0.5 flex h-9 items-center gap-2 rounded-full border border-rule bg-bg pl-2 pr-3 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
       >
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#f4f4f5] text-[12px]">{sportMeta(t.sport_key).emoji}</span>
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-bg text-[12px]">{sportMeta(t.sport_key).emoji}</span>
         <span className="hidden max-w-[7rem] truncate lg:inline">{t.name}</span>
       </Link>
     );
@@ -130,7 +130,7 @@ function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key:
                 onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-bg"
               >
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#f4f4f5] text-sm">{sportMeta(t.sport_key).emoji}</span>
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-bg text-sm">{sportMeta(t.sport_key).emoji}</span>
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{t.name}</span>
               </Link>
             ))}

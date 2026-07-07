@@ -5,6 +5,7 @@ import { Megaphone, Newspaper, Trophy, Sparkles, ArrowUpRight, Swords, Users, Ca
 import { createClient } from "@/lib/supabase/server";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { sportMeta } from "@/lib/sports";
+import { SportDot } from "@/components/sport-chip";
 
 export const metadata: Metadata = { title: "Feed" };
 export const dynamic = "force-dynamic";
@@ -104,7 +105,7 @@ export default async function FeedPage() {
         {/* Main timeline */}
         <main>
           {items.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-rule bg-gradient-to-br from-[#fff4ef] to-surface p-12 text-center">
+            <div className="rounded-3xl border border-dashed border-rule bg-gradient-to-br from-tint-brand to-surface p-12 text-center">
               <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-tint-brand text-brand-deep">
                 <Sparkles size={22} />
               </span>
@@ -138,9 +139,9 @@ export default async function FeedPage() {
                         <span className="kicker" style={{ color: s.accent }}>
                           {s.label}
                         </span>
-                        {sport ? (
-                          <span className="text-xs text-faint">
-                            · {sport.emoji} {sport.name}
+                        {sport && item.sport_key ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-faint">
+                            · <SportDot sport={item.sport_key} size={7} /> {sport.name}
                           </span>
                         ) : null}
                         <span className="ml-auto text-xs text-faint">{timeAgo(item.published_at)}</span>
@@ -176,7 +177,7 @@ export default async function FeedPage() {
         {/* Right rail */}
         <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           {/* Your ladder */}
-          <div className="overflow-hidden rounded-3xl p-5 text-white shadow-[0_18px_40px_-22px_rgba(214,58,15,0.7)]" style={{ background: "linear-gradient(135deg, #ff6a3d, #d63a0f)" }}>
+          <div className="overflow-hidden rounded-3xl p-5 text-white shadow-[0_18px_40px_-22px_rgba(214,58,15,0.7)]" style={{ background: "linear-gradient(135deg, #ff6a3d, var(--color-brand-deep))" }}>
             <p className="kicker text-white/75">Your ladder</p>
             <p className="mt-1.5 text-lg font-bold leading-snug">Climb your ZIP, then your city, then the world.</p>
             <p className="mt-1 text-sm text-white/85">Every match you log moves your rank.</p>
@@ -222,7 +223,7 @@ export default async function FeedPage() {
                 const { Icon } = a;
                 return (
                   <Link key={a.href} href={a.href} className="press flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-bg">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f4f4f5] text-ink">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-bg text-ink">
                       <Icon size={16} />
                     </span>
                     <span className="text-sm font-semibold text-ink">{a.label}</span>

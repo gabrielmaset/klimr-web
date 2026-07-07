@@ -76,11 +76,11 @@ export function UpdateComposer() {
           )}
         </button>
         {state?.ok ? (
-          <span className="inline-flex items-center gap-1.5 text-sm" style={{ color: "#16a34a" }}>
+          <span className="inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--color-success)" }}>
             <CheckCircle2 size={15} /> Published — it&rsquo;s live in the feed for all members.
           </span>
         ) : null}
-        {state?.error ? <span className="text-sm" style={{ color: "#d63a0f" }}>{state.error}</span> : null}
+        {state?.error ? <span className="text-sm" style={{ color: "var(--color-brand-deep)" }}>{state.error}</span> : null}
       </div>
     </form>
   );

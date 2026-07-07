@@ -67,10 +67,10 @@ export default async function AdminHome() {
           const card = (
             <div
               className="rounded-2xl border bg-surface p-5"
-              style={{ borderColor: s.accent ? "#ff4e1b" : "#e4e4e7" }}
+              style={{ borderColor: s.accent ? "var(--color-brand)" : "var(--color-rule)" }}
             >
               <div className="kicker text-faint">{s.label}</div>
-              <div className="mt-1 font-display text-4xl leading-none" style={{ color: s.accent ? "#d63a0f" : "#0a0a0b" }}>
+              <div className="mt-1 font-display text-4xl leading-none" style={{ color: s.accent ? "var(--color-brand-deep)" : "var(--color-ink)" }}>
                 {s.value.toLocaleString("en-US")}
               </div>
             </div>
@@ -87,7 +87,7 @@ export default async function AdminHome() {
 
       <div className="mt-7">
         <div className="kicker mb-3 flex items-center gap-2 text-faint">
-          <span className="h-2 w-2 rounded-full" style={{ background: active.some((u) => isOnline(u.last_seen_at)) ? "#16a34a" : "#a1a1aa" }} />
+          <span className="h-2 w-2 rounded-full" style={{ background: active.some((u) => isOnline(u.last_seen_at)) ? "var(--color-success)" : "var(--color-faint)" }} />
           Active now · {active.length}
         </div>
         {active.length === 0 ? (
@@ -100,7 +100,7 @@ export default async function AdminHome() {
                 href={`/admin/users/${u.id}`}
                 className="lift flex items-center gap-2 rounded-full border border-rule bg-surface px-3 py-1.5 text-sm"
               >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: isOnline(u.last_seen_at) ? "#16a34a" : "#d4d4d8" }} />
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: isOnline(u.last_seen_at) ? "var(--color-success)" : "var(--color-faint)" }} />
                 <span className="font-semibold text-ink">{u.display_name || "Player"}</span>
                 <span className="text-xs text-faint">{rel(u.last_seen_at)}</span>
               </Link>

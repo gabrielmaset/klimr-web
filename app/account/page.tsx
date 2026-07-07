@@ -134,12 +134,12 @@ export default async function AccountPage({
             href={href}
             className="lift flex items-center gap-2.5 rounded-2xl border border-rule bg-surface p-3"
           >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f4f4f5] text-ink">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-bg text-ink">
               <Icon size={16} />
             </span>
             <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{label}</span>
             {soon ? (
-              <span className="shrink-0 rounded-full bg-[#f4f4f5] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
+              <span className="shrink-0 rounded-full bg-bg px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
             ) : (
               <ChevronRight size={16} className="shrink-0 text-faint" />
             )}
@@ -219,7 +219,7 @@ export default async function AccountPage({
                   href={href}
                   className="press flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-bg"
                 >
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f4f4f5] text-ink">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-bg text-ink">
                     <Icon size={17} />
                   </span>
                   <span className="min-w-0 flex-1">

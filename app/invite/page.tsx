@@ -28,7 +28,7 @@ export default async function InvitePage() {
       </div>
 
       <div className="rounded-2xl border border-rule bg-surface p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#f4f4f5]">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-bg">
           <Clock size={22} className="text-mute" />
         </span>
         <p className="mt-3 text-base font-bold text-ink">Coming soon</p>
@@ -42,7 +42,7 @@ export default async function InvitePage() {
         </p>
         <Link
           href="/discover"
-          className="press mt-5 inline-block rounded-full border border-rule px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#f4f4f5]"
+          className="press mt-5 inline-block rounded-full border border-rule px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
         >
           Find players to play
         </Link>
