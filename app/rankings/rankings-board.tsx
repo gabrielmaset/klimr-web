@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Crown, Zap, BadgeCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { sportSlug } from "@/lib/sports";
 
 /* The four sports. Keys match the DB; the emoji is presentation-only. */
 const SPORTS = [
@@ -255,6 +256,7 @@ export function RankingsBoard({
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   const sport = SPORTS[sportIdx];
+  const accent = `var(--color-sport-${sportSlug(sport.key)})`;
   const scope = scopes[scopeIdx];
 
   // Fetch all five scopes for the active sport (so scope-switching is instant and
@@ -305,11 +307,26 @@ export function RankingsBoard({
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      {/* header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Rankings</h1>
-        <p className="text-sm text-mute">Your game, ranked — from your ZIP to the planet.</p>
-      </div>
+      {/* header — your position, made loud */}
+      {me ? (
+        <div className="flex flex-col gap-1">
+          <p className="kicker text-faint">Rankings · {sport.name}</p>
+          <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="font-athletic text-6xl font-bold leading-none tracking-tight sm:text-7xl" style={{ color: accent }}>#{me.rank}</span>
+            <span className="font-display text-2xl leading-none text-ink sm:text-3xl">in {scope.place}</span>
+          </h1>
+          <p className="mt-1 text-sm font-semibold text-mute">
+            {me.rank === 1
+              ? `Summit — the top of ${scope.place}`
+              : `${fmt((above?.points ?? me.points) - me.points)} pts behind #${me.rank - 1} · ${pctLabel} of ${fmt(field)} players`}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Rankings</h1>
+          <p className="text-sm text-mute">Your game, ranked — from your ZIP to the planet.</p>
+        </div>
+      )}
 
       {/* sport tabs + live cue */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">

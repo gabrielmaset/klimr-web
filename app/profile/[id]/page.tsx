@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AvatarLightbox } from "@/components/avatar-lightbox";
 import { sportMeta } from "@/lib/sports";
 import { SportChip } from "@/components/sport-chip";
+import { sportSlug } from "@/lib/sports";
 import { displayAge } from "@/lib/age";
 import { RelationshipButtons, type FriendStatus } from "@/components/relationship-buttons";
 import { mapFriendshipRow, buildContextChips, type RelationshipContext } from "@/lib/social";
@@ -212,6 +213,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const memberSince = new Date(profile.created_at).toLocaleString("en-US", { month: "long", year: "numeric" });
   const age = displayAge(profile.date_of_birth, profile.birth_year);
   const place = [profile.neighborhood, profile.city, profile.state].filter(Boolean).join(", ") || "Location not set";
+  const heroAccent = profile.primary_sport ? `var(--color-sport-${sportSlug(profile.primary_sport)})` : "var(--color-brand)";
 
   // Active sponsor, if any (Klimr's amateur-sponsorship feature).
   let sponsor: { id: string; name: string } | null = null;
@@ -239,10 +241,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         </div>
       ) : null}
 
-      {/* header */}
-      <div className="flex flex-col gap-5 rounded-2xl border border-rule bg-surface shadow-e1 p-6 sm:flex-row sm:items-start sm:justify-between">
+      {/* header — collectible sport-card hero */}
+      <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
+      <div
+        aria-hidden
+        className="h-28 sm:h-32"
+        style={{ background: `linear-gradient(135deg, color-mix(in oklab, ${heroAccent} 88%, #0a212c) 0%, color-mix(in oklab, ${heroAccent} 42%, #0a212c) 100%)` }}
+      />
+      <div className="flex flex-col gap-5 p-6 pt-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
-          <AvatarLightbox url={avatarUrl} hue={profile.avatar_hue} name={profile.display_name} size={72} ring />
+          <div className="relative z-10 -mt-16 shrink-0 rounded-full" style={{ boxShadow: `0 0 0 4px var(--color-surface), 0 0 0 7px ${heroAccent}` }}>
+            <AvatarLightbox url={avatarUrl} hue={profile.avatar_hue} name={profile.display_name} size={96} />
+          </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{profile.display_name || "Player"}</h1>
@@ -291,6 +301,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         ) : (
           <RelationshipButtons targetId={profile.id} friendStatus={friendStatus} isFollowing={isFollowing} />
         )}
+      </div>
       </div>
 
       {/* badges */}
@@ -405,7 +416,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                     id="reason"
                     name="reason"
                     defaultValue="harassment"
-                    className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
+                    className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                   >
                     {REASONS.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -418,7 +429,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                     rows={3}
                     maxLength={500}
                     placeholder="What happened?"
-                    className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
+                    className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                   />
                   <button className="press mt-3 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
                     Submit report

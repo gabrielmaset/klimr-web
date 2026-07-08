@@ -75,7 +75,7 @@ export default async function AdminTournaments() {
                       <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[t.status] ?? "var(--color-mute)" }}>
                         {t.status}
                       </span>
-                      {suspended ? <span className="kicker rounded-full bg-brand px-2 py-0.5 text-[9px] text-white">Suspended</span> : null}
+                      {suspended ? <span className="kicker rounded-full bg-brand px-2 py-0.5 text-[9px] text-white shadow-md shadow-brand/25">Suspended</span> : null}
                     </div>
                     <p className="mt-1 text-sm text-mute">
                       {meta.name} · by {ownerOf(t.owner_id)} · {new Date(t.created_at).toLocaleDateString()} · /e/{t.code}
@@ -99,7 +99,7 @@ export default async function AdminTournaments() {
                     ) : (
                       <form action={suspendTournament} className="flex items-center gap-1.5">
                         <input type="hidden" name="tournamentId" value={t.id} />
-                        <input name="reason" placeholder="Reason (optional)" className="w-40 rounded-lg border border-rule bg-bg px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand" />
+                        <input name="reason" placeholder="Reason (optional)" className="w-40 rounded-lg border border-rule bg-bg px-2.5 py-1.5 text-xs text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
                         <button type="submit" className="inline-flex items-center gap-1 rounded-lg border border-rule px-2.5 py-1.5 text-xs font-semibold text-mute transition-colors hover:border-brand hover:text-brand-deep">
                           Suspend
                         </button>

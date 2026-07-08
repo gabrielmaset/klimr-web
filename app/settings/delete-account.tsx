@@ -33,14 +33,14 @@ export function DeleteAccount() {
         onChange={(e) => setText(e.target.value)}
         autoComplete="off"
         placeholder="DELETE"
-        className="mt-3 w-full rounded-lg border border-rule bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+        className="mt-3 w-full rounded-lg border border-rule bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
       />
       {state?.error ? <p className="mt-2 text-xs text-brand-deep">{state.error}</p> : null}
       <div className="mt-3 flex items-center gap-2">
         <button
           type="submit"
           disabled={pending || text.trim().toUpperCase() !== "DELETE"}
-          className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-40"
+          className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep disabled:opacity-40"
         >
           {pending ? "Deleting…" : "Permanently delete"}
         </button>

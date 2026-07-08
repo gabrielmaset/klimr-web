@@ -45,7 +45,7 @@ export default async function VerificationSettingsPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-bg px-3 py-1.5 text-sm font-semibold text-mute">Not verified yet</span>
               <p className="text-sm text-mute">Start verification to unlock your rankings and join matches.</p>
               <form action={startVerification}>
-                <button className="press rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep">
+                <button className="press rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
                   Start verification
                 </button>
               </form>

@@ -50,7 +50,7 @@ export function PremiumSponsorAd({ sponsors }: { sponsors: Sponsor[] }) {
               href={s.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep"
+              className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition hover:bg-brand-deep"
             >
               Visit <ExternalLink size={14} />
             </a>

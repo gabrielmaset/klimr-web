@@ -89,7 +89,7 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
     <div className="mt-6 space-y-6 rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
       <div>
         <label className="mb-1 block text-sm font-semibold text-ink">Session name</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Saturday beach volley" className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm outline-none focus:border-brand" />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Saturday beach volley" className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
       </div>
 
       <div>
@@ -178,7 +178,7 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
       {requireLocation ? <p className="text-xs text-mute">On-site check pins the court to <span className="font-semibold">your current location</span> when you create the session — so create it at the venue. We&apos;ll ask for location access.</p> : null}
       {err ? <p className="rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-3 py-2 text-sm font-medium text-[#b91c1c]">{err}</p> : null}
 
-      <button type="button" onClick={submit} disabled={pending || title.trim().length < 2} className="press inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-50">
+      <button type="button" onClick={submit} disabled={pending || title.trim().length < 2} className="press inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-50 shadow-md shadow-brand/25">
         {pending ? <Loader2 size={16} className="animate-spin" /> : null} Create session
       </button>
     </div>

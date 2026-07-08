@@ -89,12 +89,12 @@ export default async function AdminReports() {
 
               <form action={resolveReport} className="mt-4 flex flex-wrap items-center gap-2 border-t border-rule pt-3">
                 <input type="hidden" name="reportId" value={r.id} />
-                <select name="status" defaultValue={r.status === "open" ? "reviewing" : r.status} className="rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2 text-sm text-ink outline-none focus:border-brand">
+                <select name="status" defaultValue={r.status === "open" ? "reviewing" : r.status} className="rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">
                   <option value="reviewing">Reviewing</option>
                   <option value="actioned">Action taken</option>
                   <option value="dismissed">Dismiss</option>
                 </select>
-                <input name="resolution" defaultValue={r.resolution ?? ""} placeholder="Resolution note (optional)" className="min-w-0 flex-1 rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2 text-sm text-ink outline-none focus:border-brand" />
+                <input name="resolution" defaultValue={r.resolution ?? ""} placeholder="Resolution note (optional)" className="min-w-0 flex-1 rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
                 <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Save</button>
               </form>
             </div>

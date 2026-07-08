@@ -98,7 +98,7 @@ export function PaymentReviewRow({
             onChange={(e) => setReason(e.target.value)}
             rows={2}
             placeholder="e.g. The amount doesn't match, or the receipt is unreadable."
-            className="w-full resize-y rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
+            className="w-full resize-y rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
           <div className="mt-2 flex items-center gap-3">
             <button type="button" onClick={doDeny} disabled={busy === "deny"} className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50">

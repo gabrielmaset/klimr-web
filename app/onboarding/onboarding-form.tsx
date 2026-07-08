@@ -331,7 +331,7 @@ export function OnboardingWizard({
                   onKeyDown={enterAdvances}
                   placeholder="Alex"
                   autoFocus
-                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
                 />
               </label>
               <label className="block">
@@ -341,7 +341,7 @@ export function OnboardingWizard({
                   onChange={(e) => setLastName(e.target.value.slice(0, 40))}
                   onKeyDown={enterAdvances}
                   placeholder="Rivera"
-                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
                 />
               </label>
             </div>
@@ -354,7 +354,7 @@ export function OnboardingWizard({
                 type="date"
                 value={dob}
                 onChange={(e) => setDob(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
+                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
               <span className="mt-1.5 block text-xs text-mute">
                 Klimr is 18+. Your age is shown on your profile; your full date of birth is not.
@@ -368,7 +368,7 @@ export function OnboardingWizard({
                 onKeyDown={enterAdvances}
                 inputMode="numeric"
                 placeholder="90066"
-                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 font-mono text-lg tracking-[0.2em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 font-mono text-lg tracking-[0.2em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
               <span className="mt-1.5 block text-xs text-mute">
                 Your home board. Rankings start at the ZIP level.
@@ -457,7 +457,7 @@ export function OnboardingWizard({
                               }
                               inputMode="decimal"
                               placeholder={RATING_HINT[s.skill_system ?? ""] ?? "e.g. 4.0"}
-                              className="w-16 rounded-lg border border-rule bg-surface px-2 py-1.5 font-mono text-[13px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                              className="w-16 rounded-lg border border-rule bg-surface px-2 py-1.5 font-mono text-[13px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
                             />
                           </label>
                           <button
@@ -584,7 +584,7 @@ export function OnboardingWizard({
                             value={draftStart}
                             onChange={(e) => setDraftStart(e.target.value)}
                             aria-label="Start time"
-                            className="rounded-lg border border-rule bg-surface px-2 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand"
+                            className="rounded-lg border border-rule bg-surface px-2 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
                           >
                             {TIME_OPTS.map((t) => (
                               <option key={t.value} value={t.value}>
@@ -597,7 +597,7 @@ export function OnboardingWizard({
                             value={draftEnd}
                             onChange={(e) => setDraftEnd(e.target.value)}
                             aria-label="End time"
-                            className="rounded-lg border border-rule bg-surface px-2 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand"
+                            className="rounded-lg border border-rule bg-surface px-2 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
                           >
                             {TIME_OPTS.map((t) => (
                               <option key={t.value} value={t.value}>
@@ -712,7 +712,7 @@ export function OnboardingWizard({
                 onChange={(e) => setBio(e.target.value.slice(0, 160))}
                 rows={2}
                 placeholder="Weekend pickleball, always up for a rally."
-                className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
               <span className="mt-1 block text-right font-mono text-[10px] text-faint">{bio.length}/160</span>
             </label>
@@ -722,7 +722,7 @@ export function OnboardingWizard({
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
+                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
               >
                 <option value="">Prefer not to say</option>
                 <option value="woman">Woman</option>

@@ -89,7 +89,7 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
         <Link href={`/courts?sport=${sport}`} className="press rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg">
           Find {meta.name.toLowerCase()} courts
         </Link>
-        <Link href="/play" className="press rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+        <Link href="/play" className="press rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
           Find a match
         </Link>
       </div>

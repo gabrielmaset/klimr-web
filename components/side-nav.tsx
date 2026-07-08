@@ -142,7 +142,7 @@ export function SideNav({
   };
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 self-start p-3 md:block lg:w-64">
+    <aside className="sticky top-[var(--top-bar-h)] hidden h-[calc(100dvh-var(--top-bar-h))] w-60 shrink-0 self-start p-3 md:block lg:w-64">
       <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
         <Link href="/" aria-label="Klimr home" className="shrink-0 px-3">
           <KlimrLogo tone="light" />

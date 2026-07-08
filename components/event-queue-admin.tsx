@@ -49,13 +49,13 @@ export function EventQueueAdmin({ eventId, queueEnabled, session }: { eventId: s
       {queueEnabled ? (
         <div className="mt-4 space-y-2.5">
           {!session ? (
-            <Link href={`/queue/new?event=${eventId}`} className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep">
+            <Link href={`/queue/new?event=${eventId}`} className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition hover:bg-brand-deep">
               <Settings2 size={15} /> Set up the courts
             </Link>
           ) : (
             <>
               <div className="flex flex-wrap gap-2">
-                <Link href={`/queue/${session.id}`} className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep">
+                <Link href={`/queue/${session.id}`} className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition hover:bg-brand-deep">
                   <ListOrdered size={15} /> {session.status === "live" ? "Manage the live queue" : "Open queue setup"}
                 </Link>
                 {courtsideUrl ? (

@@ -111,7 +111,7 @@ export default async function FeedPage() {
               </span>
               <p className="mt-3 text-base font-bold text-ink">The story starts here</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-mute">Match results, milestones, and news will land in this stream as your community gets going. Log a match to get the ball rolling.</p>
-              <Link href="/play/new" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+              <Link href="/play/new" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
                 <Swords size={15} /> Log a match
               </Link>
             </div>

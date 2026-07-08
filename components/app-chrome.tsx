@@ -50,23 +50,25 @@ export function AppChrome({
   if (isStandalonePath(pathname)) return <>{children}</>;
 
   return (
-    <div className="flex min-h-dvh">
-      <SideNav
-        avatarUrl={avatarUrl}
-        avatarHue={avatarHue}
-        avatarName={avatarName}
-        email={email}
-        adminRole={adminRole}
-        presenceMode={presenceMode}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <MobileTopBar unreadCount={unread} />
-        <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} teams={teams} />
-        <main className="flex-1">{children}</main>
-        <SiteFooter authed />
-        <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
+    <>
+      <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} teams={teams} />
+      <div className="flex min-h-dvh md:min-h-[calc(100dvh-var(--top-bar-h))]">
+        <SideNav
+          avatarUrl={avatarUrl}
+          avatarHue={avatarHue}
+          avatarName={avatarName}
+          email={email}
+          adminRole={adminRole}
+          presenceMode={presenceMode}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <MobileTopBar unreadCount={unread} />
+          <main className="flex-1">{children}</main>
+          <SiteFooter authed />
+          <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
+        </div>
+        <CommandPalette />
       </div>
-      <CommandPalette />
-    </div>
+    </>
   );
 }

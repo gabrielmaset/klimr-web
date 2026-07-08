@@ -109,9 +109,9 @@ export function MatchScoreRow({
           </span>
         ) : (
           <span className="flex shrink-0 items-center gap-1">
-            <input inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))} className="w-11 rounded-lg border border-rule bg-surface px-1 py-1.5 text-center text-sm text-ink outline-none focus:border-brand" />
+            <input inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))} className="w-11 rounded-lg border border-rule bg-surface px-1 py-1.5 text-center text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
             <span className="text-faint">&ndash;</span>
-            <input inputMode="numeric" value={b} onChange={(e) => setB(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))} className="w-11 rounded-lg border border-rule bg-surface px-1 py-1.5 text-center text-sm text-ink outline-none focus:border-brand" />
+            <input inputMode="numeric" value={b} onChange={(e) => setB(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))} className="w-11 rounded-lg border border-rule bg-surface px-1 py-1.5 text-center text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
           </span>
         )}
         <span className={`flex-1 truncate text-sm ${bWon ? "font-bold text-ink" : "text-ink-soft"}`}>{bName}</span>

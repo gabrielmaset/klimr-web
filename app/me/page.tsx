@@ -65,6 +65,7 @@ export default async function MyProfilePage() {
   const avatarUrl = profile.avatar_path ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl : null;
   const coverUrl = profile.cover_path ? supabase.storage.from("avatars").getPublicUrl(profile.cover_path).data.publicUrl : null;
   const verified = profile.verification_status === "verified";
+  const heroAccent = profile.primary_sport ? `var(--color-sport-${sportSlug(profile.primary_sport)})` : "var(--color-brand)";
   const place = [profile.neighborhood, profile.city, profile.state].filter(Boolean).join(", ") || profile.home_zip || "Location not set";
   const memberSince = profile.created_at ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : null;
   const age = displayAge(profile.date_of_birth, profile.birth_year);
@@ -119,13 +120,20 @@ export default async function MyProfilePage() {
   return (
     <div className="mx-auto max-w-page px-4 py-6 sm:px-6 sm:py-8">
       {/* ===== Hero ===== */}
-      <CoverUploader initialUrl={coverUrl} hue={hue} />
+      <div className="relative">
+        <CoverUploader initialUrl={coverUrl} hue={hue} />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-3xl"
+          style={{ background: `linear-gradient(180deg, transparent 45%, color-mix(in oklab, ${heroAccent} 55%, rgba(10,33,44,0.9)) 100%)` }}
+        />
+      </div>
 
       <div className="relative z-10 px-1 sm:px-4">
         {/* Avatar overlaps the cover; the row is pointer-events-none so the cover's
             own buttons stay clickable, with the avatar + edit button re-enabling it. */}
         <div className="pointer-events-none -mt-14 flex items-end justify-between sm:-mt-16">
-          <div className="pointer-events-auto rounded-full ring-4 ring-bg">
+          <div className="pointer-events-auto rounded-full" style={{ boxShadow: `0 0 0 4px var(--color-bg), 0 0 0 7px ${heroAccent}` }}>
             <Avatar url={avatarUrl} hue={hue} name={profile.display_name} size={132} />
           </div>
           <Link
@@ -137,7 +145,7 @@ export default async function MyProfilePage() {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">{profile.display_name}</h1>
+          <h1 className="font-display text-4xl leading-none tracking-tight text-ink sm:text-5xl">{profile.display_name}</h1>
           {verified ? <BadgeCheck size={22} className="shrink-0 text-brand" aria-label="Identity verified" /> : null}
           {profile.primary_sport ? <SportChip sport={profile.primary_sport} /> : null}
         </div>
@@ -314,7 +322,7 @@ export default async function MyProfilePage() {
               <p className="mx-auto mt-3 max-w-xs text-sm text-mute">No matches yet — organize one and it&rsquo;ll show up here.</p>
               <Link
                 href="/play/new"
-                className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+                className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep"
               >
                 <Plus size={15} /> Organize a match
               </Link>

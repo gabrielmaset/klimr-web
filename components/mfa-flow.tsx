@@ -108,7 +108,7 @@ export function MfaFlow({ next }: { next: string }) {
         }}
         placeholder="000000"
         aria-label="6-digit code"
-        className="w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-center font-mono text-2xl tracking-[0.4em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+        className="w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-center font-mono text-2xl tracking-[0.4em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
       />
       <button
         onClick={submit}

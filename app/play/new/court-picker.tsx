@@ -135,7 +135,7 @@ export function CourtPicker({
                 inputMode="numeric"
                 placeholder="Near ZIP"
                 aria-label="Court search ZIP"
-                className="h-10 w-full rounded-xl border border-rule bg-surface shadow-e1 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
+                className="h-10 w-full rounded-xl border border-rule bg-surface shadow-e1 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
             </div>
             <p className="text-xs text-faint">{sport ? "Courts near this ZIP — free, no search needed." : "Pick a sport first."}</p>

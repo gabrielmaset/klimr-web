@@ -42,7 +42,7 @@ export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
           >
             <Bell size={17} className={active ? "text-brand-deep" : "text-ink"} />
             {unreadCount > 0 ? (
-              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-md shadow-brand/25">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             ) : null}

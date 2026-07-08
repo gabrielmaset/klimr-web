@@ -96,7 +96,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         {l.status !== "closed" ? (
           <a
             href={mailto}
-            className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+            className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25"
           >
             <Mail size={15} /> {isCoaching ? "Contact coach" : "Contact seller"}
           </a>

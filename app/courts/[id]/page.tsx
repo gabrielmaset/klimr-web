@@ -149,7 +149,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
         </div>
         <form action={checkInCourt}>
           <input type="hidden" name="courtId" value={court.id} />
-          <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep">
             <UserCheck size={15} /> Check in
           </button>
         </form>
@@ -196,7 +196,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
                 name="rating"
                 defaultValue={String(mine?.rating ?? 5)}
                 aria-label="Rating"
-                className="rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink outline-none focus:border-brand"
+                className="rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-sm font-semibold text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
               >
                 {[5, 4, 3, 2, 1].map((n) => (
                   <option key={n} value={n}>{"★".repeat(n)} ({n})</option>
@@ -209,7 +209,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
               maxLength={1000}
               defaultValue={mine?.body ?? ""}
               placeholder="Lights work? Courts in good shape? Easy parking?"
-              className="mt-3 w-full resize-none rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+              className="mt-3 w-full resize-none rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
             />
             <div className="mt-2 flex items-center justify-between">
               <span className="flex items-center gap-1 text-[11px] text-faint"><ShieldCheck size={11} /> Screened before posting</span>
@@ -224,7 +224,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
               <>
                 <p className="text-sm font-semibold text-ink">Verify to review</p>
                 <p className="mt-1 text-sm text-mute">Court reviews come only from verified players. Verify your identity, then you can review the courts you actually play.</p>
-                <Link href="/account#verification" className="press mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"><BadgeCheck size={14} /> Verify identity</Link>
+                <Link href="/account#verification" className="press mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep"><BadgeCheck size={14} /> Verify identity</Link>
               </>
             ) : (
               <>

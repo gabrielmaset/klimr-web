@@ -181,6 +181,56 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-08 — Visual pass V3, increment 2 — CTA family, focus halo, empty-state policy
+- **CTA glow, family-wide:** the guarded transform generalized from the one dominant literal to
+  the whole plain-quoted `rounded-full bg-brand …text-white` pill family — **+43 pills across 35
+  files** (62 total with increment 1). Primary actions now read with branded presence everywhere.
+- **Form focus halo:** every field following the app convention (`outline-none
+  focus:border-brand`) gained `focus:ring-4 focus:ring-brand/15` — a soft branded halo on focus,
+  applied by guarded transform (fields already carrying a ring were skipped).
+- **Empty-state policy (deliberate, after reading the flagships):** the compact dashed *notice*
+  (one-line link rows, short centred paragraphs — `/me` up-next, teams hub, profile-unavailable)
+  is the **correct** form for inline moments and stays; the tall `EmptyState` primitive is for
+  page-level voids. The 49-file dashed family is therefore *policy-compliant*, not debt. No
+  toast system exists (inline errors are the pattern) — noted, not fabricated.
+- **Known V1 side-effect (flagged for screen review):** text inputs share the card literal, so
+  they carry resting `shadow-e1` — a soft, Stripe-like field depth. Keep or strip is a
+  one-transform decision after visual review.
+
+### 2026-07-08 — Chrome seam revision + Visual pass V3 (detail energy), increment 1
+- **The rail/top-bar seam is structurally resolved** (the V1 frosted-island fix wasn't enough —
+  two side-by-side islands still read as a seam). The desktop top bar is now a **full-width
+  frosted strip** (the Facebook model Gabriel cited for the rail): it spans the viewport, and the
+  rail island hangs beneath it, offset by the new `--top-bar-h` token (sticky top + height derive
+  from it, so bar and rail can never drift). Side-by-side corners no longer exist. The team /
+  tournament workspace layouts render the same strip unchanged.
+- **V3.1 — CTA presence:** `Button` primary / danger carry a branded glow (`shadow-brand/25`,
+  deepening on hover); `dark` gets a soft ink shadow; the base transition now covers box-shadow.
+  The dominant raw primary-pill literal gained the same glow via a guarded transform (19
+  instances / 17 files; anything already shadowed was skipped).
+- **V3.2 — Empty-state personality:** `EmptyState` icons now sit in a warm `tint-brand` chip;
+  its CTA inherits the new primary glow.
+- V3 remainder queued: raw pills → `buttonVariants` adoption, hand-rolled dashed states →
+  `EmptyState`, form focus polish, toast/loading micro-interactions.
+
+### 2026-07-07 — Visual pass V2 (flagship heroes) — complete
+- **`/me` hero:** the cover carries a bottom-weighted **primary-sport wash** (accent →
+  Tideline navy; click-transparent, top buttons untouched); the avatar ring is the sport
+  accent at hero weight; the name steps up to 4xl/5xl. The June avatar-over-cover
+  structure is preserved exactly.
+- **`/profile/[id]` hero (new):** the public profile — the card others see — opens on a
+  sport-deep gradient band with a 96px avatar lifted over it in a surface-gap + accent
+  ring. Name, verified, reliability, mutuals, context chips, relationship buttons, and
+  the blocked state all intact inside the restructured card.
+- **Rankings emotional hero:** when the player is on the current board, the header
+  becomes their position — a 6xl/7xl athletic `#rank` in the sport's colour, `in
+  {place}`, with the honest momentum line (`{gap} pts behind #{rank−1} · top X% of N
+  players`; rank 1 reads "Summit"). Unranked/loading keeps the generic header and the
+  existing honest empty states; nothing is fabricated.
+- **Teams & events verified at the bar:** the kit crest banner (July 1) and the 460px
+  photo event hero with in-hero display title already deliver the tournament-caliber
+  treatment — no changes made, by design.
+
 ### 2026-07-07 — Visual pass V1 (global feel) — depth, athletic voice, chrome
 - **Depth is on, app-wide.** Resting cards carry `shadow-e1` (297 instances across 126 files via a
   guarded transform — skipped anything already shadowed, dashed empty-states, and the tournament

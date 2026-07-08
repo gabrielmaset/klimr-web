@@ -52,14 +52,14 @@ export function QLanding() {
             spellCheck={false}
             placeholder="ABC123"
             aria-label="Queue code"
-            className="mt-4 w-full rounded-2xl border-2 border-rule bg-white py-4 text-center font-mono text-3xl font-bold uppercase tracking-[0.35em] text-ink outline-none transition-colors placeholder:tracking-[0.35em] placeholder:text-faint focus:border-brand"
+            className="mt-4 w-full rounded-2xl border-2 border-rule bg-white py-4 text-center font-mono text-3xl font-bold uppercase tracking-[0.35em] text-ink outline-none transition-colors placeholder:tracking-[0.35em] placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
 
           <button
             type="button"
             onClick={join}
             disabled={!joinReady}
-            className="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-40"
+            className="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-40 shadow-md shadow-brand/25"
           >
             Join the queue <ArrowRight size={16} />
           </button>
@@ -96,7 +96,7 @@ export function QLanding() {
                     spellCheck={false}
                     placeholder="ABC123"
                     aria-label="Courtside code"
-                    className="w-full rounded-xl border border-rule bg-white py-2.5 text-center font-mono text-lg font-bold uppercase tracking-[0.2em] text-ink outline-none focus:border-brand"
+                    className="w-full rounded-xl border border-rule bg-white py-2.5 text-center font-mono text-lg font-bold uppercase tracking-[0.2em] text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                   />
                 </div>
                 <div>

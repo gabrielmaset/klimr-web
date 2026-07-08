@@ -97,7 +97,7 @@ export function ChallengePanel({ homeTeamId, opponents }: { homeTeamId: string; 
               type="button"
               onClick={submit}
               disabled={pending}
-              className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
+              className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep disabled:opacity-60"
             >
               {pending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Send challenge
             </button>
@@ -167,12 +167,12 @@ export function MatchActions({ match, teamId }: { match: ActionMatch; teamId: st
             <div className="flex flex-wrap items-end gap-3">
               <label className="text-xs font-semibold text-ink">
                 <span className="mb-1 block">{match.homeName}</span>
-                <input type="number" min={0} value={homeScore} onChange={(e) => setHomeScore(e.target.value)} className="w-20 rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand" />
+                <input type="number" min={0} value={homeScore} onChange={(e) => setHomeScore(e.target.value)} className="w-20 rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
               </label>
               <span className="pb-2 text-sm font-bold text-faint">–</span>
               <label className="text-xs font-semibold text-ink">
                 <span className="mb-1 block">{match.awayName}</span>
-                <input type="number" min={0} value={awayScore} onChange={(e) => setAwayScore(e.target.value)} className="w-20 rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand" />
+                <input type="number" min={0} value={awayScore} onChange={(e) => setAwayScore(e.target.value)} className="w-20 rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
               </label>
             </div>
             {err ? <p className="text-xs font-semibold text-[#dc2626]">{err}</p> : null}

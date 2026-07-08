@@ -38,7 +38,7 @@ export function MatchInvite({ matchId, friends }: { matchId: string; friends: Fr
         <p className="mx-auto mt-1 max-w-xs text-sm text-mute">
           You don&rsquo;t have any friends to invite yet. Connect with players from their profile, then invite them straight to a match.
         </p>
-        <Link href="/network" className="press mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+        <Link href="/network" className="press mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep">
           <UserPlus size={14} /> Find players
         </Link>
       </div>
@@ -54,7 +54,7 @@ export function MatchInvite({ matchId, friends }: { matchId: string; friends: Fr
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search your friends…"
-          className="h-10 w-full rounded-xl border border-rule bg-surface shadow-e1 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
+          className="h-10 w-full rounded-xl border border-rule bg-surface shadow-e1 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
         />
       </div>
 

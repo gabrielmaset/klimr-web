@@ -113,7 +113,7 @@ export function CreateMatchForm({
                 max={8}
                 defaultValue={defaultSlots}
                 key={defaultSlots}
-                className="mt-2 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand"
+                className="mt-2 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
               <p className="mt-1.5 text-xs text-faint">Including you. {format === "doubles" ? "Doubles is usually 4." : "Singles is 2."}</p>
             </div>
@@ -137,7 +137,7 @@ export function CreateMatchForm({
                   id="recurrence"
                   value={recurrence}
                   onChange={(e) => setRecurrence(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand sm:w-56"
+                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 sm:w-56"
                 >
                   <option value="weekly">Every week</option>
                   <option value="biweekly">Every 2 weeks</option>
@@ -164,7 +164,7 @@ export function CreateMatchForm({
               type="text"
               placeholder={court ? "e.g. court 3, meet by the gate" : "e.g. Mar Vista Rec Center, court 3"}
               maxLength={120}
-              className="mt-2 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand"
+              className="mt-2 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
             />
             <p className="mt-1.5 text-xs text-faint">
               {court ? "Add a specific court number or meeting spot." : "If your court isn't listed above, just type where to meet."}

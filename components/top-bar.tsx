@@ -151,7 +151,7 @@ function IconLink({ href, label, badge, children }: { href: string; label: strin
       <span className="shrink-0">{children}</span>
       <span>{label}</span>
       {badge > 0 ? (
-        <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white">
+        <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white shadow-md shadow-brand/25">
           {badge > 9 ? "9+" : badge}
         </span>
       ) : null}
@@ -219,9 +219,8 @@ export function TopBar({
   const proTeams = teams.filter((t) => t.category === "pro");
 
   return (
-    <div className="sticky top-0 z-40 hidden bg-bg pb-3 pl-0 pr-3 pt-3 md:block">
-    <header className="rounded-3xl border border-rule/60 bg-white/75 shadow-e2 backdrop-blur-xl backdrop-saturate-150">
-      <div className="flex items-center gap-3 px-3.5 py-2.5">
+    <header className="sticky top-0 z-40 hidden border-b border-rule/60 bg-white/80 shadow-e1 backdrop-blur-xl backdrop-saturate-150 md:block">
+      <div className="flex h-[var(--top-bar-h)] items-center gap-3 px-4">
         {/* Inline search — type here, results drop down below (no modal) */}
         <TopSearch />
 
@@ -325,6 +324,5 @@ export function TopBar({
         </div>
       </div>
     </header>
-    </div>
   );
 }

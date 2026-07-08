@@ -232,7 +232,7 @@ export function ScheduleBuilder({
           type="button"
           onClick={build}
           disabled={busy}
-          className="press inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-50"
+          className="press inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-50 shadow-md shadow-brand/25"
         >
           {busy ? <Loader2 size={15} className="animate-spin" /> : <CalendarClock size={15} />}
           {built ? "Rebuild schedule" : "Build schedule"}

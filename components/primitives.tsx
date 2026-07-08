@@ -70,7 +70,7 @@ export function EmptyState({
         className,
       )}
     >
-      {icon ? <div className="mb-3 text-faint">{icon}</div> : null}
+      {icon ? <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-tint-brand text-brand">{icon}</div> : null}
       <p className="font-display text-lg text-ink">{title}</p>
       {description ? (
         <p className="mt-1 max-w-sm text-sm text-mute">{description}</p>

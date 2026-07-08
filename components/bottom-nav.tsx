@@ -62,7 +62,7 @@ export function BottomNav({
                 <span className="relative">
                   <Icon size={20} className={active ? "text-brand-deep" : "text-mute"} />
                   {badge > 0 ? (
-                    <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                    <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-md shadow-brand/25">
                       {badge > 9 ? "9+" : badge}
                     </span>
                   ) : null}

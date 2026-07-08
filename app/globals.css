@@ -15,6 +15,10 @@
      the widget overlapping it. */
   --bottom-nav-h: 5.25rem;
 
+  /* Desktop top-bar height — the full-width chrome strip. The rail offsets
+     itself by this so bar + rail can never drift apart. */
+  --top-bar-h: 4rem;
+
   /* Klimr palette — canonical with the investor demo */
   --color-bg: #fafafa;
   --color-surface: #ffffff;
