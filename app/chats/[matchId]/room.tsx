@@ -6,6 +6,7 @@ import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/avatar";
 import { sportMeta, sportSlug } from "@/lib/sports";
+import { reportClientError } from "@/lib/client-diagnostics";
 import { SPORT_TONES } from "@/components/sport-chip";
 import {
   getIdentity,
@@ -190,7 +191,10 @@ export function ChatRoom({
         if (!cancelled) setStatus("ready");
         await loadMessages();
       } catch {
-        if (!cancelled) setStatus("error");
+        if (!cancelled) {
+          setStatus("error");
+          reportClientError({ message: "Match chat failed to open (secure setup error)", detail: `match ${match.id}` });
+        }
       }
     })();
     return () => {
@@ -199,7 +203,38 @@ export function ChatRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id, meId]);
 
-  // Poll for new messages while the chat is open and usable.
+  // Live messages: realtime INSERTs decrypt through the same E2E path and
+  // append instantly; the poll below stays as a resilient fallback (covers
+  // dropped sockets and environments where realtime isn't enabled yet).
+  useEffect(() => {
+    if (status !== "ready") return;
+    const convId = convIdRef.current;
+    if (!convId) return;
+    const channel = supabase
+      .channel(`room-${convId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
+        async (payload) => {
+          const r = payload.new as { id: string; sender_id: string; ciphertext: string; iv: string; created_at: string };
+          const key = convKeyRef.current;
+          if (!key) return;
+          let text: string;
+          try {
+            text = await decryptMessage(key, r.ciphertext, r.iv);
+          } catch {
+            text = "🔒 Unable to decrypt";
+          }
+          setMessages((cur) => (cur.some((m) => m.id === r.id) ? cur : [...cur, { id: r.id, sender_id: r.sender_id, text, created_at: r.created_at }]));
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [status, supabase]);
+
+  // Poll for new messages while the chat is open and usable (fallback cadence).
   useEffect(() => {
     if (status !== "ready") return;
     const t = setInterval(() => {

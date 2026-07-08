@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { lookupZip } from "@/lib/us-places";
 import { ageFromDob } from "@/lib/age";
 
 export type WizardState = { error?: string };
@@ -135,6 +136,17 @@ export async function saveProfile(
     .eq("zip", zip)
     .maybeSingle();
 
+  /* US-only gate: the ZIP must resolve to a U.S. location — either in our own
+     zip_regions table or the bundled US dataset. Unknown/foreign codes are
+     rejected with a clear note (Klimr is US-only for now). */
+  const usFallback = region ? null : lookupZip(zip);
+  if (!region && !usFallback) {
+    return { error: "Klimr is currently available only in the United States. The ZIP code you entered doesn\u2019t match a U.S. location \u2014 please double-check it or use a valid 5-digit U.S. ZIP. We\u2019re working hard to bring Klimr to more countries soon." };
+  }
+  if (region?.country && region.country !== "US") {
+    return { error: "Klimr is currently available only in the United States. The ZIP code you entered doesn\u2019t match a U.S. location \u2014 please double-check it or use a valid 5-digit U.S. ZIP. We\u2019re working hard to bring Klimr to more countries soon." };
+  }
+
   /* ---- writes ---- */
   // profiles keeps a convenience mirror of the PRIMARY sport's format + hand;
   // play_style stays profile-level. The per-sport source of truth is player_sports.
@@ -146,8 +158,8 @@ export async function saveProfile(
       last_name: lastName,
       home_zip: zip,
       neighborhood: region?.neighborhood ?? null,
-      city: region?.city ?? null,
-      state: region?.state ?? null,
+      city: region?.city ?? usFallback?.city ?? null,
+      state: region?.state ?? usFallback?.state ?? null,
       country: region?.country ?? "US",
       primary_sport: primary,
       bio,

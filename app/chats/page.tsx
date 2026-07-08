@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { sportMeta, sportSlug } from "@/lib/sports";
 import { SPORT_TONES } from "@/components/sport-chip";
 import { PageHeader, StatusPill } from "@/components/page-header";
+import { ChatsLiveRefresher } from "@/components/chats-live-refresher";
 
 export const metadata: Metadata = { title: "Courtside" };
+export const dynamic = "force-dynamic";
 
 type MatchRow = { id: string; sport_key: string; format: string; scheduled_at: string | null; status: string };
 
@@ -32,6 +34,7 @@ export default async function ChatsPage() {
   const matchIds = [...new Set((myParts ?? []).map((m) => m.match_id))];
 
   let matches: MatchRow[] = [];
+  const liveConvIds: string[] = [];
   const otherNames = new Map<string, string[]>();
   const lastActivity = new Map<string, string>();
   const expiryByMatch = new Map<string, string | null>();
@@ -60,6 +63,7 @@ export default async function ChatsPage() {
     for (const c of convs ?? []) {
       if (!c.match_id) continue; // team conversations have no match
       expiryByMatch.set(c.match_id, c.expires_at);
+      liveConvIds.push(c.id);
     }
     const convIds = (convs ?? []).map((c) => c.id);
     if (convIds.length) {
@@ -135,6 +139,7 @@ export default async function ChatsPage() {
 
   return (
     <div className="mx-auto max-w-[940px] px-5 pb-16 pt-[22px]">
+      <ChatsLiveRefresher conversationIds={liveConvIds} userId={user.id} />
       <PageHeader
         kicker="Community — Chats"
         title="Courtside"

@@ -181,6 +181,66 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-08 — Chat liveness end-to-end (list + thread)
+- **The reported bug** (send a message, go back, the list still says "No messages yet" until a
+  hard refresh) had two causes: Next serves back/forward navigations from the router-cache
+  snapshot *by design*, and nothing subscribed to changes. The room, it turned out, wasn't
+  realtime either — it polls every 4s.
+- **Courtside list:** `force-dynamic` + a `ChatsLiveRefresher` (client, renders nothing) that
+  calls `router.refresh()` — debounced — on mount (kills the back-nav snapshot), on tab
+  focus/visibility, and on realtime events: a message INSERT in any of the user's conversations
+  (theirs or the other player's) or the user joining a new match. Refresh re-runs the server
+  component, so rows, grouping, expiry, counts, and the header pill all update together — the
+  logic stays server-side, nothing is duplicated client-side.
+- **Thread:** realtime INSERTs on the conversation now decrypt through the existing E2E path and
+  append instantly (id-deduped against the poll); the 4s poll stays as the resilient fallback for
+  dropped sockets or pre-migration environments.
+- **Migration `0100_chat_realtime_publication.sql`** (Gabriel runs manually): idempotently adds
+  `messages` + `match_participants` to the `supabase_realtime` publication — realtime is inert
+  until this runs; the mount/focus refresh already fixes the reported repro without it.
+
+### 2026-07-08 — Sitewide error capture + US-only signup gate
+- **Every error now reaches Admin → Diagnostics** (Gabriel's directive after the geolocation
+  message never surfaced there). The existing, well-built `recordClientError` action + `error_logs`
+  table had exactly one caller; the missing plumbing is now in — **no migration needed**:
+  `lib/client-diagnostics.ts` (flood-guarded wrapper: per-message 60s dedupe, 20/min ceiling),
+  `ErrorReporter` in the root layout (window `error` + `unhandledrejection`, noise-filtered),
+  branded `app/error.tsx` + `app/global-error.tsx` boundaries that self-report (with digests), and
+  **`instrumentation.ts` `onRequestError`** — Next's global hook capturing every uncaught server
+  component / action / route error. Manual telemetry wired at the known user-facing branches:
+  events geolocation failures (the original case, level `warn` with the code), missing Mapbox
+  token, and match-chat secure-setup failures. Prefixes `[client]` / `[server]` make sources
+  visible in the existing Diagnostics filters.
+- **US-only signup gate**: onboarding and settings both looked up `zip_regions` and silently
+  accepted misses with null region + `country: "US"`. Both now require the ZIP to resolve — via
+  `zip_regions` or the bundled US dataset (`lookupZip`) — and reject unknown/foreign codes with a
+  professional note ("Klimr is currently available only in the United States…"). When
+  `zip_regions` misses but the US dataset hits, city/state are filled from the dataset instead of
+  saved as nulls. Future geo-IP checks noted as a later layer.
+
+### 2026-07-08 — Events map corrected to the house stack (+ area search)
+- **Correction, owned:** the previous round added Leaflet for the events map without checking the
+  codebase — Klimr already ships **Mapbox GL** (courts map) and a **free offline US geocoder**
+  (`lib/us-places`). The events map is rebuilt on Mapbox (same init/marker/popup pattern as
+  CourtsMap; flame pins, "Open event →" popups, proximity ring as a GeoJSON layer, fit-to-bounds)
+  and the **Leaflet packages are removed** — package.json/lock changed again (removal only).
+  Requires the existing `NEXT_PUBLIC_MAPBOX_TOKEN` env (already set for courts).
+- **Map always visible** under the filters whenever events exist (the old coords-required
+  condition was why Gabriel saw no map); zero-pin state explains itself honestly and points to the
+  area search.
+- **City/ZIP area search** added to the NEAR ME row via a new server action on the local dataset
+  (`resolveEventArea` — ZIP or city → centroid + label, zero external calls): sets the map center
+  + proximity origin, defaults the radius to 25 mi, and labels the count line ("within 10 mi of
+  Mar Vista, CA"). Works with location permission denied.
+- **Geolocation errors differentiated** (was mislabeling timeouts as "permission denied"):
+  code-1 vs other failures get accurate messages, both pointing to the typed-area fallback.
+
+### 2026-07-08 — Sitewide anchor-scroll fix
+- In-page anchor jumps were landing behind the sticky bars (seen on the Playbook section index;
+  a long-standing class of bug). Fixed globally with `scroll-padding-top` on `html` (4.5rem
+  mobile / 6rem under the desktop toolbar) — every current and future `#anchor` link and
+  `scrollIntoView` call now lands below the chrome with the intended breathing room.
+
 ### 2026-07-08 — Walk-through feedback round 1 (8 items)
 - **Events: map + proximity.** Courts carry real `lat`/`lng`, so events joined to a court now pin
   on an OpenStreetMap panel (Leaflet + react-leaflet — **new deps; deploy needs the updated

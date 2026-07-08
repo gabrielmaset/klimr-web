@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { lookupZip } from "@/lib/us-places";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ageFromDob } from "@/lib/age";
 
@@ -130,6 +131,14 @@ export async function saveProfileBasics(_prev: EditState, formData: FormData): P
     .eq("zip", zip)
     .maybeSingle();
 
+  const usFallback = region ? null : lookupZip(zip);
+  if (!region && !usFallback) {
+    return { error: "Klimr is currently available only in the United States. The ZIP code you entered doesn\u2019t match a U.S. location \u2014 please double-check it or use a valid 5-digit U.S. ZIP. We\u2019re working hard to bring Klimr to more countries soon." };
+  }
+  if (region?.country && region.country !== "US") {
+    return { error: "Klimr is currently available only in the United States. The ZIP code you entered doesn\u2019t match a U.S. location \u2014 please double-check it or use a valid 5-digit U.S. ZIP. We\u2019re working hard to bring Klimr to more countries soon." };
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({
@@ -142,8 +151,8 @@ export async function saveProfileBasics(_prev: EditState, formData: FormData): P
       birth_year: birthYear,
       home_zip: zip,
       neighborhood: region?.neighborhood ?? null,
-      city: region?.city ?? null,
-      state: region?.state ?? null,
+      city: region?.city ?? usFallback?.city ?? null,
+      state: region?.state ?? usFallback?.state ?? null,
       country: region?.country ?? "US",
     })
     .eq("id", user.id);

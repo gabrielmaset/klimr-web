@@ -100,6 +100,7 @@ export default async function EventsPage() {
     status: e.status,
   });
 
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null;
   const cards = events.map(toCard);
   const myCards = myRows.map(toCard);
 
@@ -117,7 +118,7 @@ export default async function EventsPage() {
         </Link>
       </div>
 
-      <EventsBrowser events={cards} myEvents={myCards} nowMs={nowMs()} />
+      <EventsBrowser events={cards} myEvents={myCards} nowMs={nowMs()} mapboxToken={mapboxToken} />
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { EventsMap } from "@/components/events-map";
+import { resolveEventArea } from "@/app/events/area-actions";
+import { reportClientError } from "@/lib/client-diagnostics";
 import Link from "next/link";
 import { Search, MapPin, Users, Check, CalendarDays } from "lucide-react";
 import { sportMeta } from "@/lib/sports";
@@ -58,7 +60,7 @@ function Chips({ value, onChange, options }: { value: string; onChange: (v: stri
   );
 }
 
-export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEvent[]; myEvents?: CardEvent[]; nowMs: number }) {
+export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null }: { events: CardEvent[]; myEvents?: CardEvent[]; nowMs: number; mapboxToken?: string | null }) {
   const [mode, setMode] = useState<"browse" | "mine">("browse");
   const [q, setQ] = useState("");
   const [sport, setSport] = useState("all");
@@ -68,6 +70,28 @@ export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEv
   const [nearMi, setNearMi] = useState<number | null>(null);
   const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [geoErr, setGeoErr] = useState<string | null>(null);
+  const [geoLabel, setGeoLabel] = useState<string | null>(null);
+  const [areaQ, setAreaQ] = useState("");
+  const [areaBusy, setAreaBusy] = useState(false);
+
+  const searchArea = async () => {
+    const q = areaQ.trim();
+    if (!q || areaBusy) return;
+    setAreaBusy(true);
+    setGeoErr(null);
+    try {
+      const hit = await resolveEventArea(q);
+      if (hit) {
+        setGeo({ lat: hit.lat, lng: hit.lng });
+        setGeoLabel(hit.label);
+        if (nearMi === null) setNearMi(25);
+      } else {
+        setGeoErr("That location isn\u2019t recognized \u2014 try a city name or 5-digit ZIP.");
+      }
+    } finally {
+      setAreaBusy(false);
+    }
+  };
 
   const milesBetween = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
     const R = 3958.8;
@@ -89,9 +113,21 @@ export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEv
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoLabel("Your location");
         setNearMi(mi);
       },
-      () => setGeoErr("Location permission denied \u2014 proximity filter needs it."),
+      (err) => {
+        reportClientError({
+          level: "warn",
+          message: `Events proximity geolocation failed (code ${err.code})`,
+          detail: err.message,
+        });
+        setGeoErr(
+          err.code === 1
+            ? "Location permission denied \u2014 allow it in your browser, or type a city/ZIP instead."
+            : "Couldn\u2019t get your location \u2014 type a city or ZIP instead.",
+        );
+      },
       { maximumAge: 300000, timeout: 8000 },
     );
   };
@@ -208,30 +244,65 @@ export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEv
               );
             })}
           </div>
+          <span className="text-faint" aria-hidden>·</span>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void searchArea();
+            }}
+            className="flex items-center gap-1.5"
+          >
+            <input
+              value={areaQ}
+              onChange={(e) => setAreaQ(e.target.value)}
+              placeholder="City or ZIP"
+              aria-label="Search events near a city or ZIP"
+              className="h-8 w-36 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+            />
+            <button
+              type="submit"
+              disabled={areaBusy || !areaQ.trim()}
+              className="press h-8 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs font-semibold text-mute transition-colors hover:text-ink disabled:opacity-50"
+            >
+              {areaBusy ? "…" : "Go"}
+            </button>
+          </form>
+          {geoLabel && nearMi !== null ? (
+            <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">{geoLabel}</span>
+          ) : null}
           {geoErr ? <span className="text-xs text-danger">{geoErr}</span> : null}
         </div>
       </div>
 
-      {/* Map — every mapped event below, clickable through to its page */}
-      {filtered.some((e) => e.lat != null && e.lng != null) ? (
+      {/* Map — right under the filters; pins for events linked to located courts */}
+      {base.length > 0 ? (
         <div className="mb-5">
           <div className="h-[340px] overflow-hidden rounded-[20px] border border-rule shadow-e1">
-            <EventsMap events={filtered} userLoc={geo} radiusMi={nearMi} />
+            <EventsMap token={mapboxToken} events={filtered} center={geo} centerLabel={geoLabel} radiusMi={nearMi} />
           </div>
           {(() => {
-            const unmapped = filtered.filter((e) => e.lat == null || e.lng == null).length;
-            return unmapped > 0 ? (
-              <p className="mt-1.5 text-[11px] text-faint">
-                {unmapped} {unmapped === 1 ? "event doesn\u2019t have" : "events don\u2019t have"} a mapped court, so {unmapped === 1 ? "it appears" : "they appear"} in the list only.
-              </p>
-            ) : null;
+            const pinned = filtered.filter((e) => e.lat != null && e.lng != null).length;
+            const unmapped = filtered.length - pinned;
+            if (pinned === 0)
+              return (
+                <p className="mt-1.5 text-[11px] text-faint">
+                  No events with mapped courts yet — pins appear as events are linked to courts with locations. Search a city or ZIP above to explore an area.
+                </p>
+              );
+            if (unmapped > 0)
+              return (
+                <p className="mt-1.5 text-[11px] text-faint">
+                  {unmapped} {unmapped === 1 ? "event doesn\u2019t have" : "events don\u2019t have"} a mapped court, so {unmapped === 1 ? "it appears" : "they appear"} in the list only.
+                </p>
+              );
+            return null;
           })()}
         </div>
       ) : null}
 
       <p className="mb-3 text-xs text-faint">
         {filtered.length} {filtered.length === 1 ? "event" : "events"}
-        {nearMi !== null && geo ? ` within ${nearMi} mi` : ""}
+        {nearMi !== null && geo ? ` within ${nearMi} mi${geoLabel ? ` of ${geoLabel}` : ""}` : ""}
       </p>
 
       {filtered.length === 0 ? (

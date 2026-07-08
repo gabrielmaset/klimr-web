@@ -12,6 +12,7 @@ import Script from "next/script";
 import { AppShell } from "@/components/app-shell";
 import { NavigationHistoryProvider } from "@/components/navigation-history";
 import { DiagnosticsInit } from "@/components/diagnostics-init";
+import { ErrorReporter } from "@/components/error-reporter";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
@@ -46,6 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full">
+        <ErrorReporter />
         <svg
           viewBox="0 0 1600 800"
           preserveAspectRatio="xMidYMin slice"
