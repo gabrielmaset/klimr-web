@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EventsMap } from "@/components/events-map";
 import Link from "next/link";
 import { Search, MapPin, Users, Check, CalendarDays } from "lucide-react";
 import { sportMeta } from "@/lib/sports";
@@ -15,6 +16,8 @@ export type CardEvent = {
   goingCount: number;
   capacity: number | null;
   amGoing: boolean;
+  lat: number | null;
+  lng: number | null;
   coverUrl: string | null;
   costText: string | null;
   mine?: boolean;
@@ -62,6 +65,36 @@ export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEv
   const [kind, setKind] = useState("all");
   const [price, setPrice] = useState("all");
   const [when, setWhen] = useState("all");
+  const [nearMi, setNearMi] = useState<number | null>(null);
+  const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoErr, setGeoErr] = useState<string | null>(null);
+
+  const milesBetween = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+    const R = 3958.8;
+    const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+    const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+    const s = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+  };
+  const requestNear = (mi: number) => {
+    setGeoErr(null);
+    if (geo) {
+      setNearMi(mi);
+      return;
+    }
+    if (!("geolocation" in navigator)) {
+      setGeoErr("Location isn\u2019t available in this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setNearMi(mi);
+      },
+      () => setGeoErr("Location permission denied \u2014 proximity filter needs it."),
+      { maximumAge: 300000, timeout: 8000 },
+    );
+  };
 
   const base = mode === "mine" ? myEvents : events;
   const sports = useMemo(() => [...new Set(base.map((e) => e.sportKey))], [base]);
@@ -88,13 +121,17 @@ export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEv
           if (t < sat.getTime() || t >= mon) return false;
         }
       }
+      if (nearMi !== null && geo) {
+        if (e.lat == null || e.lng == null) return false;
+        if (milesBetween(geo, { lat: e.lat, lng: e.lng }) > nearMi) return false;
+      }
       if (q.trim()) {
         const hay = `${e.title} ${e.venue ?? ""} ${KIND_LABEL[e.kind] ?? ""} ${sportMeta(e.sportKey).name}`.toLowerCase();
         if (!hay.includes(q.trim().toLowerCase())) return false;
       }
       return true;
     });
-  }, [base, q, sport, kind, price, when, nowMs]);
+  }, [base, q, sport, kind, price, when, nowMs, nearMi, geo]);
 
   const sportChips: Chip[] = [{ value: "all", label: "All sports" }, ...sports.map((s) => ({ value: s, label: `${sportMeta(s).emoji} ${sportMeta(s).name}` }))];
   const kindChips: Chip[] = [{ value: "all", label: "All types" }, ...kinds.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }))];
@@ -146,10 +183,55 @@ export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEv
             ]}
           />
         </div>
+        {/* Proximity — real browser location, honest about unmapped events */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[.18em] text-faint">Near me</span>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { v: null, label: "Off" },
+              { v: 5, label: "5 mi" },
+              { v: 10, label: "10 mi" },
+              { v: 25, label: "25 mi" },
+            ].map((o) => {
+              const on = nearMi === o.v;
+              return (
+                <button
+                  key={o.label}
+                  type="button"
+                  onClick={() => (o.v === null ? setNearMi(null) : requestNear(o.v))}
+                  className={`press rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    on ? "border-brand bg-brand text-white" : "border-rule bg-surface text-mute hover:border-brand/50 hover:text-ink"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+          {geoErr ? <span className="text-xs text-danger">{geoErr}</span> : null}
+        </div>
       </div>
+
+      {/* Map — every mapped event below, clickable through to its page */}
+      {filtered.some((e) => e.lat != null && e.lng != null) ? (
+        <div className="mb-5">
+          <div className="h-[340px] overflow-hidden rounded-[20px] border border-rule shadow-e1">
+            <EventsMap events={filtered} userLoc={geo} radiusMi={nearMi} />
+          </div>
+          {(() => {
+            const unmapped = filtered.filter((e) => e.lat == null || e.lng == null).length;
+            return unmapped > 0 ? (
+              <p className="mt-1.5 text-[11px] text-faint">
+                {unmapped} {unmapped === 1 ? "event doesn\u2019t have" : "events don\u2019t have"} a mapped court, so {unmapped === 1 ? "it appears" : "they appear"} in the list only.
+              </p>
+            ) : null;
+          })()}
+        </div>
+      ) : null}
 
       <p className="mb-3 text-xs text-faint">
         {filtered.length} {filtered.length === 1 ? "event" : "events"}
+        {nearMi !== null && geo ? ` within ${nearMi} mi` : ""}
       </p>
 
       {filtered.length === 0 ? (

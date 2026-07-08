@@ -212,7 +212,7 @@ export function NetworkBrowser({
           <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-faint">
             <Zap size={13} className="text-pop" /> You play most with
           </p>
-          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 py-1">
             {topPartners.map((p) => (
               <Link key={p.id} href={`/profile/${p.id}`} className="lift flex w-24 shrink-0 flex-col items-center rounded-2xl border border-rule bg-bg px-2 py-3 text-center">
                 <Avatar url={p.avatarUrl} hue={p.hue} name={p.name} size={44} />

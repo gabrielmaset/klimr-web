@@ -120,14 +120,7 @@ export default async function MyProfilePage() {
   return (
     <div className="mx-auto max-w-page px-4 py-6 sm:px-6 sm:py-8">
       {/* ===== Hero ===== */}
-      <div className="relative">
-        <CoverUploader initialUrl={coverUrl} hue={hue} />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-3xl"
-          style={{ background: `linear-gradient(180deg, transparent 55%, color-mix(in oklab, ${heroAccent} 30%, rgba(250,247,241,0.92)) 100%)` }}
-        />
-      </div>
+      <CoverUploader initialUrl={coverUrl} hue={hue} />
 
       <div className="relative z-10 px-1 sm:px-4">
         {/* Avatar overlaps the cover; the row is pointer-events-none so the cover's

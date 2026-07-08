@@ -250,16 +250,9 @@ export function TopBar({
             <MessageCircle size={17} />
           </IconLink>
 
-          <Link
-            href="/notifications"
-            aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-            className="press relative grid h-[34px] w-9 shrink-0 place-items-center rounded-[10px] text-mute transition-colors hover:bg-[rgba(32,27,18,0.05)] hover:text-ink"
-          >
+          <IconLink href="/notifications" label="Notifications" badge={unreadCount}>
             <Bell size={17} />
-            {unreadCount > 0 ? (
-              <span className="absolute right-1.5 top-1.5 h-[7px] w-[7px] rounded-full bg-brand ring-2 ring-white" aria-hidden />
-            ) : null}
-          </Link>
+          </IconLink>
 
           {/* Switch into a team workspace (Pro teams only) */}
           <TeamSwitcher teams={proTeams} />
@@ -321,7 +314,7 @@ export function TopBar({
           <Link
             href="/play/new"
             aria-label="Organize a match"
-            className="press inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[10px] px-3 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]"
+            className="press ml-2 inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[10px] px-3 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]"
             style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
           >
             <Plus size={16} className="shrink-0" />

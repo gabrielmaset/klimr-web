@@ -61,17 +61,21 @@ export default async function EventsPage() {
   const going = new Set<string>();
   const counts = new Map<string, number>();
   const courtName = new Map<string, string>();
+  const courtGeo = new Map<string, { lat: number | null; lng: number | null }>();
   if (allIds.length) {
     const courtIds = [...new Set([...events, ...myRows].map((e) => e.court_id).filter(Boolean))] as string[];
     const [{ data: rsvps }, courtsRes] = await Promise.all([
       supabase.from("event_rsvps").select("event_id, user_id, status").in("event_id", allIds).eq("status", "going"),
-      courtIds.length ? supabase.from("courts").select("id, name").in("id", courtIds) : Promise.resolve({ data: [] }),
+      courtIds.length ? supabase.from("courts").select("id, name, lat, lng").in("id", courtIds) : Promise.resolve({ data: [] }),
     ]);
     for (const r of rsvps ?? []) {
       counts.set(r.event_id, (counts.get(r.event_id) ?? 0) + 1);
       if (r.user_id === user.id) going.add(r.event_id);
     }
-    for (const c of (courtsRes.data as { id: string; name: string }[] | null) ?? []) courtName.set(c.id, c.name);
+    for (const c of (courtsRes.data as { id: string; name: string; lat: number | null; lng: number | null }[] | null) ?? []) {
+      courtName.set(c.id, c.name);
+      courtGeo.set(c.id, { lat: c.lat, lng: c.lng });
+    }
   }
 
   const coverUrl = (e: Ev) => {
@@ -90,6 +94,8 @@ export default async function EventsPage() {
     amGoing: going.has(e.id),
     coverUrl: coverUrl(e),
     costText: e.cost_text,
+    lat: e.court_id ? courtGeo.get(e.court_id)?.lat ?? null : null,
+    lng: e.court_id ? courtGeo.get(e.court_id)?.lng ?? null : null,
     mine: e.created_by === user.id || adminSet.has(e.id),
     status: e.status,
   });

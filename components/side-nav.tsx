@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Newspaper, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut,
   Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
-  User, MessageSquare, MessageCircle, HelpCircle, ChevronsUpDown, Contact, Inbox, Medal, IdCard, GraduationCap, ChevronDown,
+  User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox, Medal, IdCard, GraduationCap, ChevronDown,
 } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
@@ -20,7 +20,6 @@ type Item = { href: string; label: string; Icon: typeof Newspaper };
 const GROUPS: { header?: string; items: Item[] }[] = [
   {
     items: [
-      { href: "/me", label: "My profile", Icon: IdCard },
       { href: "/feed", label: "Home", Icon: Newspaper },
       { href: "/play", label: "Play", Icon: Swords },
       { href: "/rankings", label: "Rankings", Icon: Trophy },
@@ -38,7 +37,6 @@ const GROUPS: { header?: string; items: Item[] }[] = [
     header: "Community",
     items: [
       { href: "/network", label: "Network", Icon: Contact },
-      { href: "/chats", label: "Chats", Icon: MessageCircle },
       { href: "/teams", label: "Teams", Icon: Users },
       { href: "/invites", label: "Invites", Icon: Inbox },
     ],
@@ -85,7 +83,7 @@ export function SideNav({
   // sections into an accordion (one open at a time) so the menu never scrolls.
   const [compact, setCompact] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(max-height: 1180px)");
+    const mq = window.matchMedia("(max-height: 960px)");
     const update = () => setCompact(mq.matches);
     const raf = requestAnimationFrame(update);
     mq.addEventListener("change", update);
@@ -201,10 +199,9 @@ export function SideNav({
 
         {/* Footer — hairline, invite, then the Daylight user pill. */}
         <div className="mt-2 shrink-0 border-t border-rule-soft pt-2">
-          <Link href="/invite" aria-current={isActive("/invite") ? "page" : undefined} className={navLink(isActive("/invite"))}>
-            <Gift size={16.5} className={isActive("/invite") ? "text-brand-deep" : "text-faint group-hover:text-ink-soft"} />
-            Invite friends
-            <span className="ml-auto rounded-full bg-bg px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-faint">Soon</span>
+          <Link href="/me" aria-current={isActive("/me") ? "page" : undefined} className={navLink(isActive("/me"))}>
+            <IdCard size={16.5} className={isActive("/me") ? "text-brand-deep" : "text-faint group-hover:text-ink-soft"} />
+            My profile
           </Link>
 
           <div className="relative mt-1.5">
@@ -219,14 +216,15 @@ export function SideNav({
                   {email ? <p className="truncate text-xs text-faint">{email}</p> : null}
                 </div>
                 <div className="py-1">
-                  <Link href="/me" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
-                    <IdCard size={15} className="text-mute" /> My profile
-                  </Link>
                   <Link href="/account" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
                     <User size={15} className="text-mute" /> Your account
                   </Link>
                   <Link href="/settings" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
                     <Settings size={15} className="text-mute" /> Settings
+                  </Link>
+                  <Link href="/invite" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
+                    <Gift size={15} className="text-mute" /> Invite friends
+                    <span className="ml-auto rounded-full bg-bg px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-faint">Soon</span>
                   </Link>
                 </div>
                 <div className="border-t border-rule-soft py-1">

@@ -181,6 +181,39 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-08 — Walk-through feedback round 1 (8 items)
+- **Events: map + proximity.** Courts carry real `lat`/`lng`, so events joined to a court now pin
+  on an OpenStreetMap panel (Leaflet + react-leaflet — **new deps; deploy needs the updated
+  package.json/lock**) under the filters: flame pins, popup → event page, fit-to-bounds. Proximity
+  = real browser geolocation with 5/10/25-mi chips filtering the grid (haversine); honest notes
+  for unmapped events and denied permission. Map hides when nothing is mappable.
+- **Hover clip fixed** on "You play most with" (scroll row lacked top padding for the lift).
+- **Chat thread redesigned** as a contained Daylight panel (max-w 880, self-sizing height with
+  bottom-nav awareness, min/max clamps): header with sport-tone tile, paper message well, flame
+  gradient own-bubbles, in-panel quick replies + flame send. No more viewport bleed; stable on
+  every breakpoint. All realtime/encryption logic untouched.
+- **Sponsorships rebuilt as a partner marketplace** (research: sponsorship platforms + club
+  partner-page patterns — value-forward hero, categorized brand-forward partner walls, explicit
+  perks, strong prospect CTA): computed footprint stats (sponsors/categories/neighborhoods — never
+  invented), three why-sponsor props, category-toned type chips, rich brand cards finally using the
+  real `tagline` + `perks[]`, flame-tint business CTA panel. Player offers/active flows preserved.
+- **Playbook expanded** for all five sports: serving steps, faults, etiquette, first-match
+  checklist, and glossary authored per sport (traditional pickleball scoring noted with the rally
+  variant; padel golden point; racquetball 15/15/11 + server-only scoring; beach 21/21/15 with end
+  switches); **labeled to-scale court diagrams** (new `CourtDiagram` — tennis boxes, the kitchen,
+  padel glass, racquetball service zone + receiving line, sand court) on a rebuilt guide page with
+  section index, numbered steps, tone-coded lists, and a rankings cross-sell.
+- **Rail refined per Gabriel:** Chats removed (lives in the top bar); My profile moved to the
+  footer slot; Invite friends moved into the user menu; accordion threshold retuned 1180→960px so
+  it only compacts when ~two buttons of space remain.
+- **Top bar:** Notifications label restored (ghost link with count badge); breathing room added
+  before the Match CTA.
+
+### 2026-07-08 — /me cover wash removed (owner call)
+- The sport-accent gradient over the /me cover photo (added in V2, lightened in Daylight) is
+  **removed at Gabriel's direction** — the cover now displays untinted. The sport-accent avatar
+  ring stays. The public profile's hero *band* (no photo) still carries the light sport tint.
+
 ### 2026-07-08 — DAYLIGHT, Increment C (§4 recipe, central layer) — forms, CTAs, stat tiles
 - **Form sweep (§4.6):** all 61 fields (keyed on the focus-halo signature, multi-line-safe) →
   radius 10, `rule-2` borders, flame focus ring retained; resting `shadow-e1` **stripped from

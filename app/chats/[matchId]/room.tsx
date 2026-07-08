@@ -5,7 +5,8 @@ import { Lock, Send, ShieldCheck } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/avatar";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, sportSlug } from "@/lib/sports";
+import { SPORT_TONES } from "@/components/sport-chip";
 import {
   getIdentity,
   generateConversationKey,
@@ -278,27 +279,31 @@ export function ChatRoom({
   const expiresInHrs = expiresAt && now > 0 ? Math.round((new Date(expiresAt).getTime() - now) / 3_600_000) : null;
 
   return (
-    <div className="mx-auto flex h-dvh max-w-2xl flex-col px-0 sm:px-5">
+    <div className="mx-auto w-full max-w-[880px] px-3 pt-2 sm:px-6 md:pt-3">
+      <div className="flex h-[calc(100dvh-4rem-var(--bottom-nav-h))] min-h-[420px] flex-col overflow-hidden rounded-[20px] border border-rule bg-surface shadow-e1 md:h-[calc(100dvh-8.25rem)]">
       {/* header */}
-      <div className="pt-safe flex items-center gap-3 border-b border-rule bg-surface px-5 py-3 sm:rounded-b-2xl sm:border sm:border-t-0">
+      <div className="flex items-center gap-3 border-b border-rule-soft bg-surface px-4 py-3">
         <BackButton fallback="/chats" label="" ariaLabel="Back to chats" className="press text-mute hover:text-ink" size={20} />
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] text-base" style={{ background: SPORT_TONES[sportSlug(match.sport_key)]?.bg ?? "var(--color-bg)", border: `1px solid ${SPORT_TONES[sportSlug(match.sport_key)]?.bd ?? "var(--color-rule)"}` }} aria-hidden>
+          {meta.emoji}
+        </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold text-ink">
-            {meta.emoji} {meta.name} · {match.format}
+            {meta.name} · {match.format}
           </div>
           <div className="flex items-center gap-1.5 truncate text-xs text-faint">
             <Lock size={11} /> {participants.length} players · {whenLabel(match.scheduled_at)}
           </div>
         </div>
         {!expired && expiresInHrs !== null && expiresInHrs <= 24 ? (
-          <span className="kicker rounded-full bg-tint-brand px-2 py-1 text-brand-deep">
+          <span className="rounded-full border border-tint-brand-bd bg-tint-brand px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">
             {expiresInHrs <= 0 ? "Expiring" : `Expires ${expiresInHrs}h`}
           </span>
         ) : null}
       </div>
 
       {/* messages */}
-      <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto px-5 py-4">
+      <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto bg-bg px-4 py-4 sm:px-5">
         {status === "loading" ? (
           <p className="py-10 text-center text-sm text-mute">Setting up secure chat…</p>
         ) : status === "error" ? (
@@ -335,8 +340,8 @@ export function ChatRoom({
                     className="rounded-2xl px-3.5 py-2 text-[15px] leading-snug"
                     style={
                       mine
-                        ? { background: "#ff4e1b", color: "#fff", borderBottomRightRadius: 6 }
-                        : { background: "#f4f4f5", color: "#0a0a0b", borderBottomLeftRadius: 6 }
+                        ? { background: "linear-gradient(140deg, #FF6A35, #E23E0D)", color: "#fff", borderBottomRightRadius: 6 }
+                        : { background: "var(--color-surface)", color: "var(--color-ink)", border: "1px solid var(--color-rule-soft)", borderBottomLeftRadius: 6 }
                     }
                   >
                     <span className="whitespace-pre-wrap">{m.text}</span>
@@ -352,11 +357,11 @@ export function ChatRoom({
       {/* composer */}
       {status === "ready" ? (
         expired ? (
-          <div className="pb-safe border-t border-rule bg-surface px-5 py-4 text-center text-sm text-mute sm:rounded-t-2xl sm:border">
+          <div className="border-t border-rule-soft bg-surface px-5 py-4 text-center text-sm text-mute">
             This chat has expired. Match chats close after you play.
           </div>
         ) : (
-          <div className="pb-safe border-t border-rule bg-surface px-5 py-3 sm:rounded-t-2xl sm:border">
+          <div className="pb-safe border-t border-rule-soft bg-surface px-4 py-3 sm:px-5">
             <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
               {QUICK_REPLIES.map((q) => (
                 <button
@@ -390,7 +395,7 @@ export function ChatRoom({
                 onClick={() => void send(draft)}
                 disabled={sending || !draft.trim()}
                 aria-label="Send"
-                className="press grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-surface transition-colors hover:bg-ink-soft disabled:opacity-40"
+                className="press grid h-10 w-10 shrink-0 place-items-center rounded-full text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-40" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
               >
                 <Send size={17} />
               </button>
@@ -401,6 +406,7 @@ export function ChatRoom({
           </div>
         )
       ) : null}
+      </div>
     </div>
   );
 }
