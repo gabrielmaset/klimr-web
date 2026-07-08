@@ -16,7 +16,7 @@ function hash(s: string) {
   return String(h);
 }
 
-export function reportClientError(input: { level?: "error" | "warn"; message: string; detail?: string }) {
+export function reportClientError(input: { level?: "error" | "warn"; message: string; detail?: string; userMessage?: string }) {
   try {
     const message = String(input.message ?? "").trim();
     if (!message) return;
@@ -31,10 +31,16 @@ export function reportClientError(input: { level?: "error" | "warn"; message: st
     if (now - last < 60_000) return; // same message once a minute
     seen.set(key, now);
     windowCount++;
+    const detail = [
+      input.userMessage ? `User saw: “${input.userMessage}”` : null,
+      input.detail,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     void recordClientError({
       level: input.level ?? "error",
       message: `[client] ${message}`.slice(0, 1000),
-      detail: input.detail?.slice(0, 6000),
+      detail: detail ? detail.slice(0, 6000) : undefined,
       url: typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined,
     });
   } catch {

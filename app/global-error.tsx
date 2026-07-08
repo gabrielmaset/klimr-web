@@ -8,6 +8,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
     reportClientError({
       message: `Global error: ${error.message}${error.digest ? ` (digest ${error.digest})` : ""}`,
       detail: error.stack,
+      userMessage: "That didn\u2019t go as planned. The error has been reported automatically \u2014 try again.",
     });
   }, [error]);
 

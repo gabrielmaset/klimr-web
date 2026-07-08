@@ -9,6 +9,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
     reportClientError({
       message: `Route error: ${error.message}${error.digest ? ` (digest ${error.digest})` : ""}`,
       detail: error.stack,
+      userMessage: "That didn\u2019t go as planned. The error has been reported automatically \u2014 try again.",
     });
   }, [error]);
 

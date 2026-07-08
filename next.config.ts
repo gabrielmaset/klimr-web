@@ -36,7 +36,9 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
+  // geolocation=(self): the Events proximity filter uses browser location on our
+  // own origin. Camera/mic stay disabled until identity verification ships.
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self), browsing-topics=()" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
 ];
 

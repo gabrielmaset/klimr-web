@@ -181,6 +181,25 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-08 — Diagnostics: the exact user-facing message travels with every report
+- Gabriel's call after correlating his on-screen error with its Diagnostics entry: admins should
+  see **what the user saw**, verbatim. `reportClientError` gains an optional `userMessage`,
+  composed into Details as a leading `User saw: “…”` line (text-format, **no schema change**).
+  Wired everywhere a report pairs with on-screen copy: events geolocation (one const now feeds
+  both the UI and the report — they can never drift), missing Mapbox token, chat secure-setup
+  failure, and both error boundaries. Global window-listener reports carry no userMessage — those
+  errors show the user nothing, and claiming otherwise would be false data. Server errors pair
+  with their boundary report via the shared digest.
+
+### 2026-07-08 — Geolocation was blocked sitewide by our own Permissions-Policy
+- The proximity "permission denied" affected **every user**: the hardening header in
+  `next.config.ts` shipped `geolocation=()` (empty allowlist), which disables the Geolocation API
+  before the browser can even prompt. Correct when added (no feature used it); stale once the
+  Events proximity filter shipped. Fixed to `geolocation=(self)`; camera/mic stay locked until
+  identity verification needs them. Lesson recorded: **auditing response headers is part of adding
+  any browser-API feature.** Validation note: the event was visible in Admin → Diagnostics as the
+  `[client]` geolocation warn — the sitewide capture caught its first real bug.
+
 ### 2026-07-08 — Chat liveness end-to-end (list + thread)
 - **The reported bug** (send a message, go back, the list still says "No messages yet" until a
   hard refresh) had two causes: Next serves back/forward navigations from the router-cache

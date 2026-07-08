@@ -117,16 +117,17 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
         setNearMi(mi);
       },
       (err) => {
+        const shown =
+          err.code === 1
+            ? "Location permission denied \u2014 allow it in your browser, or type a city/ZIP instead."
+            : "Couldn\u2019t get your location \u2014 type a city or ZIP instead.";
         reportClientError({
           level: "warn",
           message: `Events proximity geolocation failed (code ${err.code})`,
           detail: err.message,
+          userMessage: shown,
         });
-        setGeoErr(
-          err.code === 1
-            ? "Location permission denied \u2014 allow it in your browser, or type a city/ZIP instead."
-            : "Couldn\u2019t get your location \u2014 type a city or ZIP instead.",
-        );
+        setGeoErr(shown);
       },
       { maximumAge: 300000, timeout: 8000 },
     );

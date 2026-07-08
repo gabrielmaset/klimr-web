@@ -150,7 +150,7 @@ export function EventsMap({
   }, [events, center, centerLabel, radiusMi]);
 
   useEffect(() => {
-    if (!token) reportClientError({ message: "Events map: NEXT_PUBLIC_MAPBOX_TOKEN missing" });
+    if (!token) reportClientError({ message: "Events map: NEXT_PUBLIC_MAPBOX_TOKEN missing", userMessage: "Map unavailable \u2014 NEXT_PUBLIC_MAPBOX_TOKEN isn\u2019t set." });
   }, [token]);
 
   if (!token) {

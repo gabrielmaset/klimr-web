@@ -193,7 +193,7 @@ export function ChatRoom({
       } catch {
         if (!cancelled) {
           setStatus("error");
-          reportClientError({ message: "Match chat failed to open (secure setup error)", detail: `match ${match.id}` });
+          reportClientError({ message: "Match chat failed to open (secure setup error)", detail: `match ${match.id}`, userMessage: "Couldn\u2019t open this chat. Please refresh." });
         }
       }
     })();
