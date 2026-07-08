@@ -76,7 +76,7 @@ export function MarketplaceControls({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={kind === "coaching" ? "Search coaches…" : "Search gear…"}
-          className="w-full rounded-xl border border-rule bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand"
+          className="w-full rounded-xl border border-rule bg-surface shadow-e1 py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand"
           aria-label="Search listings"
         />
       </form>

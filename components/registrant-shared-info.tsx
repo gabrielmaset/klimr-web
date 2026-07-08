@@ -51,7 +51,7 @@ export function RegistrantSharedInfo({ info, extra }: { info: SharedInfo; extra?
           <p className="mt-0.5 text-xs text-mute">From your Klimr account, the organizer of this event receives:</p>
         </div>
       </div>
-      <dl className="mt-3 divide-y divide-rule/60 overflow-hidden rounded-xl border border-rule bg-surface">
+      <dl className="mt-3 divide-y divide-rule/60 overflow-hidden rounded-xl border border-rule bg-surface shadow-e1">
         {rows.map((r) => (
           <div key={r.label} className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
             <dt className="shrink-0 text-xs font-medium text-mute">{r.label}</dt>

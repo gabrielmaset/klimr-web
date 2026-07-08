@@ -38,7 +38,7 @@ export function AwardPointsButton({ tournamentId, awarded, ready = true }: { tou
 
   return (
     <div className="flex flex-col items-start gap-1 sm:items-end">
-      <button type="button" onClick={run} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-3.5 py-2 text-sm font-semibold text-ink hover:border-brand disabled:opacity-50">
+      <button type="button" onClick={run} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2 text-sm font-semibold text-ink hover:border-brand disabled:opacity-50">
         {busy ? <Loader2 size={15} className="animate-spin" /> : <Medal size={15} className="text-brand-deep" />}
         {awarded > 0 ? "Re-award ranking points" : "Award ranking points"}
       </button>

@@ -57,13 +57,13 @@ export default async function AdminReports() {
   return (
     <div>
       {reports.length === 0 ? (
-        <div className="rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center text-sm text-mute">
           No reports. Quiet is good.
         </div>
       ) : (
         <div className="space-y-3">
           {reports.map((r) => (
-            <div key={r.id} className="rounded-2xl border border-rule bg-surface p-5">
+            <div key={r.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -89,12 +89,12 @@ export default async function AdminReports() {
 
               <form action={resolveReport} className="mt-4 flex flex-wrap items-center gap-2 border-t border-rule pt-3">
                 <input type="hidden" name="reportId" value={r.id} />
-                <select name="status" defaultValue={r.status === "open" ? "reviewing" : r.status} className="rounded-xl border border-rule bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand">
+                <select name="status" defaultValue={r.status === "open" ? "reviewing" : r.status} className="rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2 text-sm text-ink outline-none focus:border-brand">
                   <option value="reviewing">Reviewing</option>
                   <option value="actioned">Action taken</option>
                   <option value="dismissed">Dismiss</option>
                 </select>
-                <input name="resolution" defaultValue={r.resolution ?? ""} placeholder="Resolution note (optional)" className="min-w-0 flex-1 rounded-xl border border-rule bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand" />
+                <input name="resolution" defaultValue={r.resolution ?? ""} placeholder="Resolution note (optional)" className="min-w-0 flex-1 rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2 text-sm text-ink outline-none focus:border-brand" />
                 <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Save</button>
               </form>
             </div>

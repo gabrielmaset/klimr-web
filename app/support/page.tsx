@@ -50,12 +50,12 @@ export default async function SupportPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-        <div className="rounded-2xl border border-rule bg-surface p-5 sm:p-6">
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
           <SupportForm email={user.email ?? ""} />
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-2xl border border-rule bg-surface p-5">
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
             <p className="kicker text-faint">Your recent requests</p>
             {tickets && tickets.length ? (
               <ul className="mt-3 divide-y divide-rule">
@@ -80,7 +80,7 @@ export default async function SupportPage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-rule bg-surface p-5">
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
             <p className="flex items-center gap-1.5 text-sm font-bold text-ink"><Clock size={14} className="text-brand-deep" /> Response time</p>
             <p className="mt-1 text-sm text-mute">Usually within a day. Safety reports are prioritized and reviewed first.</p>
             <p className="mt-3 flex items-center gap-1.5 text-sm font-bold text-ink"><CheckCircle2 size={14} className="text-success" /> Faster answers</p>
@@ -91,7 +91,7 @@ export default async function SupportPage() {
             </p>
           </div>
 
-          <Link href="/help" className="press flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4 transition-colors hover:border-ink/25">
+          <Link href="/help" className="press flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4 transition-colors hover:border-ink/25">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#eef7ee] text-[#166534]"><BookOpen size={17} /></span>
             <span>
               <span className="block text-sm font-bold text-ink">Browse the help center</span>

@@ -81,21 +81,21 @@ export default async function AdminTicket({ params }: { params: Promise<{ id: st
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="space-y-4">
           {t.body ? (
-            <div className="rounded-2xl border border-rule bg-surface p-5">
+            <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
               <p className="kicker mb-2 text-faint">Message</p>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{t.body}</p>
             </div>
           ) : null}
 
           {t.ai_summary ? (
-            <div className="rounded-2xl border border-rule bg-surface p-5">
+            <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
               <p className="kicker mb-2 flex items-center gap-1 text-faint"><Sparkles size={11} /> Assistant&rsquo;s summary for you</p>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{t.ai_summary}</p>
             </div>
           ) : null}
 
           {transcript && transcript.length ? (
-            <div className="rounded-2xl border border-rule bg-surface p-5">
+            <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
               <p className="kicker mb-3 text-faint">Full conversation transcript</p>
               <div className="space-y-2.5">
                 {transcript.map((m) =>
@@ -113,7 +113,7 @@ export default async function AdminTicket({ params }: { params: Promise<{ id: st
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-rule bg-surface p-5">
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
             <p className="kicker mb-2 text-faint">Private note</p>
             <form action={saveTicketNote}>
               <input type="hidden" name="ticketId" value={t.id} />
@@ -130,7 +130,7 @@ export default async function AdminTicket({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        <aside className="rounded-2xl border border-rule bg-surface p-5">
+        <aside className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <p className="kicker mb-3 flex items-center gap-1 text-faint"><User size={11} /> Member</p>
           <p className="text-sm font-bold text-ink">{prof?.display_name ?? "Unknown"}</p>
           <p className="mt-0.5 break-all text-xs text-mute">{authUser?.user?.email ?? "no email on file"}</p>

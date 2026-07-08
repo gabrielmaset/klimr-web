@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * The canonical Klimr surface. Codifies the dominant pattern
- * (`rounded-2xl border border-rule bg-surface`, 188 occurrences) into one
+ * (`rounded-2xl border border-rule bg-surface shadow-e1`, 188 occurrences) into one
  * primitive with consistent radius / padding / elevation / interaction.
  *
  *   <Card>…</Card>                          // resting card
@@ -44,10 +44,10 @@ export function cardClasses({
   className?: string;
 } = {}) {
   return cn(
-    "border border-rule bg-surface",
+    "border border-rule bg-surface shadow-e1",
     radii[radius],
     pads[pad],
-    elevated && "shadow-e1",
+    elevated && "shadow-e2",
     interactive && "lift cursor-pointer",
     className,
   );

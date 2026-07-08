@@ -227,7 +227,7 @@ export function DivisionGroups({
   const stepBtn = "grid h-8 w-8 place-items-center rounded-lg border border-rule bg-bg text-ink transition-colors hover:border-brand hover:text-brand-deep disabled:opacity-40 disabled:hover:border-rule disabled:hover:text-ink";
 
   return (
-    <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+    <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-ink">{name}</h2>
@@ -307,11 +307,11 @@ export function DivisionGroups({
             Only {chooser} {noun(unit, chooser)} free in the cap — add {chooser === 1 ? "it" : "them"} as:
           </p>
           <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={onChooseGrow} className="press rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-left transition-colors hover:border-brand">
+            <button type="button" onClick={onChooseGrow} className="press rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-left transition-colors hover:border-brand">
               <span className="block text-sm font-semibold text-ink">Grow a pool</span>
               <span className="mt-0.5 block text-[11px] text-mute">Pools become {poolSizes(groups, per, extra + chooser, "grow").join(" · ")}</span>
             </button>
-            <button type="button" onClick={onChooseNewPool} className="press rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-left transition-colors hover:border-brand">
+            <button type="button" onClick={onChooseNewPool} className="press rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-left transition-colors hover:border-brand">
               <span className="block text-sm font-semibold text-ink">New small pool</span>
               <span className="mt-0.5 block text-[11px] text-mute">Adds a pool of {chooser} → {poolSizes(groups, per, extra + chooser, "pool").join(" · ")}</span>
             </button>

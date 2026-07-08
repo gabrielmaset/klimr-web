@@ -49,7 +49,7 @@ export function ClassCreateForm() {
     <form action={createClass} className="space-y-6">
       <input type="hidden" name="first_start_iso" value={isoFromLocal(start)} />
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">
             <span className={labelCls}>Title</span>
@@ -80,7 +80,7 @@ export function ClassCreateForm() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <h2 className="text-sm font-bold text-ink">Format &amp; who it&rsquo;s for</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
@@ -134,7 +134,7 @@ export function ClassCreateForm() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <h2 className="text-sm font-bold text-ink">Location</h2>
         <p className="-mt-2 text-xs text-faint">Enter the exact address — players see it on a map on the class page.</p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -153,7 +153,7 @@ export function ClassCreateForm() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <h2 className="text-sm font-bold text-ink">Schedule</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
@@ -192,7 +192,7 @@ export function ClassCreateForm() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <label className="flex items-center gap-3">
           <input type="checkbox" name="paid" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="h-4 w-4 accent-brand" />
           <span className="text-sm font-semibold text-ink">This is a paid class</span>
@@ -217,14 +217,14 @@ export function ClassCreateForm() {
         ) : null}
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-3 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <label className="block">
           <span className={labelCls}>Cancellation policy (optional)</span>
           <textarea name="cancellation_policy" rows={2} maxLength={300} placeholder="e.g. Cancel 24h ahead for a full refund; no-shows are charged." className={field} />
         </label>
       </section>
 
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface p-5">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <label className="flex items-center gap-3">
           <input type="checkbox" name="publish" defaultChecked className="h-4 w-4 accent-brand" />
           <span className="text-sm font-semibold text-ink">Publish now</span>

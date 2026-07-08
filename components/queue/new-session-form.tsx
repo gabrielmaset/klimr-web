@@ -86,7 +86,7 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
   };
 
   return (
-    <div className="mt-6 space-y-6 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+    <div className="mt-6 space-y-6 rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
       <div>
         <label className="mb-1 block text-sm font-semibold text-ink">Session name</label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Saturday beach volley" className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm outline-none focus:border-brand" />

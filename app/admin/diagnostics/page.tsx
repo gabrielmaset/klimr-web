@@ -60,10 +60,10 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
             name="q"
             defaultValue={q ?? ""}
             placeholder="Search message, URL, or details…"
-            className="w-full rounded-xl border border-rule bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand"
+            className="w-full rounded-xl border border-rule bg-surface shadow-e1 py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand"
           />
         </div>
-        <select name="level" defaultValue={lvl} className="rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand">
+        <select name="level" defaultValue={lvl} className="rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand">
           <option value="">All levels</option>
           <option value="error">Errors</option>
           <option value="warn">Warnings</option>
@@ -81,7 +81,7 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
           logs.map((e) => {
             const meta = LEVEL[(e.level as keyof typeof LEVEL)] ?? LEVEL.info;
             return (
-              <div key={e.id} className="rounded-2xl border border-rule bg-surface p-3.5">
+              <div key={e.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-3.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg ${meta.tint} ${meta.cls}`}>
                     <meta.Icon size={13} />

@@ -58,7 +58,7 @@ export default async function AdminTournaments() {
       </p>
 
       {tournaments.length === 0 ? (
-        <div className="rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">No tournaments yet.</div>
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center text-sm text-mute">No tournaments yet.</div>
       ) : (
         <div className="space-y-3">
           {tournaments.map((t) => {

@@ -54,7 +54,7 @@ export function MatchInvite({ matchId, friends }: { matchId: string; friends: Fr
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search your friends…"
-          className="h-10 w-full rounded-xl border border-rule bg-surface pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
+          className="h-10 w-full rounded-xl border border-rule bg-surface shadow-e1 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
         />
       </div>
 
@@ -63,7 +63,7 @@ export function MatchInvite({ matchId, friends }: { matchId: string; friends: Fr
           {q.trim() ? `No friends match “${q.trim()}”.` : "Everyone you're friends with is already on this match or invited."}
         </p>
       ) : (
-        <div className="mt-2 max-h-80 divide-y divide-rule overflow-y-auto rounded-2xl border border-rule bg-surface">
+        <div className="mt-2 max-h-80 divide-y divide-rule overflow-y-auto rounded-2xl border border-rule bg-surface shadow-e1">
           {visible.map((p) => (
             <div key={p.id} className="flex items-center gap-3 px-4 py-3">
               <Avatar url={p.avatar_url} hue={p.avatar_hue ?? 200} name={p.display_name} size={34} />

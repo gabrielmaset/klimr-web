@@ -171,11 +171,11 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
         waitlist={<WaitlistManager regItems={regItems} emailItems={emailItems} tournamentId={id} />}
         registrations={
           activeEntries.length === 0 ? (
-        <div className="rounded-3xl border border-rule bg-surface p-8 text-center text-sm text-mute">No registrations yet. Entries will appear here as people sign up.</div>
+        <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-8 text-center text-sm text-mute">No registrations yet. Entries will appear here as people sign up.</div>
       ) : (
         <div className="grid gap-4">
           {activeEntries.map((e, i) => (
-            <div key={i} className="overflow-hidden rounded-3xl border border-rule bg-surface p-5">
+            <div key={i} className="overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1 p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-base font-bold text-ink">{e.name}</p>

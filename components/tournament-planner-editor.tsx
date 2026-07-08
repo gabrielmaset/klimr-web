@@ -197,7 +197,7 @@ export function TournamentPlannerEditor({ tournamentId, initial, defaultDate }: 
           {groups.map(([day, dayItems]) => {
             const { placed, lanes, startH, hours } = placeDay(dayItems);
             return (
-              <section key={day} className="rounded-3xl border border-rule bg-surface p-4 sm:p-5">
+              <section key={day} className="rounded-3xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
                 <h2 className="mb-3 text-sm font-bold text-ink">{fmtDate(dayItems[0].starts)}</h2>
                 <div className="relative" style={{ height: hours.length ? (hours[hours.length - 1] - startH) * PX_PER_HOUR + 8 : 0 }}>
                   {hours.map((h) => (
@@ -278,7 +278,7 @@ export function TournamentPlannerEditor({ tournamentId, initial, defaultDate }: 
       ) : null}
 
       {/* add */}
-      <div className="rounded-3xl border border-rule bg-surface p-4 sm:p-5">
+      <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
         <h3 className="text-sm font-bold text-ink">Add to the plan</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">

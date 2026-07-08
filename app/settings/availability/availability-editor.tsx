@@ -75,7 +75,7 @@ export function AvailabilityEditor({ initial }: { initial: Range[] }) {
           {sorted.map((r) => {
             const i = indexOf(r);
             return (
-              <li key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-surface px-3 py-2.5">
+              <li key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5">
                 <select value={r.day} onChange={(e) => update(i, { day: e.target.value })} className={selCls} aria-label="Day">
                   {DAYS.map((d) => (
                     <option key={d.key} value={d.key}>{d.label}</option>

@@ -181,6 +181,18 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-07 — Visual pass V1 (global feel) — depth, athletic voice, chrome
+- **Depth is on, app-wide.** Resting cards carry `shadow-e1` (297 instances across 126 files via a
+  guarded transform — skipped anything already shadowed, dashed empty-states, and the tournament
+  theme); the `Card` primitive now bakes `e1` in (`elevated` raises to `e2`); `.lift`'s hover
+  elevation now uses the `--shadow-e2` token. One token family drives all depth.
+- **Athletic voice on the flagships.** `/me`'s four section headers moved off kicker-as-header onto
+  the Oswald pattern (the teams-hub model); the feed rail headers likewise; `/me`'s scoreboard stat
+  values render in condensed athletic weight.
+- **Chrome is one family.** The desktop top bar is now rounded-3xl frosted glass with `shadow-e2`
+  and a rail-matched gutter — fixing the rail/top-bar seam — and its presence dots + next-match
+  chip joined the tokens (file at zero hex).
+
 ### 2026-07-07 — Post-refinement follow-ups (recommendations applied)
 - **`/me`'s local `SPORT_COLOR` map retired.** A module-level `sportTint(key, pct)` helper now
   derives tints from the sport tokens via `color-mix` at the old hex-alpha strengths (8/12/15%),

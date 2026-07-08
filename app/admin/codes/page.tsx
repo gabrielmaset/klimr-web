@@ -79,7 +79,7 @@ export default async function AdminCodesPage() {
       {invites.length === 0 ? (
         <p className="mt-2 text-sm text-mute">No invite codes yet.</p>
       ) : (
-        <div className="mt-2 max-h-[28rem] overflow-auto rounded-2xl border border-rule bg-surface">
+        <div className="mt-2 max-h-[28rem] overflow-auto rounded-2xl border border-rule bg-surface shadow-e1">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-rule text-left text-faint">
@@ -151,7 +151,7 @@ export default async function AdminCodesPage() {
       {investors.length === 0 ? (
         <p className="mt-2 text-sm text-mute">No investor codes yet.</p>
       ) : (
-        <div className="mt-2 max-h-[28rem] overflow-auto rounded-2xl border border-rule bg-surface">
+        <div className="mt-2 max-h-[28rem] overflow-auto rounded-2xl border border-rule bg-surface shadow-e1">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-rule text-left text-faint">

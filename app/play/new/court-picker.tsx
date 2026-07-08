@@ -135,7 +135,7 @@ export function CourtPicker({
                 inputMode="numeric"
                 placeholder="Near ZIP"
                 aria-label="Court search ZIP"
-                className="h-10 w-full rounded-xl border border-rule bg-surface pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
+                className="h-10 w-full rounded-xl border border-rule bg-surface shadow-e1 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
               />
             </div>
             <p className="text-xs text-faint">{sport ? "Courts near this ZIP — free, no search needed." : "Pick a sport first."}</p>
@@ -143,16 +143,16 @@ export function CourtPicker({
 
           <div className="mt-3 space-y-2">
             {loading ? (
-              <div className="rounded-2xl border border-rule bg-surface p-6 text-center text-sm text-mute">Loading nearby courts…</div>
+              <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-6 text-center text-sm text-mute">Loading nearby courts…</div>
             ) : !sport || zip.length !== 5 ? null : list.length === 0 && loaded ? (
-              <div className="rounded-2xl border border-rule bg-surface p-6 text-center text-sm text-mute">No saved courts near here yet — try a search below.</div>
+              <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-6 text-center text-sm text-mute">No saved courts near here yet — try a search below.</div>
             ) : (
               list.slice(0, 8).map((c) => (
                 <button
                   key={c.key}
                   type="button"
                   onClick={() => onSelect(c)}
-                  className="lift flex w-full items-center gap-3 rounded-2xl border border-rule bg-surface p-3.5 text-left"
+                  className="lift flex w-full items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-3.5 text-left"
                 >
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg">
                     <MapPin size={16} className="text-ink" />

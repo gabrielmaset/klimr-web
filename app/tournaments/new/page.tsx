@@ -64,7 +64,7 @@ export default async function NewTournamentPage() {
       </div>
 
       {!verified ? (
-        <section className="mt-6 flex items-start gap-3 rounded-2xl border border-rule bg-surface p-5">
+        <section className="mt-6 flex items-start gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-tint-brand text-brand-deep">
             <ShieldCheck size={18} />
           </span>

@@ -331,7 +331,7 @@ export function OnboardingWizard({
                   onKeyDown={enterAdvances}
                   placeholder="Alex"
                   autoFocus
-                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
                 />
               </label>
               <label className="block">
@@ -341,7 +341,7 @@ export function OnboardingWizard({
                   onChange={(e) => setLastName(e.target.value.slice(0, 40))}
                   onKeyDown={enterAdvances}
                   placeholder="Rivera"
-                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                  className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
                 />
               </label>
             </div>
@@ -354,7 +354,7 @@ export function OnboardingWizard({
                 type="date"
                 value={dob}
                 onChange={(e) => setDob(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
+                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
               />
               <span className="mt-1.5 block text-xs text-mute">
                 Klimr is 18+. Your age is shown on your profile; your full date of birth is not.
@@ -368,7 +368,7 @@ export function OnboardingWizard({
                 onKeyDown={enterAdvances}
                 inputMode="numeric"
                 placeholder="90066"
-                className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3.5 py-3 font-mono text-lg tracking-[0.2em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 font-mono text-lg tracking-[0.2em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
               />
               <span className="mt-1.5 block text-xs text-mute">
                 Your home board. Rankings start at the ZIP level.
@@ -533,7 +533,7 @@ export function OnboardingWizard({
         {/* ---- step 4 · schedule (15-minute blocks per day) ---- */}
         {step === 3 ? (
           <div className="space-y-3">
-            <div className="overflow-hidden rounded-2xl border border-rule bg-surface">
+            <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
               <div className="divide-y divide-rule">
                 {DAYS.map((d) => {
                   const dayRanges = ranges
@@ -671,7 +671,7 @@ export function OnboardingWizard({
         {/* ---- step 5 · finishing touches ---- */}
         {step === 4 ? (
           <div className="space-y-5">
-            <div className="flex items-center gap-4 rounded-2xl border border-rule bg-surface p-4">
+            <div className="flex items-center gap-4 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
               <div
                 aria-hidden
                 className="grid h-14 w-14 shrink-0 place-items-center rounded-full font-display text-xl text-surface"
@@ -712,7 +712,7 @@ export function OnboardingWizard({
                 onChange={(e) => setBio(e.target.value.slice(0, 160))}
                 rows={2}
                 placeholder="Weekend pickleball, always up for a rally."
-                className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+                className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
               />
               <span className="mt-1 block text-right font-mono text-[10px] text-faint">{bio.length}/160</span>
             </label>
@@ -722,7 +722,7 @@ export function OnboardingWizard({
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
+                className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand"
               >
                 <option value="">Prefer not to say</option>
                 <option value="woman">Woman</option>
@@ -756,7 +756,7 @@ export function OnboardingWizard({
           <button
             type="button"
             onClick={back}
-            className="press rounded-xl border border-rule bg-surface px-4 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink"
+            className="press rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink"
           >
             Back
           </button>

@@ -16,9 +16,9 @@ const SPORT_LABEL: Record<string, string> = {
 };
 
 const STATE = {
-  online: { dot: "#16a34a", label: "Online" },
-  away: { dot: "#f59e0b", label: "Away" },
-  offline: { dot: "#a1a1aa", label: "Offline" },
+  online: { dot: "var(--color-success)", label: "Online" },
+  away: { dot: "var(--color-warning)", label: "Away" },
+  offline: { dot: "var(--color-faint)", label: "Offline" },
 } as const;
 
 // What the pill shows for each saved mode (auto resolves to online while the
@@ -219,8 +219,8 @@ export function TopBar({
   const proTeams = teams.filter((t) => t.category === "pro");
 
   return (
-    <div className="sticky top-0 z-40 hidden bg-bg px-3 pb-3 pt-3 md:block">
-    <header className="rounded-2xl border border-rule bg-surface shadow-[0_10px_40px_-15px_rgba(10,10,11,0.22)]">
+    <div className="sticky top-0 z-40 hidden bg-bg pb-3 pl-0 pr-3 pt-3 md:block">
+    <header className="rounded-3xl border border-rule/60 bg-white/75 shadow-e2 backdrop-blur-xl backdrop-saturate-150">
       <div className="flex items-center gap-3 px-3.5 py-2.5">
         {/* Inline search — type here, results drop down below (no modal) */}
         <TopSearch />
@@ -230,7 +230,7 @@ export function TopBar({
           <Link
             href={`/play/${nextMatch.id}`}
             aria-label={`Next match: ${SPORT_LABEL[nextMatch.sportKey] ?? "match"} ${whenShort(nextMatch.scheduledAt)}`}
-            className="lift hidden min-w-0 max-w-[20rem] items-center gap-2 rounded-full border border-[#ffd9cb] bg-tint-brand py-1.5 pl-3 pr-1.5 text-[13px] font-semibold text-ink-soft lg:inline-flex"
+            className="lift hidden min-w-0 max-w-[20rem] items-center gap-2 rounded-full border border-brand/25 bg-tint-brand py-1.5 pl-3 pr-1.5 text-[13px] font-semibold text-ink-soft lg:inline-flex"
           >
             <CalendarClock size={15} className="shrink-0 text-brand" />
             <span className="min-w-0 flex-1 truncate">

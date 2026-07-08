@@ -43,7 +43,7 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
 
   return (
     <div>
-      <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+      <div className="flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-sm font-bold text-surface">{n}</span>
         <div className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
@@ -214,7 +214,7 @@ export function CourtsExplorer({
       {/* LEFT — search + results stack (narrower column) */}
       <div className="space-y-5">
         {/* Search controls */}
-        <div className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
         <div className="flex flex-col gap-2.5 sm:flex-row">
           <div className="relative flex-1">
             <MapPin size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
@@ -306,15 +306,15 @@ export function CourtsExplorer({
         {/* Results list */}
         <div>
           {resp === null ? (
-            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
+            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center text-sm text-mute">
               Enter a ZIP or city, pick a sport, and find courts near you.
             </div>
           ) : loading ? (
-            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
+            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center text-sm text-mute">
               Searching nearby courts…
             </div>
           ) : shown.length === 0 ? (
-            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
+            <div className="grid h-full min-h-[200px] place-items-center rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center text-sm text-mute">
               {notice ?? "No courts found."}
             </div>
           ) : (
@@ -342,7 +342,7 @@ export function CourtsExplorer({
                 <button
                   type="button"
                   onClick={() => setVisible((v) => Math.min(allCourts.length, v + PAGE))}
-                  className="press mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-rule bg-surface py-3 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+                  className="press mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-rule bg-surface shadow-e1 py-3 text-sm font-semibold text-ink transition-colors hover:bg-bg"
                 >
                   More results <span className="font-normal text-faint">({allCourts.length - visible} more)</span>
                 </button>

@@ -91,7 +91,7 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
           { k: `${meta.name} matches`, v: String(totalMatches) },
           { k: "Win rate", v: winRate === null ? "—" : `${winRate}%` },
         ].map((s) => (
-          <div key={s.k} className="rounded-2xl border border-rule bg-surface p-4">
+          <div key={s.k} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
             <p className="font-display text-2xl text-ink sm:text-3xl">{s.v}</p>
             <p className="mt-0.5 text-xs text-mute">{s.k}</p>
           </div>
@@ -101,7 +101,7 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
       {/* quick links */}
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         {tiles.map((t) => (
-          <Link key={t.href} href={t.href} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+          <Link key={t.href} href={t.href} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bg text-ink">
               <t.Icon size={19} />
             </span>
@@ -115,7 +115,7 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
       </div>
 
       {/* squad preview */}
-      <div className="mt-6 rounded-2xl border border-rule bg-surface p-5">
+      <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-bold text-ink">Squad</h2>
           <Link href={`${base}/roster`} className="text-xs font-semibold text-brand-deep hover:underline">

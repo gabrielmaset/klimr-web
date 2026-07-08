@@ -15,7 +15,7 @@ export function ProfessionalStatusForm({ existingRoles }: { existingRoles: strin
   const meta = roleMeta(role);
 
   return (
-    <form action={requestProfessionalStatus} className="space-y-5 rounded-2xl border border-rule bg-surface p-5">
+    <form action={requestProfessionalStatus} className="space-y-5 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
       <div>
         <h2 className="text-base font-bold text-ink">Request a professional status</h2>
         <p className="mt-1 text-sm text-mute">

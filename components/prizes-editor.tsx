@@ -128,7 +128,7 @@ export function PrizesEditor({ tournamentId, initial, divisions }: { tournamentI
           {rows.map((r) => {
             const busy = uploading === r.id;
             return (
-              <div key={r.id} className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+              <div key={r.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
                 <div className="flex items-start gap-3">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-tint-brand text-brand-deep">
                     <Trophy size={16} />

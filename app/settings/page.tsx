@@ -28,7 +28,7 @@ type RowDef = { Icon: typeof UserRound; title: string; desc: string; href?: stri
 
 function Section({ title, rows }: { title: string; rows: RowDef[] }) {
   return (
-    <section className="rounded-2xl border border-rule bg-surface p-3">
+    <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-3">
       <h2 className="kicker px-2 pb-2.5 pt-1 text-faint">{title}</h2>
       <div className="space-y-1">
         {rows.map((r) => {
@@ -100,7 +100,7 @@ export default async function SettingsPage() {
       </div>
 
       {/* identity header → profile */}
-      <Link href="/me" className="lift mb-5 flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+      <Link href="/me" className="lift mb-5 flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
         <Avatar url={myAvatar} hue={profile?.avatar_hue ?? 18} name={profile?.display_name ?? "You"} size={52} ring />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-base font-bold text-ink">{profile?.display_name ?? "You"}</span>
@@ -167,7 +167,7 @@ export default async function SettingsPage() {
           />
 
           {/* Data & account */}
-          <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+          <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
             <h2 className="kicker text-faint">Data &amp; account</h2>
             <a href="/settings/export" className="lift mt-2 flex items-center gap-3 rounded-xl border border-rule p-3">
               <Download size={17} className="shrink-0 text-ink" />

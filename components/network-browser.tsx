@@ -208,7 +208,7 @@ export function NetworkBrowser({
 
       {/* You play most with — quick access to frequent partners */}
       {topPartners.length > 0 ? (
-        <div className="mb-5 rounded-3xl border border-rule bg-surface p-4">
+        <div className="mb-5 rounded-3xl border border-rule bg-surface shadow-e1 p-4">
           <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-faint">
             <Zap size={13} className="text-pop" /> You play most with
           </p>
@@ -231,7 +231,7 @@ export function NetworkBrowser({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={`Search ${tab} by name or area…`}
-            className="w-full rounded-2xl border border-rule bg-surface py-2.5 pl-10 pr-9 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
+            className="w-full rounded-2xl border border-rule bg-surface shadow-e1 py-2.5 pl-10 pr-9 text-sm text-ink outline-none placeholder:text-faint focus:border-brand"
           />
           {q ? (
             <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-faint hover:bg-bg hover:text-ink">
@@ -314,7 +314,7 @@ function PersonRow({ p, tab, onFollow, onFriend }: { p: Person; tab: Tab; onFoll
   const showsFollowsYou = p.followsMe && tab !== "followers";
 
   return (
-    <div className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-3">
+    <div className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-3">
       <Link href={`/profile/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3">
         <Avatar url={p.avatarUrl} hue={p.hue} name={p.name} size={48} />
         <div className="min-w-0 flex-1">
@@ -395,7 +395,7 @@ function SortMenu({ value, onChange }: { value: SortKey; onChange: (v: SortKey) 
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="press inline-flex w-full items-center justify-center gap-1.5 rounded-2xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-mute transition-colors hover:text-ink sm:w-auto"
+        className="press inline-flex w-full items-center justify-center gap-1.5 rounded-2xl border border-rule bg-surface shadow-e1 px-4 py-2.5 text-sm font-semibold text-mute transition-colors hover:text-ink sm:w-auto"
       >
         <ArrowUpDown size={15} /> {current.label}
         <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />

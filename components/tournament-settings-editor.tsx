@@ -89,7 +89,7 @@ function SectionCard({
   }
 
   return (
-    <section id={id} className="scroll-mt-24 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+    <section id={id} className="scroll-mt-24 rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
       <div className="flex items-start gap-2.5">
         <span className="mt-1 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-brand to-brand-deep" />
         <div>
@@ -581,7 +581,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
       key: "visibility",
       label: "Visibility & publishing",
       content: (
-      <section id="visibility" className="scroll-mt-24 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+      <section id="visibility" className="scroll-mt-24 rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
         <div className="flex items-start gap-2.5">
           <span className="mt-1 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-brand to-brand-deep" />
           <div>

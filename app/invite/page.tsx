@@ -27,7 +27,7 @@ export default async function InvitePage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-rule bg-surface p-8 text-center">
+      <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-bg">
           <Clock size={22} className="text-mute" />
         </span>

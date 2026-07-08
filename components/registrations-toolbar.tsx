@@ -61,7 +61,7 @@ export function RegistrationsToolbar({ entries, perPlayerFields, perTeamFields, 
 
   return (
     <div className="flex items-center gap-2 print:hidden">
-      <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-3.5 py-2 text-sm font-semibold text-ink hover:border-faint">
+      <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2 text-sm font-semibold text-ink hover:border-faint">
         <Printer size={15} /> Print
       </button>
       <button type="button" onClick={exportCsv} className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white hover:bg-ink-soft">

@@ -90,7 +90,7 @@ export function DateTimeField({
           type="button"
           onClick={() => onChange("")}
           aria-label="Clear"
-          className="press grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-rule bg-surface text-mute hover:text-ink"
+          className="press grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-rule bg-surface shadow-e1 text-mute hover:text-ink"
         >
           <X size={15} />
         </button>

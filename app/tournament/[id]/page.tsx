@@ -42,7 +42,7 @@ function StatTile({
 }) {
   const valueColor = tone === "good" ? "text-success" : tone === "warn" ? "text-brand-deep" : "text-ink";
   return (
-    <div className="rounded-2xl border border-rule bg-surface p-4">
+    <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
       <div className="flex items-center gap-1.5 text-mute">
         <Icon size={14} />
         <span className="kicker">{label}</span>
@@ -282,7 +282,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
       {/* panels */}
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         {/* setup progress (compact) */}
-        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5 lg:col-span-2">
+        <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-sm font-bold text-ink">Setup</h2>
             <span className="text-xs text-mute">{completed} of {setup.length} done</span>
@@ -308,7 +308,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
         {forecast ? (
           <WeatherForecastCard forecast={forecast} dateText={dateText} locationName={t.location_name} className="lg:col-span-1" />
         ) : (
-          <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5 lg:col-span-1">
+          <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5 lg:col-span-1">
             <h2 className="mb-2 text-sm font-bold text-ink">Weather</h2>
             <p className="text-xs text-mute">
               {t.location_lat == null
@@ -319,7 +319,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
         )}
 
         {/* public page */}
-        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+        <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
           <h2 className="mb-3 text-sm font-bold text-ink">Public page</h2>
           <div className="flex items-center gap-2.5">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-tint-brand text-brand-deep"><Link2 size={17} /></span>
@@ -331,7 +331,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
         </section>
 
         {/* recent sign-ups */}
-        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5 lg:col-span-2">
+        <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-sm font-bold text-ink">Recent sign-ups</h2>
             <Link href={`${base}/registrations`} className="text-xs font-semibold text-brand-deep hover:underline">View all →</Link>
@@ -356,7 +356,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
         </section>
 
         {/* registration window + control */}
-        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+        <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
           <h2 className="mb-3 text-sm font-bold text-ink">Registration</h2>
           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${regState === "open" ? "bg-tint-success text-success" : regState === "scheduled" ? "bg-tint-brand text-brand-deep" : "bg-bg text-mute"}`}>
             <Clock size={12} /> {regState === "open" ? "Open" : regState === "scheduled" ? "Scheduled" : "Closed"}
@@ -383,7 +383,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
 
         {/* divisions breakdown */}
         {divisions.length > 0 ? (
-          <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5 lg:col-span-2">
+          <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5 lg:col-span-2">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-sm font-bold text-ink">Divisions</h2>
               <Link href={`${base}/settings#divisions`} className="text-xs font-semibold text-brand-deep hover:underline">Manage →</Link>

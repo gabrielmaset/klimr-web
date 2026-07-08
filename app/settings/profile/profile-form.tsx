@@ -22,7 +22,7 @@ const GENDERS = [
 ];
 
 const inputCls =
-  "w-full rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-ink";
+  "w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-ink";
 const labelCls = "mb-1.5 block text-xs font-semibold text-mute";
 
 export function ProfileBasicsForm({ initial }: { initial: ProfileInitial }) {

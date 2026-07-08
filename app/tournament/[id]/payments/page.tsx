@@ -96,7 +96,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-3xl border border-rule bg-surface p-8 text-center text-sm text-mute">No entries yet — payments will appear here once people sign up.</div>
+        <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-8 text-center text-sm text-mute">No entries yet — payments will appear here once people sign up.</div>
       ) : (
         <div className="grid gap-7">
           <section>
@@ -111,7 +111,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
                 ))}
               </div>
             ) : (
-              <p className="rounded-2xl border border-rule bg-surface px-4 py-5 text-sm text-mute">Nothing waiting — you&rsquo;re all caught up.</p>
+              <p className="rounded-2xl border border-rule bg-surface shadow-e1 px-4 py-5 text-sm text-mute">Nothing waiting — you&rsquo;re all caught up.</p>
             )}
           </section>
 

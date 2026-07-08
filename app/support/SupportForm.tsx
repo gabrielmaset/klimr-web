@@ -4,7 +4,7 @@ import { useActionState, useRef, useEffect } from "react";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 import { sendSupportMessage } from "./actions";
 
-const field = "w-full rounded-xl border border-rule bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand";
+const field = "w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand";
 
 export function SupportForm({ email }: { email: string }) {
   const [state, action, pending] = useActionState(sendSupportMessage, undefined);
@@ -16,7 +16,7 @@ export function SupportForm({ email }: { email: string }) {
 
   if (state?.ok) {
     return (
-      <div className="rounded-2xl border border-rule bg-surface p-6">
+      <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-6">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-tint-success">
           <CheckCircle2 size={20} className="text-success" aria-hidden />
         </div>
@@ -29,7 +29,7 @@ export function SupportForm({ email }: { email: string }) {
   }
 
   return (
-    <form ref={formRef} action={action} className="rounded-2xl border border-rule bg-surface p-4 sm:p-6">
+    <form ref={formRef} action={action} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-6">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="kicker text-faint">Topic</span>

@@ -168,7 +168,7 @@ export default async function FeedPage() {
             </div>
           )}
 
-          <p className="mt-7 flex items-center gap-2 rounded-2xl border border-rule bg-surface/60 px-4 py-3 text-xs text-faint">
+          <p className="mt-7 flex items-center gap-2 rounded-2xl border border-rule bg-surface shadow-e1/60 px-4 py-3 text-xs text-faint">
             <Megaphone size={14} className="shrink-0" />
             Player posting opens once media uploads can be supported safely. For now, the feed is curated by Klimr.
           </p>
@@ -188,9 +188,9 @@ export default async function FeedPage() {
 
           {/* Happening soon */}
           {upcoming.length > 0 ? (
-            <div className="rounded-3xl border border-rule bg-surface p-5">
+            <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-ink">Happening soon</h3>
+                <h3 className="font-athletic text-sm font-bold uppercase tracking-wide text-ink">Happening soon</h3>
                 <Link href="/events" className="text-xs font-semibold text-brand-deep hover:text-brand">
                   All events
                 </Link>
@@ -216,8 +216,8 @@ export default async function FeedPage() {
           ) : null}
 
           {/* Jump in */}
-          <div className="rounded-3xl border border-rule bg-surface p-5">
-            <h3 className="text-sm font-bold text-ink">Jump in</h3>
+          <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5">
+            <h3 className="font-athletic text-sm font-bold uppercase tracking-wide text-ink">Jump in</h3>
             <div className="mt-2 space-y-0.5">
               {QUICK.map((a) => {
                 const { Icon } = a;

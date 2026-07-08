@@ -196,7 +196,7 @@ export function DivisionsBoard({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+      <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-base font-bold text-ink">Tournament capacity</h2>

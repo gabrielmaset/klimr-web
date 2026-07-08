@@ -53,7 +53,7 @@ export function EventLocationMap({
   const caption = label || addr || "Venue";
 
   return (
-    <div className={`relative h-full min-h-[170px] overflow-hidden rounded-3xl border border-rule bg-surface ${className ?? ""}`}>
+    <div className={`relative h-full min-h-[170px] overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1 ${className ?? ""}`}>
       <iframe
         src={embedSrc}
         title={`Map showing ${caption}`}

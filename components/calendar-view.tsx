@@ -214,7 +214,7 @@ function MonthGrid({ events, cursor, now, onOpenDay }: { events: Ev[]; cursor: D
   for (const arr of byDay.values()) arr.sort((a, b) => (a.allDay === b.allDay ? a.startMin - b.startMin : a.allDay ? -1 : 1));
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-rule bg-surface">
+    <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
       <div className="grid grid-cols-7 border-b border-rule bg-bg/50">
         {WEEKDAYS.map((w) => (
           <div key={w} className="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-faint">{w}</div>
@@ -285,7 +285,7 @@ function TimeGrid({ events, days, now }: { events: Ev[]; days: Date[]; now: Date
   const gutter = "3.25rem";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-rule bg-surface">
+    <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
       {/* day header */}
       <div className="flex border-b border-rule">
         <div className="shrink-0" style={{ width: gutter }} />

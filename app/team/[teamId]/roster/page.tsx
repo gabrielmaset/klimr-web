@@ -92,7 +92,7 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
 
       {/* invite */}
       {canInviteMembers ? (
-        <section className="mb-6 rounded-2xl border border-rule bg-surface p-5">
+        <section className="mb-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <h2 className="mb-2 text-sm font-bold text-ink">Add players</h2>
           {members.length + pendingInvitees.length >= cap ? (
             <p className="text-sm text-mute">This team is full — all {cap} spots are taken. Remove a player, or raise the squad size on the Team profile, to add more.</p>

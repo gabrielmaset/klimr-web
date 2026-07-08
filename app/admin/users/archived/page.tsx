@@ -50,7 +50,7 @@ export default async function ArchivedAccountsPage() {
 
       <div className="mt-6 space-y-2">
         {rows.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-8 text-center text-sm text-mute">
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center text-sm text-mute">
             No archived accounts.
           </div>
         ) : (
@@ -59,7 +59,7 @@ export default async function ArchivedAccountsPage() {
             return (
               <div
                 key={u.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rule bg-surface px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3"
               >
                 <div className="min-w-0">
                   <Link

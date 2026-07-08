@@ -46,7 +46,7 @@ export default async function AdminActionsLog({ searchParams }: { searchParams: 
             name="q"
             defaultValue={q ?? ""}
             placeholder="Search action, detail, or target…"
-            className="w-full rounded-xl border border-rule bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand"
+            className="w-full rounded-xl border border-rule bg-surface shadow-e1 py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand"
           />
         </div>
         <button className="press rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Search</button>
@@ -59,7 +59,7 @@ export default async function AdminActionsLog({ searchParams }: { searchParams: 
           <p className="rounded-2xl border border-dashed border-rule bg-bg/40 px-4 py-10 text-center text-sm text-mute">No actions{term ? " match your search" : " recorded yet"}.</p>
         ) : (
           actions.map((a) => (
-            <div key={a.id} className="rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm">
+            <div key={a.id} className="rounded-xl border border-rule bg-surface shadow-e1 px-4 py-2.5 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-mono text-ink">{a.action}</span>
                 <span className="shrink-0 text-faint">{new Date(a.created_at).toLocaleString("en-US")}</span>

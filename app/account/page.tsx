@@ -132,7 +132,7 @@ export default async function AccountPage({
           <Link
             key={href}
             href={href}
-            className="lift flex items-center gap-2.5 rounded-2xl border border-rule bg-surface p-3"
+            className="lift flex items-center gap-2.5 rounded-2xl border border-rule bg-surface shadow-e1 p-3"
           >
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-bg text-ink">
               <Icon size={16} />
@@ -151,7 +151,7 @@ export default async function AccountPage({
         {/* ---------------- LEFT · identity + manage ---------------- */}
         <div className="space-y-5">
           {/* identity hero */}
-          <div className="rise rounded-3xl border border-rule bg-surface p-6">
+          <div className="rise rounded-3xl border border-rule bg-surface shadow-e1 p-6">
             <div className="flex items-start gap-4">
               <Avatar url={photoUrl} hue={hue} name={name} size={72} />
               <div className="min-w-0 flex-1">
@@ -210,7 +210,7 @@ export default async function AccountPage({
           </div>
 
           {/* manage */}
-          <div className="rise rounded-3xl border border-rule bg-surface p-4 sm:p-5" style={{ animationDelay: "60ms" }}>
+          <div className="rise rounded-3xl border border-rule bg-surface shadow-e1 p-4 sm:p-5" style={{ animationDelay: "60ms" }}>
             <div className="kicker px-2 pb-1 pt-1 text-faint">Manage</div>
             <div className="grid gap-1 sm:grid-cols-2">
               {manage.map(({ href, Icon, title, desc }) => (
@@ -236,7 +236,7 @@ export default async function AccountPage({
         {/* ---------------- RIGHT · account status ---------------- */}
         <div className="space-y-5">
           {/* Security */}
-          <div className="rise rounded-3xl border border-rule bg-surface p-6">
+          <div className="rise rounded-3xl border border-rule bg-surface shadow-e1 p-6">
             <div className="kicker text-faint">Security</div>
             <div className="mt-3 flex items-center gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-tint-success">
@@ -256,7 +256,7 @@ export default async function AccountPage({
           </div>
 
           {/* Verification */}
-          <div id="verification" className="rise scroll-mt-24 rounded-3xl border border-rule bg-surface p-6" style={{ animationDelay: "90ms" }}>
+          <div id="verification" className="rise scroll-mt-24 rounded-3xl border border-rule bg-surface shadow-e1 p-6" style={{ animationDelay: "90ms" }}>
             <div className="kicker text-faint">Identity verification</div>
             <p className="mt-2 text-sm leading-relaxed text-mute">
               Every Klimr player is verified — it&apos;s the trust floor for rankings and matches.
@@ -286,7 +286,7 @@ export default async function AccountPage({
           </div>
 
           {/* Online status */}
-          <div className="rise rounded-3xl border border-rule bg-surface p-6" style={{ animationDelay: "180ms" }}>
+          <div className="rise rounded-3xl border border-rule bg-surface shadow-e1 p-6" style={{ animationDelay: "180ms" }}>
             <div className="kicker text-faint">Online status</div>
             <p className="mt-2 text-sm leading-relaxed text-mute">
               Sets the status dot others see. You can also switch it anytime from the pill in your top bar.

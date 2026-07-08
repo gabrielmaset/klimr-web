@@ -188,7 +188,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
             const isCaptain = m.designation === "captain";
             const showControls = canManage && m.user_id !== user.id && m.role !== "owner" && !(myRole === "manager" && m.role === "manager");
             return (
-              <div key={m.user_id} className="relative overflow-hidden rounded-2xl border border-rule bg-surface p-4">
+              <div key={m.user_id} className="relative overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                 <span aria-hidden className="absolute inset-x-0 top-0 h-1" style={{ background: kit.primary }} />
                 <span aria-hidden className="pointer-events-none absolute -bottom-5 right-0 select-none font-athletic text-7xl font-bold leading-none" style={{ color: kit.primary, opacity: 0.09 }}>{num}</span>
                 {showControls ? (
@@ -252,14 +252,14 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
 
       {/* ===== manage team (managers) ===== */}
       {canManage ? (
-        <section className="mt-8 rounded-2xl border border-rule bg-surface p-5">
+        <section className="mt-8 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <h2 className="font-athletic mb-3 text-xl font-bold uppercase tracking-wide text-ink">Manage team</h2>
           <EditTeamForm teamId={team.id} name={team.name} zip={team.zip ?? ""} city={team.city ?? ""} state={team.state ?? ""} sportKey={team.sport_key} maxSize={team.max_size ?? sz.default} memberCount={members.length} />
         </section>
       ) : null}
 
       {/* ===== team / club structure ===== */}
-      <section className="mt-8 rounded-2xl border border-rule bg-surface p-5">
+      <section className="mt-8 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <h2 className="font-athletic text-xl font-bold uppercase tracking-wide text-ink">{isPro ? "Club structure" : "Team structure"}</h2>
         <p className="mt-1 text-sm text-mute">
           {isPro

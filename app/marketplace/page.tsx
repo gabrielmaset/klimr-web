@@ -27,7 +27,7 @@ function ListingCard({ l, saved }: { l: Listing; saved: boolean }) {
   const sub = l.kind === "gear" && l.condition ? CONDITION[l.condition] ?? l.condition : l.category;
   return (
     <div className="relative">
-      <Link href={`/marketplace/${l.id}`} className="lift block rounded-2xl border border-rule bg-surface p-4 pr-14">
+      <Link href={`/marketplace/${l.id}`} className="lift block rounded-2xl border border-rule bg-surface shadow-e1 p-4 pr-14">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bg">
             {l.kind === "coaching" ? <GraduationCap size={18} className="text-ink" /> : <ShoppingBag size={18} className="text-ink" />}
@@ -169,7 +169,7 @@ export default async function MarketplacePage({
       )}
 
       {listings.length === 0 ? (
-        <div className="rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center text-sm text-mute">
           {savedView ? "You haven't saved anything yet. Tap the heart on a listing to save it." : "No listings match — try clearing a filter."}
         </div>
       ) : (

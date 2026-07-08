@@ -72,7 +72,7 @@ export default async function NotificationsPage() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-2xl border border-rule bg-surface p-10 text-center">
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
           <Bell className="mx-auto text-faint" size={26} />
           <p className="mt-2 text-sm font-semibold text-ink">No notifications yet</p>
           <p className="mt-1 text-sm text-mute">Match activity, ranking changes, and sponsorship offers will show up here.</p>

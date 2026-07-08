@@ -39,7 +39,7 @@ export function InviteShare({ code }: { code: string }) {
   return (
     <div className="space-y-3">
       {/* the code */}
-      <div className="rounded-2xl border border-rule bg-surface p-4">
+      <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
         <p className="kicker text-faint">Your invite code</p>
         <div className="mt-1.5 flex items-center justify-between gap-3">
           <span className="font-mono text-2xl font-bold tracking-[0.12em] text-ink">{code}</span>
@@ -54,7 +54,7 @@ export function InviteShare({ code }: { code: string }) {
       </div>
 
       {/* the link */}
-      <div className="rounded-2xl border border-rule bg-surface p-4">
+      <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
         <p className="kicker text-faint">Shareable link</p>
         <div className="mt-1.5 flex items-center gap-2">
           <Link2 size={15} className="shrink-0 text-mute" />

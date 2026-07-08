@@ -67,7 +67,7 @@ export default async function AdminSupport({ searchParams }: { searchParams: Pro
       </div>
 
       {tickets && tickets.length ? (
-        <ul className="overflow-hidden rounded-2xl border border-rule bg-surface">
+        <ul className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
           {tickets.map((t, i) => (
             <li key={t.id} className={i > 0 ? "border-t border-rule" : ""}>
               <Link href={`/admin/support/${t.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg">

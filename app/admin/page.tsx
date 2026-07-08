@@ -120,7 +120,7 @@ export default async function AdminHome() {
           ) : (
             <div className="max-h-[28rem] space-y-1.5 overflow-y-auto rounded-2xl border border-rule/60 bg-bg/30 p-2">
               {recentActions.map((a) => (
-                <div key={a.id} className="rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm">
+                <div key={a.id} className="rounded-xl border border-rule bg-surface shadow-e1 px-4 py-2.5 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-mono text-ink">{a.action}</span>
                     <span className="shrink-0 text-faint">{new Date(a.created_at).toLocaleString("en-US")}</span>

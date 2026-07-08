@@ -230,7 +230,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {blocked ? (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rule bg-surface px-4 py-3">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3">
           <p className="text-sm text-mute">You&rsquo;ve blocked this player.</p>
           <form action={unblockUser}>
             <input type="hidden" name="userId" value={id} />
@@ -240,7 +240,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
       ) : null}
 
       {/* header */}
-      <div className="flex flex-col gap-5 rounded-2xl border border-rule bg-surface p-6 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-5 rounded-2xl border border-rule bg-surface shadow-e1 p-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
           <AvatarLightbox url={avatarUrl} hue={profile.avatar_hue} name={profile.display_name} size={72} ring />
           <div>
@@ -327,7 +327,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
       <div className="mt-8">
         <div className="kicker mb-3 text-faint">Rankings · ZIP to world</div>
         {sports.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-8 text-center text-sm text-mute">
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center text-sm text-mute">
             {isSelf ? "You don't" : `${profile.display_name || "This player"} doesn't`} have any sport rankings yet. They build as results are logged in the Klimr app.
           </div>
         ) : (
@@ -337,7 +337,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               const rungs = ladders.get(ps.sport_key) ?? [];
               const wr = ps.matches_played ? Math.round((ps.wins / ps.matches_played) * 100) : 0;
               return (
-                <div key={ps.sport_key} className="rounded-2xl border border-rule bg-surface p-5 sm:p-6">
+                <div key={ps.sport_key} className="rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
                       <span className="text-2xl" aria-hidden>{meta.emoji}</span>
@@ -398,14 +398,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <summary className="press inline-flex cursor-pointer list-none items-center gap-2 rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">
                   <Flag size={15} /> Report
                 </summary>
-                <form action={reportUser} className="mt-3 max-w-md rounded-2xl border border-rule bg-surface p-4">
+                <form action={reportUser} className="mt-3 max-w-md rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <input type="hidden" name="userId" value={id} />
                   <label htmlFor="reason" className="kicker text-faint">Reason</label>
                   <select
                     id="reason"
                     name="reason"
                     defaultValue="harassment"
-                    className="mt-1.5 w-full rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
+                    className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
                   >
                     {REASONS.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -418,7 +418,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                     rows={3}
                     maxLength={500}
                     placeholder="What happened?"
-                    className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
+                    className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
                   />
                   <button className="press mt-3 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
                     Submit report

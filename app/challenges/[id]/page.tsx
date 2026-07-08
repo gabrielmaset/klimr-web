@@ -116,7 +116,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
       </div>
 
       {/* repping / nudge */}
-      <div className="mt-5 rounded-2xl border border-rule bg-surface p-4">
+      <div className="mt-5 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
         {repping ? (
           <p className="flex items-start gap-2 text-sm text-ink">
             <Flag size={15} className="mt-0.5 shrink-0 text-brand" />

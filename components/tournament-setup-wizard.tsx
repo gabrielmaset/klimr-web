@@ -202,7 +202,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
 
       {/* step content */}
       <div className="min-w-0 flex-1">
-        <div className="rounded-3xl border border-rule bg-surface p-6 sm:p-8">
+        <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-6 sm:p-8">
           {step === 0 ? (
             <div>
               <h2 className="font-display text-2xl text-ink">Basics</h2>
@@ -471,7 +471,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                       <Scale size={15} className="text-brand-deep" /> Organizer terms &amp; legal disclaimer
                     </h3>
                     <p className="mt-1 text-xs text-faint">Please read before creating. A summary of your responsibilities as an organizer — not legal advice.</p>
-                    <div className="mt-3 max-h-60 space-y-3 overflow-y-auto rounded-xl border border-rule bg-surface p-4 text-xs leading-relaxed text-mute">
+                    <div className="mt-3 max-h-60 space-y-3 overflow-y-auto rounded-xl border border-rule bg-surface shadow-e1 p-4 text-xs leading-relaxed text-mute">
                       <p><strong className="text-ink">1. Klimr is a platform, not the organizer.</strong> Klimr provides software to help you create, promote, and run your event. You — the organizer — are solely responsible for the event itself, including its planning, conduct, supervision, and outcome. Klimr is not a host, promoter, sponsor, operator, or co-organizer of any event, and does not endorse, vet, or guarantee any event, organizer, venue, or participant.</p>
                       <p><strong className="text-ink">2. Compliance with laws.</strong> You are responsible for ensuring your event complies with all applicable federal, state, provincial, and local laws, ordinances, and regulations, including those governing public gatherings, athletic competitions, amateur and youth sport, alcohol, food service, noise, accessibility, consumer protection, prize and contest rules, and the collection of any entry fees.</p>
                       <p><strong className="text-ink">3. Permits, venue rights &amp; licenses.</strong> You must obtain — and keep current — every permit, license, reservation, and written permission your event requires, including government and municipal permits, park or facility use agreements, the right to use any courts, fields, or premises, and any sanctioning required by a governing body. You may not list a venue you are not authorized to use.</p>
@@ -513,11 +513,11 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
           <div className="mt-8 flex items-center justify-between gap-3 border-t border-rule pt-5">
             <div className="flex items-center gap-2">
               {step > 0 ? (
-                <button type="button" onClick={() => go(step - 1)} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:border-faint disabled:opacity-50">
+                <button type="button" onClick={() => go(step - 1)} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface shadow-e1 px-4 py-2.5 text-sm font-semibold text-ink hover:border-faint disabled:opacity-50">
                   <ChevronLeft size={16} /> Back
                 </button>
               ) : null}
-              <Link href="/tournaments" className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-mute hover:text-ink">
+              <Link href="/tournaments" className="press inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface shadow-e1 px-4 py-2.5 text-sm font-semibold text-mute hover:text-ink">
                 Cancel
               </Link>
             </div>

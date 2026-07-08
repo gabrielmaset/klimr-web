@@ -369,7 +369,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               </p>
               <ul className="grid gap-2 sm:grid-cols-2">
                 {pendingProfiles.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-rule bg-surface px-3 py-2">
+                  <li key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-rule bg-surface shadow-e1 px-3 py-2">
                     <Link href={`/profile/${p.id}`} className="flex min-w-0 items-center gap-2">
                       <Avatar url={avatarUrl(p)} hue={p.avatar_hue} name={p.display_name} size={28} />
                       <span className="truncate text-sm font-medium text-ink">{p.display_name}</span>

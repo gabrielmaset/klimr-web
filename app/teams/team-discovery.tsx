@@ -51,7 +51,7 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search teams by name or area…"
-            className="w-full rounded-xl border border-rule bg-surface py-2.5 pl-10 pr-10 text-sm text-ink outline-none transition-colors focus:border-brand"
+            className="w-full rounded-xl border border-rule bg-surface shadow-e1 py-2.5 pl-10 pr-10 text-sm text-ink outline-none transition-colors focus:border-brand"
             autoComplete="off"
           />
           {loading ? <Loader2 size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-faint" /> : null}
@@ -94,7 +94,7 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
               <Link
                 key={t.id}
                 href={`/teams/${t.id}`}
-                className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4"
+                className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4"
               >
                 <TeamCrest name={t.name} size={44} />
                 <span className="min-w-0 flex-1">

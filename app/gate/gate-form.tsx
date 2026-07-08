@@ -22,7 +22,7 @@ export function GateForm({ errorMessage, noticeMessage }: { errorMessage: string
           spellCheck={false}
           placeholder="Access code"
           aria-label="Access code"
-          className="w-full rounded-xl border border-rule bg-surface px-4 py-3 text-center font-mono text-sm tracking-wider text-ink outline-none transition-colors placeholder:text-faint focus:border-ink"
+          className="w-full rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3 text-center font-mono text-sm tracking-wider text-ink outline-none transition-colors placeholder:text-faint focus:border-ink"
         />
         <input type="hidden" name="captchaToken" value={token ?? ""} />
         {errorMessage ? <GateError message={errorMessage} /> : null}
@@ -52,7 +52,7 @@ export function GateForm({ errorMessage, noticeMessage }: { errorMessage: string
           spellCheck={false}
           placeholder="you@email.com"
           aria-label="Email"
-          className="w-full rounded-xl border border-rule bg-surface px-4 py-3 text-center text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-ink"
+          className="w-full rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3 text-center text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-ink"
         />
         <input type="hidden" name="captchaToken" value={token ?? ""} />
         {noticeMessage ? <GateError message={noticeMessage} param="sent" tone="mute" /> : null}

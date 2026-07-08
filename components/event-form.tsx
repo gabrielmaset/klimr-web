@@ -239,7 +239,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
 
   return (
     <div className="space-y-5">
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <label className="block">
           <span className={labelCls}>Event name</span>
           <input className={field} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} placeholder="e.g. Saturday Pickleball Open Play" />
@@ -286,7 +286,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <h2 className="text-sm font-bold text-ink">When &amp; where</h2>
         <p className="-mt-2 text-xs text-faint">Times are Pacific.</p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -313,7 +313,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
         </label>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <h2 className="text-sm font-bold text-ink">Spots &amp; cost</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
@@ -327,7 +327,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <h2 className="text-sm font-bold text-ink">Group &amp; joining</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
@@ -381,7 +381,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
         </label>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-rule bg-surface p-5">
+      <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <div>
           <h2 className="text-sm font-bold text-ink">Photos</h2>
           <p className="text-xs text-faint">A wide banner runs across the top of the event page; a square image is used on event cards. {editing ? "Changes save right away." : "Both are optional."}</p>

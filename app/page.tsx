@@ -284,7 +284,7 @@ export default async function Home() {
           {FLOWS.map((f) => {
             const s = STATUS[f.status];
             return (
-              <div key={f.title} className="lift rounded-3xl border border-rule bg-surface p-6">
+              <div key={f.title} className="lift rounded-3xl border border-rule bg-surface shadow-e1 p-6">
                 <div className="flex items-center gap-1.5">
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${s.dot} ${s.pulse ? "live-dot" : ""}`}

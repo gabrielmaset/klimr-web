@@ -82,7 +82,7 @@ export function LogViewer() {
           entries.map((e, i) => {
             const meta = LEVEL[e.level];
             return (
-              <div key={`${e.t}-${i}`} className="rounded-2xl border border-rule bg-surface p-3.5">
+              <div key={`${e.t}-${i}`} className="rounded-2xl border border-rule bg-surface shadow-e1 p-3.5">
                 <div className="flex items-center gap-2">
                   <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg ${meta.tint} ${meta.cls}`}>
                     <meta.Icon size={13} />

@@ -40,7 +40,7 @@ export function WaitlistManager({ regItems, emailItems, tournamentId }: { regIte
   const total = regItems.length + emailItems.length;
   if (!total) {
     return (
-      <div className="rounded-3xl border border-rule bg-surface p-8 text-center text-sm text-mute">
+      <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-8 text-center text-sm text-mute">
         No one is on the waitlist yet. Once the event is full, the &ldquo;Join waitlist&rdquo; button on the public page adds people here.
       </div>
     );
@@ -48,7 +48,7 @@ export function WaitlistManager({ regItems, emailItems, tournamentId }: { regIte
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
         <div className="min-w-0">
           <p className="text-sm font-bold text-ink">Spots opened?</p>
           <p className="text-xs text-mute">Email everyone waiting that a spot is available. Only works once the event has room again.</p>
@@ -69,7 +69,7 @@ export function WaitlistManager({ regItems, emailItems, tournamentId }: { regIte
         <div className="grid gap-2">
           <p className="text-[11px] font-bold uppercase tracking-wider text-faint">Klimr entries · priority ({regItems.length})</p>
           {regItems.map((i, idx) => (
-            <div key={i.regId} className="flex flex-wrap items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+            <div key={i.regId} className="flex flex-wrap items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold text-mute ring-1 ring-rule">{idx + 1}</span>
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-tint-brand text-brand-deep">
                 <UserRound size={17} />
@@ -108,7 +108,7 @@ export function WaitlistManager({ regItems, emailItems, tournamentId }: { regIte
         <div className="grid gap-2">
           <p className="text-[11px] font-bold uppercase tracking-wider text-faint">Email only · notify when a spot opens ({emailItems.length})</p>
           {emailItems.map((i) => (
-            <div key={i.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+            <div key={i.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-bg text-mute">
                 <Mail size={16} />
               </span>

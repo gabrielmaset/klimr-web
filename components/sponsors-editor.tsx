@@ -149,7 +149,7 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
             const isPremium = r.tier === "premium";
             const busy = uploading === r.id;
             return (
-              <div key={r.id} className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+              <div key={r.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
                     <label className="mb-1 block text-xs font-semibold text-mute">Sponsor name</label>

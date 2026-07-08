@@ -100,7 +100,7 @@ export default async function ChatsPage() {
       </div>
 
       {matches.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-rule bg-surface p-10 text-center">
+        <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
           <MessageCircle className="mx-auto text-faint" size={26} />
           <p className="mt-2 text-sm font-semibold text-ink">No match chats yet</p>
           <p className="mt-1 text-sm text-mute">Join or create a match and a private chat opens for the players.</p>
@@ -121,7 +121,7 @@ export default async function ChatsPage() {
               <Link
                 key={m.id}
                 href={`/chats/${m.id}`}
-                className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4"
+                className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4"
               >
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(m.sport_key)}) 16%, transparent)` }}>
                   {meta.emoji}

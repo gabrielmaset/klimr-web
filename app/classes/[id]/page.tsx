@@ -104,7 +104,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       </Link>
 
       {/* Header */}
-      <div className="rounded-3xl border border-rule bg-surface p-6">
+      <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-6">
         <div className="flex items-start gap-4">
           <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-3xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sport_key)}) 16%, transparent)` }}>{m.emoji}</span>
           <div className="min-w-0 flex-1">
@@ -146,7 +146,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
       {/* Owner controls */}
       {isOwner ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-rule bg-surface p-4">
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
           <span className="mr-1 text-xs font-semibold text-mute">Coach controls:</span>
           {c.status === "draft" ? (
             <form action={publishClass}>
@@ -184,7 +184,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
       {/* Good to know */}
       {c.what_to_bring || c.prerequisites || c.cancellation_policy ? (
-        <section className="mt-6 space-y-3 rounded-2xl border border-rule bg-surface p-5">
+        <section className="mt-6 space-y-3 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <h2 className="text-sm font-bold text-ink">Good to know</h2>
           {c.prerequisites ? (
             <div>
@@ -211,7 +211,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold text-mute">{c.recurrence === "recurring" ? "Sessions" : "Session"}</h2>
         {sessions.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-8 text-center text-sm text-mute">No upcoming sessions.</div>
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center text-sm text-mute">No upcoming sessions.</div>
         ) : (
           <div className="space-y-3">
             {sessions.map((s) => {
@@ -221,7 +221,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
               const mine = seats.find((e) => e.user_id === user.id);
               const isPast = s.starts_at < nowISO;
               return (
-                <div key={s.id} className="rounded-2xl border border-rule bg-surface p-4">
+                <div key={s.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
                       <CalendarDays size={16} className="text-brand-deep" />

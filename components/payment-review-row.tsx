@@ -55,7 +55,7 @@ export function PaymentReviewRow({
 
   const amt = money(amountCents);
   return (
-    <div className="rounded-2xl border border-rule bg-surface p-4">
+    <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-ink">{name}</p>

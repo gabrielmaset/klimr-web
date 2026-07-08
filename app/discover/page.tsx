@@ -78,7 +78,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
     return (
       <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
         <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Match Intelligence</h1>
-        <div className="mt-5 rounded-3xl border border-rule bg-surface p-10 text-center">
+        <div className="mt-5 rounded-3xl border border-rule bg-surface shadow-e1 p-10 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-tint-brand text-brand-deep">
             <Radar size={22} />
           </span>
@@ -189,7 +189,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
         <>
           {/* Top match spotlight */}
           {top ? (
-            <div className="mb-4 overflow-hidden rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+            <div className="mb-4 overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
               <span className="kicker text-brand-deep">★ Top match</span>
               <div className="mt-3 grid gap-5 lg:grid-cols-[1.05fr_1fr] lg:items-center">
                 <Link href={`/profile/${top.userId}`} className="flex items-center gap-4">
@@ -233,7 +233,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
               {rest.map((s) => {
                 const sc = scoreColor(s.score);
                 return (
-                  <Link key={s.userId} href={`/profile/${s.userId}`} className="lift block rounded-3xl border border-rule bg-surface p-4">
+                  <Link key={s.userId} href={`/profile/${s.userId}`} className="lift block rounded-3xl border border-rule bg-surface shadow-e1 p-4">
                     <div className="flex items-center gap-3.5">
                       <ScoredAvatar score={s.score} url={aurl(s.avatarPath)} hue={s.avatarHue} name={s.displayName} size={58} />
                       <div className="min-w-0 flex-1">
@@ -275,7 +275,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
               const left = m.total_slots - m.filled;
               const d = m.scheduled_at ? new Date(m.scheduled_at) : null;
               return (
-                <Link key={m.id} href={`/play/${m.id}`} className="lift w-64 shrink-0 snap-start rounded-2xl border border-rule bg-surface p-4">
+                <Link key={m.id} href={`/play/${m.id}`} className="lift w-64 shrink-0 snap-start rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xl" aria-hidden>
                       {m2.emoji}

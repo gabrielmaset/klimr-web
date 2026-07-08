@@ -87,12 +87,12 @@ export function DivisionKnockout({
             {busy === "gen" ? <Loader2 size={15} className="animate-spin" /> : <Trophy size={15} />} {hasKnockout ? "Rebuild" : "Generate knockout"}
           </button>
           {hasKnockout ? (
-            <button type="button" onClick={printBracket} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-3 py-2 text-sm font-semibold text-mute hover:text-ink" aria-label="Print bracket">
+            <button type="button" onClick={printBracket} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2 text-sm font-semibold text-mute hover:text-ink" aria-label="Print bracket">
               <Printer size={15} />
             </button>
           ) : null}
           {hasKnockout ? (
-            <button type="button" onClick={clear} disabled={!!busy} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface px-3 py-2 text-sm font-semibold text-mute hover:text-ink disabled:opacity-50" aria-label="Clear knockout">
+            <button type="button" onClick={clear} disabled={!!busy} className="inline-flex items-center gap-1.5 rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2 text-sm font-semibold text-mute hover:text-ink disabled:opacity-50" aria-label="Clear knockout">
               {busy === "clear" ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
             </button>
           ) : null}

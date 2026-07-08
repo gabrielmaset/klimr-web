@@ -20,7 +20,7 @@ export default async function EmailSettingsPage() {
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Linked email</h1>
       <p className="mt-2 text-sm text-mute">This is the email you use to sign in to Klimr and where we send match and ranking updates.</p>
 
-      <div className="mt-6 rounded-2xl border border-rule bg-surface p-6">
+      <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-6">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-bg text-ink"><Mail size={19} /></span>
           <div className="min-w-0">
@@ -35,7 +35,7 @@ export default async function EmailSettingsPage() {
       </div>
 
       <div className="mt-4 space-y-2">
-        <Link href="/account/security" className="lift flex items-center gap-3 rounded-xl border border-rule bg-surface p-3.5">
+        <Link href="/account/security" className="lift flex items-center gap-3 rounded-xl border border-rule bg-surface shadow-e1 p-3.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-ink"><KeyRound size={17} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold text-ink">Sign-in &amp; security</span>
@@ -43,7 +43,7 @@ export default async function EmailSettingsPage() {
           </span>
           <ChevronLeft size={16} className="shrink-0 rotate-180 text-faint" />
         </Link>
-        <Link href="/settings" className="lift flex items-center gap-3 rounded-xl border border-rule bg-surface p-3.5">
+        <Link href="/settings" className="lift flex items-center gap-3 rounded-xl border border-rule bg-surface shadow-e1 p-3.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-ink"><Bell size={17} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold text-ink">Email notifications</span>

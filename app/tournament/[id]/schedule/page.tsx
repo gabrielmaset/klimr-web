@@ -83,7 +83,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
       </div>
 
       {drawnDivs.length === 0 ? (
-        <div className="rounded-3xl border border-rule bg-surface p-8 text-center">
+        <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-8 text-center">
           <p className="text-base font-bold text-ink">No matches yet</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-mute">Draw the pools for a division to create its match schedule, then come back here to enter scores.</p>
           <Link href={`/tournament/${id}/brackets`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:underline">
@@ -123,7 +123,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
                     );
                     const anyPlayed = standings.some((s) => s.played > 0);
                     return (
-                      <div key={g.id} className="overflow-hidden rounded-3xl border border-rule bg-surface p-5">
+                      <div key={g.id} className="overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1 p-5">
                         <p className="mb-3 text-sm font-bold text-ink">{isRR ? "Round-robin" : g.name}</p>
 
                         <div className="overflow-x-auto rounded-xl border border-rule">

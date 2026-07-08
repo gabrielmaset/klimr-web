@@ -169,7 +169,7 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
       ) : (
         <div className="grid gap-3">
           {rows.map((r) => (
-            <Link key={r.id} href={r.href} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+            <Link key={r.id} href={r.href} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bg text-lg">{r.emoji}</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">

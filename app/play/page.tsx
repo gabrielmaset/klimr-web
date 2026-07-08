@@ -93,7 +93,7 @@ export default async function PlayPage({
       </div>
 
       {list.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-rule bg-surface p-10 text-center">
+        <div className="mt-8 rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
           <Users size={28} className="mx-auto text-faint" />
           <h2 className="mt-3 font-display text-2xl text-ink">
             No open matches{activeSport ? ` for ${sportMeta(activeSport).name.toLowerCase()}` : ""} yet
@@ -121,7 +121,7 @@ export default async function PlayPage({
             const placeLabel = court ? court.name : m.location_text;
             const placeNote = court && m.location_text ? m.location_text : null;
             return (
-              <Link key={m.id} href={`/play/${m.id}`} className="lift block rounded-2xl border border-rule bg-surface p-5">
+              <Link key={m.id} href={`/play/${m.id}`} className="lift block rounded-2xl border border-rule bg-surface shadow-e1 p-5">
                 <div className="flex items-center justify-between">
                   <span className="grid h-11 w-11 place-items-center rounded-2xl text-xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(m.sport_key)}) 16%, transparent)` }} aria-hidden>{meta.emoji}</span>
                   <span

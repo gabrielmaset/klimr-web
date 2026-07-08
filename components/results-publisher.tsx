@@ -67,7 +67,7 @@ export function ResultsPublisher({
   }
 
   return (
-    <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+    <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${published ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>

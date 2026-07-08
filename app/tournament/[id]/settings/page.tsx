@@ -82,14 +82,14 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
       <TournamentSettingsEditor
         init={init}
         divisionsSlot={
-          <section id="divisions" className="scroll-mt-24 rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+          <section id="divisions" className="scroll-mt-24 rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
             <h2 className="text-lg font-bold tracking-tight text-ink">Divisions &amp; fees</h2>
             <p className="mb-4 mt-0.5 text-sm text-mute">The categories {entryType === "team" ? "teams" : "players"} enter and what each costs.</p>
             <DivisionsEditor tournamentId={t.id} entryType={entryType} initial={(divs as DivisionRow[]) ?? []} initialMode={capMode} />
           </section>
         }
         gallerySlot={
-          <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+          <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
             <h2 className="text-base font-bold text-ink">Event photos</h2>
             <p className="mb-4 mt-0.5 text-sm text-mute">A gallery on your public page — add shots from past tournaments, the venue, or the crowd.</p>
             <GalleryEditor tournamentId={t.id} initial={Array.isArray(fc.gallery) ? fc.gallery : []} />
@@ -134,7 +134,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
               )}
             </section>
           ) : (
-            <section className="rounded-3xl border border-rule bg-surface p-5 text-sm text-mute">Only the event owner can cancel this event.</section>
+            <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 text-sm text-mute">Only the event owner can cancel this event.</section>
           )
         }
       />

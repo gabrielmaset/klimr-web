@@ -120,7 +120,7 @@ export default async function SponsorDetailPage({ params }: { params: Promise<{ 
       {s.products?.length ? (
         <section className="mt-5">
           <h2 className="kicker mb-2 text-faint">Products &amp; services</h2>
-          <div className="divide-y divide-rule rounded-2xl border border-rule bg-surface">
+          <div className="divide-y divide-rule rounded-2xl border border-rule bg-surface shadow-e1">
             {s.products.map((p, i) => (
               <div key={i} className="flex items-center justify-between px-4 py-3">
                 <span className="text-sm text-ink">{p.name}</span>

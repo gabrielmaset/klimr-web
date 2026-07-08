@@ -42,7 +42,7 @@ export function DeleteEvent({ id, title }: { id: string; title: string }) {
           <Trash2 size={15} /> Delete this event
         </button>
       ) : (
-        <div className="mt-4 rounded-2xl border border-rule bg-surface p-4">
+        <div className="mt-4 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
           <label className="block text-sm text-ink">
             Type <span className="font-semibold">{title}</span> to confirm.
           </label>

@@ -72,7 +72,7 @@ export default async function ProfessionalSettingsPage({ searchParams }: { searc
 
       {/* Current status */}
       {approvedRoles.length > 0 ? (
-        <section className="mb-6 rounded-2xl border border-rule bg-surface p-5">
+        <section className="mb-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <div className="flex items-center gap-2">
             <BadgeCheck size={18} className="text-brand-deep" />
             <h2 className="text-base font-bold text-ink">Your professional roles</h2>
@@ -96,7 +96,7 @@ export default async function ProfessionalSettingsPage({ searchParams }: { searc
           <h2 className="mb-3 text-sm font-semibold text-mute">Your requests</h2>
           <div className="space-y-2">
             {apps.map((a) => (
-              <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface p-4">
+              <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                 <div className="min-w-0">
                   <div className="text-sm font-bold text-ink">{roleLabel(a.role)}</div>
                   <div className="mt-0.5 text-xs text-mute">

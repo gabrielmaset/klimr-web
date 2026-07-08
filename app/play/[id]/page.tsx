@@ -162,7 +162,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* meta */}
-      <div className="mt-6 grid gap-3 rounded-2xl border border-rule bg-surface p-5 sm:grid-cols-2">
+      <div className="mt-6 grid gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:grid-cols-2">
         <div className="flex items-center gap-2.5 text-sm text-ink"><CalendarClock size={16} className="shrink-0 text-faint" /> {whenLabel(match.scheduled_at)}</div>
         <div className="flex items-center gap-2.5 text-sm text-ink"><Users size={16} className="shrink-0 text-faint" /> {filled}/{match.total_slots} players</div>
         {courtName ? (
@@ -229,7 +229,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       ) : null}
 
       {/* action area */}
-      <div className="mt-6 rounded-2xl border border-rule bg-surface p-5">
+      <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         {isParticipant ? (
           isOrganizer ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -299,7 +299,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
       {/* match chat (participants only) */}
       {isParticipant ? (
-        <Link href={`/chats/${id}`} className="lift mt-4 flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+        <Link href={`/chats/${id}`} className="lift mt-4 flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-tint-brand text-brand-deep">
             <MessageCircle size={18} />
           </span>
@@ -319,7 +319,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             {waitlist.map((w) => {
               const prof = wlProfMap.get(w.requester_id);
                 return (
-                  <Link key={w.requester_id} href={`/profile/${w.requester_id}`} className="lift flex items-center gap-3 rounded-xl border border-rule bg-surface px-4 py-2.5">
+                  <Link key={w.requester_id} href={`/profile/${w.requester_id}`} className="lift flex items-center gap-3 rounded-xl border border-rule bg-surface shadow-e1 px-4 py-2.5">
                     <span className="font-mono text-xs font-bold text-faint">#{w.waitlist_position}</span>
                     <Avatar url={null} hue={prof?.avatar_hue ?? 200} name={prof?.display_name ?? "Player"} size={32} />
                     <span className="flex-1 truncate text-sm font-semibold text-ink">{prof?.display_name ?? "Player"}</span>

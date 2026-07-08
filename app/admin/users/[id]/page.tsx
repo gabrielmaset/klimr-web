@@ -90,7 +90,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
       <Link href="/admin/users" className="press text-sm text-mute transition-colors hover:text-ink">← Users</Link>
 
       {/* header */}
-      <div className="mt-3 flex flex-col gap-4 rounded-2xl border border-rule bg-surface p-6 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mt-3 flex flex-col gap-4 rounded-2xl border border-rule bg-surface shadow-e1 p-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
           <Avatar url={avatarUrl} hue={p.avatar_hue} name={p.display_name} size={64} ring />
           <div>
@@ -114,7 +114,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
       </div>
 
       {/* account actions */}
-      <div className="mt-4 rounded-2xl border border-rule bg-surface p-5">
+      <div className="mt-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <div className="kicker mb-3 text-faint">Account actions</div>
         <div className="flex flex-wrap items-center gap-2">
           {/* verification */}
@@ -142,7 +142,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
               <form action={setAccountStatus} className="flex items-center gap-1.5">
                 <input type="hidden" name="userId" value={p.id} />
                 <input type="hidden" name="status" value="suspended" />
-                <input name="days" type="number" min={1} max={365} defaultValue={7} className="w-16 rounded-xl border border-rule bg-surface px-2.5 py-2 text-sm text-ink outline-none focus:border-brand" aria-label="Suspension days" />
+                <input name="days" type="number" min={1} max={365} defaultValue={7} className="w-16 rounded-xl border border-rule bg-surface shadow-e1 px-2.5 py-2 text-sm text-ink outline-none focus:border-brand" aria-label="Suspension days" />
                 <button className="press rounded-full border border-rule px-3.5 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">Suspend (days)</button>
               </form>
               {canVerifyOrBan ? (
@@ -165,7 +165,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
 
       {/* email & passwordless access (admin+) */}
       {canVerifyOrBan ? (
-        <div className="mt-4 rounded-2xl border border-rule bg-surface p-5">
+        <div className="mt-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <div className="kicker mb-2 text-faint">Email &amp; access</div>
           <p className="text-sm text-ink">{email ?? "—"}</p>
           <p className="mt-1 text-xs text-faint">
@@ -185,7 +185,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
         ) : (
           <div className="space-y-2">
             {reports.map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm">
+              <div key={r.id} className="flex items-center justify-between rounded-xl border border-rule bg-surface shadow-e1 px-4 py-2.5 text-sm">
                 <span className="text-ink"><b>{REASON[r.reason] ?? r.reason}</b> · by {nameMap.get(r.reporter_id) ?? "Unknown"}</span>
                 <span className="text-xs text-faint">{r.status} · {new Date(r.created_at).toLocaleDateString("en-US")}</span>
               </div>
@@ -202,7 +202,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
         ) : (
           <div className="space-y-2">
             {posts.map((post) => (
-              <div key={post.id} className="flex items-start justify-between gap-3 rounded-xl border border-rule bg-surface px-4 py-3">
+              <div key={post.id} className="flex items-start justify-between gap-3 rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm text-ink">{post.body || "(image post)"}</p>
                   <p className="text-xs text-faint">{post.moderation_status} · {new Date(post.created_at).toLocaleString("en-US")}</p>

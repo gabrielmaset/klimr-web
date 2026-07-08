@@ -18,7 +18,7 @@ export function RegistrationsTabs({
   const tabCls = (active: boolean) => `rounded-lg px-4 py-1.5 text-sm font-semibold transition ${active ? "bg-ink text-white" : "text-mute hover:text-ink"}`;
   return (
     <>
-      <div className="mb-5 inline-flex rounded-xl border border-rule bg-surface p-1">
+      <div className="mb-5 inline-flex rounded-xl border border-rule bg-surface shadow-e1 p-1">
         <button type="button" onClick={() => setTab("regs")} className={tabCls(tab === "regs")}>
           Registrations <span className="opacity-70">{regCount}</span>
         </button>

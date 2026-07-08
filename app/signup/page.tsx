@@ -26,7 +26,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <p className="mt-3 text-[15px] leading-relaxed text-mute">
           Got an invite code? Your place on the board starts here.
         </p>
-        <div className="mt-7 space-y-1.5 rounded-2xl border border-rule bg-surface p-4">
+        <div className="mt-7 space-y-1.5 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
           {PERKS.map((line) => (
             <p key={line} className="flex items-baseline gap-2 text-sm text-ink-soft">
               <span className="font-mono text-[11px] font-bold text-brand">→</span>

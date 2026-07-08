@@ -21,7 +21,7 @@ export default async function WaitlistWithdrawPage({ searchParams }: { searchPar
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-md flex-col justify-center px-5 py-10">
-      <div className="rounded-3xl border border-rule bg-surface p-8">
+      <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-8">
         <p className="kicker mb-3 text-center text-brand-deep">Waitlist</p>
         {!id || !found ? (
           <p className="text-center text-sm text-mute">This waitlist link is invalid or has expired. If you still want off a waitlist, open the event page and manage it there.</p>

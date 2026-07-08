@@ -38,7 +38,7 @@ function calWhen(start: string, allDay: boolean) {
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div>
-      <div className="font-display text-xl leading-none text-ink sm:text-2xl">{value}</div>
+      <div className="font-athletic text-2xl font-bold leading-none text-ink sm:text-3xl">{value}</div>
       <div className="mt-1 text-[11px] uppercase tracking-wide text-faint">{label}</div>
     </div>
   );
@@ -176,7 +176,7 @@ export default async function MyProfilePage() {
       {/* ===== Up next (calendar teaser) ===== */}
       <div className="mt-10 px-1 sm:px-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="kicker text-faint">Up next</h2>
+          <h2 className="font-athletic text-base font-bold uppercase tracking-wide text-ink">Up next</h2>
           <Link href="/calendar" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
             Open calendar <ArrowUpRight size={13} />
           </Link>
@@ -189,7 +189,7 @@ export default async function MyProfilePage() {
         ) : (
           <div className="grid gap-2.5 sm:grid-cols-3">
             {upNext.map((ev) => (
-              <Link key={ev.key} href={ev.href} className="lift rounded-2xl border border-rule bg-surface p-4">
+              <Link key={ev.key} href={ev.href} className="lift rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                 <div className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full" style={{ background: KIND_DOT[ev.kind] }} aria-hidden />
                   <span className="text-[10px] font-bold uppercase tracking-wide text-faint">{KIND_LABEL[ev.kind]}</span>
@@ -207,7 +207,7 @@ export default async function MyProfilePage() {
       {/* ===== Sports & standing (trophy case) ===== */}
       <div className="mt-10 px-1 sm:px-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="kicker text-faint">Sports &amp; standing</h2>
+          <h2 className="font-athletic text-base font-bold uppercase tracking-wide text-ink">Sports &amp; standing</h2>
           <Link href="/rankings" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
             Full ladder <ArrowUpRight size={13} />
           </Link>
@@ -225,7 +225,7 @@ export default async function MyProfilePage() {
               const isPrimary = s.sport_key === profile.primary_sport;
               const winPct = s.matches_played > 0 ? Math.round((s.wins / s.matches_played) * 100) : null;
               return (
-                <div key={s.sport_key} className="overflow-hidden rounded-2xl border border-rule bg-surface">
+                <div key={s.sport_key} className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
                   <div className="flex items-center justify-between px-4 py-3" style={{ background: sportTint(s.sport_key, 8) }}>
                     <div className="flex items-center gap-2.5">
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg" style={{ background: sportTint(s.sport_key, 15) }} aria-hidden>
@@ -268,7 +268,7 @@ export default async function MyProfilePage() {
         {/* Teams */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="kicker text-faint">Teams</h2>
+            <h2 className="font-athletic text-base font-bold uppercase tracking-wide text-ink">Teams</h2>
             <Link href="/teams" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
               All teams <ArrowUpRight size={13} />
             </Link>
@@ -279,7 +279,7 @@ export default async function MyProfilePage() {
               <span>You&rsquo;re not on a team yet. <Link href="/teams" className="font-semibold text-ink underline underline-offset-2">Create or join one</Link>.</span>
             </div>
           ) : (
-            <div className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface">
+            <div className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
               {teams.map((t) => {
                 const meta = sportMeta(t.sport_key);
                 return (
@@ -303,7 +303,7 @@ export default async function MyProfilePage() {
         {/* Recent matches */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="kicker text-faint">Recent matches</h2>
+            <h2 className="font-athletic text-base font-bold uppercase tracking-wide text-ink">Recent matches</h2>
             <Link href="/play" className="press inline-flex items-center gap-1 text-xs font-semibold text-brand-deep hover:underline">
               All matches <ArrowUpRight size={13} />
             </Link>
@@ -320,7 +320,7 @@ export default async function MyProfilePage() {
               </Link>
             </div>
           ) : (
-            <div className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface">
+            <div className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
               {recent.map((m) => {
                 const meta = sportMeta(m.sport_key);
                 return (

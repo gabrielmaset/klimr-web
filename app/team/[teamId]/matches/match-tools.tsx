@@ -49,7 +49,7 @@ export function ChallengePanel({ homeTeamId, opponents }: { homeTeamId: string; 
   const field = "w-full rounded-xl border border-rule bg-bg px-3 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand";
 
   return (
-    <div className="rounded-2xl border border-rule bg-surface">
+    <div className="rounded-2xl border border-rule bg-surface shadow-e1">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

@@ -85,7 +85,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
 
   if (divs.length === 0) {
     body = (
-      <div className="rounded-3xl border border-rule bg-surface p-8 text-center">
+      <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-8 text-center">
         <p className="text-base font-bold text-ink">Add a division first</p>
         <p className="mx-auto mt-1 max-w-md text-sm text-mute">Draws happen per division. Create at least one division, then come back to draw it.</p>
         <Link href={`/tournament/${id}/settings#divisions`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:underline">
@@ -246,7 +246,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
         <div className="mb-6 grid gap-4">
           <div className="grid gap-4 lg:grid-cols-2">
             {/* schedule */}
-            <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+            <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
                   <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${scheduleReady ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>
@@ -273,7 +273,7 @@ export default async function BracketsPage({ params }: { params: Promise<{ id: s
             </section>
 
             {/* ranking points */}
-            <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+            <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
                   <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${allResultsIn ? "bg-tint-success text-success" : "bg-bg text-mute"}`}>

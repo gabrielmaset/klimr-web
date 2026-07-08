@@ -85,7 +85,7 @@ export function DivisionsEditor({
 
       <div className="grid gap-3">
         {rows.map((r, i) => (
-          <div key={r.id ?? `new-${i}`} className="rounded-2xl border border-rule bg-surface p-4">
+          <div key={r.id ?? `new-${i}`} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
             <div className="flex items-start gap-3">
               <div className="grid min-w-0 flex-1 gap-3">
                 <input className={inputCls} placeholder="Division name (e.g. Men's Open)" value={r.name} onChange={(e) => update(i, { name: e.target.value })} maxLength={80} />

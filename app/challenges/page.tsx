@@ -55,7 +55,7 @@ export default async function ChallengesPage() {
       </div>
 
       {cards.length === 0 ? (
-        <div className="rounded-2xl border border-rule bg-surface p-10 text-center text-sm text-mute">No active challenges right now.</div>
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center text-sm text-mute">No active challenges right now.</div>
       ) : (
         <div className="space-y-3">
           {cards.map(({ c, a, b, repping }) => {
@@ -64,7 +64,7 @@ export default async function ChallengesPage() {
             const bLead = b.points > a.points;
             const dl = daysLeft(c.ends_at);
             return (
-              <Link key={c.id} href={`/challenges/${c.id}`} className="lift block rounded-2xl border border-rule bg-surface p-4">
+              <Link key={c.id} href={`/challenges/${c.id}`} className="lift block rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <SportChip sport={c.sport_key} size="sm" />
                   <span className="flex items-center gap-2 text-xs text-faint">

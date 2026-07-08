@@ -87,7 +87,7 @@ export default async function TeamChat({ params }: { params: Promise<{ teamId: s
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         {/* activity timeline */}
-        <section className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+        <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <p className="flex items-center gap-2 text-sm font-bold text-ink">
               <Activity size={16} className="text-mute" /> Team activity
@@ -123,7 +123,7 @@ export default async function TeamChat({ params }: { params: Promise<{ teamId: s
         </section>
 
         {/* roster */}
-        <section className="h-fit rounded-3xl border border-rule bg-surface p-5">
+        <section className="h-fit rounded-3xl border border-rule bg-surface shadow-e1 p-5">
           <p className="flex items-center gap-2 text-sm font-bold text-ink">
             <Users size={16} className="text-mute" /> Roster ({memberIds.length})
           </p>

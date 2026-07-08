@@ -46,7 +46,7 @@ export default async function SecurityPage() {
 
       <div className="mt-8 space-y-5">
         {/* Sign-in method */}
-        <div className="rounded-3xl border border-rule bg-surface p-6">
+        <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-6">
           <div className="flex items-center gap-2">
             <ShieldCheck size={17} className="text-brand" aria-hidden />
             <span className="kicker text-faint">Sign-in</span>
@@ -58,7 +58,7 @@ export default async function SecurityPage() {
         </div>
 
         {/* Two-factor — read-only status */}
-        <div className="rounded-3xl border border-rule bg-surface p-6">
+        <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-6">
           <div className="flex items-center gap-2">
             <ShieldCheck size={17} className="text-success" aria-hidden />
             <span className="kicker text-faint">Two-factor authentication</span>
@@ -96,7 +96,7 @@ export default async function SecurityPage() {
         </div>
 
         {/* Sessions */}
-        <div className="rounded-3xl border border-rule bg-surface p-6">
+        <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-6">
           <div className="flex items-center gap-2">
             <Clock size={17} className="text-brand" aria-hidden />
             <span className="kicker text-faint">Recent sign-ins</span>
@@ -142,7 +142,7 @@ export default async function SecurityPage() {
         </div>
 
         {/* Active sessions */}
-        <div className="rounded-3xl border border-rule bg-surface p-6">
+        <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-6">
           <div className="flex items-center gap-2">
             <LogOut size={17} className="text-brand" aria-hidden />
             <span className="kicker text-faint">Active sessions</span>

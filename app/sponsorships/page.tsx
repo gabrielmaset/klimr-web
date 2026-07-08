@@ -127,7 +127,7 @@ export default async function SponsorshipsPage() {
               const s = byId.get(a.sponsor_id);
               if (!s) return null;
               return (
-                <Link key={a.id} href={`/sponsorships/${s.id}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+                <Link key={a.id} href={`/sponsorships/${s.id}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <BrandChip name={s.name} hue={s.hue} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-ink">{s.name}</p>
@@ -143,7 +143,7 @@ export default async function SponsorshipsPage() {
 
       {/* eligibility nudge when not sponsored */}
       {offers.length === 0 && active.length === 0 ? (
-        <section className="mt-6 rounded-2xl border border-rule bg-surface p-5">
+        <section className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <div className="flex items-center gap-2">
             <Trophy size={16} className="text-brand" />
             <span className="kicker text-faint">Get on the radar</span>
@@ -165,7 +165,7 @@ export default async function SponsorshipsPage() {
           <h2 className="kicker mb-2 text-faint">Local sponsors on Klimr</h2>
           <div className="space-y-2.5">
             {sponsors.map((s) => (
-              <Link key={s.id} href={`/sponsorships/${s.id}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+              <Link key={s.id} href={`/sponsorships/${s.id}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                 <BrandChip name={s.name} hue={s.hue} size={40} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-ink">{s.name}</p>

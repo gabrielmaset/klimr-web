@@ -66,10 +66,10 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
 
       <div className="mt-3 space-y-2">
         {rows.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-8 text-center text-sm text-mute">No players found.</div>
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center text-sm text-mute">No players found.</div>
         ) : (
           rows.map((u) => (
-            <Link key={u.id} href={`/admin/users/${u.id}`} className="lift flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3">
+            <Link key={u.id} href={`/admin/users/${u.id}`} className="lift flex items-center justify-between rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3">
               <div className="min-w-0">
                 <div className="truncate text-sm font-bold text-ink">{u.display_name || "Player"}</div>
                 <div className="truncate text-xs text-faint">{[u.city, u.state].filter(Boolean).join(", ") || "—"}</div>

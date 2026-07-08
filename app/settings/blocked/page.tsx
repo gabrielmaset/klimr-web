@@ -36,7 +36,7 @@ export default async function BlockedPlayersPage() {
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Blocked players</h1>
       <p className="mt-2 text-sm text-mute">Blocking hides a player from your feed and stops them from inviting you. You can block someone from their profile, and unblock them here anytime.</p>
 
-      <section className="mt-6 rounded-2xl border border-rule bg-surface p-2 sm:p-3">
+      <section className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-2 sm:p-3">
         {blocked.length === 0 ? (
           <div className="rounded-xl px-4 py-12 text-center">
             <Ban size={22} className="mx-auto text-faint" />

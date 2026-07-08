@@ -23,7 +23,7 @@ export default async function VerificationSettingsPage() {
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Identity verification</h1>
       <p className="mt-2 text-sm text-mute">Every Klimr player is verified — it&rsquo;s the trust floor for rankings and matches, and it keeps the community real.</p>
 
-      <div className="mt-6 rounded-2xl border border-rule bg-surface p-6">
+      <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-6">
         <div className="kicker text-faint">Status</div>
         <div className="mt-3">
           {v === "verified" ? (

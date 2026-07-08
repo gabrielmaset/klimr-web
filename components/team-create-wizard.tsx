@@ -7,7 +7,7 @@ import { createTeam, resolveTeamZip } from "@/app/teams/actions";
 import { SPORTS, sportMeta, teamSizeFor } from "@/lib/sports";
 
 const field =
-  "w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-sm text-ink outline-none transition-colors focus:border-brand";
+  "w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-sm text-ink outline-none transition-colors focus:border-brand";
 const labelCls = "mb-1.5 block text-xs font-semibold text-mute";
 
 const TYPES = [
@@ -97,7 +97,7 @@ export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
         })}
       </ol>
 
-      <div className="mt-7 rounded-3xl border border-rule bg-surface p-5 sm:p-7">
+      <div className="mt-7 rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-7">
         {/* Step 1 — Type */}
         {step === 0 ? (
           <div>
@@ -162,7 +162,7 @@ export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
               <div>
                 <label className={labelCls}>Squad size</label>
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="inline-flex items-center rounded-xl border border-rule bg-surface">
+                  <div className="inline-flex items-center rounded-xl border border-rule bg-surface shadow-e1">
                     <button
                       type="button"
                       onClick={() => setSize((n) => Math.max(n - 1, teamSizeFor(sport).min))}

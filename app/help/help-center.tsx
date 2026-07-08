@@ -133,7 +133,7 @@ export function HelpCenter({ openChat }: { openChat?: () => void }) {
           {results.length ? (
             <ul className="space-y-2.5">
               {results.map((r) => (
-                <li key={r.id} className="rounded-2xl border border-rule bg-surface p-4">
+                <li key={r.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <p className="kicker text-faint">{r.catName}</p>
                   <p className="mt-1 text-[15px] font-bold text-ink">{r.q}</p>
                   <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-mute">{r.a}</p>
@@ -197,7 +197,7 @@ export function HelpCenter({ openChat }: { openChat?: () => void }) {
                     </span>
                     <h2 className="text-lg font-extrabold text-ink">{c.name}</h2>
                   </div>
-                  <div className="overflow-hidden rounded-2xl border border-rule bg-surface">
+                  <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
                     {c.articles.map((a, j) => {
                       const isOpen = openId === a.id;
                       return (

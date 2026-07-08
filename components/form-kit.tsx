@@ -20,7 +20,7 @@ export function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-rule bg-surface p-4 text-left transition-colors hover:border-faint"
+      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-rule bg-surface shadow-e1 p-4 text-left transition-colors hover:border-faint"
     >
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-ink">{label}</span>

@@ -43,7 +43,7 @@ export default async function SportsPage() {
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Sports &amp; skill levels</h1>
       <p className="mt-2 text-sm text-mute">Pick the sports you play, set your level in each, and choose your default sport.</p>
 
-      <div className="mt-6 rounded-2xl border border-rule bg-surface p-5 sm:p-6">
+      <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
         <SportsEditor initial={initial} />
       </div>
     </div>

@@ -19,7 +19,7 @@ export type ScheduleRow = {
 };
 
 const labelCls = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-mute";
-const inputCls = "w-full rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
+const inputCls = "w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
 
 function fmtTime(iso: string | null): string {
   if (!iso) return "";
@@ -161,7 +161,7 @@ export function ScheduleBuilder({
   }
 
   return (
-    <div className="rounded-3xl border border-rule bg-surface p-5 sm:p-6">
+    <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-tint-brand text-brand-deep">
           <CalendarClock size={18} />

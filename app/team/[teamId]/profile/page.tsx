@@ -101,7 +101,7 @@ export default async function TeamProfile({ params }: { params: Promise<{ teamId
       ) : null}
 
       {canManage ? (
-        <section className="mt-8 rounded-2xl border border-rule bg-surface p-5">
+        <section className="mt-8 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <h2 className="font-athletic mb-3 flex items-center gap-1.5 text-xl font-bold uppercase tracking-wide text-ink">
             <Pencil size={16} className="text-brand" /> Manage team
           </h2>
@@ -109,7 +109,7 @@ export default async function TeamProfile({ params }: { params: Promise<{ teamId
         </section>
       ) : null}
 
-      <section className="mt-8 rounded-2xl border border-rule bg-surface p-5">
+      <section className="mt-8 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <h2 className="font-athletic text-xl font-bold uppercase tracking-wide text-ink">Membership</h2>
         {isOwner ? (
           <>

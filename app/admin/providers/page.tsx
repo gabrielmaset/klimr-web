@@ -52,11 +52,11 @@ export default async function AdminProvidersPage() {
           Pending applications {apps.length > 0 ? <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{apps.length}</span> : null}
         </h2>
         {apps.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-6 text-center text-sm text-mute">No applications waiting for review.</div>
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-6 text-center text-sm text-mute">No applications waiting for review.</div>
         ) : (
           <div className="space-y-3">
             {apps.map((a) => (
-              <div key={a.id} className="rounded-2xl border border-rule bg-surface p-5">
+              <div key={a.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -105,7 +105,7 @@ export default async function AdminProvidersPage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-rule bg-surface p-5">
+      <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-5">
         <div className="flex items-center gap-2">
           <GraduationCap size={18} className="text-brand-deep" />
           <h2 className="text-base font-bold text-ink">Approve a class provider</h2>
@@ -141,9 +141,9 @@ export default async function AdminProvidersPage() {
       <section>
         <h2 className="mb-3 text-sm font-semibold text-mute">Providers ({rows.length})</h2>
         {rows.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-8 text-center text-sm text-mute">No providers yet.</div>
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center text-sm text-mute">No providers yet.</div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-rule bg-surface">
+          <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
             <table className="w-full text-sm">
               <thead className="border-b border-rule bg-bg/50 text-left text-xs text-mute">
                 <tr>

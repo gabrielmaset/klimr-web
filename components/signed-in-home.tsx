@@ -152,7 +152,7 @@ export async function SignedInHome() {
 
       {/* standing + quick actions */}
       <div className="mt-7 grid gap-5 lg:grid-cols-[1fr_1.1fr]">
-        <Link href="/rankings" className="lift rounded-2xl border border-rule bg-surface p-6">
+        <Link href="/rankings" className="lift rounded-2xl border border-rule bg-surface shadow-e1 p-6">
           <div className="kicker text-faint">Your standing</div>
           {standing && bestMeta ? (
             <>
@@ -203,7 +203,7 @@ export async function SignedInHome() {
               const meta = sportMeta(m.sport_key);
               const filled = countMap.get(m.id) ?? 0;
               return (
-                <Link key={m.id} href={`/play/${m.id}`} className="lift rounded-2xl border border-rule bg-surface p-4">
+                <Link key={m.id} href={`/play/${m.id}`} className="lift rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <div className="flex items-center gap-2.5">
                     <span className="text-xl" aria-hidden>{meta.emoji}</span>
                     <span className="font-display text-lg text-ink">{meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}</span>
@@ -228,7 +228,7 @@ export async function SignedInHome() {
           <Activity size={12} /> Around you
         </div>
         {feed.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-8 text-center">
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center">
             <p className="mx-auto max-w-md text-sm leading-relaxed text-mute">
               Your feed comes alive as players near you organize and play. Be the spark —{" "}
               <Link href="/play/new" className="font-semibold text-brand-deep">organize a match</Link>.
@@ -244,7 +244,7 @@ export async function SignedInHome() {
               const completed = m.status === "completed";
               const mine = mineSet.has(m.id);
               return (
-                <Link key={m.id} href={`/play/${m.id}`} className="lift flex items-start gap-3 rounded-2xl border border-rule bg-surface p-4">
+                <Link key={m.id} href={`/play/${m.id}`} className="lift flex items-start gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <Avatar url={null} hue={org?.avatar_hue ?? 200} name={org?.display_name ?? "Player"} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
@@ -284,7 +284,7 @@ export async function SignedInHome() {
 
 function Action({ href, icon: Icon, label, sub }: { href: string; icon: LucideIcon; label: string; sub: string }) {
   return (
-    <Link href={href} className="lift flex flex-col justify-between rounded-2xl border border-rule bg-surface p-4">
+    <Link href={href} className="lift flex flex-col justify-between rounded-2xl border border-rule bg-surface shadow-e1 p-4">
       <Icon size={20} className="text-brand" />
       <div className="mt-4">
         <div className="font-display text-lg leading-none text-ink">{label}</div>

@@ -108,7 +108,7 @@ export function MfaFlow({ next }: { next: string }) {
         }}
         placeholder="000000"
         aria-label="6-digit code"
-        className="w-full rounded-xl border border-rule bg-surface px-3.5 py-3 text-center font-mono text-2xl tracking-[0.4em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
+        className="w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-center font-mono text-2xl tracking-[0.4em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand"
       />
       <button
         onClick={submit}
@@ -186,7 +186,7 @@ export function MfaFlow({ next }: { next: string }) {
             </li>
           </ol>
 
-          <div className="mt-5 flex flex-col items-center gap-4 rounded-2xl border border-rule bg-surface p-5">
+          <div className="mt-5 flex flex-col items-center gap-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
             {qr ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={qr} alt="Two-factor QR code" width={176} height={176} className="rounded-lg" />

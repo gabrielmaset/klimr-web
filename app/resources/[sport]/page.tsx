@@ -36,11 +36,11 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
 
       {/* at a glance */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-rule bg-surface p-4">
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
           <div className="flex items-center gap-1.5"><Users size={12} className="text-mute" /><span className="kicker text-faint">Format</span></div>
           <p className="mt-1 text-sm font-semibold text-ink">{r.format}</p>
         </div>
-        <div className="rounded-2xl border border-rule bg-surface p-4">
+        <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
           <div className="flex items-center gap-1.5"><Maximize size={12} className="text-mute" /><span className="kicker text-faint">Court</span></div>
           <p className="mt-1 text-sm font-semibold text-ink">{r.court}</p>
         </div>
@@ -60,7 +60,7 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
         <h2 className="kicker mb-2 text-faint">Key rules</h2>
         <ul className="space-y-2">
           {r.rules.map((rule, i) => (
-            <li key={i} className="flex items-start gap-2.5 rounded-xl border border-rule bg-surface p-3">
+            <li key={i} className="flex items-start gap-2.5 rounded-xl border border-rule bg-surface shadow-e1 p-3">
               <Check size={15} className="mt-0.5 shrink-0 text-brand" />
               <span className="text-sm leading-snug text-ink-soft">{rule}</span>
             </li>
@@ -70,7 +70,7 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
 
       <section className="mt-6">
         <h2 className="kicker mb-2 text-faint">Skill tiers</h2>
-        <div className="divide-y divide-rule rounded-2xl border border-rule bg-surface">
+        <div className="divide-y divide-rule rounded-2xl border border-rule bg-surface shadow-e1">
           {r.tiers.map((t) => (
             <div key={t.name} className="flex items-start gap-3 p-4">
               <span className="mt-0.5 shrink-0 rounded-full bg-tint-brand px-2.5 py-1 text-xs font-bold text-brand-deep">{t.name}</span>

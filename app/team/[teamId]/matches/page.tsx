@@ -86,7 +86,7 @@ export default async function TeamMatches({ params }: { params: Promise<{ teamId
     const outcome = m.winner_team_id === null ? "draw" : m.winner_team_id === teamId ? "win" : "loss";
     const oc = outcome === "win" ? { t: "Win", bg: "var(--color-tint-success)", fg: "var(--color-success)" } : outcome === "loss" ? { t: "Loss", bg: "#fef2f2", fg: "#b91c1c" } : { t: "Draw", bg: "#f4f4f5", fg: "#71717a" };
     return (
-      <div className="rounded-2xl border border-rule bg-surface p-4">
+      <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">

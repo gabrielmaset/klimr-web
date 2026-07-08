@@ -214,7 +214,7 @@ export default async function TeamsPage() {
 
       {/* Create */}
       <section className="mt-9">
-        <div className="flex flex-col gap-4 rounded-2xl border border-rule bg-surface p-5 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:flex-row sm:items-center">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-tint-brand text-brand">
             <Plus size={20} />
           </span>

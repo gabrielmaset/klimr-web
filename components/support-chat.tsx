@@ -189,7 +189,7 @@ export function SupportChat({
                 onChange={(e) => setInput(e.target.value)}
                 maxLength={2000}
                 placeholder="Ask about anything in Klimr…"
-                className="h-11 min-w-0 flex-1 rounded-xl border border-rule bg-surface px-3.5 text-sm text-ink outline-none placeholder:text-faint focus:border-ink/40"
+                className="h-11 min-w-0 flex-1 rounded-xl border border-rule bg-surface shadow-e1 px-3.5 text-sm text-ink outline-none placeholder:text-faint focus:border-ink/40"
               />
               <button
                 type="submit"

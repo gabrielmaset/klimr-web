@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { createFeedItem } from "../actions";
 import { SPORTS } from "@/lib/sports";
 
-const field = "w-full rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
+const field = "w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
 
 export function UpdateComposer() {
   const [state, action, pending] = useActionState(createFeedItem, null);
@@ -16,7 +16,7 @@ export function UpdateComposer() {
   }, [state?.ok]);
 
   return (
-    <form ref={formRef} action={action} className="mt-5 rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+    <form ref={formRef} action={action} className="mt-5 rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="kicker text-faint">Type</span>

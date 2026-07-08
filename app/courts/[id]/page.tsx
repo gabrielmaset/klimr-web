@@ -130,7 +130,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
       ) : null}
 
       {/* presence — busy status + check in */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface p-4">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
         <div className="flex items-center gap-3">
           <span
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full"
@@ -185,7 +185,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
 
         {/* your review — gated to verified players who've actually been here */}
         {elig.eligible ? (
-          <form action={addReview} className="mt-3 rounded-2xl border border-rule bg-surface p-4">
+          <form action={addReview} className="mt-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
             <input type="hidden" name="courtId" value={court.id} />
             <div className="flex items-center justify-between gap-3">
               <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-ink">
@@ -241,7 +241,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
             {reviews.map((r) => {
               const p = profById.get(r.author_id);
               return (
-                <div key={r.id} className="rounded-2xl border border-rule bg-surface p-4">
+                <div key={r.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <div className="flex items-center gap-2.5">
                     <Avatar url={avatarUrl(p)} hue={p?.avatar_hue ?? 200} name={p?.display_name ?? "Player"} size={32} />
                     <div className="min-w-0 flex-1">

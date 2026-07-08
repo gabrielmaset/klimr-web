@@ -89,7 +89,7 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
     <form action={action}>
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* Notifications */}
-        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+        <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
           <h2 className="kicker text-faint">Notifications</h2>
           <p className="mt-1 text-xs text-mute">Choose what you hear about. Delivery turns on as each feature ships.</p>
           <div className="mt-2 divide-y divide-rule">
@@ -112,7 +112,7 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
         </section>
 
         {/* Privacy */}
-        <section className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+        <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
           <h2 className="kicker text-faint">Privacy</h2>
           <p className="mt-1 text-xs text-mute">
             Every Klimr member is identity-verified, so your profile and rank are always visible to other members.

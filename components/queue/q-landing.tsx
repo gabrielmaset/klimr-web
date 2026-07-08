@@ -79,7 +79,7 @@ export function QLanding() {
               <Monitor size={13} /> Running a courtside display?
             </button>
           ) : (
-            <div className="rounded-3xl border border-rule bg-surface/80 p-5 text-left">
+            <div className="rounded-3xl border border-rule bg-surface shadow-e1/80 p-5 text-left">
               <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
                 <Monitor size={15} /> Courtside display
               </p>

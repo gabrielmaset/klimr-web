@@ -5,7 +5,7 @@ import { Download, Copy, Check } from "lucide-react";
 import { generateCodes, type GenerateCodesState } from "../actions";
 
 const field =
-  "w-full rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
+  "w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
 
 export function CodeGenerator() {
   const [state, action, pending] = useActionState<GenerateCodesState, FormData>(generateCodes, {});
@@ -44,7 +44,7 @@ export function CodeGenerator() {
   }
 
   return (
-    <div className="rounded-2xl border border-rule bg-surface p-4 sm:p-5">
+    <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
       <form action={action}>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">

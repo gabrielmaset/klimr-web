@@ -41,13 +41,13 @@ export default async function EditProfilePage() {
       <p className="mt-2 text-sm text-mute">Your photo, name, bio, date of birth, and home area — everything on your public profile.</p>
 
       {/* Profile photo */}
-      <div className="mt-6 rounded-2xl border border-rule bg-surface p-5 sm:p-6">
+      <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
         <h2 className="mb-4 text-sm font-semibold text-ink">Profile photo</h2>
         <AvatarUploader initialPhotoUrl={photoUrl} hue={hue} name={name} />
       </div>
 
       {/* Cover photo — edited inline on the public profile */}
-      <Link href="/me" className="lift mt-4 flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+      <Link href="/me" className="lift mt-4 flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-ink">
           <ImageIcon size={17} />
         </span>
@@ -59,7 +59,7 @@ export default async function EditProfilePage() {
       </Link>
 
       {/* Name, bio, and the rest */}
-      <div className="mt-4 rounded-2xl border border-rule bg-surface p-5 sm:p-6">
+      <div className="mt-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
         <ProfileBasicsForm initial={initial} />
       </div>
     </div>

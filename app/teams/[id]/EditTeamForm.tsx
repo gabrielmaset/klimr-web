@@ -5,7 +5,7 @@ import { Pencil, Loader2, Check, MapPin, Minus, Plus, Users } from "lucide-react
 import { updateTeam, resolveTeamZip } from "../actions";
 import { teamSizeFor } from "@/lib/sports";
 
-const field = "w-full rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
+const field = "w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand";
 
 export function EditTeamForm({
   teamId,
@@ -68,7 +68,7 @@ export function EditTeamForm({
   }
 
   return (
-    <form action={action} className="rounded-2xl border border-rule bg-surface p-4">
+    <form action={action} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
       <input type="hidden" name="teamId" value={teamId} />
       <input type="hidden" name="zip" value={zipVal} />
       <div className="space-y-3">
@@ -106,7 +106,7 @@ export function EditTeamForm({
         <div>
           <span className="kicker text-faint">Squad size</span>
           <div className="mt-1 flex flex-wrap items-center gap-3">
-            <div className="inline-flex items-center rounded-xl border border-rule bg-surface">
+            <div className="inline-flex items-center rounded-xl border border-rule bg-surface shadow-e1">
               <button type="button" onClick={() => setSize((n) => Math.max(n - 1, floor))} disabled={size <= floor} aria-label="Fewer players" className="press grid h-10 w-10 place-items-center text-ink transition-colors hover:bg-bg disabled:opacity-30">
                 <Minus size={15} />
               </button>

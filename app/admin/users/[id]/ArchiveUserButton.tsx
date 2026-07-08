@@ -35,7 +35,7 @@ export function ArchiveUserButton({ userId }: { userId: string }) {
           required
           maxLength={300}
           placeholder="e.g. test account cleanup, policy violation, user request…"
-          className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
+          className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand"
         />
       </label>
       <div className="mt-3 flex flex-wrap items-center gap-2">

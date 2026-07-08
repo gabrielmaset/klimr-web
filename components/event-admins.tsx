@@ -65,7 +65,7 @@ export function EventAdmins({ eventId, isOwner, meId, initialAdmins }: { eventId
   };
 
   return (
-    <div className="rounded-3xl border border-rule bg-surface p-4 sm:p-5">
+    <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
       <div className="mb-3 flex items-center gap-2">
         <Shield size={15} className="text-[#0e7490]" />
         <h3 className="text-sm font-bold text-ink">Event admins</h3>
@@ -124,7 +124,7 @@ export function EventAdmins({ eventId, isOwner, meId, initialAdmins }: { eventId
           </div>
 
           {q.trim().length >= 2 ? (
-            <div className="mt-2 overflow-hidden rounded-2xl border border-rule bg-surface">
+            <div className="mt-2 overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
               {searching ? (
                 <p className="flex items-center gap-2 px-3 py-3 text-sm text-mute">
                   <Loader2 size={14} className="animate-spin" /> Searching…

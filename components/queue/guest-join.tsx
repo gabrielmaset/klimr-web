@@ -159,9 +159,9 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
         </div>
 
         {!open ? (
-          <div className="mt-5 rounded-2xl border border-rule bg-surface p-8 text-center text-base font-semibold text-mute">{session.status === "ended" ? "This session has ended." : "The queue isn't open yet — check back when play starts."}</div>
+          <div className="mt-5 rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center text-base font-semibold text-mute">{session.status === "ended" ? "This session has ended." : "The queue isn't open yet — check back when play starts."}</div>
         ) : !session.allowGuests ? (
-          <div className="mt-5 rounded-2xl border border-rule bg-surface p-8 text-center text-base font-semibold text-mute">Walk-up sign-ups are turned off. Ask the organizer to add you.</div>
+          <div className="mt-5 rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center text-base font-semibold text-mute">Walk-up sign-ups are turned off. Ask the organizer to add you.</div>
         ) : (
           <>
             {/* name + status (sticky on mobile so Join is always reachable) */}
@@ -193,7 +193,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
 
             {/* courts */}
             {courts.length === 0 ? (
-              <div className="mt-5 rounded-2xl border border-rule bg-surface p-8 text-center text-base font-semibold text-mute">No open courts right now.</div>
+              <div className="mt-5 rounded-2xl border border-rule bg-surface shadow-e1 p-8 text-center text-base font-semibold text-mute">No open courts right now.</div>
             ) : (
               <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
                 {courts.map((c, ci) => {

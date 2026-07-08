@@ -128,7 +128,7 @@ function PhotoCard({ t, miles }: { t: PubRow; miles: number | null }) {
   const place = t.location_name || t.location_address;
   const cover = coverUrl(t.cover_path);
   return (
-    <Link href={`/e/${t.code}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface">
+    <Link href={`/e/${t.code}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
       <CardMedia cover={cover} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} promoted={t.promoted} miles={miles} date={fmtDate(t.starts_at)} />
       <div className="flex flex-1 flex-col p-4">
         <h3 className="truncate text-base font-bold text-ink">{t.title}</h3>
@@ -347,7 +347,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
               const meta = sportMeta(e.sport_key);
               const wl = e.status === "waitlisted";
               return (
-                <div key={e.regId} className="flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface">
+                <div key={e.regId} className="flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
                   <Link href={`/e/${e.code}`} className="group block">
                     <CardMedia cover={coverUrl(e.cover_path)} logo={null} sportKey={e.sport_key} emoji={meta.emoji} statusKey={null} date={fmtDate(e.starts_at)} className="aspect-[16/9]" />
                   </Link>
@@ -378,7 +378,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
             {organizing.map((t) => {
               const meta = sportMeta(t.sport_key);
               return (
-                <Link key={t.id} href={`/tournament/${t.id}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface">
+                <Link key={t.id} href={`/tournament/${t.id}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
                   <CardMedia cover={coverUrl(t.cover_path)} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} date={fmtDate(t.starts_at)} className="aspect-[16/9]" />
                   <div className="flex flex-1 flex-col p-4">
                     <h3 className="truncate text-sm font-bold text-ink">{t.title}</h3>

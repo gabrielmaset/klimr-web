@@ -27,7 +27,7 @@ export default async function AvailabilityPage() {
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Availability schedule</h1>
       <p className="mt-2 text-sm text-mute">Add the times you&rsquo;re usually free to play, in 15-minute steps — as many blocks per day as you like. Change them anytime.</p>
 
-      <div className="mt-6 rounded-2xl border border-rule bg-surface p-5 sm:p-6">
+      <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
         <AvailabilityEditor initial={initial} />
       </div>
     </div>

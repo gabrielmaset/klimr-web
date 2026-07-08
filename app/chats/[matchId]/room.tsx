@@ -304,7 +304,7 @@ export function ChatRoom({
         ) : status === "error" ? (
           <p className="py-10 text-center text-sm text-mute">Couldn&apos;t open this chat. Please refresh.</p>
         ) : status === "nokey" ? (
-          <div className="mx-auto mt-10 max-w-sm rounded-2xl border border-rule bg-surface p-5 text-center">
+          <div className="mx-auto mt-10 max-w-sm rounded-2xl border border-rule bg-surface shadow-e1 p-5 text-center">
             <ShieldCheck className="mx-auto text-brand" size={22} />
             <p className="mt-2 text-sm font-semibold text-ink">Securing this chat</p>
             <p className="mt-1 text-xs text-mute">

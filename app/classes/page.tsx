@@ -34,7 +34,7 @@ function PriceTag({ c }: { c: Cls }) {
 function ClassCard({ c, nextStart }: { c: Cls; nextStart?: string }) {
   const m = sportMeta(c.sport_key);
   return (
-    <Link href={`/classes/${c.id}`} className="lift block rounded-2xl border border-rule bg-surface p-4">
+    <Link href={`/classes/${c.id}`} className="lift block rounded-2xl border border-rule bg-surface shadow-e1 p-4">
       <div className="flex items-start gap-3">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sport_key)}) 16%, transparent)` }}>{m.emoji}</span>
         <div className="min-w-0 flex-1">
@@ -165,7 +165,7 @@ export default async function ClassesPage() {
             {upcoming.map((u) => {
               const m = sportMeta(u.sportKey);
               return (
-                <Link key={u.enrollmentId} href={`/classes/${u.classId}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface p-4">
+                <Link key={u.enrollmentId} href={`/classes/${u.classId}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(u.sportKey)}) 16%, transparent)` }}>{m.emoji}</span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-bold text-ink">{u.title}</div>
@@ -207,7 +207,7 @@ export default async function ClassesPage() {
       <section>
         <h2 className="mb-3 text-sm font-semibold text-mute">{provider ? "All classes" : "Browse classes"}</h2>
         {published.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface p-10 text-center">
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
             <GraduationCap size={28} className="mx-auto text-faint" />
             <p className="mt-2 text-sm text-mute">No classes are published yet. Check back soon.</p>
           </div>
