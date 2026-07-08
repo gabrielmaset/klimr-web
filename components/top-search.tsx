@@ -125,8 +125,8 @@ export function TopSearch() {
   }
 
   return (
-    <div ref={wrapRef} className="relative">
-      <div className="flex h-9 w-80 max-w-[34vw] items-center gap-2.5 rounded-xl border border-rule bg-bg px-3 transition-colors focus-within:border-brand focus-within:bg-surface">
+    <div ref={wrapRef} className="relative min-w-[120px] max-w-[290px] flex-[1_1_180px]">
+      <div className="flex h-[34px] items-center gap-2 rounded-[10px] border border-rule-2 bg-[rgba(32,27,18,0.03)] px-3 transition-colors focus-within:border-brand focus-within:bg-surface">
         <Search size={16} className="shrink-0 text-faint" />
         <input
           ref={inputRef}

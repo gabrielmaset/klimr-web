@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { CalendarClock, CalendarRange, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, ChevronRight, Users } from "lucide-react";
+import { CalendarRange, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, Users } from "lucide-react";
 import { setPresenceMode } from "@/app/account/presence-actions";
 import type { PresenceMode } from "@/app/account/presence";
 import { TopSearch } from "@/components/top-search";
@@ -13,6 +13,7 @@ const SPORT_LABEL: Record<string, string> = {
   pickleball: "Pickleball",
   padel: "Padel",
   racquetball: "Racquetball",
+  beach_volleyball: "Beach volleyball",
 };
 
 const STATE = {
@@ -90,7 +91,7 @@ function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key:
       <Link
         href={`/team/${t.id}`}
         aria-label={`Switch to ${t.name}`}
-        className="press ml-0.5 flex h-9 items-center gap-2 rounded-full border border-rule bg-bg pl-2 pr-3 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
+        className="press ml-0.5 flex h-[34px] items-center gap-2 rounded-[10px] border border-rule-2 bg-surface pl-2 pr-3 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
       >
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-bg text-[12px]">{sportMeta(t.sport_key).emoji}</span>
         <span className="hidden max-w-[7rem] truncate lg:inline">{t.name}</span>
@@ -108,7 +109,7 @@ function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key:
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Switch to a team"
-        className="press flex h-9 items-center gap-2 rounded-full border border-rule bg-bg pl-2.5 pr-2 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
+        className="press flex h-[34px] items-center gap-2 rounded-[10px] border border-rule-2 bg-surface pl-2.5 pr-2 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
       >
         <Users size={16} className="shrink-0 text-mute" />
         <span className="hidden lg:inline">Teams</span>
@@ -118,7 +119,7 @@ function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key:
         <div
           ref={menuRef}
           role="menu"
-          className="absolute right-0 top-11 w-64 origin-top-right animate-[fade_0.12s_ease-out] overflow-hidden rounded-2xl border border-rule bg-surface shadow-[0_18px_50px_-12px_rgba(10,10,11,0.4)]"
+          className="absolute right-0 top-11 w-64 origin-top-right animate-[fade_0.12s_ease-out] overflow-hidden rounded-2xl border border-rule bg-surface shadow-e3"
         >
           <p className="kicker px-3.5 pb-1 pt-3 text-faint">Switch to a team</p>
           <div className="p-1">
@@ -146,12 +147,12 @@ function IconLink({ href, label, badge, children }: { href: string; label: strin
     <Link
       href={href}
       aria-label={badge > 0 ? `${label}, ${badge} unread` : label}
-      className="press inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-black/[0.05] hover:text-ink"
+      className="press inline-flex h-[34px] min-w-9 flex-[0_1_auto] items-center justify-center gap-1.5 overflow-hidden rounded-[10px] px-2.5 text-[13px] font-semibold text-mute transition-colors hover:bg-[rgba(32,27,18,0.05)] hover:text-ink"
     >
       <span className="shrink-0">{children}</span>
-      <span>{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
       {badge > 0 ? (
-        <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white shadow-md shadow-brand/25">
+        <span className="grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full bg-brand px-1 font-mono text-[10px] font-bold leading-none text-white">
           {badge > 9 ? "9+" : badge}
         </span>
       ) : null}
@@ -219,8 +220,8 @@ export function TopBar({
   const proTeams = teams.filter((t) => t.category === "pro");
 
   return (
-    <header className="sticky top-0 z-40 hidden border-b border-rule/60 bg-white/80 shadow-e1 backdrop-blur-xl backdrop-saturate-150 md:block">
-      <div className="flex h-[var(--top-bar-h)] items-center gap-3 px-4">
+    <div className="sticky top-0 z-40 hidden px-[22px] pb-2.5 pt-3.5 md:block">
+    <header className="flex items-center gap-[9px] rounded-2xl border border-rule bg-white/80 px-3 py-[9px] shadow-bar backdrop-blur-[16px]">
         {/* Inline search — type here, results drop down below (no modal) */}
         <TopSearch />
 
@@ -229,41 +230,36 @@ export function TopBar({
           <Link
             href={`/play/${nextMatch.id}`}
             aria-label={`Next match: ${SPORT_LABEL[nextMatch.sportKey] ?? "match"} ${whenShort(nextMatch.scheduledAt)}`}
-            className="lift hidden min-w-0 max-w-[20rem] items-center gap-2 rounded-full border border-brand/25 bg-tint-brand py-1.5 pl-3 pr-1.5 text-[13px] font-semibold text-ink-soft lg:inline-flex"
+            className="inline-flex h-[34px] min-w-0 flex-[0_1_auto] items-center gap-2 overflow-hidden rounded-[10px] border border-tint-brand-bd bg-tint-brand px-2.5"
           >
-            <CalendarClock size={15} className="shrink-0 text-brand" />
-            <span className="min-w-0 flex-1 truncate">
-              <span className="text-mute">Next</span> · <span className="text-brand-deep">{SPORT_LABEL[nextMatch.sportKey] ?? "Match"}</span> · {whenShort(nextMatch.scheduledAt)}
+            <span className="live-dot h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
+            <span className="shrink-0 font-mono text-[9.5px] font-bold uppercase tracking-[.16em] text-flame-text">Next</span>
+            <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
+              {SPORT_LABEL[nextMatch.sportKey] ?? "Match"} · {whenShort(nextMatch.scheduledAt)}
               {nextMatch.place ? ` · ${nextMatch.place}` : ""}
-            </span>
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface text-brand-deep">
-              <ChevronRight size={14} />
             </span>
           </Link>
         ) : null}
 
-        {/* Right cluster */}
-        <div className="ml-auto flex items-center gap-1.5">
-          <Link
-            href="/play/new"
-            aria-label="Organize a match"
-            className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-brand pl-3 pr-3.5 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-brand-deep"
-          >
-            <Plus size={17} className="shrink-0" />
-            Match
-          </Link>
-
-          <span className="mx-1 h-5 w-px bg-rule" aria-hidden />
-
+        {/* Right cluster — one filled control (Match), everything else ghost */}
+        <div className="ml-auto flex min-w-0 items-center gap-1">
           <IconLink href="/calendar" label="Calendar" badge={0}>
-            <CalendarRange size={18} />
+            <CalendarRange size={17} />
           </IconLink>
           <IconLink href="/chats" label="Chats" badge={chatUnread}>
-            <MessageCircle size={18} />
+            <MessageCircle size={17} />
           </IconLink>
-          <IconLink href="/notifications" label="Notifications" badge={unreadCount}>
-            <Bell size={18} />
-          </IconLink>
+
+          <Link
+            href="/notifications"
+            aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+            className="press relative grid h-[34px] w-9 shrink-0 place-items-center rounded-[10px] text-mute transition-colors hover:bg-[rgba(32,27,18,0.05)] hover:text-ink"
+          >
+            <Bell size={17} />
+            {unreadCount > 0 ? (
+              <span className="absolute right-1.5 top-1.5 h-[7px] w-[7px] rounded-full bg-brand ring-2 ring-white" aria-hidden />
+            ) : null}
+          </Link>
 
           {/* Switch into a team workspace (Pro teams only) */}
           <TeamSwitcher teams={proTeams} />
@@ -277,7 +273,7 @@ export function TopBar({
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               aria-label={`Status: ${pill.label}. Change your status`}
-              className="press flex h-9 items-center gap-2 rounded-full border border-rule bg-bg pl-2.5 pr-2 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
+              className="press flex h-[34px] items-center gap-2 rounded-[10px] border border-rule-2 bg-surface pl-2.5 pr-2 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
             >
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: pill.dot }} aria-hidden />
               <span className="hidden lg:inline">{pill.label}</span>
@@ -288,7 +284,7 @@ export function TopBar({
               <div
                 ref={menuRef}
                 role="menu"
-                className="absolute right-0 top-11 w-60 origin-top-right animate-[fade_0.12s_ease-out] overflow-hidden rounded-2xl border border-rule bg-surface shadow-[0_18px_50px_-12px_rgba(10,10,11,0.4)]"
+                className="absolute right-0 top-11 w-60 origin-top-right animate-[fade_0.12s_ease-out] overflow-hidden rounded-2xl border border-rule bg-surface shadow-e3"
               >
                 <p className="kicker px-3.5 pb-1 pt-3 text-faint">Set yourself as</p>
                 <div className="p-1">
@@ -321,8 +317,18 @@ export function TopBar({
               </div>
             ) : null}
           </div>
+
+          <Link
+            href="/play/new"
+            aria-label="Organize a match"
+            className="press inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[10px] px-3 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]"
+            style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
+          >
+            <Plus size={16} className="shrink-0" />
+            Match
+          </Link>
         </div>
-      </div>
     </header>
+    </div>
   );
 }

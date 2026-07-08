@@ -181,6 +181,33 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-08 — DAYLIGHT, Increment A (foundations + shell) — spec §1–§2 implemented
+- **New design language adopted** from the Claude Design handoff (`KLIMR-DAYLIGHT-SPEC.md`; the
+  reference HTML is the style source of truth). Daylight-first, warm, outdoor — "the climb."
+- **Token layer flipped** (`globals.css`): warm paper canvas + sun/sky glows + full-page contour
+  overlay; warm neutrals (`ink #201B12 · mute #6E6555 · faint #A69C88`), warm rules (+`rule-2/soft/
+  hover`); flame family (+`flame-hot/deep/text`, tint borders); Daylight status (grass `#2F9E44`,
+  sun/gold, sky info, loss danger, band-low, medals); **warm shadows** (`e1/e2/e3` + `bar` +
+  `flame`); radius scale retuned (cards 18 · shells 20 · tiles 11); fonts → **Space Grotesk**
+  (display) + **Instrument Sans** (body) — the first new packages of the effort — mono/Fraunces
+  stay; selection, warm scrollbar, `tickerScroll` + `nodePulse` keyframes.
+- **Sport identity** → the spec's exact fg/bg/border triples (`SPORT_TONES` in sport-chip.tsx;
+  tokens carry the fg). Supersedes the previous palette, per the spec.
+- **Rail** rewritten to §2.1 light glass (248px, radius 22, blur 14, warm shadow): mono group
+  kickers, flame-tinted active with the 3×16 gradient indicator pill, Daylight user pill footer.
+  All behavior preserved (accordion, user menu, admin, presence, invite, sign-out). **Reverses the
+  June dark Tideline rail** — per the spec + Gabriel's directive. Nav per §2.1 with Feed→**Home**,
+  Resources→**Playbook**, **Chats added**; Invites + Sponsorships retained beyond the spec list
+  (live destinations).
+- **Top bar** → §2.2 floating glass toolbar (34px controls, radius 10): spec search pill,
+  tint-flame **NEXT** chip (pulsing dot, mono kicker, ellipsis contract), ghost Calendar/Chats
+  with collapsing labels, icon Bell + flame dot, and the **single flame-gradient Match CTA** last.
+  Presence + team switcher kept (live functionality) as ghost controls. Shell layout follows the
+  reference (rail beside, toolbar atop content) — safe now both are light; the earlier full-width
+  hoist is reverted accordingly.
+- The scoped tournament theme untouched (spec silent). Real data only: NEXT chip, badges, presence
+  all wired to existing props. Lint + build green.
+
 ### 2026-07-08 — Visual pass V3, increment 2 — CTA family, focus halo, empty-state policy
 - **CTA glow, family-wide:** the guarded transform generalized from the one dominant literal to
   the whole plain-quoted `rounded-full bg-brand …text-white` pill family — **+43 pills across 35
