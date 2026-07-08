@@ -231,7 +231,7 @@ export function NetworkBrowser({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={`Search ${tab} by name or area…`}
-            className="w-full rounded-2xl border border-rule bg-surface shadow-e1 py-2.5 pl-10 pr-9 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+            className="w-full rounded-[10px] border border-rule-2 bg-surface py-2.5 pl-10 pr-9 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
           {q ? (
             <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-faint hover:bg-bg hover:text-ink">
@@ -455,7 +455,7 @@ function EmptyState({ tab }: { tab: Tab }) {
         <Users size={22} />
       </span>
       <p className="mx-auto mt-3 max-w-sm text-sm text-mute">{msg}</p>
-      <Link href="/players" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
+      <Link href="/players" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
         <UserPlus size={15} /> Find players
       </Link>
     </div>

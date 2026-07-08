@@ -133,7 +133,8 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
         <p className="kicker text-faint">Network</p>
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Friends &amp; followers</h1>
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Community — Network</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Friends &amp; followers</h1>
         <p className="mt-1.5 text-sm text-mute">Everyone in your circle — search, filter, and jump to any player.</p>
       </div>
       <PymkRail people={pymk} avatarUrlFor={pymkAvatars} />

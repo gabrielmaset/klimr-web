@@ -57,7 +57,8 @@ export default async function SponsorshipsPage() {
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5">
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Sponsorships</h1>
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Discover — Sponsorships</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Sponsorships</h1>
         <p className="mt-1 text-sm text-mute">Local businesses backing the best players in your area.</p>
       </div>
 
@@ -96,7 +97,7 @@ export default async function SponsorshipsPage() {
                     <form action={respondToOffer}>
                       <input type="hidden" name="id" value={o.id} />
                       <input type="hidden" name="decision" value="accept" />
-                      <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep">
+                      <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
                         Accept
                       </button>
                     </form>

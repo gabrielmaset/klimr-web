@@ -81,7 +81,7 @@ export function DivisionKnockout({
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs font-medium text-mute">
             Advance per pool
-            <input type="number" min={1} max={8} value={adv} onChange={(e) => setAdv(e.target.value)} className="w-14 rounded-lg border border-rule bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
+            <input type="number" min={1} max={8} value={adv} onChange={(e) => setAdv(e.target.value)} className="w-14 rounded-[10px] border border-rule-2 bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
           </label>
           <button type="button" onClick={gen} disabled={!!busy || !poolsComplete} className="press inline-flex items-center gap-1.5 rounded-xl bg-ink px-3.5 py-2 text-sm font-semibold text-white hover:bg-ink-soft disabled:opacity-50">
             {busy === "gen" ? <Loader2 size={15} className="animate-spin" /> : <Trophy size={15} />} {hasKnockout ? "Rebuild" : "Generate knockout"}

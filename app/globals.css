@@ -47,7 +47,7 @@
   --font-kicker: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-athletic: "Oswald Variable", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+  --font-athletic: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
 
   /* ── Semantic status ───────────────────────────────────────────────
      Destructive / warning / info. These were ad-hoc raw hex scattered across
@@ -277,10 +277,12 @@ select:focus-visible {
 }
 
 .kicker {
-  font-family: var(--font-kicker);
-  font-weight: 600;
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  /* Daylight §1.2: kickers are mono. Redefining the legacy utility converts
+     every remaining kicker in the app to the new grammar in one place. */
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   line-height: 1.4;
 }

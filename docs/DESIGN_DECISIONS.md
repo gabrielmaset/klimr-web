@@ -181,6 +181,63 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-08 — DAYLIGHT, Increment C (§4 recipe, central layer) — forms, CTAs, stat tiles
+- **Form sweep (§4.6):** all 61 fields (keyed on the focus-halo signature, multi-line-safe) →
+  radius 10, `rule-2` borders, flame focus ring retained; resting `shadow-e1` **stripped from
+  fields** — resolving the long-flagged V1 side-effect per spec (fields carry no shadow).
+- **One-flame reconciliation (§4.5/§6):** the V3 branded glow removed from **59 raw pills / 46
+  files** (they stay solid-brand, quiet); the `Button` **primary variant is now the canonical
+  flame CTA** — `linear-gradient(140deg,#FF6A35,#E23E0D)` + `shadow-flame` + brightness hover —
+  and danger returns to quiet solid. Pages migrate toward literally one filled control as they
+  get §4 composition passes; the primitive now encodes the target.
+- **`Stat` → sunken tile (§4.4):** mono kicker label + Space Grotesk value on `--surface-sunken`
+  with the `#EFE9DC` hairline, radius 12 — propagates to every Stat use (/me and friends).
+- **play/new** gained the §2.3 grammar; **Mountain nodes** hide the place label on small screens
+  (tier + count remain) so the five nodes breathe on phones.
+- **Remaining §4 (incremental polish from here):** per-page one-panel list conversions (§4.3 —
+  notifications, invites, network row groups), admin table treatment (§4.8), and per-view
+  one-flame audits as surfaces are touched.
+
+### 2026-07-08 — DAYLIGHT, Increment B (the six pages + grammar rollout) — spec §2.3–§3 complete
+- **New primitives:** `page-header.tsx` (§2.3 `PageHeader` + `StatusPill`), `countdown.tsx`
+  (real next-match countdown, HRS:MIN → NOW). Footer → §2.4 (mono © line + Contact). Bottom-nav
+  active → Daylight pill.
+- **§3.1 Home/Feed rebuilt:** greeting header (LA-aware daypart) + grass pill (real upcoming
+  count); **live ticker** from real data (upcoming matches → UP NEXT, decided team matches with
+  real scores → FINAL; no LIVE state exists in the schema, so none is faked); **next-match hero**
+  only when the user has one (real opponent or honest "Open spot", real court, real countdown; the
+  spec's weather is illustrative → omitted); the wire restyled (kind-colored mono kickers);
+  sidebar: **Your altitude** (real ZIP standing via `ranked_players`, honest empty states),
+  date-tile events, tint-flame Jump-in, reserved-stripes sponsor slot wrapping the real AdSlot.
+- **§3.2 The Mountain:** header grammar + YOU pill (real band); flame-gradient sport pills; the
+  **Mountain hero** (spec SVG ridges, sun halo, dotted route, flame flag) with **five scope nodes**
+  wired to the existing scope state and real climber counts; contention rows, 84px standing
+  numeral, sunken tiles, sun-toned nudge, How-points card. **The logo-stair podium is untouched,
+  per Gabriel's directive** — the spec's medal-tile podium was not adopted.
+- **§3.3 Match Lab:** the dark AI hero (a §6 violation) replaced by header grammar + light flame
+  sport tabs; Tonight's-opponent flame-tint hero (104px real score ring, mono factor bars from
+  match-intel's real four signals); suggestion grid → auto-fill 340px cards with micro factor
+  grids; band colors per spec (<45 → band-low).
+- **§3.4 Turf wars:** face-off grid (30px Space Grotesk regions, VS roundel), mono PTS·PLAYERS,
+  tint-flame REPPING pill, mono `{n}D LEFT`, and **the line** (12px sand track, flame-gradient
+  fill, white seam dot) — all from real challenge data.
+- **§3.5 Courtside:** one 940px panel with ACTIVE/EXPIRED mono strips (real expiry via
+  `conversations.expires_at`), 42px `SPORT_TONES` tiles, 55%-dimmed expired rows with mono chip +
+  real "Active {n}d ago", lifecycle footnote.
+- **§3.6 The playbook:** sport-tint gradient cards (exact tones) with real taglines and the
+  RULES·SCORING·TIERS mono footer; How-the-mountain card with the mini-ascent SVG (the page's one
+  climb motif).
+- **Grammar rollout:** `.kicker` legacy utility **redefined to the mono grammar** (one edit, every
+  remaining kicker app-wide converts); `--font-athletic` → **Space Grotesk** (Oswald retired from
+  the bundle; package retained); §2.3 kicker + 40px title applied to 16 standard-header pages with
+  section-mapped kickers (COMPETE/COMMUNITY/DISCOVER/ACCOUNT).
+- **Compliance fixes:** the V2 profile hero band and /me cover wash lost their dark mixes → light
+  sport-tint washes (§6: no dark panels).
+- **Known remaining (§4 per-page recipe):** deep composition passes (one-panel lists, sunken stat
+  tiles, 34px form sweep) on teams/events/settings/admin surfaces; the V3 pill-glow vs
+  one-filled-flame tension resolves as those pages get §4 treatment; play/new header; Mountain-hero
+  node spacing fine-tune on small screens.
+
 ### 2026-07-08 — DAYLIGHT, Increment A (foundations + shell) — spec §1–§2 implemented
 - **New design language adopted** from the Claude Design handoff (`KLIMR-DAYLIGHT-SPEC.md`; the
   reference HTML is the style source of truth). Daylight-first, warm, outdoor — "the climb."

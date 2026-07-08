@@ -177,7 +177,7 @@ export function InvitesBrowser({ items: items0, initialDir, initialKind }: { ite
   );
 }
 
-const ACCEPT = "press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep";
+const ACCEPT = "press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep";
 const OUTLINE = "press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink";
 const INFO = "inline-flex items-center gap-1.5 text-xs text-faint";
 

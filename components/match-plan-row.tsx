@@ -51,8 +51,8 @@ export function MatchPlanRow({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <input type="datetime-local" value={dt} onChange={(e) => { setDt(e.target.value); setSaved(false); }} className="rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
-        <input value={crt} onChange={(e) => { setCrt(e.target.value); setSaved(false); }} placeholder="Court" className="w-24 rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15" />
+        <input type="datetime-local" value={dt} onChange={(e) => { setDt(e.target.value); setSaved(false); }} className="rounded-[10px] border border-rule-2 bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
+        <input value={crt} onChange={(e) => { setCrt(e.target.value); setSaved(false); }} placeholder="Court" className="w-24 rounded-[10px] border border-rule-2 bg-surface px-2.5 py-1.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15" />
         <button type="button" onClick={save} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-sm font-semibold text-white hover:bg-ink-soft disabled:opacity-50">
           {busy ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : null} {saved ? "Saved" : "Save"}
         </button>

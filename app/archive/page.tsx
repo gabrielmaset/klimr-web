@@ -148,7 +148,8 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Archive</h1>
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Account — Archive</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Archive</h1>
         <p className="mt-1 text-sm text-mute">Your past events, classes, and tournaments — everything you hosted, helped run, or took part in. Nothing here is lost.</p>
       </div>
 

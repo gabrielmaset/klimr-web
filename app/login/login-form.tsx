@@ -83,7 +83,7 @@ export function LoginForm({ next, linkError }: { next: string; linkError: boolea
           placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+          className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
         />
       </label>
       <Turnstile onToken={setCaptchaToken} />

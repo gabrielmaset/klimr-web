@@ -95,7 +95,8 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Settings</h1>
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Account — Settings</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Settings</h1>
         <p className="mt-1 text-sm text-mute">Manage your account, play, notifications, teams, and privacy.</p>
       </div>
 

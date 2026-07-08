@@ -248,7 +248,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                 {myPart && !myPart.confirmed ? (
                   <form action={confirmSpot}>
                     <input type="hidden" name="matchId" value={id} />
-                    <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep">
+                    <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
                       Confirm
                     </button>
                   </form>

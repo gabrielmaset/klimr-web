@@ -74,7 +74,8 @@ export default async function PlayPage({
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Play</h1>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Compete — Play</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Play</h1>
           <p className="mt-1 text-sm text-mute">Find an open match near you — or organize your own.</p>
         </div>
         <Link
@@ -103,7 +104,7 @@ export default async function PlayPage({
           </p>
           <Link
             href="/play/new"
-            className="press mt-5 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25"
+            className="press mt-5 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
           >
             <Plus size={16} /> Organize a match
           </Link>

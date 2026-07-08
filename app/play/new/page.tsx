@@ -97,7 +97,8 @@ export default async function NewMatchPage({
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <BackButton fallback="/play" label="All matches" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink" icon="arrow" size={15} />
-      <h1 className="mt-4 font-display text-4xl leading-none text-ink sm:text-5xl">Organize a match</h1>
+      <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Compete — New match</p>
+      <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Organize a match</h1>
       <p className="mt-1 text-sm text-mute">Set the where and when. Players nearby can join until it fills.</p>
       <CreateMatchForm defaultZip={defaultZip} defaultSport={defaultSport} initialCourt={initialCourt} />
     </div>

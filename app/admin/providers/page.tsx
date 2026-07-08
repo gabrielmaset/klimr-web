@@ -49,7 +49,7 @@ export default async function AdminProvidersPage() {
     <div className="space-y-8">
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-mute">
-          Pending applications {apps.length > 0 ? <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white shadow-md shadow-brand/25">{apps.length}</span> : null}
+          Pending applications {apps.length > 0 ? <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{apps.length}</span> : null}
         </h2>
         {apps.length === 0 ? (
           <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-6 text-center text-sm text-mute">No applications waiting for review.</div>
@@ -90,9 +90,9 @@ export default async function AdminProvidersPage() {
                   <input
                     name="review_note"
                     placeholder="Review note (optional)"
-                    className="min-w-[180px] flex-1 rounded-xl border border-rule bg-bg px-3 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                    className="min-w-[180px] flex-1 rounded-[10px] border border-rule-2 bg-bg px-3 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                   />
-                  <button name="decision" value="approve" className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
+                  <button name="decision" value="approve" className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
                     Approve
                   </button>
                   <button name="decision" value="reject" className="press rounded-full border border-rule px-4 py-1.5 text-sm font-semibold text-mute transition-colors hover:text-brand-deep">
@@ -120,7 +120,7 @@ export default async function AdminProvidersPage() {
               name="userId"
               required
               placeholder="uuid"
-              className="w-full rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+              className="w-full rounded-[10px] border border-rule-2 bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
             />
           </label>
           <label className="block">
@@ -128,11 +128,11 @@ export default async function AdminProvidersPage() {
             <input
               name="headline"
               placeholder="e.g. USPTA-certified tennis coach"
-              className="w-full rounded-xl border border-rule bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+              className="w-full rounded-[10px] border border-rule-2 bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
             />
           </label>
           <input type="hidden" name="action" value="approve" />
-          <button className="press h-[38px] rounded-full bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
+          <button className="press h-[38px] rounded-full bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
             Approve
           </button>
         </form>

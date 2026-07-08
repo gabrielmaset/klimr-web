@@ -60,14 +60,14 @@ export function BottomNav({
                 className="relative z-10 flex flex-col items-center gap-0.5 pb-2 pt-2.5 text-[11px] font-semibold"
               >
                 <span className="relative">
-                  <Icon size={20} className={active ? "text-brand-deep" : "text-mute"} />
+                  <Icon size={20} className={active ? "rounded-[10px] bg-brand/[0.08] text-flame-text" : "text-mute"} />
                   {badge > 0 ? (
-                    <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white shadow-md shadow-brand/25">
+                    <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
                       {badge > 9 ? "9+" : badge}
                     </span>
                   ) : null}
                 </span>
-                <span className={active ? "text-brand-deep" : "text-mute"}>{label}</span>
+                <span className={active ? "rounded-[10px] bg-brand/[0.08] text-flame-text" : "text-mute"}>{label}</span>
               </Link>
             );
           })}
@@ -79,7 +79,7 @@ export function BottomNav({
             <span className={youActive ? "ring-2 ring-brand rounded-full" : ""}>
               <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={20} />
             </span>
-            <span className={youActive ? "text-brand-deep" : "text-mute"}>You</span>
+            <span className={youActive ? "rounded-[10px] bg-brand/[0.08] text-flame-text" : "text-mute"}>You</span>
           </Link>
         </div>
       </nav>

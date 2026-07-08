@@ -101,11 +101,12 @@ export default async function EventsPage() {
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Events</h1>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Compete — Events</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Events</h1>
           <p className="mt-1 text-sm text-mute">Open play, ladder nights, clinics, and tournaments near you. Times shown in PT.</p>
           <Link href="/archive?tab=events" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past events →</Link>
         </div>
-        <Link href="/events/new" className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
+        <Link href="/events/new" className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
           <Plus size={16} /> Host an event
         </Link>
       </div>

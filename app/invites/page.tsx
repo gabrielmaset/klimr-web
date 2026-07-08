@@ -148,7 +148,8 @@ export default async function InvitesPage({ searchParams }: { searchParams: Prom
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5">
         <p className="kicker text-faint">Invites</p>
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Matches &amp; friends</h1>
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Community — Invites</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Matches &amp; friends</h1>
         <p className="mt-1.5 text-sm text-mute">Match invites, friend requests, and team invitations — all in one place.</p>
       </div>
       <InvitesBrowser items={items} initialDir={initialDir} initialKind={initialKind} />

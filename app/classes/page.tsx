@@ -144,14 +144,15 @@ export default async function ClassesPage() {
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6 flex items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Classes</h1>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Discover — Classes</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Classes</h1>
           <p className="mt-1 text-sm text-mute">Clinics and lessons with verified Klimr coaches.</p>
           <Link href="/archive?tab=classes" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past classes →</Link>
         </div>
         {provider ? (
           <Link
             href="/classes/new"
-            className="press flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25"
+            className="press flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
           >
             <Plus size={16} /> Create class
           </Link>

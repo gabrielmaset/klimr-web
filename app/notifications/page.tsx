@@ -59,7 +59,8 @@ export default async function NotificationsPage() {
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Notifications</h1>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Account — Notifications</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Notifications</h1>
           <p className="mt-1 text-sm text-mute">{unread > 0 ? `${unread} unread` : "You're all caught up."}</p>
         </div>
         {unread > 0 ? (

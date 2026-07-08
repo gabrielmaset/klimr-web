@@ -294,7 +294,7 @@ export function AvatarCropper({
           <button
             onClick={confirm}
             disabled={busy || !ready}
-            className="press flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60 shadow-md shadow-brand/25"
+            className="press flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
           >
             {busy ? "Saving…" : (<><Check size={16} aria-hidden /> Set photo</>)}
           </button>

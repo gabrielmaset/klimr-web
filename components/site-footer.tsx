@@ -21,14 +21,9 @@ export function SiteFooter({ authed = false }: { authed?: boolean }) {
   if (authed) {
     return (
       <footer className="bg-transparent">
-        <div className="mx-auto max-w-page px-5 pb-10 pt-14">
-          <div className="border-t border-rule/60 pt-7">
-            <AdSlot label="Local sponsor" />
-            <div className="mt-5 flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
-              <p className="font-mono text-[11px] text-faint">© 2026 Klimr · Los Angeles</p>
-              <a href="mailto:hello@klimr.com" className="text-xs text-mute transition-colors hover:text-ink">Contact</a>
-            </div>
-          </div>
+        <div className="mx-auto flex max-w-page items-center justify-between px-5 py-5">
+          <p className="font-mono text-[9.5px] font-semibold uppercase tracking-[.18em] text-faint">© 2026 KLIMR · Los Angeles</p>
+          <a href="mailto:hello@klimr.com" className="text-xs font-semibold text-mute transition-colors hover:text-flame-text">Contact</a>
         </div>
       </footer>
     );

@@ -22,7 +22,8 @@ export default async function InvitePage() {
           <Gift size={22} className="text-brand-deep" />
         </span>
         <div>
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Invite a friend</h1>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Account — Invite friends</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Invite a friend</h1>
           <p className="mt-1 text-sm text-mute">Bring players who&apos;ll make the local boards better.</p>
         </div>
       </div>

@@ -42,7 +42,8 @@ export default async function SupportPage() {
           <LifeBuoy size={20} />
         </span>
         <div>
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Contact support</h1>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Account — Support</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Contact support</h1>
           <p className="mt-2 text-sm text-mute">
             Send the team a note — we reply by email, and your request&rsquo;s status shows here.
           </p>

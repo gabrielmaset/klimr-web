@@ -125,7 +125,7 @@ export default async function MyProfilePage() {
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 rounded-3xl"
-          style={{ background: `linear-gradient(180deg, transparent 45%, color-mix(in oklab, ${heroAccent} 55%, rgba(10,33,44,0.9)) 100%)` }}
+          style={{ background: `linear-gradient(180deg, transparent 55%, color-mix(in oklab, ${heroAccent} 30%, rgba(250,247,241,0.92)) 100%)` }}
         />
       </div>
 
@@ -322,7 +322,7 @@ export default async function MyProfilePage() {
               <p className="mx-auto mt-3 max-w-xs text-sm text-mute">No matches yet — organize one and it&rsquo;ll show up here.</p>
               <Link
                 href="/play/new"
-                className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep"
+                className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
               >
                 <Plus size={15} /> Organize a match
               </Link>

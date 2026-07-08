@@ -83,7 +83,7 @@ export function JoinWaitlistDialog({
               ) : (
                 <div className="grid gap-3">
                   <Link href={accountHref} className="press flex items-center gap-3 rounded-2xl border border-brand/30 bg-tint-brand/50 p-3.5 text-left">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand text-white shadow-md shadow-brand/25">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand text-white">
                       <UserRound size={17} />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -112,7 +112,7 @@ export function JoinWaitlistDialog({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Your name (optional)"
-                      className="mb-2 w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+                      className="mb-2 w-full rounded-[10px] border border-rule-2 bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
                     />
                     <div className="flex gap-2">
                       <input
@@ -120,7 +120,7 @@ export function JoinWaitlistDialog({
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@email.com"
-                        className="min-w-0 flex-1 rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+                        className="min-w-0 flex-1 rounded-[10px] border border-rule-2 bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
                       />
                       <button
                         type="button"

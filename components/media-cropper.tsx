@@ -255,7 +255,7 @@ export function MediaCropper({
 
         <div className="mt-5 flex gap-3">
           <button onClick={onCancel} className="press flex-1 rounded-full border border-rule bg-surface py-2.5 text-sm font-semibold text-ink-soft">Cancel</button>
-          <button onClick={confirm} disabled={busy || !ready} className="press flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60 shadow-md shadow-brand/25">
+          <button onClick={confirm} disabled={busy || !ready} className="press flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60">
             {busy ? "Saving…" : (<><Check size={16} aria-hidden /> Use image</>)}
           </button>
         </div>

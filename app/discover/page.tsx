@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Radar, Sparkle, ArrowRight, Zap } from "lucide-react";
+import { Radar, ArrowRight, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
 import { Avatar } from "@/components/avatar";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { suggestedOpponents } from "@/lib/match-intel";
+import { PageHeader } from "@/components/page-header";
 
-export const metadata: Metadata = { title: "Discover players" };
+export const metadata: Metadata = { title: "Match Lab" };
 
 function scoreColor(s: number): { bg: string; fg: string } {
   if (s >= 70) return { bg: "var(--color-tint-success)", fg: "var(--color-success)" };
   if (s >= 45) return { bg: "var(--color-tint-warning)", fg: "var(--color-warning)" };
-  return { bg: "var(--color-bg)", fg: "var(--color-mute)" };
+  return { bg: "var(--color-bg)", fg: "var(--color-band-low)" };
 }
 
 /* A match-score gauge ring drawn around the player's avatar. */
@@ -27,7 +28,7 @@ function ScoredAvatar({ score, url, hue, name, size }: { score: number; url: str
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 -rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-rule)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EDE7D9" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={col} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={off} />
       </svg>
       <div className="absolute inset-0 grid place-items-center">
@@ -38,22 +39,36 @@ function ScoredAvatar({ score, url, hue, name, size }: { score: number; url: str
 }
 
 /* The compatibility breakdown — the page's tagline made literal. */
-function FactorBars({ factors }: { factors: { location: number; skill: number; availability: number; style: number } }) {
+function FactorBars({ factors, micro }: { factors: { location: number; skill: number; availability: number; style: number }; micro?: boolean }) {
   const rows: [string, number][] = [
     ["Area", factors.location],
     ["Skill", factors.skill],
     ["Timing", factors.availability],
     ["Style", factors.style],
   ];
+  if (micro) {
+    return (
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+        {rows.map(([label, v]) => (
+          <div key={label}>
+            <span className="font-mono text-[8px] font-bold uppercase tracking-[.14em] text-faint">{label}</span>
+            <span className="mt-0.5 block h-1 overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
+              <span className="block h-full rounded-full" style={{ width: `${v}%`, background: scoreColor(v).fg }} />
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {rows.map(([label, v]) => (
         <div key={label} className="flex items-center gap-2.5">
-          <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-faint">{label}</span>
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-rule">
+          <span className="w-12 shrink-0 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">{label}</span>
+          <span className="h-[5px] flex-1 overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
             <span className="block h-full rounded-full transition-all" style={{ width: `${v}%`, background: scoreColor(v).fg }} />
           </span>
-          <span className="w-6 shrink-0 text-right text-[10px] font-semibold tabular text-mute">{v}</span>
+          <span className="w-7 shrink-0 text-right font-mono text-[10px] font-bold tabular text-mute">{v}</span>
         </div>
       ))}
     </div>
@@ -77,14 +92,14 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
   if (mySports.length === 0) {
     return (
       <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Match Intelligence</h1>
+        <PageHeader kicker="Discover — Match Lab" title="Match Lab" sub="Tell us what you play and the lab will rank opponents near your level and area." />
         <div className="mt-5 rounded-3xl border border-rule bg-surface shadow-e1 p-10 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-tint-brand text-brand-deep">
             <Radar size={22} />
           </span>
           <p className="mt-3 text-base font-bold text-ink">Add a sport to get matched</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-mute">Tell us what you play and the engine will rank opponents near your level and area.</p>
-          <Link href="/onboarding" className="press mt-4 inline-block rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
+          <Link href="/onboarding" className="press mt-4 inline-block rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
             Set up your sports
           </Link>
         </div>
@@ -143,40 +158,34 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      {/* Futuristic AI hero */}
-      <div className="relative mb-6 overflow-hidden rounded-3xl px-6 py-7 sm:px-8 sm:py-9" style={{ background: "linear-gradient(135deg, #0b1020 0%, #171233 55%, #2a1530 100%)" }}>
-        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(120% 130% at 88% 8%, rgba(255,78,27,0.42), transparent 55%)" }} />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.10]" style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "30px 30px" }} />
-        <div className="relative">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white/90 backdrop-blur-sm">
-            <Sparkle size={12} className="text-brand" /> AI matchmaking
-          </span>
-          <h1 className="mt-3 font-display text-4xl leading-none text-white sm:text-5xl">Match Intelligence</h1>
-          <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-white/65">
-            Your best {meta.name.toLowerCase()} opponents, scored on four signals — <span className="text-white/85">area, skill, timing, and play style</span>.
-          </p>
+      <PageHeader
+        kicker="Discover — Match Lab"
+        title="Match Lab"
+        sub={`Your best ${meta.name.toLowerCase()} opponents, scored on four signals — area, skill, timing, and play style.`}
+      />
 
-          {mySports.length > 1 ? (
-            <div className="mt-5 flex flex-wrap gap-1.5">
-              {mySports.map((k) => {
-                const m = sportMeta(k);
-                const on = k === selected;
-                return (
-                  <Link
-                    key={k}
-                    href={`/discover?sport=${k}`}
-                    className="press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                    style={{ borderColor: on ? "transparent" : "rgba(255,255,255,0.2)", background: on ? "var(--color-brand)" : "rgba(255,255,255,0.08)", color: on ? "#fff" : "rgba(255,255,255,0.78)" }}
-                  >
-                    {m.emoji} {m.name}
-                  </Link>
-                );
-              })}
-            </div>
-          ) : null}
+      {mySports.length > 1 ? (
+        <div className="mt-5 flex flex-wrap gap-1.5">
+          {mySports.map((k) => {
+            const m = sportMeta(k);
+            const on = k === selected;
+            return (
+              <Link
+                key={k}
+                href={`/discover?sport=${k}`}
+                className="press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={on
+                  ? { borderColor: "transparent", background: "linear-gradient(140deg, #FF6A35, #E23E0D)", color: "#fff", boxShadow: "var(--shadow-flame)" }
+                  : { borderColor: "var(--color-rule-2)", background: "var(--color-surface)", color: "var(--color-mute)" }}
+              >
+                {m.emoji} {m.name}
+              </Link>
+            );
+          })}
         </div>
-      </div>
+      ) : null}
 
+      <div className="mt-5">
       {suggestions.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-rule bg-surface/50 p-12 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-tint-brand text-brand-deep">
@@ -189,15 +198,15 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
         <>
           {/* Top match spotlight */}
           {top ? (
-            <div className="mb-4 overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
-              <span className="kicker text-brand-deep">★ Top match</span>
+            <div className="mb-4 overflow-hidden rounded-[20px] border p-5 sm:p-6" style={{ borderColor: "var(--color-tint-brand-bd2)", background: "linear-gradient(130deg, #FFF1E8, #FFFFFF 58%)" }}>
+              <span className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-sun-text">Tonight&rsquo;s opponent</span>
               <div className="mt-3 grid gap-5 lg:grid-cols-[1.05fr_1fr] lg:items-center">
                 <Link href={`/profile/${top.userId}`} className="flex items-center gap-4">
-                  <ScoredAvatar score={top.score} url={aurl(top.avatarPath)} hue={top.avatarHue} name={top.displayName} size={88} />
+                  <ScoredAvatar score={top.score} url={aurl(top.avatarPath)} hue={top.avatarHue} name={top.displayName} size={104} />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-lg font-bold text-ink">{top.displayName}</span>
-                      <span className="rounded-full px-2 py-0.5 text-xs font-bold tabular" style={{ background: scoreColor(top.score).bg, color: scoreColor(top.score).fg }}>
+                      <span className="truncate font-display text-[28px] font-bold leading-none tracking-[-0.02em] text-ink">{top.displayName}</span>
+                      <span className="rounded-full px-2 py-0.5 font-mono text-xs font-bold tabular" style={{ background: scoreColor(top.score).bg, color: scoreColor(top.score).fg }}>
                         {top.score}% match
                       </span>
                     </div>
@@ -208,7 +217,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                     {top.reasons.length ? (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {top.reasons.slice(0, 3).map((r) => (
-                          <span key={r} className="rounded-full bg-bg px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+                          <span key={r} className="rounded-full border border-rule bg-surface px-2 py-0.5 text-[11px] font-medium text-ink-soft">
                             {r}
                           </span>
                         ))}
@@ -217,9 +226,9 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                   </div>
                 </Link>
                 <div className="rounded-2xl bg-bg/60 p-4 lg:border-l lg:border-rule lg:bg-transparent lg:p-0 lg:pl-6">
-                  <p className="kicker mb-2.5 text-faint">Compatibility breakdown</p>
+                  <p className="mb-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Compatibility signals</p>
                   <FactorBars factors={top.factors} />
-                  <Link href={`/profile/${top.userId}`} className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep">
+                  <Link href={`/profile/${top.userId}`} className="press mt-4 inline-flex h-[34px] items-center gap-1.5 rounded-[10px] px-3.5 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
                     View profile <ArrowRight size={14} />
                   </Link>
                 </div>
@@ -229,7 +238,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
 
           {/* Ranked grid */}
           {rest.length ? (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
               {rest.map((s) => {
                 const sc = scoreColor(s.score);
                 return (
@@ -243,12 +252,12 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                           {s.skillLevel ? ` · ${s.skillLevel}` : ""}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular" style={{ background: sc.bg, color: sc.fg }}>
+                      <span className="shrink-0 rounded-full px-2.5 py-1 font-mono text-xs font-bold tabular" style={{ background: sc.bg, color: sc.fg }}>
                         {s.score}%
                       </span>
                     </div>
-                    <div className="mt-3.5 border-t border-rule pt-3">
-                      <FactorBars factors={s.factors} />
+                    <div className="mt-3.5 border-t border-rule-soft pt-3">
+                      <FactorBars factors={s.factors} micro />
                     </div>
                   </Link>
                 );
@@ -262,7 +271,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
       {needPlayers.length > 0 ? (
         <section className="mt-9">
           <div className="mb-2.5 flex items-center justify-between">
-            <h2 className="kicker flex items-center gap-1.5 text-brand-deep">
+            <h2 className="flex items-center gap-1.5 font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-brand-deep">
               <Zap size={13} /> Open matches · {needPlayers.length} need a player
             </h2>
             <Link href="/play" className="press text-xs font-semibold text-brand-deep hover:underline">
@@ -280,7 +289,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                     <span className="text-xl" aria-hidden>
                       {m2.emoji}
                     </span>
-                    <span className="kicker rounded-full bg-tint-brand px-2 py-1 text-[9px] text-brand-deep">
+                    <span className="rounded-full bg-tint-brand px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">
                       {left} spot{left === 1 ? "" : "s"} open
                     </span>
                   </div>
@@ -298,6 +307,8 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
           </div>
         </section>
       ) : null}
+
+      </div>
 
       <AdSlot className="mt-7" label="Local sponsor" />
 

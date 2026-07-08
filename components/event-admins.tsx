@@ -114,7 +114,7 @@ export function EventAdmins({ eventId, isOwner, meId, initialAdmins }: { eventId
               value={q}
               onChange={(e) => onQuery(e.target.value)}
               placeholder="Add an admin — search members by name"
-              className="w-full rounded-full border border-rule bg-bg py-2.5 pl-9 pr-9 text-sm font-medium text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
+              className="w-full rounded-full border border-rule-2 bg-bg py-2.5 pl-9 pr-9 text-sm font-medium text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
             />
             {q ? (
               <button type="button" onClick={() => onQuery("")} aria-label="Clear" className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-ink">
@@ -140,7 +140,7 @@ export function EventAdmins({ eventId, isOwner, meId, initialAdmins }: { eventId
                         <p className="truncate text-sm font-medium text-ink">{c.name}</p>
                         {c.city ? <p className="truncate text-[11px] text-faint">{c.city}</p> : null}
                       </div>
-                      <button type="button" disabled={pending} onClick={() => add(c)} className="press inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50 shadow-md shadow-brand/25">
+                      <button type="button" disabled={pending} onClick={() => add(c)} className="press inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
                         <Plus size={13} /> Add
                       </button>
                     </li>

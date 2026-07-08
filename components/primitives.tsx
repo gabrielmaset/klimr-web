@@ -38,9 +38,9 @@ export function Stat({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col", className)}>
-      <span className="font-mono text-xl font-semibold tabular-nums text-ink">{value}</span>
-      <span className="kicker text-mute">{label}</span>
+    <div className={cn("rounded-[12px] bg-bg px-3 py-2.5", className)} style={{ border: "1px solid #EFE9DC" }}>
+      <p className="font-mono text-[8.5px] font-bold uppercase tracking-[.16em] text-faint">{label}</p>
+      <p className="mt-1 font-display text-base font-bold leading-none tracking-[-0.01em] text-ink">{value}</p>
     </div>
   );
 }

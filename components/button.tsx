@@ -17,7 +17,7 @@ type Size = "sm" | "md" | "lg";
 
 const base =
   "press inline-flex items-center justify-center gap-2 rounded-full font-semibold " +
-  "whitespace-nowrap select-none transition-[color,background-color,border-color,box-shadow] " +
+  "whitespace-nowrap select-none transition-[color,background-color,border-color,box-shadow,filter] " +
   "disabled:opacity-50 disabled:pointer-events-none " +
   "aria-disabled:opacity-50 aria-disabled:pointer-events-none";
 
@@ -28,11 +28,11 @@ const sizes: Record<Size, string> = {
 };
 
 const variants: Record<Variant, string> = {
-  primary: "bg-brand text-white shadow-md shadow-brand/25 hover:bg-brand-deep hover:shadow-lg hover:shadow-brand/35",
+  primary: "bg-[linear-gradient(140deg,#FF6A35,#E23E0D)] text-white shadow-flame hover:brightness-[1.06]",
   dark: "bg-ink text-surface shadow-md shadow-ink/20 hover:bg-ink-soft",
   secondary: "border border-rule bg-surface text-ink hover:border-faint",
   ghost: "text-ink-soft hover:bg-black/[0.04]",
-  danger: "bg-danger text-white shadow-md shadow-danger/25 hover:bg-danger-deep hover:shadow-lg hover:shadow-danger/35",
+  danger: "bg-danger text-white hover:bg-danger-deep",
   soft: "bg-tint-brand text-brand-deep hover:bg-brand/15",
 };
 

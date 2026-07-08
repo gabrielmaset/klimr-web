@@ -173,7 +173,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Alex R."
                   maxLength={40}
-                  className="w-full rounded-xl border-2 border-rule bg-bg px-4 py-3.5 text-lg font-semibold text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
+                  className="w-full rounded-[10px] border-2 border-rule-2 bg-bg px-4 py-3.5 text-lg font-semibold text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
                 />
                 <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-mute">
                   <MapPin size={13} /> {session.requireLocation ? "Joining shares your location once to confirm you're on-site." : "Tap Join on a court to grab its next open spot."}
@@ -208,7 +208,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                           <div className="min-w-0">
                             <h2 className="truncate font-display text-2xl leading-tight text-ink">{c.label}</h2>
                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              <span className="rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white shadow-md shadow-brand/25">{formationLabel(c.teamSize)}</span>
+                              <span className="rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white">{formationLabel(c.teamSize)}</span>
                               <span className="rounded-full border border-rule bg-white px-2.5 py-1 text-xs font-bold text-ink-soft">{c.levels.length ? c.levels.map(levelLabel).join(" · ") : "All levels"}</span>
                             </div>
                           </div>
@@ -284,12 +284,12 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                                     onChange={(e) => setTeamName(i, e.target.value)}
                                     placeholder={i === 0 ? "You" : `Player ${i + 1}`}
                                     maxLength={40}
-                                    className="w-full rounded-xl border-2 border-rule bg-bg px-3.5 py-3 text-base font-semibold text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
+                                    className="w-full rounded-[10px] border-2 border-rule-2 bg-bg px-3.5 py-3 text-base font-semibold text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
                                   />
                                 ))}
                               </div>
                               <div className="mt-2.5 flex gap-2">
-                                <button type="button" disabled={pending} onClick={() => submitTeam(c)} className="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand py-3 text-base font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-50 shadow-md shadow-brand/25">
+                                <button type="button" disabled={pending} onClick={() => submitTeam(c)} className="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand py-3 text-base font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-50">
                                   {busy ? <Loader2 size={18} className="animate-spin" /> : <Users size={18} />} Add team to the line
                                 </button>
                                 <button type="button" disabled={pending} onClick={closeTeam} className="press rounded-full border-2 border-rule px-4 py-3 text-sm font-bold text-mute hover:bg-bg">

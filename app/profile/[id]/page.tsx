@@ -246,7 +246,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
       <div
         aria-hidden
         className="h-28 sm:h-32"
-        style={{ background: `linear-gradient(135deg, color-mix(in oklab, ${heroAccent} 88%, #0a212c) 0%, color-mix(in oklab, ${heroAccent} 42%, #0a212c) 100%)` }}
+        style={{ background: `linear-gradient(135deg, color-mix(in oklab, ${heroAccent} 16%, #FFFFFF) 0%, #FFFFFF 70%)`, borderBottom: "1px solid var(--color-rule-soft)" }}
       />
       <div className="flex flex-col gap-5 p-6 pt-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
@@ -416,7 +416,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                     id="reason"
                     name="reason"
                     defaultValue="harassment"
-                    className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                    className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                   >
                     {REASONS.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -429,7 +429,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                     rows={3}
                     maxLength={500}
                     placeholder="What happened?"
-                    className="mt-1.5 w-full resize-none rounded-xl border border-rule bg-surface shadow-e1 px-3 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                    className="mt-1.5 w-full resize-none rounded-[10px] border border-rule-2 bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                   />
                   <button className="press mt-3 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
                     Submit report

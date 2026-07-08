@@ -435,7 +435,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
       ) : null}
 
       <div className="flex items-center gap-3">
-        <button type="button" onClick={submit} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-50 shadow-md shadow-brand/25">
+        <button type="button" onClick={submit} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-50">
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} {editing ? "Save changes" : "Publish event"}
         </button>
         <button type="button" onClick={() => router.back()} className="press text-sm font-semibold text-mute hover:text-ink">

@@ -4,21 +4,21 @@ import { redirect } from "next/navigation";
 import { Lock, MessageCircle, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta, sportSlug } from "@/lib/sports";
+import { SPORT_TONES } from "@/components/sport-chip";
+import { PageHeader, StatusPill } from "@/components/page-header";
 
-export const metadata: Metadata = { title: "Chats" };
+export const metadata: Metadata = { title: "Courtside" };
 
 type MatchRow = { id: string; sport_key: string; format: string; scheduled_at: string | null; status: string };
+
+const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]";
 
 function whenLabel(iso: string | null) {
   if (!iso) return "Flexible time";
   return new Date(iso).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
-function activityLabel(iso: string) {
-  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (sec < 60) return "just now";
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  return `${Math.floor(sec / 86400)}d ago`;
+function daysAgo(iso: string, nowMs: number) {
+  return Math.max(1, Math.floor((nowMs - new Date(iso).getTime()) / 86400000));
 }
 
 export default async function ChatsPage() {
@@ -44,7 +44,6 @@ export default async function ChatsPage() {
     ]);
     matches = (ms as MatchRow[] | null) ?? [];
 
-    // resolve names for everyone except me
     const everyone = [...new Set((parts ?? []).map((p) => p.user_id))].filter((id) => id !== user.id);
     const nameById = new Map<string, string>();
     if (everyone.length) {
@@ -58,10 +57,8 @@ export default async function ChatsPage() {
       otherNames.set(p.match_id, arr);
     }
 
-    const convByMatch = new Map<string, { id: string; expires_at: string | null }>();
     for (const c of convs ?? []) {
       if (!c.match_id) continue; // team conversations have no match
-      convByMatch.set(c.match_id, { id: c.id, expires_at: c.expires_at });
       expiryByMatch.set(c.match_id, c.expires_at);
     }
     const convIds = (convs ?? []).map((c) => c.id);
@@ -79,7 +76,6 @@ export default async function ChatsPage() {
     }
   }
 
-  // Sort: most recent activity first, then upcoming matches.
   matches.sort((a, b) => {
     const av = lastActivity.get(a.id) ?? a.scheduled_at ?? "";
     const bv = lastActivity.get(b.id) ?? b.scheduled_at ?? "";
@@ -89,58 +85,103 @@ export default async function ChatsPage() {
   // Server component renders once per request, so reading the clock here is stable.
   // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now();
+  const isExpired = (id: string) => {
+    const exp = expiryByMatch.get(id);
+    return !!exp && nowMs > new Date(exp).getTime();
+  };
+  const active = matches.filter((m) => !isExpired(m.id));
+  const expired = matches.filter((m) => isExpired(m.id));
+
+  const Row = ({ m, dim }: { m: MatchRow; dim?: boolean }) => {
+    const meta = sportMeta(m.sport_key);
+    const tone = SPORT_TONES[sportSlug(m.sport_key)];
+    const names = otherNames.get(m.id) ?? [];
+    const others = names.length === 0 ? "Just you so far" : names.length <= 2 ? names.join(" & ") : `${names[0]}, ${names[1]} +${names.length - 2}`;
+    const last = lastActivity.get(m.id);
+    return (
+      <Link key={m.id} href={`/chats/${m.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[#FBF8F1]">
+        <span
+          className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] text-lg ${dim ? "opacity-55" : ""}`}
+          style={{ background: tone?.bg ?? "var(--color-bg)", border: `1px solid ${tone?.bd ?? "var(--color-rule)"}` }}
+        >
+          {meta.emoji}
+        </span>
+        <span className={`min-w-0 flex-1 ${dim ? "opacity-55" : ""}`}>
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-bold text-ink">
+              {meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}
+            </span>
+            {dim ? (
+              <span className="rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-faint" style={{ background: "#F4EFE5", border: "1px solid var(--color-rule-2)" }}>
+                Expired
+              </span>
+            ) : null}
+          </span>
+          <span className="block truncate text-xs text-mute">
+            {others} · {whenLabel(m.scheduled_at)}
+          </span>
+          <span className="mt-0.5 block text-xs text-faint">
+            {dim && last
+              ? `Active ${daysAgo(last, nowMs)}d ago`
+              : last
+                ? "Active recently"
+                : "No messages yet — start the chat"}
+          </span>
+        </span>
+        <ChevronRight size={17} className="shrink-0" style={{ color: "#D8CFBE" }} />
+      </Link>
+    );
+  };
 
   return (
-    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <div className="mb-2">
-        <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Chats</h1>
-        <p className="mt-1 flex items-center gap-1.5 text-sm text-mute">
-          <Lock size={13} /> One end-to-end encrypted chat per match.
-        </p>
-      </div>
+    <div className="mx-auto max-w-[940px] px-5 pb-16 pt-[22px]">
+      <PageHeader
+        kicker="Community — Chats"
+        title="Courtside"
+        sub={
+          <span className="inline-flex items-center gap-1.5">
+            <Lock size={13} /> One end-to-end encrypted chat per match.
+          </span>
+        }
+        pill={
+          matches.length ? (
+            <StatusPill>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[.14em]">
+                {active.length} active · {expired.length} expired
+              </span>
+            </StatusPill>
+          ) : undefined
+        }
+      />
 
       {matches.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
-          <MessageCircle className="mx-auto text-faint" size={26} />
-          <p className="mt-2 text-sm font-semibold text-ink">No match chats yet</p>
-          <p className="mt-1 text-sm text-mute">Join or create a match and a private chat opens for the players.</p>
-          <Link href="/play" className="press mt-4 inline-block rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface hover:bg-ink-soft">
+        <div className="mt-6 rounded-[18px] bg-bg px-6 py-8 text-center" style={{ border: "1px solid #EFE9DC" }}>
+          <MessageCircle className="mx-auto text-faint" size={24} />
+          <p className="mt-2 text-sm font-semibold text-ink">No match chats yet — join a match and a private chat opens for its players.</p>
+          <Link href="/play" className="press mt-4 inline-flex h-[34px] items-center rounded-[10px] px-3.5 text-[13px] font-bold text-white shadow-flame" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
             Find a match
           </Link>
         </div>
       ) : (
-        <div className="mt-5 space-y-2.5">
-          {matches.map((m) => {
-            const meta = sportMeta(m.sport_key);
-            const names = otherNames.get(m.id) ?? [];
-            const others = names.length === 0 ? "Just you so far" : names.length <= 2 ? names.join(" & ") : `${names[0]}, ${names[1]} +${names.length - 2}`;
-            const last = lastActivity.get(m.id);
-            const exp = expiryByMatch.get(m.id);
-            const expired = !!exp && nowMs > new Date(exp).getTime();
-            return (
-              <Link
-                key={m.id}
-                href={`/chats/${m.id}`}
-                className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4"
-              >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(m.sport_key)}) 16%, transparent)` }}>
-                  {meta.emoji}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2">
-                    <span className="truncate text-sm font-bold text-ink">{others}</span>
-                    {expired ? <span className="kicker text-faint">Expired</span> : null}
-                  </span>
-                  <span className="block truncate text-xs text-mute">
-                    {meta.name} · {m.format} · {whenLabel(m.scheduled_at)}
-                  </span>
-                  <span className="mt-0.5 block text-xs text-faint">{last ? `Active ${activityLabel(last)}` : "No messages yet — start the chat"}</span>
-                </span>
-                <ChevronRight size={18} className="shrink-0 text-faint" />
-              </Link>
-            );
-          })}
-        </div>
+        <>
+          <div className="mt-6 overflow-hidden rounded-[20px] border border-rule bg-surface shadow-e1">
+            {active.length ? (
+              <>
+                <p className={`${monoKicker} border-b border-rule-soft bg-bg px-4 py-2 text-faint`}>Active — {active.length}</p>
+                <div className="divide-y divide-rule-soft">{active.map((m) => <Row key={m.id} m={m} />)}</div>
+              </>
+            ) : null}
+            {expired.length ? (
+              <>
+                <p className={`${monoKicker} border-b border-t border-rule-soft bg-bg px-4 py-2 text-faint`}>Expired — {expired.length}</p>
+                <div className="divide-y divide-rule-soft">{expired.map((m) => <Row key={m.id} m={m} dim />)}</div>
+              </>
+            ) : null}
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-faint">
+            Chats live with their match — they open when a match forms and wind down after it&rsquo;s played.
+          </p>
+        </>
       )}
     </div>
   );

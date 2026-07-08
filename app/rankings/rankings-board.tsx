@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Crown, Zap, BadgeCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { sportSlug } from "@/lib/sports";
+import { PageHeader, StatusPill } from "@/components/page-header";
 
 /* The four sports. Keys match the DB; the emoji is presentation-only. */
 const SPORTS = [
@@ -42,7 +42,7 @@ const MEDAL = ["#e8b007", "#9aa0aa", "#c07d3e"];
 
 const COUNTRY: Record<string, string> = { US: "United States" };
 const CARD =
-  "rounded-2xl border border-rule bg-surface p-5 shadow-[0_1px_2px_rgba(10,10,11,.05),0_16px_34px_-20px_rgba(10,10,11,.18)] sm:p-6";
+  "rounded-[18px] border border-rule bg-surface shadow-e1 p-5";
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 const initials = (name: string) =>
@@ -256,7 +256,6 @@ export function RankingsBoard({
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   const sport = SPORTS[sportIdx];
-  const accent = `var(--color-sport-${sportSlug(sport.key)})`;
   const scope = scopes[scopeIdx];
 
   // Fetch all five scopes for the active sport (so scope-switching is instant and
@@ -307,26 +306,13 @@ export function RankingsBoard({
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      {/* header — your position, made loud */}
-      {me ? (
-        <div className="flex flex-col gap-1">
-          <p className="kicker text-faint">Rankings · {sport.name}</p>
-          <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="font-athletic text-6xl font-bold leading-none tracking-tight sm:text-7xl" style={{ color: accent }}>#{me.rank}</span>
-            <span className="font-display text-2xl leading-none text-ink sm:text-3xl">in {scope.place}</span>
-          </h1>
-          <p className="mt-1 text-sm font-semibold text-mute">
-            {me.rank === 1
-              ? `Summit — the top of ${scope.place}`
-              : `${fmt((above?.points ?? me.points) - me.points)} pts behind #${me.rank - 1} · ${pctLabel} of ${fmt(field)} players`}
-          </p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Rankings</h1>
-          <p className="text-sm text-mute">Your game, ranked — from your ZIP to the planet.</p>
-        </div>
-      )}
+      {/* header — Daylight §2.3 */}
+      <PageHeader
+        kicker="Compete — Rankings"
+        title="The Mountain"
+        sub="Every match you log moves you up the slope — from your ZIP to the planet."
+        pill={me ? <StatusPill dot="flame">{`YOU · #${fmt(me.rank)} · ${bandLabel(pct, me.rank).toUpperCase()}`}</StatusPill> : undefined}
+      />
 
       {/* sport tabs + live cue */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
@@ -340,9 +326,10 @@ export function RankingsBoard({
                 aria-pressed={on}
                 className="press flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors"
                 style={{
-                  borderColor: on ? "var(--color-brand)" : "var(--color-rule)",
-                  background: on ? "var(--color-brand)" : "transparent",
+                  borderColor: on ? "transparent" : "var(--color-rule-2)",
+                  background: on ? "linear-gradient(140deg, #FF6A35, #E23E0D)" : "var(--color-surface)",
                   color: on ? "#fff" : "var(--color-mute)",
+                  boxShadow: on ? "var(--shadow-flame)" : "none",
                 }}
               >
                 <span aria-hidden>{s.emoji}</span>
@@ -351,61 +338,61 @@ export function RankingsBoard({
             );
           })}
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-rule px-3 py-1.5">
-          <span className="live-dot h-2 w-2 rounded-full bg-brand" aria-hidden />
-          <span className="hidden text-xs text-mute sm:inline">Live — scored in the Klimr app</span>
-          <span className="text-xs text-mute sm:hidden">Live</span>
-        </div>
       </div>
 
-      {/* scope rail — connectors live only in the gaps so they never clip a node */}
-      <div className="mt-7">
-        <div className="kicker mb-3 text-faint">Zoom from your ZIP to the planet</div>
-        <div className="flex items-stretch">
-          {scopes.map((s, i) => {
-            const on = i === scopeIdx;
-            const passed = i <= scopeIdx;
-            return (
-              <div key={s.key} className="relative flex flex-1 items-center justify-center" style={{ height: 36 }}>
-                {i > 0 && (
-                  <span className="pointer-events-none absolute top-1/2 h-px -translate-y-1/2" style={{ left: 0, right: "calc(50% + 19px)", background: i <= scopeIdx ? "var(--color-brand)" : "var(--color-rule)" }} />
-                )}
-                {i < scopes.length - 1 && (
-                  <span className="pointer-events-none absolute top-1/2 h-px -translate-y-1/2" style={{ right: 0, left: "calc(50% + 19px)", background: i + 1 <= scopeIdx ? "var(--color-brand)" : "var(--color-rule)" }} />
-                )}
-                <button
-                  onClick={() => setScopeIdx(i)}
-                  aria-pressed={on}
-                  aria-label={`${s.label} — ${s.place}`}
-                  className="press relative z-10 grid place-items-center rounded-full text-[11px] font-bold transition-transform"
-                  style={{
-                    height: 28,
-                    width: 28,
-                    background: on ? "var(--color-brand)" : passed ? "var(--color-surface)" : "var(--color-bg)",
-                    border: `1px solid ${on ? "var(--color-brand)" : passed ? "var(--color-faint)" : "var(--color-rule)"}`,
-                    color: on ? "#fff" : passed ? "var(--color-ink)" : "var(--color-faint)",
-                    transform: on ? "scale(1.14)" : "scale(1)",
-                    boxShadow: on ? "0 6px 18px -6px var(--color-brand)" : "none",
-                  }}
-                >
-                  {i + 1}
-                </button>
-              </div>
-            );
-          })}
+      {/* THE MOUNTAIN — §3.2.2 (scope nodes over the ridge) */}
+      <div className="relative mt-6 h-[320px] overflow-hidden rounded-[22px]" style={{ border: "1px solid #E3E5D8", background: "linear-gradient(180deg,#E9F2FA 0%,#F6F4EA 62%,#F3EFE2 100%)" }}>
+        <svg viewBox="0 0 1000 320" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
+          <defs>
+            <radialGradient id="mtn-sun" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(920 70) scale(100)">
+              <stop stopColor="#E8A50C" stopOpacity=".35" /><stop offset="1" stopColor="#E8A50C" stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="mtn-far" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#D9E4D0" /><stop offset="1" stopColor="#CFDCC4" /></linearGradient>
+            <linearGradient id="mtn-near" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#C3D3B5" /><stop offset="1" stopColor="#B4C7A4" /></linearGradient>
+          </defs>
+          <circle cx="920" cy="70" r="100" fill="url(#mtn-sun)" />
+          <path d="M0,252 L140,196 L280,228 L450,158 L590,196 L740,124 L880,170 L1000,92 L1000,320 L0,320 Z" fill="url(#mtn-far)" />
+          <path d="M0,282 L170,230 L340,258 L520,186 L690,224 L870,146 L1000,180 L1000,320 L0,320 Z" fill="url(#mtn-near)" />
+          <path d="M60,272 L200,238 L300,256 L430,196 L560,222 L700,150 L810,176 L928,78" fill="none" stroke="rgba(32,27,18,.38)" strokeWidth="2" strokeDasharray="1 7" strokeLinecap="round" />
+          <path d="M921,78 L921,54 L940,60 L921,66" fill="var(--color-flame-deep)" />
+        </svg>
+        <div className="absolute left-5 top-4">
+          <p className={`font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-[9px]`} style={{ color: "var(--color-ink-4)" }}>The ascent</p>
+          <p className="mt-0.5 font-display text-[21px] font-bold leading-none tracking-[-0.015em] text-ink">{scope.place}</p>
+          <p className="mt-1 font-mono text-[10px] font-semibold" style={{ color: "var(--color-ink-4)" }}>{countReady(scope.key) ? `${compact(countFor(scope.key))} climbers` : "…"}</p>
         </div>
-        <div className="mt-2 flex items-start">
-          {scopes.map((s, i) => {
-            const on = i === scopeIdx;
-            return (
-              <button key={s.key} onClick={() => setScopeIdx(i)} tabIndex={-1} className="flex flex-1 flex-col items-center px-1 text-center">
-                <span className="kicker text-[9px] leading-tight" style={{ color: on ? "#0a0a0b" : "#a1a1aa" }}>{s.label}</span>
-                <span className="mt-0.5 text-[12px] font-semibold leading-tight" style={{ color: on ? "#0a0a0b" : "#71717a" }}>{s.place}</span>
-                <span className="mt-0.5 font-mono text-[10px]" style={{ color: on ? "#ff4e1b" : "#a1a1aa" }}>{countReady(s.key) ? compact(countFor(s.key)) : "·"}</span>
-              </button>
-            );
-          })}
-        </div>
+        {me ? (
+          <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[.14em]" style={{ background: "var(--color-tint-brand)", borderColor: "var(--color-tint-brand-bd)", color: "var(--color-flame-text)" }}>
+            <span className="live-dot h-1.5 w-1.5 rounded-full bg-brand" aria-hidden />
+            You · #{fmt(me.rank)} · {bandLabel(pct, me.rank)}
+          </span>
+        ) : null}
+        {scopes.map((s, i) => {
+          const on = i === scopeIdx;
+          const pos = [{x:"7%",top:258},{x:"29%",top:214},{x:"51%",top:168},{x:"73%",top:120},{x:"92%",top:76}][i];
+          return (
+            <button
+              key={s.key}
+              onClick={() => setScopeIdx(i)}
+              aria-pressed={on}
+              aria-label={`${s.label} — ${s.place}`}
+              className="absolute -translate-x-1/2 text-center"
+              style={{ left: pos.x, top: pos.top - 16 }}
+            >
+              <span
+                className={`mx-auto grid h-[33px] w-[33px] place-items-center rounded-full font-mono text-[12px] font-bold transition-transform ${on ? "text-white" : "text-ink"} hover:scale-[1.12]`}
+                style={on
+                  ? { background: "linear-gradient(140deg, #FF6A35, #E23E0D)", animation: "nodePulse 2.4s ease-in-out infinite" }
+                  : { background: "#fff", border: "1px solid #D9CFBB", boxShadow: "0 2px 8px -4px rgba(90,68,35,.35)" }}
+              >
+                {i + 1}
+              </span>
+              <span className={`font-mono text-[9.5px] font-bold uppercase tracking-[.18em] mt-1.5 block text-[8.5px] ${on ? "text-flame-text" : ""}`} style={on ? undefined : { color: "var(--color-ink-4)" }}>{s.label}</span>
+              <span className="block max-w-[110px] truncate text-[12.5px] font-bold leading-tight text-ink max-sm:hidden">{s.place}</span>
+              <span className="block font-mono text-[10px]" style={{ color: "var(--color-ink-4)" }}>{countReady(s.key) ? compact(countFor(s.key)) : "·"}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* body */}
@@ -442,7 +429,7 @@ export function RankingsBoard({
               <>
                 {/* your standing */}
                 <div className={CARD}>
-                  <div className="kicker text-faint">Your standing · {scope.place}</div>
+                  <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Your standing · {scope.place}</div>
                   <div className="mt-3 flex gap-5">
                     {/* position spine */}
                     <div className="relative h-[156px] w-7 shrink-0">
@@ -461,14 +448,14 @@ export function RankingsBoard({
                     {/* numbers */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-end gap-2">
-                        <span className="font-display leading-none text-ink" style={{ fontSize: "clamp(2.2rem, 6.5vw, 3.6rem)" }}>#{fmt(me.rank)}</span>
+                        <span className="font-display font-bold leading-none tracking-[-0.02em] text-ink" style={{ fontSize: "clamp(3rem, 8vw, 84px)" }}><span className="text-brand" style={{ fontSize: "0.55em" }}>#</span>{fmt(me.rank)}</span>
                         <span className="pb-2 font-mono text-sm text-mute">of {fmt(field)}</span>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <Tile label="Percentile" value={pctLabel} />
                         <Tile label="Ahead of" value={fmt(field - me.rank)} mono />
                         <Tile label="Points" value={fmt(me.points)} mono color="#0a0a0b" />
-                        <Tile label="Altitude" value={bandLabel(pct, me.rank)} color="#b8860b" pop />
+                        <Tile label="Altitude" value={bandLabel(pct, me.rank)} color="var(--color-sun-text)" pop />
                       </div>
                     </div>
                   </div>
@@ -476,7 +463,7 @@ export function RankingsBoard({
 
                 {/* contention */}
                 <div className={CARD}>
-                  <div className="kicker text-faint">Contention · who&rsquo;s near you</div>
+                  <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Contention · who&rsquo;s near you</div>
                   <div className="mt-4 space-y-2">
                     {windowRows.map((r) => {
                       const you = r.user_id === userId;
@@ -485,9 +472,9 @@ export function RankingsBoard({
                           key={r.user_id}
                           href={`/profile/${r.user_id}`}
                           className="lift flex items-center gap-3 rounded-xl border px-3 py-2.5"
-                          style={{ background: you ? "#fff1ed" : "#f6f6f7", borderColor: you ? "#ff4e1b" : "#e4e4e7" }}
+                          style={{ background: you ? "var(--color-tint-brand)" : "#FDFBF7", borderColor: you ? "#FFC9AA" : "var(--color-rule-soft)" }}
                         >
-                          <span className="shrink-0 pr-1 font-mono text-[12px] font-bold tabular" style={{ color: you ? "#ff4e1b" : "#a1a1aa" }}>#{fmt(r.rank)}</span>
+                          <span className="shrink-0 pr-1 font-mono text-[12px] font-bold tabular" style={{ color: you ? "var(--color-flame-text)" : "var(--color-faint)" }}>#{fmt(r.rank)}</span>
                           <Disc row={r} you={you} />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
@@ -500,8 +487,8 @@ export function RankingsBoard({
                       );
                     })}
                   </div>
-                  <div className="mt-4 flex items-center gap-2 rounded-xl px-3.5 py-3" style={{ background: "rgba(184,134,11,.10)", border: "1px solid rgba(184,134,11,.30)" }}>
-                    <Zap size={15} className="shrink-0" style={{ color: "#b8860b" }} />
+                  <div className="mt-4 flex items-center gap-2 rounded-xl px-3.5 py-3" style={{ background: "var(--color-tint-warning)", border: "1px solid var(--color-tint-sun-bd)" }}>
+                    <Zap size={15} className="shrink-0" style={{ color: "var(--color-sun-text)" }} />
                     <span className="text-[13px] text-ink">
                       {above ? (
                         <>
@@ -516,13 +503,20 @@ export function RankingsBoard({
               </>
             ) : (
               <div className={CARD}>
-                <div className="kicker text-faint">Your standing · {scope.place}</div>
+                <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Your standing · {scope.place}</div>
                 <h2 className="mt-3 font-display text-2xl text-ink">You&rsquo;re not on this board yet</h2>
                 <p className="mt-2 text-sm leading-relaxed text-mute">
                   You don&rsquo;t have a {sport.name.toLowerCase()} ranking in {scope.place} yet. Rankings build as you log results — match scoring happens in the Klimr app.
                 </p>
               </div>
             )}
+            <div className={CARD}>
+              <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">How points work</div>
+              <p className="mt-2 text-[12.5px] leading-relaxed text-mute">
+                Ranked wins earn points for the sport you played, and every board — ZIP to World — reads the same
+                totals at a different zoom. Log results in the Klimr app; the mountain updates as matches are confirmed.
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -546,9 +540,9 @@ export function RankingsBoard({
 
 function Tile({ label, value, mono, color, pop }: { label: string; value: string; mono?: boolean; color?: string; pop?: boolean }) {
   return (
-    <div className="rounded-xl px-3 py-2" style={{ background: "#f6f6f7", border: `1px solid ${pop ? "rgba(184,134,11,.32)" : "#e4e4e7"}` }}>
-      <div className="kicker text-[8px] text-faint">{label}</div>
-      <div className={`mt-0.5 text-[14px] font-bold ${mono ? "font-mono" : ""}`} style={{ color: color ?? "#0a0a0b" }}>
+    <div className="rounded-xl px-3 py-2" style={{ background: "var(--color-bg)", border: `1px solid ${pop ? "var(--color-tint-sun-bd)" : "#EFE9DC"}` }}>
+      <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-[8px] text-faint">{label}</div>
+      <div className={`mt-0.5 text-[14px] font-bold ${mono ? "font-mono" : ""}`} style={{ color: color ?? "var(--color-ink)" }}>
         {value}
       </div>
     </div>

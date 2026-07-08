@@ -118,7 +118,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs }: { events: CardEv
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search events, venues…"
-          className="w-full rounded-2xl border border-rule bg-surface shadow-e1 py-3 pl-10 pr-4 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+          className="w-full rounded-[10px] border border-rule-2 bg-surface py-3 pl-10 pr-4 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
         />
       </div>
 

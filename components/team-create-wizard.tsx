@@ -263,7 +263,7 @@ export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
               <button
                 type="submit"
                 disabled={pending}
-                className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60 shadow-md shadow-brand/25"
+                className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
               >
                 {pending ? (<><Loader2 size={14} className="animate-spin" /> Creating…</>) : "Create team"}
               </button>

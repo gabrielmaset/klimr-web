@@ -51,7 +51,7 @@ export function DeleteEvent({ id, title }: { id: string; title: string }) {
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder={title}
             autoComplete="off"
-            className="mt-2 w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+            className="mt-2 w-full rounded-[10px] border border-rule-2 bg-bg px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
           {err ? <p className="mt-2 text-xs font-semibold text-brand-deep">{err}</p> : null}
           <div className="mt-3 flex items-center gap-2">

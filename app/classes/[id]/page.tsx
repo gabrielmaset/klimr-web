@@ -151,7 +151,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
           {c.status === "draft" ? (
             <form action={publishClass}>
               <input type="hidden" name="classId" value={c.id} />
-              <button className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">Publish</button>
+              <button className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Publish</button>
             </form>
           ) : null}
           {c.status !== "cancelled" ? (
@@ -247,7 +247,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                           !isPast ? (
                             <form action={enrollInSession}>
                               <input type="hidden" name="sessionId" value={s.id} />
-                              <button className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">
+                              <button className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
                                 {left === 0 ? "Join waitlist" : "Sign up"}
                               </button>
                             </form>

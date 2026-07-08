@@ -203,7 +203,7 @@ export default async function Home() {
           <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "270ms" }}>
             <Link
               href="/signup"
-              className="press rounded-full bg-brand px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25"
+              className="press rounded-full bg-brand px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep"
             >
               Claim your spot
             </Link>

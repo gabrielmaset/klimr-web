@@ -3,7 +3,6 @@ import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/instrument-sans";
 import "@fontsource-variable/instrument-sans/standard-italic.css";
 import "@fontsource-variable/jetbrains-mono";
-import "@fontsource-variable/oswald";
 import "@fontsource-variable/hanken-grotesk";
 import "@fontsource/space-mono/400.css";
 import "@fontsource/space-mono/700.css";

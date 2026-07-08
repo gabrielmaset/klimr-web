@@ -232,7 +232,7 @@ export function CourtsExplorer({
               placeholder="ZIP code or city"
               aria-label="ZIP code or city"
               autoComplete="off"
-              className="h-11 w-full rounded-2xl border border-rule bg-bg pl-10 pr-9 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+              className="h-11 w-full rounded-[10px] border border-rule-2 bg-bg pl-10 pr-9 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
               style={locMsg ? { borderColor: "var(--color-danger)" } : undefined}
             />
             {selected ? (

@@ -103,7 +103,7 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
             placeholder="Alex"
             value={first}
             onChange={(e) => setFirst(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+            className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
         </label>
         <label className="block">
@@ -115,7 +115,7 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
             placeholder="Rivera"
             value={last}
             onChange={(e) => setLast(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+            className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
         </label>
       </div>
@@ -129,7 +129,7 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
           placeholder="X7QM-K2NF-B9G3"
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
-          className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 font-mono text-[15px] uppercase tracking-[0.12em] text-ink outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+          className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 font-mono text-[15px] uppercase tracking-[0.12em] text-ink outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
         />
       </label>
       <label className="block">
@@ -141,7 +141,7 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
           placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1.5 w-full rounded-xl border border-rule bg-surface shadow-e1 px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+          className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
         />
       </label>
       <Turnstile onToken={setCaptchaToken} />

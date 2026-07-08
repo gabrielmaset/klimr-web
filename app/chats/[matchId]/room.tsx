@@ -383,7 +383,7 @@ export function ChatRoom({
                 rows={1}
                 maxLength={2000}
                 placeholder="Message"
-                className="max-h-32 min-h-[2.5rem] flex-1 resize-none rounded-2xl border border-rule bg-bg px-4 py-2.5 text-[15px] text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                className="max-h-32 min-h-[2.5rem] flex-1 resize-none rounded-[10px] border border-rule-2 bg-bg px-4 py-2.5 text-[15px] text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
               <button
                 type="button"

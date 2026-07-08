@@ -51,7 +51,7 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search teams by name or area…"
-            className="w-full rounded-xl border border-rule bg-surface shadow-e1 py-2.5 pl-10 pr-10 text-sm text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
+            className="w-full rounded-[10px] border border-rule-2 bg-surface py-2.5 pl-10 pr-10 text-sm text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
             autoComplete="off"
           />
           {loading ? <Loader2 size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-faint" /> : null}

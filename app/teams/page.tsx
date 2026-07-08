@@ -68,14 +68,15 @@ export default async function TeamsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">Teams</h1>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Community — Teams</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Teams</h1>
           <p className="mt-2 max-w-xl text-sm text-mute">
             Your squads and the crews you play with — plus club teams near you looking for players. Start your own below.
           </p>
         </div>
         <Link
           href="/teams/new"
-          className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25"
+          className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
         >
           <Plus size={16} /> Create team
         </Link>
@@ -116,7 +117,7 @@ export default async function TeamsPage() {
                     <form action={respondTeamInvite}>
                       <input type="hidden" name="inviteId" value={inviteId} />
                       <input type="hidden" name="decision" value="accept" />
-                      <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-colors hover:bg-brand-deep">Accept</button>
+                      <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Accept</button>
                     </form>
                     <form action={respondTeamInvite}>
                       <input type="hidden" name="inviteId" value={inviteId} />

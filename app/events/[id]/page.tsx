@@ -171,7 +171,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             </span>
           ) : null}
           {queueLiveForMembers ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white shadow-md shadow-brand/25">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
@@ -208,7 +208,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <div className="mt-2.5 flex flex-wrap items-center gap-3">
                 <form action={reopenEvent}>
                   <input type="hidden" name="eventId" value={e.id} />
-                  <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand/25 hover:bg-brand-deep">
+                  <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
                     <RotateCcw size={14} /> Recover event
                   </button>
                 </form>
@@ -245,7 +245,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           ) : (
             <form action={rsvp}>
               <input type="hidden" name="eventId" value={e.id} />
-              <button className="press rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep shadow-md shadow-brand/25">{e.join_policy === "approval" ? "Request to join" : "Join event"}</button>
+              <button className="press rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">{e.join_policy === "approval" ? "Request to join" : "Join event"}</button>
             </form>
           )
         ) : null}
@@ -340,7 +340,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <div className="mb-4 flex items-center gap-2">
             <Wrench size={15} className="text-brand-deep" />
             <h2 className="text-sm font-bold text-ink">Organizer tools</h2>
-            <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md shadow-brand/25">{isOwner ? "Organizer" : "Admin"}</span>
+            <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{isOwner ? "Organizer" : "Admin"}</span>
             <span className="ml-auto text-[11px] text-mute">Only admins see this panel</span>
           </div>
 
