@@ -181,6 +181,163 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-09 — Tournament public page: rotating hero (≤10 photos, crop) + status-toned CTA
+- **Hero one-third taller** (padding scale on /e/[code]) and now a **crossfading carousel**:
+  up to 10 photos, 10-second rotation, clickable dots (dot click restarts the timer), each photo
+  honoring its crop. **Zero migration** — items live in `format_config.gallery`, upgraded from
+  plain URL strings to `{ url, zoom, x, y }` with `normalizeGallery()` accepting both shapes
+  (legacy strings render at default framing).
+- **Non-destructive crop**: zoom (1–2.5×) + focal point stored as CSS params
+  (object-position + scale at the same origin). The organizer's crop preview uses the exact
+  hero CSS, so the editor is WYSIWYG; originals are never re-encoded.
+- **GalleryEditor rebuilt**: cap 10, drag-to-reorder (first photo leads), per-photo crop panel
+  (drag-to-frame with pointer capture, zoom slider, reset), explicit **Save layout** with the
+  3-second Saved flash and dirty tracking. `commitGalleryPhoto`/`removeGalleryPhoto` made
+  object-safe (the old `.map(String)` would have corrupted object items) and a guarded
+  `setGalleryLayout` persists order+crops, rejecting foreign URLs.
+- **Status-toned action**: the sign-up button, hero "Registration open" pill, capacity bar, and
+  waitlist trigger all take the notice's tone — green open, amber closing-soon/almost-full,
+  red-clay sold-out waitlist; closed/not-yet stay the neutral disabled button.
+  `JoinWaitlistDialog` gained a `triggerStyle` prop.
+
+### 2026-07-09 — Five-fix round: event geo chain, form map preview, solid top bar, tournament capacity UX, Saved flashes
+- **Events distance/map fixed at the root:** an event's coordinate now derives from a chain —
+  linked court → the organizer's pasted **Google Maps link** (`parseLatLngFromMapsUrl`, no
+  network) → the **venue text geocoded** against the local US dataset (ZIP in the text, else
+  city match, so "Santa Monica, CA" pins at the city centroid). Gabriel's Santa Monica event now
+  appears inside the 25-mile radius and pins on the browse map; the empty-map note names all
+  three sources.
+- **Create/edit form gains a live map preview** under the Google Maps link field: exact pin when
+  the link parses, venue-text fallback otherwise, with an honest caption saying which it is.
+- **Top bar is now a solid lane (permanent):** the desktop wrapper carries the paper background
+  and the pill went opaque (`#FFFDF8`, blur dropped — matching the mobile bars). Content can no
+  longer show through behind the bar, which kills the restored-scroll-on-back illusion of the
+  bar "covering" page tops. Chosen over scroll hacks: simplest, consistent, faster.
+- **Tournament capacity UX:** the per-division note now says "in the Divisions &amp; fees
+  **section below**" and links to it. Division cards reorganized into two labeled sub-panels —
+  **Entry fee** (amount + charged-per toggle + preview) and **Division capacity** (count + a
+  **unit chip** that reads teams/players from the saved Format &amp; eligibility unit, threaded
+  from the page; save → `router.refresh()` keeps it in sync after unit changes).
+- **"Saved" flashes are now transient sitewide:** 3-second auto-clear (presence-control
+  precedent) + clear-on-interaction. SectionCard and VisibilityRow got timeout refs with unmount
+  cleanup plus `onInput`/`onClickCapture` clears on their content; the divisions editor clears
+  its `Saved {time}` on any row edit/add/remove; match-plan rows got the timeout (they already
+  cleared on change).
+
+### 2026-07-09 — Sitewide notification audit + the Feature Integration Checklist
+- **Audit result:** matches, network (social graph), teams, tournaments, classes, team chat,
+  support, and marketplace were already flowing through the seam (`lib/notify.ts`, zero direct
+  inserts anywhere). Gaps found and closed: **match-chat replies** (new guarded
+  `notifyMatchThreadMessage` fan-out — same 90s-read / 15-min-ping guards as marketplace, wired
+  into the room's send; team chat and marketplace already notified, so match chats were the odd
+  one out), **event RSVPs → organizer** (going + approval-pending variants),
+  **admin verification decisions → the user**, **provider-application decisions → the
+  applicant**, and **report resolutions → the reporter** (actioned/dismissed).
+- **Mobile-app readiness:** `lib/notify.ts` is now the documented delivery pipeline —
+  `createNotification` writes the in-app row and calls `deliverPush` (a contracted no-op) so
+  APNs/FCM/web-push attach at ONE function later, not via a codebase sweep. `Kind` exported.
+- **Write-paths that don't exist yet** (kinds reserved, wiring noted in the checklist):
+  sponsor-offer creation, challenge actions, ranking milestones, organizer event
+  cancellation/edits.
+- **The system Gabriel asked for:** `docs/FEATURE-INTEGRATION-CHECKLIST.md` — the per-feature
+  evaluation walk (notifications, diagnostics+userMessage, support seam, realtime, the four
+  nav/search surfaces, mobile pass, RLS+GRANTs, scale, US-gate, ship hygiene). Every future
+  feature gets walked through it before shipping.
+
+### 2026-07-09 — Marketplace notifications completed (Gabriel's audit)
+- The offer/meetup events already notified; the audit closed four gaps. **Chat replies** now
+  notify: messages are E2E (the server never sees content), so the room fires
+  `notifyThreadMessage` after each successful send — privacy-correct ("New message — {title},
+  from {name}", never the text) and double-guarded against spam (skipped when the recipient read
+  the thread within 90s, or was already pinged for it within 15 min). **Closing a listing**
+  (sold/unpublished) now expires every open offer and notifies each affected buyer, linked to
+  their thread. **Reporters** get an acknowledgment. **Expiring-soon reminders** ship as
+  migration **0104**: a set-based `notify_expiring_listings()` (≤3 days left, deduped over 4
+  days) scheduled daily via pg_cron — defensively wrapped so the migration succeeds even where
+  pg_cron isn't available.
+
+### 2026-07-09 — Second Serve — Increment 3 of 3: the buyer handshake (chat, offers, meetups)
+- **Migration 0103** (Gabriel runs): additive RLS for listing-scoped chat via a SECURITY DEFINER
+  `is_listing_conv_participant()` — buyer + seller gain conversations/messages/conversation_keys
+  access for their threads; match-chat policies untouched (policies OR-combine).
+- **Message seller** (detail primary, gradient) get-or-creates the one thread per listing+buyer
+  (`conversations.listing_id`, race-tolerant) and lands on **`/marketplace/messages/[id]`** — the
+  new MarketplaceRoom: the match room's E2E machinery transplanted (identity upsert, wrap/unwrap,
+  buyer bootstraps, device self-heal, realtime + 4s poll), with a listing header card, the
+  always-visible safety line, and a **merged timeline**: encrypted messages + structured offer
+  cards + meetup cards interleaved by time (D2 exactly as decided).
+- **Offers**: make / accept / decline / counter (counter closes the parent, renders as
+  "Countered") / withdraw; 7-day expiry surfaced lazily; **accept ⇒ listing goes pending**; one
+  open offer per buyer (DB-enforced); sale-mode only. **Meetups**: propose a court (the seller's
+  meet spots) or another public place + time, accept/decline/cancel, and an **ICS route** guards
+  participants and serves the accepted plan as a calendar file. Notifications ride
+  `createNotification` on every offer/meetup event, linking into the thread. Post-sold buyers get
+  a one-tap encrypted "Confirm received" chip. Thread expiry: close ⇒ +30d, relist ⇒ revived
+  (wired into `setListingStatus`).
+- **Courtside split (D3)**: Matches | Marketplace tabs — marketplace rows show cover, title,
+  Selling/Buying role chip, toned price, counterpart, activity, status; Live / Wound-down strips;
+  the live-refresher now also subscribes to listing-thread ids. **Classes → "Classes & Coaching"**
+  renamed across rail, mobile menu, search index, and the page itself.
+- Second Serve is now feature-complete per the handoff + extension prompt across increments 1–3.
+
+### 2026-07-09 — Second Serve — Increment 2 of 3: the seller write side
+- **Migration 0102** (tiny, Gabriel runs): `meet_court_ids uuid[]` — up to three courts a seller
+  suggests as safe exchange spots.
+- **Create/edit wizard** (`/marketplace/new`, `/marketplace/[id]/edit`, shared `ListingForm`):
+  photos 1–5 with native **drag-to-reorder** (cover = slot 1; order submitted as explicit
+  `e:`/`n:` tokens so a new photo dragged to slot 1 truly becomes the cover), photoless allowed
+  (tint fallback), mode segmented (Sell / Trade / Give away) with price+OBO or trade-wants,
+  **pickup area = ZIP → neighborhood label** (US-gated like onboarding; exact address never
+  exists), **suggested meet spots** picked from real courts within 15 mi of the ZIP (max 3),
+  prohibited-items + venue-only terms, Publish or Save-as-draft. Server-side validation mirrors
+  every client rule; photos upload under the owner's storage folder per the 0101 policies.
+- **My listings** (`/marketplace/mine`): status tabs with counts (active/pending/sold/draft/
+  expired — expiry computed lazily from `expires_at`), per-row publish / mark-sold / back-to-
+  active / relist (fresh 30-day clock) / edit / unpublish / delete (soft `removed` + storage
+  cleanup), days-left readout, gradient primaries only where §-grammar calls for them.
+- **Anti-spam, server-enforced:** 20 live listings max, 5 creates/day.
+- **§5 owner treatment corrected on detail:** Edit listing is the owner primary now that the
+  route exists; Mark-as-sold demoted to ghost. Detail also shows the seller's suggested meet
+  spots as court chips. Browse header gains a ghost "My listings" beside List gear.
+- Next: Increment 3 — listing chat threads + interleaved offers + meetup step (ICS) + Courtside
+  Matches | Marketplace split + the "Classes & Coaching" rename.
+
+### 2026-07-09 — Second Serve (gear marketplace) — Increment 1 of 3: data layer + read side
+- Gabriel approved the plan with decisions: **D1** gradient primary (handoff's solid `#FF4E1B`
+  referenced a stale snapshot of + Match); **D2** offers as structured `listing_offers` rows
+  rendered interleaved in the thread (E2E ciphertext can't drive server state); **D3** listing
+  threads live 30 days past close and **marketplace chats are organized separately from match
+  chats** (Courtside gets a Matches | Marketplace split; marketplace threads route under
+  `/marketplace/messages/`); **D4** Classes → "Classes & Coaching". Meetup calendar-add ships as
+  ICS; reports flow the `lib/support-events` seam (tickets, no new admin UI).
+- **Migration 0101** (Gabriel runs): listing lifecycle model (mode/obo/trade_wants/photos/zip/
+  renewed/expires/sold, status set draft→active→pending→sold/expired/removed, honest free-mode
+  backfill), `listing_offers` (counter chains, 7-day expiry, one open per listing+buyer),
+  `listing_meetups` (courts as safe spots), `listing_reports`, `conversations.listing_id` with
+  per-buyer uniqueness, RLS **with explicit GRANTs** (the privileges lesson), and the public
+  `listing-photos` bucket with owner-folder write policies.
+- **Shipped this increment:** rewritten browse per handoff §2 (Second Serve header + gradient
+  List gear, 264px sticky filter rail with live-count categories/sports and radius, saved chip +
+  sorts with trades-last price ranking, 4:3 photo cards with badge priority yours>sold>pending>
+  trade/free, optimistic hearts, URL-state, honest ZIP-centroid distances) and detail per §5
+  (gallery with thumbnails, mono meta, toned price/OBO/TRADE-wants/FREE, chips, seller trust
+  block → profile, owner lifecycle actions incl. relist renewing the 30-day clock, viewer Save,
+  safety footer + Report→support ticket). Message-seller is deliberately absent until its thread
+  exists (Increment 3) — no dead primaries. Old `controls.tsx` deleted (GitHub deletion required
+  at next upload). Legacy coaching rows untouched and simply never rendered.
+- **Next:** Increment 2 = create/edit wizard (photos, ZIP pickup area, court meet spots, terms) +
+  My listings + anti-spam caps; Increment 3 = listing chat + offers + meetup + Courtside tabs +
+  the Classes & Coaching rename.
+
+### 2026-07-09 — Bottom-nav active pill rebuilt (single sliding pill, Material-3)
+- Gabriel's screenshot showed the active highlight slicing through the label: **two stacked
+  shapes** — the sliding indicator (36px, ending mid-label) plus per-element `bg-brand/[0.08]`
+  boxes the Daylight sed had put on the icon *and* the label span. Rebuilt as one system: every
+  tab has a fixed **56×30 icon slot**, and the single sliding pill is sized to exactly that slot
+  (geometric identity — it cannot touch text). Labels/icons color only (`flame-text` /
+  `brand-deep`); the Chats badge rides inside the slot with a bar-colored ring; the You avatar
+  keeps its brand ring inside the pill.
+
 ### 2026-07-08 — Mobile overhaul (nav, performance, layout) — from Gabriel's iPhone walk-through
 - **Navigation (the core failure):** the rail is desktop-only and the bottom bar holds five tabs,
   so most destinations (Tournaments included) were **unreachable on phones**, and search didn't

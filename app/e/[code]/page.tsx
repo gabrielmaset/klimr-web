@@ -4,13 +4,15 @@ import { CalendarClock, Users, Trophy, Check, Dices, Megaphone, Pin, RotateCcw, 
 import type { LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { isRegistrationOpen, type TournamentFormatConfig, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
+import { isRegistrationOpen, type TournamentFormatConfig,
+  normalizeGallery, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventLocationMap } from "@/components/event-location-map";
 import { reopenTournament } from "@/app/tournaments/actions";
 import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
 import { JoinWaitlistDialog } from "@/components/join-waitlist-dialog";
 import { getEventForecast } from "@/lib/weather";
+import { TournamentHeroCarousel } from "@/components/tournament-hero-carousel";
 
 // Always render the public page fresh — see app/e/[code]/layout.tsx. Repeated
 // here so the page's live-feed behavior is explicit and regression-proof.
@@ -131,7 +133,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   if (!t) notFound();
 
   const fc = (t.format_config ?? {}) as TournamentFormatConfig;
-  const photos = Array.isArray(fc.gallery) ? fc.gallery : [];
+  const galleryItems = normalizeGallery(fc.gallery);
   const pubSchedule = fc.schedule_published && fc.published_schedule?.rows?.length ? fc.published_schedule : null;
   const pubResults = fc.results_published && fc.published_results?.divisions?.length ? fc.published_results : null;
   const sponsors: Sponsor[] = Array.isArray(fc.sponsors) ? fc.sponsors : [];
@@ -247,6 +249,11 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           : regClosed
             ? "Sign-ups for this event are closed."
             : "Follow this event to hear when sign-ups open.";
+  // Action color tracks the status notice: green while open, amber when
+  // closing/almost full, red-clay for the sold-out waitlist path.
+  const toneSolid = regTone === "open" ? "#2E9E44" : regTone === "warn" ? "#D98E1F" : "#C75039";
+  const toneShadow = regTone === "open" ? "rgba(46,158,68,.4)" : regTone === "warn" ? "rgba(217,142,31,.4)" : "rgba(199,80,57,.4)";
+
   const fmtRegDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null);
   const opensText = fmtRegDate(t.registration_opens_at);
   const closesText = fmtRegDate(t.registration_deadline);
@@ -357,19 +364,18 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
     <div className="tp min-h-dvh bg-[#F6F6F2] text-[#17190F]">
       {/* HERO */}
       <section className="relative isolate overflow-hidden">
-        {photos[0] ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photos[0]} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        {galleryItems.length ? (
+          <TournamentHeroCarousel items={galleryItems} />
         ) : (
           <div className="absolute inset-0" style={{ background: "linear-gradient(135deg,#26320f,#14170E)" }} />
         )}
         <div className="absolute inset-0" style={{ background: "linear-gradient(180deg,rgba(20,23,14,.35) 0%,rgba(20,23,14,.88) 100%)" }} />
-        <div className="relative mx-auto max-w-[1200px] px-5 pb-10 pt-12 sm:px-8 sm:pt-16">
+        <div className="relative mx-auto max-w-[1200px] px-5 pb-14 pt-16 sm:px-8 sm:pb-16 sm:pt-24">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm"><span aria-hidden>{meta.emoji}</span> {meta.name}</span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm"><Users size={13} /> {t.entry_type === "team" ? "Team event" : "Individual event"}</span>
             {canSignUp ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "#E4713A", boxShadow: "0 2px 10px rgba(228,113,58,.4)" }}>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: toneSolid, boxShadow: `0 2px 10px ${toneShadow}` }}>
                 <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span> Registration open
               </span>
             ) : null}
@@ -594,13 +600,13 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
                 {capPct != null ? (
                   <div className="mt-4">
                     <div className="mb-1.5 flex items-center justify-between text-xs font-semibold"><span className="text-white/70">{capacityText}</span><span className="text-white/90">{capPct}% full</span></div>
-                    <div className="h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full" style={{ width: capPct + "%", background: "#E4713A" }} /></div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full" style={{ width: capPct + "%", background: toneSolid }} /></div>
                   </div>
                 ) : null}
                 {soldOut ? (
-                  <div className="mt-4"><JoinWaitlistDialog tournamentId={t.id} code={t.code} loggedIn={!!user} triggerClassName="press flex w-full items-center justify-center gap-2 rounded-xl bg-[#E4713A] py-3 text-sm font-bold text-white hover:brightness-95" /></div>
+                  <div className="mt-4"><JoinWaitlistDialog tournamentId={t.id} code={t.code} loggedIn={!!user} triggerClassName="press flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white hover:brightness-95" triggerStyle={{ background: toneSolid }} /></div>
                 ) : canSignUp ? (
-                  <Link href={signupHref} className="press mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#E4713A] py-3 text-sm font-bold text-white hover:brightness-95"><Ticket size={16} /> {t.entry_type === "team" ? "Sign up your team" : "Sign up"}</Link>
+                  <Link href={signupHref} className="press mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white hover:brightness-95" style={{ background: toneSolid, boxShadow: `0 4px 14px ${toneShadow}` }}><Ticket size={16} /> {t.entry_type === "team" ? "Sign up your team" : "Sign up"}</Link>
                 ) : (
                   <button type="button" disabled className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-white/10 py-3 text-sm font-bold text-white/70">{regClosed ? "Registration closed" : "Not open yet"}</button>
                 )}

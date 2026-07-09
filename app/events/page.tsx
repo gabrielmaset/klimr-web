@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EventsBrowser, type CardEvent } from "@/components/events-browser";
+import { parseLatLngFromMapsUrl } from "@/lib/maps-url";
+import { suggestCities, lookupZip } from "@/lib/us-places";
 
 export const metadata: Metadata = { title: "Events" };
 
@@ -14,6 +16,7 @@ type Ev = {
   kind: string;
   court_id: string | null;
   location_text: string | null;
+  location_url: string | null;
   starts_at: string;
   capacity: number | null;
   cost_text: string | null;
@@ -24,7 +27,7 @@ type Ev = {
 };
 
 const COVER_BUCKET = "tournament-gallery";
-const CARD_COLS = "id, title, sport_key, kind, court_id, location_text, starts_at, capacity, cost_text, cover_path, thumb_path, created_by, status";
+const CARD_COLS = "id, title, sport_key, kind, court_id, location_text, location_url, starts_at, capacity, cost_text, cover_path, thumb_path, created_by, status";
 
 function nowIso() {
   return new Date().toISOString();
@@ -94,13 +97,36 @@ export default async function EventsPage() {
     amGoing: going.has(e.id),
     coverUrl: coverUrl(e),
     costText: e.cost_text,
-    lat: e.court_id ? courtGeo.get(e.court_id)?.lat ?? null : null,
-    lng: e.court_id ? courtGeo.get(e.court_id)?.lng ?? null : null,
+    ...eventPoint(e),
     mine: e.created_by === user.id || adminSet.has(e.id),
     status: e.status,
   });
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null;
+
+  /** Coordinate chain for the map + Near-me: linked court → the organizer's
+   *  pasted Google Maps link → the venue text geocoded against the local US
+   *  dataset ("Santa Monica, CA" pins at the city centroid). */
+  function eventPoint(e: { court_id: string | null; location_url: string | null; location_text: string | null }): { lat: number | null; lng: number | null } {
+    if (e.court_id) {
+      const g = courtGeo.get(e.court_id);
+      if (g?.lat != null && g?.lng != null) return { lat: g.lat, lng: g.lng };
+    }
+    const fromUrl = parseLatLngFromMapsUrl(e.location_url);
+    if (fromUrl) return fromUrl;
+    const txt = (e.location_text ?? "").trim();
+    if (txt) {
+      const zipMatch = txt.match(/\b(\d{5})\b/);
+      if (zipMatch) {
+        const z = lookupZip(zipMatch[1]);
+        if (z) return { lat: z.lat, lng: z.lng };
+      }
+      const hit = suggestCities(txt, 1)[0] ?? suggestCities(txt.split(",")[0], 1)[0];
+      if (hit) return { lat: hit.lat, lng: hit.lng };
+    }
+    return { lat: null, lng: null };
+  }
+
   const cards = events.map(toCard);
   const myCards = myRows.map(toCard);
 

@@ -10,11 +10,13 @@ export function JoinWaitlistDialog({
   code,
   loggedIn,
   triggerClassName,
+  triggerStyle,
 }: {
   tournamentId: string;
   code: string;
   loggedIn: boolean;
   triggerClassName?: string;
+  triggerStyle?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -44,7 +46,7 @@ export function JoinWaitlistDialog({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={triggerClassName}>
+      <button type="button" onClick={() => setOpen(true)} className={triggerClassName} style={triggerStyle}>
         Join waitlist
       </button>
 

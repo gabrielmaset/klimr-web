@@ -287,13 +287,13 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
             if (pinned === 0)
               return (
                 <p className="mt-1.5 text-[11px] text-faint">
-                  No events with mapped courts yet — pins appear as events are linked to courts with locations. Search a city or ZIP above to explore an area.
+                  No mappable events yet — pins come from an event\u2019s linked court, its Google Maps link, or its venue text. Search a city or ZIP above to explore an area.
                 </p>
               );
             if (unmapped > 0)
               return (
                 <p className="mt-1.5 text-[11px] text-faint">
-                  {unmapped} {unmapped === 1 ? "event doesn\u2019t have" : "events don\u2019t have"} a mapped court, so {unmapped === 1 ? "it appears" : "they appear"} in the list only.
+                  {unmapped} {unmapped === 1 ? "event doesn\u2019t have" : "events don\u2019t have"} a mappable location, so {unmapped === 1 ? "it appears" : "they appear"} in the list only.
                 </p>
               );
             return null;

@@ -784,8 +784,8 @@ export interface Database {
         Relationships: [];
       };
       conversations: {
-        Row: { id: string; match_id: string | null; team_id: string | null; kind: string; created_by: string | null; created_at: string; expires_at: string | null };
-        Insert: { id?: string; match_id?: string | null; team_id?: string | null; kind?: string; created_by?: string | null; created_at?: string; expires_at?: string | null };
+        Row: { id: string; match_id: string | null; team_id: string | null; listing_id: string | null; kind: string; created_by: string | null; created_at: string; expires_at: string | null };
+        Insert: { id?: string; match_id?: string | null; team_id?: string | null; listing_id?: string | null; kind?: string; created_by?: string | null; created_at?: string; expires_at?: string | null };
         Update: { expires_at?: string | null; kind?: string };
         Relationships: [];
       };
@@ -1378,6 +1378,15 @@ export interface Database {
           listed_by: string | null;
           status: string;
           created_at: string;
+          mode: string;
+          obo: boolean;
+          trade_wants: string | null;
+          photos: string[];
+          zip: string | null;
+          renewed_at: string;
+          expires_at: string;
+          sold_at: string | null;
+          meet_court_ids: string[];
         };
         Insert: {
           id?: string;
@@ -1394,8 +1403,100 @@ export interface Database {
           listed_by?: string | null;
           status?: string;
           created_at?: string;
+          mode?: string;
+          obo?: boolean;
+          trade_wants?: string | null;
+          photos?: string[];
+          zip?: string | null;
+          renewed_at?: string;
+          expires_at?: string;
+          sold_at?: string | null;
+          meet_court_ids?: string[];
         };
-        Update: { title?: string; price_text?: string | null; price_cents?: number | null; description?: string | null; status?: string };
+        Update: {
+          title?: string;
+          price_text?: string | null;
+          price_cents?: number | null;
+          description?: string | null;
+          location?: string | null;
+          status?: string;
+          mode?: string;
+          obo?: boolean;
+          trade_wants?: string | null;
+          photos?: string[];
+          zip?: string | null;
+          category?: string | null;
+          sport_key?: string | null;
+          condition?: string | null;
+          renewed_at?: string;
+          expires_at?: string;
+          sold_at?: string | null;
+          meet_court_ids?: string[];
+        };
+        Relationships: [];
+      };
+      listing_offers: {
+        Row: {
+          id: string;
+          listing_id: string;
+          buyer_id: string;
+          actor_id: string;
+          amount_cents: number | null;
+          note: string | null;
+          parent_offer_id: string | null;
+          status: string;
+          created_at: string;
+          expires_at: string;
+          decided_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          listing_id: string;
+          buyer_id: string;
+          actor_id: string;
+          amount_cents?: number | null;
+          note?: string | null;
+          parent_offer_id?: string | null;
+          status?: string;
+          created_at?: string;
+          expires_at?: string;
+          decided_at?: string | null;
+        };
+        Update: { status?: string; decided_at?: string | null };
+        Relationships: [];
+      };
+      listing_meetups: {
+        Row: {
+          id: string;
+          listing_id: string;
+          offer_id: string | null;
+          proposed_by: string;
+          buyer_id: string;
+          court_id: string | null;
+          place_text: string | null;
+          starts_at: string;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          listing_id: string;
+          offer_id?: string | null;
+          proposed_by: string;
+          buyer_id: string;
+          court_id?: string | null;
+          place_text?: string | null;
+          starts_at: string;
+          status?: string;
+          created_at?: string;
+        };
+        Update: { status?: string; starts_at?: string; court_id?: string | null; place_text?: string | null };
+        Relationships: [];
+      };
+      listing_reports: {
+        Row: { id: string; listing_id: string; reporter_id: string; reason: string; created_at: string; resolved_at: string | null };
+        Insert: { id?: string; listing_id: string; reporter_id: string; reason: string; created_at?: string; resolved_at?: string | null };
+        Update: { resolved_at?: string | null };
         Relationships: [];
       };
       saved_listings: {

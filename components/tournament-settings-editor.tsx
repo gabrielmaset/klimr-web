@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -74,6 +74,9 @@ function SectionCard({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+  const clearMsg = () => setMsg(null);
 
   async function handle() {
     setBusy(true);
@@ -81,6 +84,8 @@ function SectionCard({
     const res = await onSave();
     if (res.ok) {
       setMsg({ ok: true, text: "Saved" });
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setMsg(null), 3000);
       router.refresh();
     } else {
       setMsg({ ok: false, text: res.error ?? "Couldn't save." });
@@ -97,7 +102,7 @@ function SectionCard({
           {desc ? <p className="mt-0.5 text-sm text-mute">{desc}</p> : null}
         </div>
       </div>
-      <div className="mt-5 grid gap-5">{children}</div>
+      <div className="mt-5 grid gap-5" onInput={clearMsg} onClickCapture={clearMsg}>{children}</div>
       <div className="mt-5 flex items-center gap-3">
         <button
           type="button"
@@ -118,12 +123,16 @@ function VisibilityRow({ init }: { init: SettingsInit }) {
   const [visibility, setVisibility] = useState<"public" | "unlisted">(init.visibility);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
   async function handle() {
     setBusy(true);
     setMsg(null);
     const res = await updateTournamentDraft(init.id, { visibility });
     if (res.ok) {
       setMsg({ ok: true, text: "Saved" });
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setMsg(null), 3000);
       router.refresh();
     } else {
       setMsg({ ok: false, text: res.error ?? "Couldn't save." });
@@ -451,7 +460,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
               </div>
             ) : (
               <div className="flex items-center rounded-xl border border-dashed border-rule bg-surface px-3.5 py-2.5">
-                <p className="text-xs text-mute">Each division has its own cap — set them on the Divisions &amp; fees page.</p>
+                <p className="text-xs text-mute">Each division has its own cap — set them in the <Link href="#divisions" className="font-semibold text-brand-deep hover:underline">Divisions &amp; fees section</Link> below.</p>
               </div>
             )}
             {entry === "team" ? (

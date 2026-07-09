@@ -47,7 +47,7 @@ const GROUPS: { header?: string; items: Item[] }[] = [
       { href: "/discover", label: "Players", Icon: Radar },
       { href: "/courts", label: "Courts", Icon: MapPin },
       { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
-      { href: "/classes", label: "Classes", Icon: GraduationCap },
+      { href: "/classes", label: "Classes & Coaching", Icon: GraduationCap },
       { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
       { href: "/resources", label: "Playbook", Icon: BookOpen },
     ],

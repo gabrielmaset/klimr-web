@@ -6,6 +6,7 @@ import { lookupZip, tzFromStateLng } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
 import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig, PublishedResults, Sponsor, Prize, Announcement } from "@/lib/tournament";
+import { normalizeGallery, type GalleryItem } from "@/lib/tournament";
 import { computePoolStandings, isRegistrationOpen, isSignupFormReady, poolSizes } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/ratelimit";
@@ -1846,7 +1847,7 @@ export async function awardTournamentPoints(tournamentId: string) {
 
 const GALLERY_BUCKET = "tournament-gallery";
 const GALLERY_TYPES = new Set(["image/webp", "image/jpeg", "image/png"]);
-const GALLERY_MAX = 5;
+const GALLERY_MAX = 10;
 
 async function galleryStaffGuard(tournamentId: string) {
   const supabase = await createClient();
@@ -1888,9 +1889,9 @@ export async function commitGalleryPhoto(tournamentId: string, path: string) {
   const { data: pub } = admin.storage.from(GALLERY_BUCKET).getPublicUrl(path);
   const url = pub.publicUrl;
   const fc = (guard.to.format_config ?? {}) as Record<string, unknown>;
-  const current = Array.isArray(fc.gallery) ? (fc.gallery as unknown[]).map(String) : [];
+  const current = normalizeGallery(fc.gallery);
   if (current.length >= GALLERY_MAX) return { ok: false as const, error: `You can add up to ${GALLERY_MAX} photos.` };
-  const gallery = [...current, url];
+  const gallery = [...current, { url, zoom: 1, x: 50, y: 50 }];
   const supabase = await createClient();
   const { error } = await supabase.from("tournaments").update({ format_config: { ...fc, gallery } as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
   if (error) return { ok: false as const, error: error.message };
@@ -1899,13 +1900,33 @@ export async function commitGalleryPhoto(tournamentId: string, path: string) {
   return { ok: true as const, url };
 }
 
+/** Persist the hero gallery layout — order and per-photo crop. Staff-only.
+ *  URLs must already belong to this event's gallery (no foreign injections). */
+export async function setGalleryLayout(tournamentId: string, items: GalleryItem[]) {
+  const guard = await galleryStaffGuard(tournamentId);
+  if (!guard.ok) return { ok: false as const, error: guard.error };
+  const fc = (guard.to.format_config ?? {}) as Record<string, unknown>;
+  const existing = new Set(normalizeGallery(fc.gallery).map((g) => g.url));
+  const next = normalizeGallery(items).filter((g) => existing.has(g.url));
+  if (next.length === 0 && existing.size > 0) return { ok: false as const, error: "Layout was empty — nothing saved." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tournaments")
+    .update({ format_config: { ...fc, gallery: next } as Json, updated_at: new Date().toISOString() })
+    .eq("id", tournamentId);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath(`/tournament/${tournamentId}/settings`);
+  if (guard.to.code) revalidatePath(`/e/${guard.to.code}`);
+  return { ok: true as const };
+}
+
 /** Remove a photo from the gallery and delete the underlying object. Staff-only. */
 export async function removeGalleryPhoto(tournamentId: string, url: string) {
   const guard = await galleryStaffGuard(tournamentId);
   if (!guard.ok) return { ok: false as const, error: guard.error };
   const fc = (guard.to.format_config ?? {}) as Record<string, unknown>;
-  const current = Array.isArray(fc.gallery) ? (fc.gallery as unknown[]).map(String) : [];
-  const gallery = current.filter((u) => u !== url);
+  const current = normalizeGallery(fc.gallery);
+  const gallery = current.filter((g) => g.url !== url);
   const supabase = await createClient();
   const { error } = await supabase.from("tournaments").update({ format_config: { ...fc, gallery } as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
   if (error) return { ok: false as const, error: error.message };

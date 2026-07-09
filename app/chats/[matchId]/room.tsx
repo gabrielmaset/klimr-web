@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/avatar";
 import { sportMeta, sportSlug } from "@/lib/sports";
 import { reportClientError } from "@/lib/client-diagnostics";
+import { notifyMatchThreadMessage } from "@/app/chats/notify-actions";
 import { SPORT_TONES } from "@/components/sport-chip";
 import {
   getIdentity,
@@ -301,13 +302,14 @@ export function ChatRoom({
       try {
         const { ciphertext, iv } = await encryptMessage(key, body);
         await supabase.from("messages").insert({ conversation_id: convId, sender_id: meId, ciphertext, iv });
+        void notifyMatchThreadMessage({ matchId: match.id, convId });
         setDraft("");
         await loadMessages();
       } finally {
         setSending(false);
       }
     },
-    [supabase, meId, expired, loadMessages],
+    [supabase, meId, expired, loadMessages, match.id],
   );
 
   const meta = sportMeta(match.sport_key);

@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-type Kind =
+export type Kind =
   | "match_invite"
   | "friend_request"
   | "friend_accept"
@@ -13,7 +13,18 @@ type Kind =
   | "sponsorship"
   | "system";
 
-/** Create an in-app notification for a user. Best-effort: never throws to the caller. */
+/** Future delivery channels attach HERE and only here (single seam):
+ *  the mobile apps' push (APNs/FCM via a device-token table), web push, and
+ *  email digests all take the same input. Until then this is a documented
+ *  no-op, so shipping push later is one function — not a codebase sweep. */
+async function deliverPush(_input: { userId: string; kind: Kind; title: string; body?: string; linkUrl?: string }): Promise<void> {
+  // TODO(mobile): look up the user's registered device tokens and fan out.
+  void _input;
+}
+
+/** THE notification seam. Every feature calls this — never inserts directly —
+ *  so in-app rows and every future channel stay in lockstep.
+ *  Best-effort: never throws to the caller. */
 export async function createNotification(input: {
   userId: string;
   kind: Kind;
@@ -30,6 +41,7 @@ export async function createNotification(input: {
       body: input.body ?? null,
       link_url: input.linkUrl ?? null,
     });
+    void deliverPush(input);
   } catch {
     // notifications are non-critical; don't block the triggering action
   }

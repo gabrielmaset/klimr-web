@@ -9,6 +9,8 @@ import { eventKindsFor } from "@/lib/event-kinds";
 import { MediaCropper, type MediaCropResult } from "@/components/media-cropper";
 import { RichTextEditor, linkifyHtml } from "@/components/rich-text-editor";
 import { DateTimeField } from "@/components/date-time-field";
+import { EventLocationMap } from "@/components/event-location-map";
+import { parseLatLngFromMapsUrl } from "@/lib/maps-url";
 import {
   createEvent,
   updateEvent,
@@ -309,6 +311,24 @@ export function EventForm({ initial }: { initial?: Initial }) {
             <MapPin size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
             <input className={`${field} pl-9`} value={locationUrl} onChange={(e) => setLocationUrl(e.target.value)} maxLength={500} placeholder="Paste a Google Maps link for the exact spot" />
           </div>
+          {locationUrl.trim() || location.trim() ? (
+            <div className="mt-2">
+              <EventLocationMap
+                name={location.trim() || null}
+                address={null}
+                lat={null}
+                lng={null}
+                point={parseLatLngFromMapsUrl(locationUrl)}
+                href={locationUrl.trim() || undefined}
+                className="h-[190px]"
+              />
+              <p className="mt-1 text-[11px] text-faint">
+                {parseLatLngFromMapsUrl(locationUrl)
+                  ? "Pinned from your Google Maps link — this exact spot shows on the event page."
+                  : "Showing the venue text — paste a Google Maps link above for an exact pin."}
+              </p>
+            </div>
+          ) : null}
           <span className="mt-1.5 block text-[11px] text-faint">When set, the location on the event page opens this exact pin. Otherwise it searches the venue text above.</span>
         </label>
       </section>

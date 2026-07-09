@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notify";
 import { requireAdmin, logAdminAction } from "@/lib/admin";
 import { SPORT_KEYS } from "@/lib/sports";
 
@@ -16,11 +17,20 @@ export async function resolveReport(formData: FormData) {
   const resolution = String(formData.get("resolution") ?? "").trim() || null;
 
   const admin = createAdminClient();
+  const { data: rep } = await admin.from("reports").select("reporter_id").eq("id", reportId).maybeSingle();
   await admin
     .from("reports")
     .update({ status, resolution, reviewed_by: userId, reviewed_at: new Date().toISOString() })
     .eq("id", reportId);
   await logAdminAction(userId, `report:${status}`, null, resolution ?? undefined, reportId);
+  if (rep?.reporter_id && (status === "actioned" || status === "dismissed")) {
+    await createNotification({
+      userId: rep.reporter_id,
+      kind: "system",
+      title: status === "actioned" ? "Your report led to action \u2014 thank you" : "Your report was reviewed",
+      body: status === "actioned" ? "We looked into it and took action." : "We looked into it; no action was needed this time.",
+    });
+  }
   revalidatePath("/admin/reports");
   revalidatePath("/admin");
 }
@@ -62,6 +72,13 @@ export async function setVerification(formData: FormData) {
 
   const admin = createAdminClient();
   await admin.from("profiles").update({ verification_status: value }).eq("id", target);
+  await createNotification({
+    userId: target,
+    kind: "system",
+    title: value === "verified" ? "Your identity is verified \u2713" : "Your verification status changed",
+    body: value === "verified" ? "The verified badge now shows on your profile." : `Status: ${value}. Contact support if this looks wrong.`,
+    linkUrl: "/me",
+  });
   await logAdminAction(userId, `verification:${value}`, target);
   revalidatePath(`/admin/users/${target}`);
 }
@@ -512,12 +529,26 @@ export async function reviewProviderApplication(formData: FormData) {
       .update({ status: "approved", review_note: note, reviewed_by: userId, reviewed_at: new Date().toISOString() })
       .eq("id", appId);
     await logAdminAction(userId, `provider_app:approve:${app.role}`, app.user_id, note ?? undefined, appId);
+    await createNotification({
+      userId: app.user_id,
+      kind: "system",
+      title: "Professional status approved \u2713",
+      body: `You're approved as ${app.role}. You can now publish classes and coaching.`,
+      linkUrl: "/settings/professional",
+    });
   } else {
     await admin
       .from("provider_applications")
       .update({ status: "rejected", review_note: note, reviewed_by: userId, reviewed_at: new Date().toISOString() })
       .eq("id", appId);
     await logAdminAction(userId, `provider_app:reject:${app.role}`, app.user_id, note ?? undefined, appId);
+    await createNotification({
+      userId: app.user_id,
+      kind: "system",
+      title: "Professional status \u2014 not approved this time",
+      body: note ? `Reviewer note: ${note}` : "You can update your details and apply again.",
+      linkUrl: "/settings/professional",
+    });
   }
   revalidatePath("/admin/providers");
 }

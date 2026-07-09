@@ -35,6 +35,7 @@ export function MatchPlanRow({
     const res = await setMatchSchedule(matchId, dt ? localInputToIso(dt) : null, crt.trim() || null);
     if (res.ok) {
       setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
       router.refresh();
     } else {
       setErr(res.error ?? "Failed.");

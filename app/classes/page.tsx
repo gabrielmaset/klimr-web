@@ -8,7 +8,7 @@ import { formatClassPrice, enrollmentLabel } from "@/lib/classes";
 import { isApprovedProvider } from "@/app/classes/actions";
 import { LocalTime } from "@/components/local-time";
 
-export const metadata: Metadata = { title: "Classes" };
+export const metadata: Metadata = { title: "Classes & Coaching" };
 
 type Cls = {
   id: string;
@@ -144,9 +144,9 @@ export default async function ClassesPage() {
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6 flex items-end justify-between gap-3">
         <div>
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Discover — Classes</p>
-        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Classes</h1>
-          <p className="mt-1 text-sm text-mute">Clinics and lessons with verified Klimr coaches.</p>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Discover — Classes &amp; Coaching</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Classes &amp; Coaching</h1>
+          <p className="mt-1 text-sm text-mute">Clinics, lessons, and coaching with verified Klimr professionals.</p>
           <Link href="/archive?tab=classes" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past classes →</Link>
         </div>
         {provider ? (

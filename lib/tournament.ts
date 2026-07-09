@@ -104,7 +104,7 @@ export type TournamentFormatConfig = {
   sponsors?: Sponsor[];
   prizes?: Prize[];
   announcements?: Announcement[];
-  gallery?: string[];
+  gallery?: (string | GalleryItem)[];
   public_bg?: string; // public-page background colour key (see PUBLIC_BG_OPTIONS); default canvas when unset
   capacity_mode?: "pooled" | "per_division";
   capacity_unit?: "team" | "person";
@@ -350,4 +350,31 @@ export function computePoolStandings(entries: { regId: string; name: string }[],
   for (const r of rows) r.diff = r.pf - r.pa;
   rows.sort((x, y) => y.wins - x.wins || y.diff - x.diff || y.pf - x.pf || x.name.localeCompare(y.name));
   return rows;
+}
+
+/** A hero/gallery photo with its non-destructive crop: zoom (1–2.5) and the
+ *  focal point (x/y as % of the image). Legacy entries are plain URL strings. */
+export type GalleryItem = { url: string; zoom: number; x: number; y: number };
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+export function normalizeGalleryItem(raw: unknown): GalleryItem | null {
+  if (typeof raw === "string" && raw.trim()) return { url: raw, zoom: 1, x: 50, y: 50 };
+  if (raw && typeof raw === "object") {
+    const o = raw as { url?: unknown; zoom?: unknown; x?: unknown; y?: unknown };
+    if (typeof o.url === "string" && o.url.trim()) {
+      return {
+        url: o.url,
+        zoom: clamp(typeof o.zoom === "number" ? o.zoom : 1, 1, 2.5),
+        x: clamp(typeof o.x === "number" ? o.x : 50, 0, 100),
+        y: clamp(typeof o.y === "number" ? o.y : 50, 0, 100),
+      };
+    }
+  }
+  return null;
+}
+
+export function normalizeGallery(raw: unknown): GalleryItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(normalizeGalleryItem).filter((g): g is GalleryItem => g !== null).slice(0, 10);
 }

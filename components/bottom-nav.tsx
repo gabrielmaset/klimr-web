@@ -15,6 +15,11 @@ const TABS = [
 // Secondary destinations all live under the "You" tab (account screen).
 const YOU = ["/me", "/calendar", "/account", "/settings", "/sponsorships", "/teams", "/courts", "/challenges", "/events", "/marketplace", "/resources", "/discover", "/invite", "/network", "/invites"];
 
+/* Active treatment (Material-3 style): every tab has a fixed 56×30 icon slot,
+   and ONE sliding pill sized to exactly that slot — geometric identity, so the
+   highlight can never intersect the label. Labels just change color. */
+const SLOT = "grid h-[30px] w-14 place-items-center";
+
 export function BottomNav({
   avatarUrl,
   avatarHue,
@@ -43,10 +48,10 @@ export function BottomNav({
         aria-label="Primary"
       >
         <div className="relative mx-auto grid max-w-2xl grid-cols-5">
-          {/* highlight that slides to the active tab */}
+          {/* the one highlight: a pill that slides between icon slots */}
           <span
-            className="pointer-events-none absolute top-1.5 h-9 rounded-2xl bg-tint-brand transition-all duration-300 ease-out"
-            style={{ left: `calc(${activeIndex * 20}% + 0.375rem)`, width: "calc(20% - 0.75rem)", opacity: activeIndex < 0 ? 0 : 1 }}
+            className="pointer-events-none absolute top-1.5 h-[30px] w-14 -translate-x-1/2 rounded-full bg-tint-brand transition-[left,opacity] duration-300 ease-out"
+            style={{ left: `${activeIndex * 20 + 10}%`, opacity: activeIndex < 0 ? 0 : 1 }}
             aria-hidden
           />
           {TABS.map(({ href, label, Icon }, i) => {
@@ -57,29 +62,31 @@ export function BottomNav({
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className="relative z-10 flex flex-col items-center gap-0.5 pb-2 pt-2.5 text-[11px] font-semibold"
+                className="relative z-10 flex flex-col items-center gap-0.5 pb-2 pt-1.5 text-[11px] font-semibold"
               >
-                <span className="relative">
-                  <Icon size={20} className={active ? "rounded-[10px] bg-brand/[0.08] text-flame-text" : "text-mute"} />
+                <span className={`relative ${SLOT}`}>
+                  <Icon size={20} className={active ? "text-brand-deep" : "text-mute"} />
                   {badge > 0 ? (
-                    <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                    <span className="absolute right-2 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white ring-2 ring-[#FFFDF8]">
                       {badge > 9 ? "9+" : badge}
                     </span>
                   ) : null}
                 </span>
-                <span className={active ? "rounded-[10px] bg-brand/[0.08] text-flame-text" : "text-mute"}>{label}</span>
+                <span className={active ? "text-flame-text" : "text-mute"}>{label}</span>
               </Link>
             );
           })}
           <Link
             href="/me"
             aria-current={youActive ? "page" : undefined}
-            className="relative z-10 flex flex-col items-center gap-0.5 pb-2 pt-2.5 text-[11px] font-semibold"
+            className="relative z-10 flex flex-col items-center gap-0.5 pb-2 pt-1.5 text-[11px] font-semibold"
           >
-            <span className={youActive ? "ring-2 ring-brand rounded-full" : ""}>
-              <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={20} />
+            <span className={SLOT}>
+              <span className={youActive ? "rounded-full ring-2 ring-brand" : ""} style={{ display: "grid" }}>
+                <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={20} />
+              </span>
             </span>
-            <span className={youActive ? "rounded-[10px] bg-brand/[0.08] text-flame-text" : "text-mute"}>You</span>
+            <span className={youActive ? "text-flame-text" : "text-mute"}>You</span>
           </Link>
         </div>
       </nav>

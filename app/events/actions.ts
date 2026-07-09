@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createNotification } from "@/lib/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS, type SportKey } from "@/lib/sports";
@@ -47,6 +48,25 @@ export async function rsvp(formData: FormData) {
 
   // Refresh created_at so a re-RSVP after a reset counts for the new cycle.
   await supabase.from("event_rsvps").upsert({ event_id: id, user_id: user.id, status, created_at: new Date().toISOString() }, { onConflict: "event_id,user_id" });
+
+  // Organizers hear about their own event filling up (not about themselves).
+  if (ev.created_by && ev.created_by !== user.id) {
+    const [{ data: me }, { data: evRow }] = await Promise.all([
+      supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
+      supabase.from("events").select("title").eq("id", id).maybeSingle(),
+    ]);
+    await createNotification({
+      userId: ev.created_by,
+      kind: "system",
+      title:
+        status === "pending"
+          ? `Join request \u2014 ${evRow?.title ?? "your event"}`
+          : `${me?.display_name || "A player"} is going \u2014 ${evRow?.title ?? "your event"}`,
+      body: status === "pending" ? `${me?.display_name || "A player"} is waiting on your approval.` : undefined,
+      linkUrl: `/events/${id}`,
+    });
+  }
+
   revalidatePath(`/events/${id}`);
   revalidatePath("/events");
 }
