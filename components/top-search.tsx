@@ -5,6 +5,37 @@ import { useRouter } from "next/navigation";
 import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X } from "lucide-react";
 import { globalSearch } from "@/app/search/actions";
 import type { SearchResult, SearchResultType } from "@/app/search/types";
+import { Compass } from "lucide-react";
+
+type PageResult = { type: "page"; id: string; title: string; subtitle?: string; href: string };
+type Result = SearchResult | PageResult;
+
+const PAGES: PageResult[] = [
+  { type: "page", id: "feed", title: "Home", subtitle: "Your feed", href: "/feed" },
+  { type: "page", id: "play", title: "Play", subtitle: "Find or organize a match", href: "/play" },
+  { type: "page", id: "rankings", title: "Rankings", subtitle: "The Mountain", href: "/rankings" },
+  { type: "page", id: "tournaments", title: "Tournaments", subtitle: "Compete", href: "/tournaments" },
+  { type: "page", id: "challenges", title: "Challenges", subtitle: "Turf wars", href: "/challenges" },
+  { type: "page", id: "events", title: "Events", subtitle: "Compete", href: "/events" },
+  { type: "page", id: "network", title: "Network", subtitle: "Community", href: "/network" },
+  { type: "page", id: "chats", title: "Chats", subtitle: "Courtside", href: "/chats" },
+  { type: "page", id: "teams", title: "Teams", subtitle: "Community", href: "/teams" },
+  { type: "page", id: "invites", title: "Invites", subtitle: "Community", href: "/invites" },
+  { type: "page", id: "discover", title: "Players", subtitle: "Match Lab", href: "/discover" },
+  { type: "page", id: "courts", title: "Courts", subtitle: "Discover", href: "/courts" },
+  { type: "page", id: "marketplace", title: "Marketplace", subtitle: "Discover", href: "/marketplace" },
+  { type: "page", id: "classes", title: "Classes", subtitle: "Discover", href: "/classes" },
+  { type: "page", id: "sponsorships", title: "Sponsorships", subtitle: "Discover", href: "/sponsorships" },
+  { type: "page", id: "resources", title: "Playbook", subtitle: "Rules & guides", href: "/resources" },
+  { type: "page", id: "calendar", title: "Calendar", subtitle: "Your schedule", href: "/calendar" },
+  { type: "page", id: "notifications", title: "Notifications", subtitle: "Your account", href: "/notifications" },
+  { type: "page", id: "me", title: "My profile", subtitle: "Your account", href: "/me" },
+  { type: "page", id: "settings", title: "Settings", subtitle: "Your account", href: "/settings" },
+  { type: "page", id: "account", title: "Account", subtitle: "Sign-in & security", href: "/account" },
+  { type: "page", id: "invite", title: "Invite friends", subtitle: "Your account", href: "/invite" },
+];
+const pageHits = (q: string) =>
+  PAGES.filter((pg) => pg.title.toLowerCase().includes(q.toLowerCase()) || (pg.subtitle ?? "").toLowerCase().includes(q.toLowerCase())).slice(0, 5);
 import { Avatar } from "@/components/avatar";
 
 const TYPE_ICON: Record<SearchResultType, typeof User> = {
@@ -17,7 +48,7 @@ const TYPE_ICON: Record<SearchResultType, typeof User> = {
 export function TopSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
@@ -53,7 +84,7 @@ export function TopSearch() {
         if (id === reqId.current) setLoading(true);
         const r = await globalSearch(term);
         if (id === reqId.current) {
-          setResults(r);
+          setResults([...pageHits(term), ...r]);
           setActive(0);
           setLoading(false);
         }
@@ -139,7 +170,7 @@ export function TopSearch() {
             if (hasQuery) setOpen(true);
           }}
           onKeyDown={onInputKey}
-          placeholder="Search players, courts, teams…"
+          placeholder="Search Klimr — pages, players, courts…"
           className="h-full w-full bg-transparent text-sm text-ink outline-none placeholder:text-faint"
           autoComplete="off"
           spellCheck={false}
@@ -178,7 +209,7 @@ export function TopSearch() {
             ) : (
               results.map((r, i) => {
                 const sel = i === activeClamped;
-                const Icon = TYPE_ICON[r.type];
+                const Icon = r.type === "page" ? Compass : TYPE_ICON[r.type];
                 return (
                   <button
                     key={`${r.type}-${r.id}`}

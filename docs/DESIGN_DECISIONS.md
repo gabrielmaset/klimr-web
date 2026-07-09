@@ -181,6 +181,24 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-08 — Mobile overhaul (nav, performance, layout) — from Gabriel's iPhone walk-through
+- **Navigation (the core failure):** the rail is desktop-only and the bottom bar holds five tabs,
+  so most destinations (Tournaments included) were **unreachable on phones**, and search didn't
+  index pages — a literal dead end. Now: a **Menu button in the mobile top bar** opens a
+  full-screen grouped sheet (the Facebook pattern) with every destination as tap-friendly tiles —
+  primary four, Compete/Community/Discover/Account groups, Admin, Log out — body-scroll-locked,
+  auto-closing on navigation, solid surfaces. **Search now indexes pages** (client-side, instant):
+  a `page` result kind with 22 destinations, so typing "Tournaments" navigates.
+- **Performance:** `backdrop-blur` removed from both mobile bars (solid warm white — mobile WebKit
+  compositing was the likely tap-lag culprit, the exact risk flagged in the iPad discussion) and
+  the full-page contour SVG is now desktop-only. The fluid UI scale was already ≥768px-only.
+- **Layout:** the five-across rank tiles wrap 3+2 on phones (the screenshots were the public
+  profile — /me never had them); Calendar defaults to the **Day agenda on phones** and the month
+  grid goes dots-only (times/titles from `sm:`), with tighter cells and a compact "+n".
+- Bottom nav verified already `fixed` with a correct spacer (the screenshot gap was Safari
+  rubber-banding). Deeper perf profiling (bundle/lazy audit) queued if lag persists after the blur
+  removal ships.
+
 ### 2026-07-08 — Diagnostics: the exact user-facing message travels with every report
 - Gabriel's call after correlating his on-screen error with its Diagnostics entry: admins should
   see **what the user saw**, verbatim. `reportClientError` gains an optional `userMessage`,

@@ -2,10 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Search, CalendarRange } from "lucide-react";
+import { useState } from "react";
+import { Bell, Search, CalendarRange, Menu } from "lucide-react";
+import { MobileMenu } from "@/components/mobile-menu";
 import { KlimrLogo } from "@/components/logo";
 
-export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
+export function MobileTopBar({
+  unreadCount,
+  avatarUrl,
+  avatarHue,
+  avatarName,
+  adminRole,
+}: {
+  unreadCount: number;
+  avatarUrl: string | null;
+  avatarHue: number;
+  avatarName: string;
+  adminRole: boolean;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   // Full-screen chat thread has its own header.
   if (pathname.startsWith("/chats/")) return null;
@@ -14,7 +29,7 @@ export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
   const calActive = pathname === "/calendar" || pathname.startsWith("/calendar/");
 
   return (
-    <header className="pt-safe px-safe sticky top-0 z-40 border-b border-rule/70 bg-white/80 backdrop-blur-xl backdrop-saturate-150 md:hidden">
+    <header className="pt-safe px-safe sticky top-0 z-40 border-b border-rule/70 bg-[#FFFDF8] md:hidden">
       <div className="flex items-center justify-between px-5 py-3">
         <Link href="/" aria-label="Klimr home">
           <KlimrLogo />
@@ -24,21 +39,21 @@ export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
             type="button"
             aria-label="Search"
             onClick={() => window.dispatchEvent(new Event("klimr:open-search"))}
-            className="press grid h-9 w-9 place-items-center rounded-full border border-rule bg-white/60 text-ink"
+            className="press grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface text-ink"
           >
             <Search size={17} />
           </button>
           <Link
             href="/calendar"
             aria-label="Calendar"
-            className="press relative grid h-9 w-9 place-items-center rounded-full border border-rule bg-white/60"
+            className="press relative grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface"
           >
             <CalendarRange size={17} className={calActive ? "text-brand-deep" : "text-ink"} />
           </Link>
           <Link
             href="/notifications"
             aria-label="Notifications"
-            className="press relative grid h-9 w-9 place-items-center rounded-full border border-rule bg-white/60"
+            className="press relative grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface"
           >
             <Bell size={17} className={active ? "text-brand-deep" : "text-ink"} />
             {unreadCount > 0 ? (
@@ -47,8 +62,25 @@ export function MobileTopBar({ unreadCount }: { unreadCount: number }) {
               </span>
             ) : null}
           </Link>
+          <button
+            type="button"
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(true)}
+            className="press grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface text-ink"
+          >
+            <Menu size={18} />
+          </button>
         </div>
       </div>
+      <MobileMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        avatarUrl={avatarUrl}
+        avatarHue={avatarHue}
+        avatarName={avatarName}
+        adminRole={adminRole}
+      />
     </header>
   );
 }

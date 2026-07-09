@@ -60,7 +60,7 @@ export function AppChrome({
         presenceMode={presenceMode}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <MobileTopBar unreadCount={unread} />
+        <MobileTopBar unreadCount={unread} avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={adminRole} />
         <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} teams={teams} />
         <main className="flex-1">{children}</main>
         <SiteFooter authed />

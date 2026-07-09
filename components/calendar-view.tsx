@@ -107,6 +107,14 @@ function placeDay(evs: Ev[]): Placed[] {
 export function CalendarView({ events, nowIso }: { events: CalEvent[]; nowIso: string }) {
   const now = useMemo(() => new Date(nowIso), [nowIso]);
   const [view, setView] = useState<"month" | "week" | "day">("month");
+  // Phones default to the Day agenda — the month grid is a desktop layout.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const raf = requestAnimationFrame(() => {
+      if (mq.matches) setView("day");
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
   const [cursor, setCursor] = useState<Date>(() => startOfDay(new Date(nowIso)));
 
   const enriched = useMemo(() => events.map(enrich), [events]);
@@ -230,7 +238,7 @@ function MonthGrid({ events, cursor, now, onOpenDay }: { events: Ev[]; cursor: D
           return (
             <div
               key={i}
-              className={`min-h-[94px] border-b border-r border-rule p-1 sm:min-h-[118px] sm:p-1.5 ${i % 7 === 6 ? "border-r-0" : ""} ${i >= days.length - 7 ? "border-b-0" : ""} ${inMonth ? "" : "bg-bg/40"}`}
+              className={`min-h-[64px] border-b border-r border-rule p-1 sm:min-h-[118px] sm:p-1.5 ${i % 7 === 6 ? "border-r-0" : ""} ${i >= days.length - 7 ? "border-b-0" : ""} ${inMonth ? "" : "bg-bg/40"}`}
             >
               <button
                 type="button"
@@ -247,7 +255,7 @@ function MonthGrid({ events, cursor, now, onOpenDay }: { events: Ev[]; cursor: D
                 ))}
                 {extra > 0 ? (
                   <button type="button" onClick={() => onOpenDay(d)} className="w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] font-semibold text-mute hover:bg-bg">
-                    +{extra} more
+                    +{extra}<span className="hidden sm:inline"> more</span>
                   </button>
                 ) : null}
               </div>
@@ -264,8 +272,10 @@ function MonthChip({ ev }: { ev: Ev }) {
   return (
     <Link href={ev.href} title={ev.title} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] leading-tight transition-colors hover:bg-bg">
       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: k.dot }} />
-      {!ev.allDay ? <span className="shrink-0 tabular-nums text-mute">{fmtTime(ev.s)}</span> : null}
-      <span className="truncate font-medium text-ink">{ev.title}</span>
+      <span className="hidden min-w-0 items-center gap-1 sm:flex">
+        {!ev.allDay ? <span className="shrink-0 tabular-nums text-mute">{fmtTime(ev.s)}</span> : null}
+        <span className="truncate font-medium text-ink">{ev.title}</span>
+      </span>
     </Link>
   );
 }
