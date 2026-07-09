@@ -47,7 +47,7 @@ export default async function MyListingsPage({ searchParams }: { searchParams: P
   return (
     <div className="mx-auto max-w-[880px] px-[30px] pb-16 pt-[22px]">
       <Link href="/marketplace" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={15} /> Second Serve
+        <ArrowLeft size={15} /> Marketplace
       </Link>
       <div className="mt-4">
         <PageHeader

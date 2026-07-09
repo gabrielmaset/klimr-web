@@ -53,7 +53,7 @@ export default function RootLayout({
           preserveAspectRatio="xMidYMin slice"
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 hidden h-full w-full md:block"
-          style={{ opacity: 0.045 }}
+          style={{ opacity: 0.03 }}
         >
           <path d="M-100,240 C300,140 620,340 900,220 S1400,120 1700,260" fill="none" stroke="#201B12" strokeWidth="1" />
           <path d="M-100,340 C300,240 620,440 900,320 S1400,220 1700,360" fill="none" stroke="#201B12" strokeWidth="1" />

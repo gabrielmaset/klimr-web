@@ -181,6 +181,13 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-09 — Marketplace wayfinding labels + contour softened
+- Back links on marketplace detail / new / mine now read **Marketplace** (the rail's name) —
+  "Second Serve" stays as the browse page's brand H1/kicker, but wayfinding matches navigation.
+- The desktop contour SVG is a fixed overlay that paints **above** content (cards were never
+  translucent); its opacity went 0.045 → **0.03** so the lines keep texturing the canvas while
+  only whispering through white containers sitewide.
+
 ### 2026-07-09 — Tournament public page: rotating hero (≤10 photos, crop) + status-toned CTA
 - **Hero one-third taller** (padding scale on /e/[code]) and now a **crossfading carousel**:
   up to 10 photos, 10-second rotation, clickable dots (dot click restarts the timer), each photo

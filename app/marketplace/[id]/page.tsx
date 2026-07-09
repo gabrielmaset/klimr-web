@@ -77,7 +77,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   return (
     <div className="mx-auto max-w-[980px] px-[30px] pb-16 pt-[22px]">
       <Link href="/marketplace" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={15} /> Second Serve
+        <ArrowLeft size={15} /> Marketplace
       </Link>
 
       <div className="mt-4 grid items-start gap-7 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
