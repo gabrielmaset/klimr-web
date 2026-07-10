@@ -8,6 +8,7 @@ import { isRegistrationOpen, type TournamentFormatConfig,
   normalizeGallery, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventLocationMap } from "@/components/event-location-map";
+import { mapsPointFromUrl } from "@/lib/maps-url";
 import { reopenTournament } from "@/app/tournaments/actions";
 import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
 import { JoinWaitlistDialog } from "@/components/join-waitlist-dialog";
@@ -175,6 +176,8 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // Status row is up to three columns: registration · venue map · weather. The map
   // shows when we have a location; registration widens to fill any empty columns.
   const hasMap = !!(t.location_url || t.location_address || t.location_name || (t.location_lat != null && t.location_lng != null));
+  // The organizer's pasted Google Maps link is the source of truth for the pin.
+  const mapPoint = hasMap ? await mapsPointFromUrl(t.location_url) : null;
   // Weather applies to a future, geolocated event with weather turned on. If we
   // have no forecast yet (still beyond the ~16-day horizon), keep the slot with a
   // "coming soon" placeholder rather than dropping it.
@@ -646,7 +649,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
             </div>
           ) : null}
 
-          {hasMap ? <EventLocationMap name={t.location_name} address={t.location_address} zip={t.location_zip} lat={t.location_lat} lng={t.location_lng} href={t.location_url ?? undefined} className="rounded-[22px]" /> : null}
+          {hasMap ? <EventLocationMap name={t.location_name} address={t.location_address} zip={t.location_zip} lat={t.location_lat} lng={t.location_lng} point={mapPoint} href={t.location_url ?? undefined} className="rounded-[22px]" /> : null}
 
           {premiumSponsors.length ? (() => {
             const s = premiumSponsors[0];

@@ -181,6 +181,28 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-09 — Identity & compliance round: durable user IDs, buy flow, maps link priority
+- **User identification (researched, CCPA-grounded):** users already carry the immutable UUID;
+  0105 adds **`member_no`** (short human-readable, sequence-assigned, never reused) and the
+  **`deleted_users_ledger`** — the service-role-only record written at purge time (both the
+  nightly `purge_archived_accounts()` and admin purge) holding UUID, member #, name, email,
+  dates. Logs keep their UUID after purge (error_logs FK dropped → pseudonymous, the Facebook
+  model), with the ledger as the sole controlled re-association path under CCPA §1798.105(d)
+  security/fraud/debug exemptions + §7022 record-of-deletion. Admin diagnostics now display
+  `Name · #10023` (and `(deleted) · #` via the ledger). Full policy: **docs/DATA-GOVERNANCE.md**
+  (lifecycle, retention table, request handling, commitments).
+- **Buy at asking:** `buyNow` opens the thread and places a full-price offer through the
+  existing machinery (accept ⇒ pending; the listing stays visible until the seller marks sold).
+  Detail: Buy = gradient primary on sale+active, Message seller demotes to bordered; room gains
+  a "Buy at $X" chip. **Message-seller silence fixed loud:** guards now redirect with visible
+  notices; listings without a seller account (null `listed_by` seeds) say so and hide contact.
+- **Maps link priority everywhere:** tournament public page now resolves `location_url` to the
+  exact point (short links included); the HTML scanner gained Google's
+  APP_INITIALIZATION_STATE / latitude-longitude shapes; the event form resolves short links
+  **live via a server action** with honest captions (exact pin / resolving… / "open the short
+  link and paste the full URL" guidance) — relevant since Google sunset goo.gl.
+- Contour overlay 0.03 → **0.02**.
+
 ### 2026-07-09 — Marketplace wayfinding labels + contour softened
 - Back links on marketplace detail / new / mine now read **Marketplace** (the rail's name) —
   "Second Serve" stays as the browse page's brand H1/kicker, but wayfinding matches navigation.

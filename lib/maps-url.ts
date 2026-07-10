@@ -87,8 +87,8 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
     const fromUrl = parseLatLngFromMapsUrl(res.url);
     if (fromUrl) return fromUrl;
     // Otherwise scan the returned HTML for an embedded maps URL / coordinate.
-    const body = await res.text();
-    return parseLatLngFromMapsUrl(body.slice(0, 300_000));
+    const body = (await res.text()).slice(0, 400_000);
+    return parseLatLngFromMapsUrl(body) ?? parseLatLngFromHtml(body);
   } catch {
     return null;
   } finally {
@@ -102,5 +102,24 @@ export async function mapsPointFromUrl(raw: string | null | undefined): Promise<
   const direct = parseLatLngFromMapsUrl(raw);
   if (direct) return direct;
   if (isMapsShortLink(raw)) return resolveMapsShortLink(raw);
+  return null;
+}
+
+// Google's map pages embed the viewport in APP_INITIALIZATION_STATE as
+// [[[zoom, LNG, LAT], …]] and sometimes expose "latitude"/"longitude" JSON.
+// Last-resort extraction when the redirect URL itself carried no coordinate.
+function parseLatLngFromHtml(body: string): LatLng | null {
+  const app = body.match(/\[\[\[\d+(?:\.\d+)?,(-?\d+\.\d+),(-?\d+\.\d+)\]/);
+  if (app) {
+    const lng = parseFloat(app[1]);
+    const lat = parseFloat(app[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0)) return { lat, lng };
+  }
+  const kv = body.match(/"latitude"\s*:\s*(-?\d+\.\d+)[\s\S]{0,120}?"longitude"\s*:\s*(-?\d+\.\d+)/);
+  if (kv) {
+    const lat = parseFloat(kv[1]);
+    const lng = parseFloat(kv[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0)) return { lat, lng };
+  }
   return null;
 }

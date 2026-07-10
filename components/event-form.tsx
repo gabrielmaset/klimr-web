@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Check, CircleAlert, ImagePlus, X, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -10,7 +10,8 @@ import { MediaCropper, type MediaCropResult } from "@/components/media-cropper";
 import { RichTextEditor, linkifyHtml } from "@/components/rich-text-editor";
 import { DateTimeField } from "@/components/date-time-field";
 import { EventLocationMap } from "@/components/event-location-map";
-import { parseLatLngFromMapsUrl } from "@/lib/maps-url";
+import { parseLatLngFromMapsUrl, isMapsShortLink, type LatLng } from "@/lib/maps-url";
+import { resolveMapsPoint } from "@/app/events/maps-actions";
 import {
   createEvent,
   updateEvent,
@@ -87,6 +88,28 @@ export function EventForm({ initial }: { initial?: Initial }) {
   const [endsLocal, setEndsLocal] = useState(() => toLocalInput(initial?.ends_at ?? null));
   const [location, setLocation] = useState(initial?.location_text ?? "");
   const [locationUrl, setLocationUrl] = useState(initial?.location_url ?? "");
+  const [resolvedPoint, setResolvedPoint] = useState<LatLng | null>(null);
+  const [resolveState, setResolveState] = useState<"idle" | "resolving" | "failed">("idle");
+
+  // Short links carry no coordinates in the URL itself — resolve them on the
+  // server (redirect follow) so the preview pin is exact.
+  useEffect(() => {
+    const url = locationUrl.trim();
+    const needsResolve = !!url && !parseLatLngFromMapsUrl(url) && isMapsShortLink(url);
+    const t = setTimeout(async () => {
+      if (!needsResolve) {
+        setResolvedPoint(null);
+        setResolveState("idle");
+        return;
+      }
+      setResolvedPoint(null);
+      setResolveState("resolving");
+      const pt = await resolveMapsPoint(url);
+      setResolvedPoint(pt);
+      setResolveState(pt ? "idle" : "failed");
+    }, needsResolve ? 600 : 0);
+    return () => clearTimeout(t);
+  }, [locationUrl]);
   const [capacity, setCapacity] = useState(initial?.capacity != null ? String(initial.capacity) : "");
   const [cost, setCost] = useState(initial?.cost_text ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -318,14 +341,18 @@ export function EventForm({ initial }: { initial?: Initial }) {
                 address={null}
                 lat={null}
                 lng={null}
-                point={parseLatLngFromMapsUrl(locationUrl)}
+                point={parseLatLngFromMapsUrl(locationUrl) ?? resolvedPoint}
                 href={locationUrl.trim() || undefined}
                 className="h-[190px]"
               />
               <p className="mt-1 text-[11px] text-faint">
-                {parseLatLngFromMapsUrl(locationUrl)
+                {parseLatLngFromMapsUrl(locationUrl) || resolvedPoint
                   ? "Pinned from your Google Maps link — this exact spot shows on the event page."
-                  : "Showing the venue text — paste a Google Maps link above for an exact pin."}
+                  : resolveState === "resolving"
+                    ? "Resolving your link for the exact spot…"
+                    : resolveState === "failed"
+                      ? "Couldn't resolve this short link — open it in your browser and paste the full maps.google.com URL for an exact pin."
+                      : "Showing the venue text — paste a Google Maps link above for an exact pin."}
               </p>
             </div>
           ) : null}

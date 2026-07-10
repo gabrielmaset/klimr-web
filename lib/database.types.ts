@@ -86,6 +86,34 @@ export interface Database {
         Update: { id?: string; user_id?: string; sport_key?: string; session_id?: string | null; match_id?: string | null; points?: number; won?: boolean; earned_at?: string; created_at?: string };
         Relationships: [];
       };
+      deleted_users_ledger: {
+        Row: {
+          id: string;
+          user_id: string;
+          member_no: number | null;
+          display_name: string | null;
+          email: string | null;
+          account_created_at: string | null;
+          archived_at: string | null;
+          purged_at: string;
+          purged_by: string | null;
+          reason: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          member_no?: number | null;
+          display_name?: string | null;
+          email?: string | null;
+          account_created_at?: string | null;
+          archived_at?: string | null;
+          purged_at?: string;
+          purged_by?: string | null;
+          reason?: string;
+        };
+        Update: { reason?: string };
+        Relationships: [];
+      };
       error_logs: {
         Row: {
           id: string;
@@ -143,6 +171,7 @@ export interface Database {
       profiles: {
         Row: {
           id: string;
+          member_no: number | null;
           display_name: string;
           first_name: string | null;
           last_name: string | null;
@@ -177,6 +206,7 @@ export interface Database {
           following_count: number;
         };
         Insert: {
+          member_no?: number | null;
           id: string;
           display_name?: string;
           first_name?: string | null;

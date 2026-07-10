@@ -454,8 +454,25 @@ export async function purgeUserNow(formData: FormData) {
   const { data: staff } = await admin.from("admin_users").select("role").eq("user_id", target).maybeSingle();
   if (staff) redirect("/admin/users/archived");
 
-  const { data: prof } = await admin.from("profiles").select("display_name, avatar_path").eq("id", target).single();
+  const { data: prof } = await admin.from("profiles").select("display_name, avatar_path, member_no, created_at, archived_at").eq("id", target).single();
   if (prof?.avatar_path) await admin.storage.from("avatars").remove([prof.avatar_path]);
+
+  // The durable identity record survives the purge (CCPA security/fraud/debug
+  // exemptions) — written BEFORE deletion so nothing is ever lost to a race.
+  const { data: au } = await admin.auth.admin.getUserById(target);
+  await admin.from("deleted_users_ledger").upsert(
+    {
+      user_id: target,
+      member_no: prof?.member_no ?? null,
+      display_name: prof?.display_name ?? null,
+      email: au?.user?.email ?? null,
+      account_created_at: prof?.created_at ?? null,
+      archived_at: prof?.archived_at ?? null,
+      purged_by: userId,
+      reason: "admin_purge",
+    },
+    { onConflict: "user_id" },
+  );
 
   const { error } = await admin.auth.admin.deleteUser(target);
   if (error) {

@@ -8,15 +8,16 @@ import { SPORT_TONES } from "@/components/sport-chip";
 import { ListingGallery } from "@/components/listing-gallery";
 import { CATEGORIES, TRADE_TONE, FREE_TONE, PENDING_TONE, MULTI_TONE, zipDistanceMi, priceLabel } from "@/lib/marketplace";
 import { toggleSave, setListingStatus, reportListing } from "../actions";
-import { messageSeller } from "../chat-actions";
+import { messageSeller, buyNow } from "../chat-actions";
 
 export const metadata: Metadata = { title: "Listing — Second Serve" };
 export const dynamic = "force-dynamic";
 
 const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]";
 
-export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ListingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string }> }) {
   const { id } = await params;
+  const { notice } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -54,6 +55,8 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   const saved = !!savedRow;
   const catLabel = CATEGORIES.find((c) => c.key === l.category)?.label ?? l.category ?? "Gear";
   const sellerSince = seller?.created_at ? new Date(seller.created_at).getFullYear() : null;
+  const canContact = !yours && !!l.listed_by && ["active", "pending", "sold"].includes(l.status);
+  const canBuy = canContact && l.mode === "sale" && l.status === "active" && (l.price_cents ?? 0) >= 100;
 
   const meetIds = (l.meet_court_ids ?? []).slice(0, 3);
   const { data: meetCourts } = meetIds.length
@@ -79,6 +82,17 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
       <Link href="/marketplace" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
         <ArrowLeft size={15} /> Marketplace
       </Link>
+
+      {notice === "chat" || notice === "buy" ? (
+        <p className="mt-3 rounded-[12px] border border-[#f0c2b0] bg-[#fbeee7] px-3.5 py-2.5 text-[13px] font-semibold text-[#b91c1c]">
+          {notice === "buy" ? "Couldn\u2019t start the purchase" : "Couldn\u2019t open the chat"} — this listing may not be accepting contact right now. Try again in a moment.
+        </p>
+      ) : null}
+      {!yours && !l.listed_by ? (
+        <p className="mt-3 rounded-[12px] border border-rule bg-bg px-3.5 py-2.5 text-[12.5px] text-mute">
+          This listing has no active seller account, so messaging and offers are unavailable.
+        </p>
+      ) : null}
 
       <div className="mt-4 grid items-start gap-7 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         {/* gallery */}
@@ -198,12 +212,29 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
               </>
             ) : (
               <>
-                <form action={messageSeller}>
-                  <input type="hidden" name="listing_id" value={l.id} />
-                  <button className="press inline-flex h-[36px] items-center rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
-                    Message seller
-                  </button>
-                </form>
+                {canBuy ? (
+                  <form action={buyNow}>
+                    <input type="hidden" name="listing_id" value={l.id} />
+                    <button className="press inline-flex h-[36px] items-center rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
+                      Buy at {priceLabel({ mode: l.mode, priceCents: l.price_cents })}
+                    </button>
+                  </form>
+                ) : null}
+                {canContact ? (
+                  <form action={messageSeller}>
+                    <input type="hidden" name="listing_id" value={l.id} />
+                    <button
+                      className={
+                        canBuy
+                          ? "press inline-flex h-[36px] items-center rounded-[10px] border border-rule-2 bg-surface px-4 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink"
+                          : "press inline-flex h-[36px] items-center rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]"
+                      }
+                      style={canBuy ? undefined : { background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
+                    >
+                      Message seller
+                    </button>
+                  </form>
+                ) : null}
                 <form action={toggleSave}>
                   <input type="hidden" name="listing_id" value={l.id} />
                   <button className={`press inline-flex h-[36px] items-center gap-1.5 rounded-[10px] border px-4 text-[13px] font-semibold transition-colors ${saved ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule-2 bg-surface text-ink-soft hover:text-ink"}`}>

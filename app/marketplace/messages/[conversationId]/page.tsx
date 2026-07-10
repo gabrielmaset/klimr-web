@@ -75,6 +75,7 @@ export default async function ListingThreadPage({ params }: { params: Promise<{ 
         mode: l.mode as "sale" | "trade" | "free",
         status: l.status,
         priceText: priceLabel({ mode: l.mode, priceCents: l.price_cents }),
+        priceCents: l.price_cents,
         obo: l.obo,
         cover,
       }}
