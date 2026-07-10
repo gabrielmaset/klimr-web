@@ -1,2 +1,6 @@
 # TypeScript incremental build cache — machine-generated, never commit
 *.tsbuildinfo
+
+# Secrets never enter the repo — env vars live in Vercel
+.env*
+!.env.example

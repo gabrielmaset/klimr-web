@@ -181,6 +181,49 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-10 — Security tooling decision (Dependabot yes, the rest no) + CI gates
+- **Audit finding first:** no `.env*` files exist in the container or any shipped zip — keys
+  live only in Vercel (correct posture); `.gitignore` gained `.env*` belt-and-suspenders.
+- **Adopted:** `.github/dependabot.yml` (npm security PRs immediately, weekly grouped version
+  bumps) + `.github/workflows/ci.yml` — the standing lint+build gates as a GitHub Action on
+  every push/PR, which is what validates Dependabot's PRs before merge.
+- **Rejected with reasons:** Docker Scout (Klimr ships no containers — Vercel + managed
+  Supabase), Brakeman (Ruby-on-Rails-only static analyzer; wrong stack), SonarCloud (paid for
+  private repos, noisy for a solo founder; the CI gates + Dependabot + optional Semgrep later
+  cover the same ground at zero cost).
+- **The real security surface** stays the app layer already under discipline: RLS + explicit
+  GRANTs, owner/staff guards + guard-AND-hide (§10), scoped SECURITY DEFINER functions, rate
+  limits, invite-code lockout + CAPTCHA, magic-link + TOTP, E2E chat, no payment handling,
+  the data-governance ledger — scanners can't validate authorization logic.
+
+### 2026-07-10 — The Training Room: Health & Nutrition rebuilt to the scoped handoff
+- **Scope held**: only /health (page + read/[slug] + review-policy), health-only components,
+  lib/health-content.ts, the new /messages DM primitive, and migration 0110 + types. Side nav,
+  top bar, globals, layouts, classes page, and the shared ProviderCard untouched.
+- **Directory** (URL-searchParams throughout — filters/search/sort/topic/page/?pro all
+  shareable): format segmented × specialty chips with live counts (5 identity palettes) ×
+  debounced search × 4 sorts (top-rated w/ review-count tiebreak; nearest = in-person-alpha,
+  virtual last — live distance is a geo follow-up). Cards in the **bounded well** (540px,
+  internal scroll, overscroll-contain) so page height never grows; virtualization documented
+  as the >100-pros follow-up. **Pro profile overlay via ?pro=** — identity, VERIFIED
+  CREDENTIALS from approved applications (registry + ID + verify date — real data from
+  0078/0109), member reviews (existing system, real names; verified-client gating is
+  booking-era), sessions rail (price/availability/format from 0110 fields; Settings editor is
+  the named follow-up), safety line, Report → support seam ticket. Both empty states incl.
+  the striped zero-pros launch card.
+- **"Message {pro}" is real**: no DM primitive existed, so 0110 adds one on the existing E2E
+  infra — conversations.peer_id + canonical-pair unique index + is_dm_participant policies
+  (0103's additive pattern), a slim text-only DmRoom (transplanted bootstrap/wrap/realtime),
+  /messages/[id], and notifyDmMessage with the standard 90s/15-min guards. Courtside-tab
+  surfacing = follow-up (chats page out of scope).
+- **The Training Table at scale**: taxonomy as data (7 topics), 9 sourced reads
+  (dek/topic/sources/reviewedAt; reviewer machinery live, names never fabricated — rows show
+  cited bodies until a real reviewer signs), featured Tournament Week collection with the
+  mini-ascent SVG, topic hub tiles with live counts, the index panel (search × topic × sort ×
+  Load-more, tag column width derived from LONGEST_TOPIC_CH — never hardcoded), article pages
+  with **real read tracking** (health_article_reads + SECURITY DEFINER bump RPC), Courtside
+  questions accordion linking sources + directory, full disclaimer + linked
+  **/health/review-policy** page.
 ### 2026-07-10 — Printable payments statement + credential verification & expiry system
 - **Print statement** (payments page → /payments/statement): a print-optimized full statement
   — event header + generated timestamp, the six totals, the per-division ledger, and the

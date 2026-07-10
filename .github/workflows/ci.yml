@@ -1,0 +1,21 @@
+# Klimr CI — the standing build gates, automated.
+# Runs on every push and pull request (including Dependabot's):
+# the same two gates every change has always had to pass locally.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx eslint .
+      - run: npm run build

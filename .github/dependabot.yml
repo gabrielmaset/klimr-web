@@ -1,0 +1,15 @@
+# Dependabot: npm supply-chain watch.
+# Security updates arrive as PRs the moment an advisory lands; routine
+# version bumps come once a week, grouped so they don't flood the inbox.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]

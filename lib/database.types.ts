@@ -813,9 +813,15 @@ export interface Database {
         Update: { last_read_at?: string };
         Relationships: [];
       };
+      health_article_reads: {
+        Row: { slug: string; reads: number; updated_at: string };
+        Insert: { slug: string; reads?: number; updated_at?: string };
+        Update: { reads?: number; updated_at?: string };
+        Relationships: [];
+      };
       conversations: {
-        Row: { id: string; match_id: string | null; team_id: string | null; listing_id: string | null; kind: string; created_by: string | null; created_at: string; expires_at: string | null };
-        Insert: { id?: string; match_id?: string | null; team_id?: string | null; listing_id?: string | null; kind?: string; created_by?: string | null; created_at?: string; expires_at?: string | null };
+        Row: { id: string; match_id: string | null; team_id: string | null; listing_id: string | null; kind: string; created_by: string | null; peer_id: string | null; created_at: string; expires_at: string | null };
+        Insert: { id?: string; match_id?: string | null; team_id?: string | null; listing_id?: string | null; kind?: string; created_by?: string | null; peer_id?: string | null; created_at?: string; expires_at?: string | null };
         Update: { expires_at?: string | null; kind?: string };
         Relationships: [];
       };
@@ -1542,9 +1548,9 @@ export interface Database {
         Relationships: [];
       };
       class_providers: {
-        Row: { user_id: string; status: string; headline: string | null; bio: string | null; approved_by: string | null; approved_at: string; created_at: string; roles: string[]; verification_level: string; rating_avg: number | null; rating_count: number; credential_expires_at: string | null };
-        Insert: { user_id: string; status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; approved_at?: string; created_at?: string; roles?: string[]; verification_level?: string; credential_expires_at?: string | null };
-        Update: { status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; roles?: string[]; verification_level?: string; credential_expires_at?: string | null };
+        Row: { user_id: string; status: string; headline: string | null; bio: string | null; approved_by: string | null; approved_at: string; created_at: string; roles: string[]; verification_level: string; rating_avg: number | null; rating_count: number; credential_expires_at: string | null; format: string; price_from_cents: number | null; availability: string; next_opening: string | null; area_text: string | null; sports: string[] };
+        Insert: { user_id: string; status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; approved_at?: string; created_at?: string; roles?: string[]; verification_level?: string; credential_expires_at?: string | null; format?: string; price_from_cents?: number | null; availability?: string; next_opening?: string | null; area_text?: string | null; sports?: string[] };
+        Update: { status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; roles?: string[]; verification_level?: string; credential_expires_at?: string | null; format?: string; price_from_cents?: number | null; availability?: string; next_opening?: string | null; area_text?: string | null; sports?: string[] };
         Relationships: [];
       };
       provider_applications: {
@@ -1708,6 +1714,7 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      bump_article_read: { Args: { p_slug: string }; Returns: undefined };
       ranked_players: {
         Args: { p_sport: string; p_scope?: string; p_region?: string | null };
         Returns: {
