@@ -181,7 +181,6 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
-
 ### 2026-07-10 — Printable payments statement + credential verification & expiry system
 - **Print statement** (payments page → /payments/statement): a print-optimized full statement
   — event header + generated timestamp, the six totals, the per-division ledger, and the
@@ -309,8 +308,6 @@ surface-by-surface in later phases; **new code should use these from the start.*
 - **Tournament workspace on phones:** organizer strip and settings section strip already
   scrolled; the page-zoom squeeze is contained at the boundary — the workspace `<main>` gained
   `min-w-0 overflow-x-clip`, so no rogue-width child can widen the layout viewport again.
-
-
 
 ### 2026-07-09 — Contour corrected to Gabriel's actual spec: two layers
 - Requirement clarified: **original strength on the open canvas, whisper inside cards.** One
