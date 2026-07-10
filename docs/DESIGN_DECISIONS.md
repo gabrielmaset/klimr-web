@@ -181,6 +181,15 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-09 — Contour corrected to Gabriel's actual spec: two layers
+- Requirement clarified: **original strength on the open canvas, whisper inside cards.** One
+  overlay can't hold two opacities, so the contour is now two copies of the same SVG
+  (`ContourLayer`): a **base at 2.5% with `z-index:-1`** — painting above body's background but
+  below all in-flow content per CSS painting order, so opaque cards mask it entirely — plus the
+  existing **top layer at 2%** floating above everything. Canvas sums to ≈4% (Gabriel tuned it down from the original 4.5%);
+  cards see only the 2% top layer. Verified prerequisite: the page background lives on `body`
+  and the app wrapper is transparent.
+
 ### 2026-07-09 — Identity & compliance round: durable user IDs, buy flow, maps link priority
 - **User identification (researched, CCPA-grounded):** users already carry the immutable UUID;
   0105 adds **`member_no`** (short human-readable, sequence-assigned, never reused) and the

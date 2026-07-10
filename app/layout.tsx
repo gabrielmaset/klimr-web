@@ -40,7 +40,25 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
+function ContourLayer({ opacity, behind = false }: { opacity: number; behind?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 1600 800"
+      preserveAspectRatio="xMidYMin slice"
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 hidden h-full w-full md:block"
+      style={{ opacity, zIndex: behind ? -1 : undefined }}
+    >
+      <path d="M-100,240 C300,140 620,340 900,220 S1400,120 1700,260" fill="none" stroke="#201B12" strokeWidth="1" />
+      <path d="M-100,340 C300,240 620,440 900,320 S1400,220 1700,360" fill="none" stroke="#201B12" strokeWidth="1" />
+      <path d="M-100,440 C300,340 620,540 900,420 S1400,320 1700,460" fill="none" stroke="#201B12" strokeWidth="1" />
+      <path d="M-100,540 C300,440 620,640 900,520 S1400,420 1700,560" fill="none" stroke="#201B12" strokeWidth="1" />
+    </svg>
+  );
+}
+
 export default function RootLayout({
+
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
@@ -48,18 +66,12 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full">
         <ErrorReporter />
-        <svg
-          viewBox="0 0 1600 800"
-          preserveAspectRatio="xMidYMin slice"
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 hidden h-full w-full md:block"
-          style={{ opacity: 0.02 }}
-        >
-          <path d="M-100,240 C300,140 620,340 900,220 S1400,120 1700,260" fill="none" stroke="#201B12" strokeWidth="1" />
-          <path d="M-100,340 C300,240 620,440 900,320 S1400,220 1700,360" fill="none" stroke="#201B12" strokeWidth="1" />
-          <path d="M-100,440 C300,340 620,540 900,420 S1400,320 1700,460" fill="none" stroke="#201B12" strokeWidth="1" />
-          <path d="M-100,540 C300,440 620,640 900,520 S1400,420 1700,560" fill="none" stroke="#201B12" strokeWidth="1" />
-        </svg>
+        {/* Contour lines, two layers: the BASE sits behind all content
+            (negative z — opaque cards mask it fully), the TOP floats above at
+            a whisper. Canvas shows both (≈ the original 4.5%); cards show only
+            the top 2%. */}
+        <ContourLayer opacity={0.02} behind />
+        <ContourLayer opacity={0.02} />
         <DiagnosticsInit />
         <NavigationHistoryProvider>
           <AppShell>{children}</AppShell>
