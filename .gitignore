@@ -1,0 +1,2 @@
+# TypeScript incremental build cache — machine-generated, never commit
+*.tsbuildinfo
