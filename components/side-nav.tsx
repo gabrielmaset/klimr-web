@@ -7,6 +7,7 @@ import {
   Newspaper, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut,
   Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
   User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox, Medal, IdCard, GraduationCap, ChevronDown,
+  HeartPulse,
 } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
@@ -48,6 +49,7 @@ const GROUPS: { header?: string; items: Item[] }[] = [
       { href: "/courts", label: "Courts", Icon: MapPin },
       { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
       { href: "/classes", label: "Classes & Coaching", Icon: GraduationCap },
+      { href: "/health", label: "Health & Nutrition", Icon: HeartPulse },
       { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
       { href: "/resources", label: "Playbook", Icon: BookOpen },
     ],

@@ -54,7 +54,7 @@ export function MarketplaceRoom(props: {
   buyerId: string;
   sellerId: string;
   other: { id: string; name: string; hue: number; verified: boolean };
-  listing: { id: string; title: string; mode: "sale" | "trade" | "free"; status: string; priceText: string; obo: boolean; cover: string | null };
+  listing: { id: string; title: string; mode: "sale" | "trade" | "free"; status: string; priceText: string; priceCents: number | null; obo: boolean; cover: string | null };
   initialOffers: OfferRow[];
   initialMeetups: MeetupRow[];
   meetSpots: { id: string; name: string }[];
@@ -478,7 +478,20 @@ export function MarketplaceRoom(props: {
 
             <div className="mb-2 flex flex-wrap gap-1.5">
               {canOffer && !offerOpen ? (
-                <button type="button" onClick={() => { setOfferOpen(true); setCounterOf(null); }} className={chipBtn}><Tag size={13} /> Make an offer</button>
+                <>
+                  {(listing.priceCents ?? 0) >= 100 ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => runAction(() => makeOffer({ listingId: listing.id, buyerId, convId, amount: String((listing.priceCents ?? 0) / 100), note: "Buying at the asking price" }))}
+                      className="press inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-50"
+                      style={{ background: flame }}
+                    >
+                      Buy at {listing.priceText}
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={() => { setOfferOpen(true); setCounterOf(null); }} className={chipBtn}><Tag size={13} /> Make an offer</button>
+                </>
               ) : null}
               {canMeet && !meetOpen ? (
                 <button type="button" onClick={() => setMeetOpen(true)} className={chipBtn}><CalendarPlus size={13} /> Propose meetup</button>

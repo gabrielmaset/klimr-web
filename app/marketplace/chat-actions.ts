@@ -5,7 +5,38 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notify";
 
-/** Open (or reuse) the buyer's thread with this listing's seller. */
+async function getOrCreateListingConversation(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  listingId: string,
+): Promise<string | null> {
+  const { data: existing } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("listing_id", listingId)
+    .eq("created_by", userId)
+    .maybeSingle();
+  if (existing) return existing.id;
+  const { data: created, error } = await supabase
+    .from("conversations")
+    .insert({ listing_id: listingId, created_by: userId, kind: "listing" })
+    .select("id")
+    .single();
+  if (created) return created.id;
+  if (error) {
+    const { data: again } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("listing_id", listingId)
+      .eq("created_by", userId)
+      .maybeSingle();
+    return again?.id ?? null;
+  }
+  return null;
+}
+
+/** Open (or reuse) the buyer's thread with this listing's seller.
+ *  Failures land back on the listing with a visible notice — never silence. */
 export async function messageSeller(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const {
@@ -19,35 +50,66 @@ export async function messageSeller(formData: FormData): Promise<void> {
     .select("id, kind, listed_by, status")
     .eq("id", listingId)
     .maybeSingle();
-  if (!l || l.kind !== "gear" || !l.listed_by || l.listed_by === user.id) return;
-  if (!["active", "pending", "sold"].includes(l.status)) return;
+  if (!l || l.kind !== "gear" || l.listed_by === user.id) redirect(`/marketplace/${listingId}`);
+  if (!l.listed_by || !["active", "pending", "sold"].includes(l.status)) {
+    redirect(`/marketplace/${listingId}?notice=chat`);
+  }
 
-  const { data: existing } = await supabase
-    .from("conversations")
+  const convId = await getOrCreateListingConversation(supabase, user.id, listingId);
+  if (!convId) redirect(`/marketplace/${listingId}?notice=chat`);
+  redirect(`/marketplace/messages/${convId}`);
+}
+
+/** Buy at the asking price: opens the thread and places a full-price offer,
+ *  so the standard offer machinery (accept → pending → meetup) takes over.
+ *  The listing stays visible until the seller marks it sold. */
+export async function buyNow(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/marketplace");
+
+  const listingId = String(formData.get("listing_id") || "");
+  const { data: l } = await supabase
+    .from("marketplace_listings")
+    .select("id, kind, title, listed_by, status, mode, price_cents")
+    .eq("id", listingId)
+    .maybeSingle();
+  if (!l || l.kind !== "gear" || l.listed_by === user.id) redirect(`/marketplace/${listingId}`);
+  if (!l.listed_by || l.mode !== "sale" || !l.price_cents || l.price_cents < 100 || l.status !== "active") {
+    redirect(`/marketplace/${listingId}?notice=buy`);
+  }
+
+  const convId = await getOrCreateListingConversation(supabase, user.id, listingId);
+  if (!convId) redirect(`/marketplace/${listingId}?notice=buy`);
+
+  // An open offer already on the table (either side)? The thread is the place.
+  const { data: open } = await supabase
+    .from("listing_offers")
     .select("id")
     .eq("listing_id", listingId)
-    .eq("created_by", user.id)
+    .eq("buyer_id", user.id)
+    .eq("status", "open")
     .maybeSingle();
-
-  let convId = existing?.id ?? null;
-  if (!convId) {
-    const { data: created, error } = await supabase
-      .from("conversations")
-      .insert({ listing_id: listingId, created_by: user.id, kind: "listing" })
-      .select("id")
-      .single();
-    if (created) convId = created.id;
-    else if (error) {
-      const { data: again } = await supabase
-        .from("conversations")
-        .select("id")
-        .eq("listing_id", listingId)
-        .eq("created_by", user.id)
-        .maybeSingle();
-      convId = again?.id ?? null;
+  if (!open) {
+    const { error } = await supabase.from("listing_offers").insert({
+      listing_id: listingId,
+      buyer_id: user.id,
+      actor_id: user.id,
+      amount_cents: l.price_cents,
+      note: "Buying at the asking price",
+    });
+    if (!error) {
+      await createNotification({
+        userId: l.listed_by!,
+        kind: "system",
+        title: `Wants to buy at asking — ${l.title}`,
+        body: `$${Math.round((l.price_cents ?? 0) / 100)} · accept to move to pickup`,
+        linkUrl: `/marketplace/messages/${convId}`,
+      });
     }
   }
-  if (!convId) return;
   redirect(`/marketplace/messages/${convId}`);
 }
 

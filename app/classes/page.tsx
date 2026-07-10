@@ -7,6 +7,9 @@ import { sportMeta, sportSlug } from "@/lib/sports";
 import { formatClassPrice, enrollmentLabel } from "@/lib/classes";
 import { isApprovedProvider } from "@/app/classes/actions";
 import { LocalTime } from "@/components/local-time";
+import { ProviderCard, type ProviderCardData } from "@/components/provider-card";
+import type { ReviewItem } from "@/components/provider-reviews";
+import { PROFESSIONAL_ROLES } from "@/lib/professional-roles";
 
 export const metadata: Metadata = { title: "Classes & Coaching" };
 
@@ -140,6 +143,59 @@ export default async function ClassesPage() {
     hosting = (mine as Cls[] | null) ?? [];
   }
 
+  // ── Verified coaches directory (shared review system with /health) ────
+  const COACH_KEYS = new Set(PROFESSIONAL_ROLES.filter((r) => r.category === "coaching").map((r) => r.key));
+  const { data: provRows } = await supabase
+    .from("class_providers")
+    .select("user_id, roles, headline, bio, rating_avg, rating_count")
+    .eq("status", "approved")
+    .or(`credential_expires_at.is.null,credential_expires_at.gt.${new Date().toISOString()}`);
+  const coachProviders = (provRows ?? []).filter((p) => (p.roles ?? []).some((r) => COACH_KEYS.has(r)));
+  const coachIds = coachProviders.map((p) => p.user_id);
+  const coachIdent = new Map<string, { name: string; hue: number; avatarUrl: string | null }>();
+  const coachReviews = new Map<string, ReviewItem[]>();
+  if (coachIds.length) {
+    const { data: cps } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path").in("id", coachIds);
+    for (const x of cps ?? []) {
+      coachIdent.set(x.id, {
+        name: x.display_name ?? "Coach",
+        hue: x.avatar_hue ?? 200,
+        avatarUrl: x.avatar_path ? supabase.storage.from("avatars").getPublicUrl(x.avatar_path).data.publicUrl : null,
+      });
+    }
+    const { data: rvs } = await supabase
+      .from("provider_reviews")
+      .select("id, provider_user_id, reviewer_id, rating, body, created_at")
+      .in("provider_user_id", coachIds)
+      .order("created_at", { ascending: false })
+      .limit(400);
+    const rIds = [...new Set((rvs ?? []).map((r) => r.reviewer_id))];
+    const rName = new Map<string, string>();
+    if (rIds.length) {
+      const { data: rn } = await supabase.from("profiles").select("id, display_name").in("id", rIds);
+      for (const x of rn ?? []) rName.set(x.id, x.display_name ?? "Member");
+    }
+    for (const r of rvs ?? []) {
+      const item: ReviewItem = { id: r.id, reviewerId: r.reviewer_id, reviewerName: rName.get(r.reviewer_id) ?? "Member", rating: r.rating, body: r.body, createdAt: r.created_at };
+      if (!coachReviews.has(r.provider_user_id)) coachReviews.set(r.provider_user_id, []);
+      coachReviews.get(r.provider_user_id)!.push(item);
+    }
+  }
+  const coachCards: ProviderCardData[] = coachProviders
+    .map((p) => ({
+      userId: p.user_id,
+      name: coachIdent.get(p.user_id)?.name ?? "Coach",
+      avatarUrl: coachIdent.get(p.user_id)?.avatarUrl ?? null,
+      hue: coachIdent.get(p.user_id)?.hue ?? 200,
+      roles: p.roles ?? [],
+      headline: p.headline,
+      bio: p.bio,
+      ratingAvg: p.rating_avg != null ? Number(p.rating_avg) : null,
+      ratingCount: p.rating_count ?? 0,
+      reviews: coachReviews.get(p.user_id) ?? [],
+    }))
+    .sort((a, b) => (b.ratingAvg ?? 0) - (a.ratingAvg ?? 0) || b.ratingCount - a.ratingCount || a.name.localeCompare(b.name));
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6 flex items-end justify-between gap-3">
@@ -158,6 +214,18 @@ export default async function ClassesPage() {
           </Link>
         ) : null}
       </div>
+
+      {coachCards.length ? (
+        <section className="mb-8">
+          <h2 className="text-sm font-bold text-ink">Verified coaches &amp; trainers</h2>
+          <p className="mt-1 text-xs text-mute">Credential-checked pros, rated by the members who train with them.</p>
+          <div className="mt-3 grid gap-4 lg:grid-cols-2">
+            {coachCards.map((c) => (
+              <ProviderCard key={c.userId} p={c} viewerId={user.id} roleFilter={(k) => COACH_KEYS.has(k)} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {upcoming.length > 0 ? (
         <section className="mb-8">

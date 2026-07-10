@@ -25,6 +25,7 @@ const PAGES: PageResult[] = [
   { type: "page", id: "courts", title: "Courts", subtitle: "Discover", href: "/courts" },
   { type: "page", id: "marketplace", title: "Marketplace", subtitle: "Discover", href: "/marketplace" },
   { type: "page", id: "classes", title: "Classes & Coaching", subtitle: "Discover", href: "/classes" },
+  { type: "page", id: "health", title: "Health & Nutrition", subtitle: "Discover", href: "/health" },
   { type: "page", id: "sponsorships", title: "Sponsorships", subtitle: "Discover", href: "/sponsorships" },
   { type: "page", id: "resources", title: "Playbook", subtitle: "Rules & guides", href: "/resources" },
   { type: "page", id: "calendar", title: "Calendar", subtitle: "Your schedule", href: "/calendar" },

@@ -181,6 +181,165 @@ surface-by-surface in later phases; **new code should use these from the start.*
   state), so adoption is a faithful convergence — not a restyle.
 - No existing pages were changed — foundations only; lint + build stay green.
 
+### 2026-07-10 — Printable payments statement + credential verification & expiry system
+- **Print statement** (payments page → /payments/statement): a print-optimized full statement
+  — event header + generated timestamp, the six totals, the per-division ledger, and the
+  complete per-entry table (name · division · entry status · payment · expected · paid) with
+  the honest never-processes-payments footnote. PDF via the browser's Print → Save as PDF
+  (`PrintButton`, zero dependencies — the bank-statement pattern). App chrome (rail, top bar,
+  organizer header) gained `print:hidden`, so ANY page now prints clean.
+- **Credential verification playbook** (researched at the sources): every role in the
+  taxonomy now carries `verifyUrl` + `verifyNote` + `renewalNote` — CA DCA License Search
+  (primary source, real-time, disciplinary actions) for PT, BOC's public registry (defined
+  Certified/Expired/Suspended statuses) for ATC, CDR's verification system for RD/RDN, CAMTC
+  lookup, AASP Find-a-CMPC, and **USREPS** (130k+ pros, one registry covering
+  ACE/ACSM/NSCA-family certs) for trainer/group-fitness/CSCS, with NSCA's written form as
+  fallback. The admin review card shows the playbook (official link + steps + renewal cycle)
+  with a warning that applicant-provided links are context only.
+- **Expiry-conditioned approval** (migration **0109**): the approve form takes the expiration
+  from the document/registry; `class_providers.credential_expires_at` stores the **earliest**
+  across a pro's roles. Directories (/health, /classes) filter expired pros out automatically
+  (status preserved — resubmission restores without identity re-review); Settings →
+  Professional shows the date with amber ≤90d / red expired banners; a daily pg_cron job sends
+  the **90-day resubmit notice and a 14-day final warning** (deduped, set-based).
+
+### 2026-07-10 — Health & Nutrition section + provider reviews (shared with Classes & Coaching)
+- **New /health page** (rail + mobile menu + search-indexed): credential-verified
+  health-category professionals (the taxonomy already anticipated it — ATC, PT/DPT, RD/RDN;
+  added **Sports Massage (CAMTC)** and **Mental Performance (CMPC/AASP)** with honest CA legal
+  notes) rendered through a shared `ProviderCard`, plus **The Training Table** — six original
+  evergreen articles (`lib/health-content.ts`, expandable cards) with a clear
+  educational-not-medical disclaimer. "Offer your services" routes to the existing
+  professional-status application; the same admin credential review pipeline serves both
+  categories. Competitor grounding: incumbents (Mindbody model) win on marketplace/discovery
+  and community; Klimr deliberately skips their booking/payment complexity — direct
+  arrangements + verified credentials + member reviews are the trust layer.
+- **Uber-style reviews on providers** (migration **0108**): `provider_reviews` — one per
+  member per provider (DB-unique), 1–5 stars + optional text, editable/removable, **no
+  self-reviews** (action + RLS), real names only. Aggregates (`rating_avg`/`rating_count`)
+  live on `class_providers`, maintained by a **SECURITY DEFINER trigger** (scale principle —
+  never per-request scans). New-review notification to the pro (first post only, not edits).
+  The same panel + card retrofit onto **/classes** as a "Verified coaches & trainers"
+  directory, so both marketplaces share one review system. Sorting: rating → volume → name.
+
+### 2026-07-10 — Payments accounting, refund status, occupancy audit, guard-AND-hide principle
+- **Occupancy audit (Gabriel's rule restated & verified):** under_review holds its spot and
+  counts toward capacity; only cancelled/withdrawn/disqualified free it. The prior sweep was
+  correct in the workspace; the audit caught **two public-page stragglers** on /e (capacity
+  count + signup-full exclusion) — both now exclude cancelled+disqualified.
+- **Payments = the accounting one-stop shop:** the page now includes closed entries and opens
+  with a **Fee accounting receipt** — six totals (Expected-live, Collected, Outstanding,
+  Kept-forfeits, To-refund, Refunded) + a per-division ledger table with a totals row and a
+  waitlist-not-billed note. Expected = division fee (per-player × rostered players); Collected
+  uses the recorded paid amount when present. Derivations: cancelled/disqualified + confirmed
+  = **forfeited (kept)**; withdrawn + confirmed = **to refund** until marked; new
+  payment_status **`refunded`** (migration 0107, dynamic check rebuild) recorded via a
+  staff-level `markPaymentRefunded` (notifies the entrant) with a **Mark refunded** button on
+  confirmed rows; closed entries get status badges ("Cancelled · fee forfeited").
+- **Guard AND hide (sitewide principle, checklist §10):** every capability needs the server
+  guard AND a conditional render — controls a viewer can't use must not exist in their UI.
+  Audit result: danger zone was already owner-gated; moderation + division select gated last
+  round; payments intentionally staff-level. The principle is now encoded for every future
+  feature.
+
+### 2026-07-10 — Entry moderation (organizer-only): cancel ±penalty, disqualify, under review, reinstate
+- **Owner-only by construction**: every action rides `ownedReg` (checks `owner_id === user.id`
+  — managers/staff are rejected server-side) and the UI controls render only for `isOwner`.
+- **Status semantics**: cancel-no-penalty → `withdrawn`; cancel-with-penalty → `cancelled`
+  (fee-forfeited messaging — Klimr never holds money, the forfeit is recorded & communicated);
+  `disqualified`; `under_review` **holds its spot** (they may fix it) with a REQUIRED
+  organizer note the player sees ("Action needed: …"); `reinstate` returns to pending,
+  **capacity-checked** when coming back from a freed state. Occupancy swept sitewide:
+  `under_review` added to every occupying set (reconciler, saveDivisions live-check, settings
+  liveContext, move-full check) and `capacityBlock`'s exclusion extended to
+  `(withdrawn,declined,cancelled,disqualified)` at 10 sites — cancelled/DQ free spots for
+  signups, under_review doesn't. Reconciliation fires only when occupancy actually flips
+  (pending/confirmed ↔ under_review skips it). Migration **0106**: `moderation_note` +
+  status-check rebuilt with the full set.
+- **Registrations page**: badges for the new statuses (amber review, red cancel/DQ), the
+  fix-note shown on the row, and a collapsed **Closed entries** section (withdrawn/cancelled/
+  disqualified) where Reinstate lives. Every affected player is notified with honest copy per
+  action.
+
+### 2026-07-10 — Division reassignment (the deletion escape hatch) + Courtside display on phones
+- **Entries can live outside a division** (Gabriel's design; `division_id` was already nullable
+  and the reconciler already skips unassigned rows). New `moveRegistrationDivision` (staff-
+  guarded via ownedReg): assign / switch / **unassign** any entry from the Registrations page —
+  each row gains a division selector with fee-labeled options ("Competitive — $50/player") plus
+  "No division (unassigned)". Moving IN is blocked when the target is full (numbers in the
+  error); moving OUT frees a spot and the reconciler **automatically promotes that division's
+  waitlist head**; any cross-division move under a built schedule resets it (groups reshaped);
+  the registrant is notified either way. Division deletion's block message now points here.
+  Fees are NOT auto-recalculated on moves — the fee-labeled options make deltas visible.
+- **Courtside display adapts by orientation + size** (pure CSS, automatic): the versus panels
+  go `grid-cols-1` on phone-portrait, `landscape:grid-cols-2`, `md:` keeps iPad identical in
+  both orientations; the next-up strip stacks the same way; all vw paddings gained `max()`
+  floors so phones never collapse to slivers; team-name areas scroll if they overflow. No JS
+  detection — `portrait:`/`landscape:` variants do it natively.
+
+### 2026-07-10 — Reconciler made state-aware (Gabriel's differentiation principle)
+- Empty cases were already no-ops by construction (no regs → empty buckets → nobody moved;
+  no built schedule → no reset; cautions hidden). Two mechanically-dumb behaviors fixed:
+  **value-based change detection** — sections resend their whole slice on every save, so both
+  save paths now compare against current values (re-saving identical settings is a pure no-op;
+  a divisions save that only edits names/descriptions/fees skips reconciliation entirely);
+  and **composition-triggered schedule reset** — a built schedule now resets only when the
+  group SHAPE changed (format, pools, mode, unit, roster, entry type, division set/caps) or
+  when the reconciliation actually moved someone; a pure cap raise that promotes nobody leaves
+  a valid bracket standing. Bonus: resetting a schedule on an event with zero entrants clears
+  silently (the save flash reports it) instead of ringing the organizer's bell.
+
+### 2026-07-10 — Capacity-change reconciliation algorithm + mobile workspace fixes
+- **The invariant machine** (`reconcileTournamentStructure`, run after every capacity/format/
+  divisions save): buckets = one pool (pooled) or one per division; caps convert to ENTRIES
+  (person-unit ÷ `roster_size` for team events). Per bucket: **never drop anyone** — over-cap
+  actives demote newest-first to the waitlist (earliest sign-ups keep spots) with a
+  notification; freed capacity promotes the waitlist head (also on cap removal); waitlist
+  positions renumber per bucket by sign-up time. If structural rules changed (mode, unit,
+  roster, format, pool count, entry type, division caps/set) while a schedule was built or
+  published, the published pools/bracket/schedule are cleared and the organizer is notified to
+  rebuild. **Division deletion with live entries is blocked** (prevention beats data surgery).
+  Save flashes report the outcome ("Saved · 4 moved to waitlist · schedule reset", 8s), and
+  amber caution lines appear on the capacity block and divisions section whenever live entries
+  or a built schedule exist. Null-division entries under per_division mode are left untouched
+  (uncheckable) by design.
+- **Mobile menu:** the sheet's scroll area now pads past the bottom nav + safe inset, so Log
+  out rests above the bar instead of behind it.
+- **Tournament workspace on phones:** organizer strip and settings section strip already
+  scrolled; the page-zoom squeeze is contained at the boundary — the workspace `<main>` gained
+  `min-w-0 overflow-x-clip`, so no rogue-width child can widen the layout viewport again.
+
+### 2026-07-09 — Contour corrected to Gabriel's actual spec: two layers
+- Requirement clarified: **original strength on the open canvas, whisper inside cards.** One
+  overlay can't hold two opacities, so the contour is now two copies of the same SVG
+  (`ContourLayer`): a **base at 2.5% with `z-index:-1`** — painting above body's background but
+  below all in-flow content per CSS painting order, so opaque cards mask it entirely — plus the
+  existing **top layer at 2%** floating above everything. Canvas sums to ≈4% (Gabriel tuned it down from the original 4.5%);
+  cards see only the 2% top layer. Verified prerequisite: the page background lives on `body`
+  and the app wrapper is transparent.
+
+### 2026-07-09 — Identity & compliance round: durable user IDs, buy flow, maps link priority
+- **User identification (researched, CCPA-grounded):** users already carry the immutable UUID;
+  0105 adds **`member_no`** (short human-readable, sequence-assigned, never reused) and the
+  **`deleted_users_ledger`** — the service-role-only record written at purge time (both the
+  nightly `purge_archived_accounts()` and admin purge) holding UUID, member #, name, email,
+  dates. Logs keep their UUID after purge (error_logs FK dropped → pseudonymous, the Facebook
+  model), with the ledger as the sole controlled re-association path under CCPA §1798.105(d)
+  security/fraud/debug exemptions + §7022 record-of-deletion. Admin diagnostics now display
+  `Name · #10023` (and `(deleted) · #` via the ledger). Full policy: **docs/DATA-GOVERNANCE.md**
+  (lifecycle, retention table, request handling, commitments).
+- **Buy at asking:** `buyNow` opens the thread and places a full-price offer through the
+  existing machinery (accept ⇒ pending; the listing stays visible until the seller marks sold).
+  Detail: Buy = gradient primary on sale+active, Message seller demotes to bordered; room gains
+  a "Buy at $X" chip. **Message-seller silence fixed loud:** guards now redirect with visible
+  notices; listings without a seller account (null `listed_by` seeds) say so and hide contact.
+- **Maps link priority everywhere:** tournament public page now resolves `location_url` to the
+  exact point (short links included); the HTML scanner gained Google's
+  APP_INITIALIZATION_STATE / latitude-longitude shapes; the event form resolves short links
+  **live via a server action** with honest captions (exact pin / resolving… / "open the short
+  link and paste the full URL" guidance) — relevant since Google sunset goo.gl.
+- Contour overlay 0.03 → **0.02**.
+
 ### 2026-07-09 — Marketplace wayfinding labels + contour softened
 - Back links on marketplace detail / new / mine now read **Marketplace** (the rail's name) —
   "Second Serve" stays as the browse page's brand H1/kicker, but wayfinding matches navigation.

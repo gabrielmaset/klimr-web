@@ -3,30 +3,40 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Check, X, ExternalLink } from "lucide-react";
-import { confirmPayment, denyPayment } from "@/app/tournaments/actions";
+import { confirmPayment, denyPayment, markPaymentRefunded } from "@/app/tournaments/actions";
 
 const money = (c: number | null) => (c == null ? null : `$${(c / 100).toFixed(2)}`);
-const PAY_LABEL: Record<string, string> = { unpaid: "No proof yet", proof_submitted: "Awaiting review", confirmed: "Confirmed", denied: "Declined" };
+const PAY_LABEL: Record<string, string> = { unpaid: "No proof yet", proof_submitted: "Awaiting review", confirmed: "Confirmed", denied: "Declined", refunded: "Refunded" };
+const ENTRY_BADGE: Record<string, { label: string; cls: string }> = {
+  under_review: { label: "Under review", cls: "bg-[#FDF3DD] text-[#B45309]" },
+  withdrawn: { label: "Withdrawn", cls: "bg-bg text-faint" },
+  cancelled: { label: "Cancelled · fee forfeited", cls: "bg-[#fdeaea] text-[#b91c1c]" },
+  disqualified: { label: "Disqualified", cls: "bg-[#fdeaea] text-[#b91c1c]" },
+};
 
 export function PaymentReviewRow({
   regId,
   name,
   division,
+  entryStatus = "pending",
   paymentStatus,
   amountCents,
+  expectedCents = 0,
   proofUrl,
   denyReason,
 }: {
   regId: string;
   name: string;
   division: string | null;
+  entryStatus?: string;
   paymentStatus: string;
   amountCents: number | null;
+  expectedCents?: number;
   proofUrl: string | null;
   denyReason: string | null;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<null | "confirm" | "deny">(null);
+  const [busy, setBusy] = useState<null | "confirm" | "deny" | "refund">(null);
   const [showDeny, setShowDeny] = useState(false);
   const [reason, setReason] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -53,24 +63,45 @@ export function PaymentReviewRow({
     }
   }
 
+  async function doRefund() {
+    setBusy("refund");
+    setErr(null);
+    const res = await markPaymentRefunded(regId);
+    if (res.ok) router.refresh();
+    else {
+      setErr(res.error ?? "Failed.");
+      setBusy(null);
+    }
+  }
+
   const amt = money(amountCents);
+  const expected = expectedCents > 0 ? money(expectedCents) : null;
+  const badge = ENTRY_BADGE[entryStatus];
   return (
     <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-ink">{name}</p>
-          <p className="text-xs text-mute">{[division, amt].filter(Boolean).join(" · ") || "—"}</p>
+          <p className="text-xs text-mute">{[division, amt ? `paid ${amt}` : null, expected ? `expected ${expected}` : null].filter(Boolean).join(" · ") || "—"}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {badge ? <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badge.cls}`}>{badge.label}</span> : null}
           {proofUrl ? (
             <a href={proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-bg px-3 py-2 text-xs font-semibold text-ink hover:border-faint">
               <ExternalLink size={13} /> View proof
             </a>
           ) : null}
-          {paymentStatus === "confirmed" ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-tint-success px-2.5 py-1 text-xs font-semibold text-success">
-              <Check size={13} /> Confirmed
-            </span>
+          {paymentStatus === "refunded" ? (
+            <span className="rounded-full bg-bg px-2.5 py-1 text-xs font-semibold text-mute">Refunded{amt ? ` ${amt}` : ""}</span>
+          ) : paymentStatus === "confirmed" ? (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-tint-success px-2.5 py-1 text-xs font-semibold text-success">
+                <Check size={13} /> Confirmed
+              </span>
+              <button type="button" onClick={doRefund} disabled={!!busy} className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-bg px-3 py-2 text-xs font-semibold text-ink hover:border-faint disabled:opacity-50">
+                {busy === "refund" ? <Loader2 size={13} className="animate-spin" /> : null} Mark refunded
+              </button>
+            </>
           ) : paymentStatus === "proof_submitted" ? (
             <>
               <button type="button" onClick={doConfirm} disabled={!!busy} className="press inline-flex items-center gap-1.5 rounded-lg bg-success px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50">

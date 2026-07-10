@@ -13,6 +13,12 @@ export type RoleCategory = "coaching" | "health" | "organizer";
 
 export type ProfessionalRole = {
   key: string;
+  /** Where an admin verifies the credential online (primary source). */
+  verifyUrl?: string;
+  /** What the reviewer checks there. */
+  verifyNote?: string;
+  /** Renewal cycle — guides the expiration date set at approval. */
+  renewalNote?: string;
   label: string;
   category: RoleCategory;
   blurb: string;
@@ -26,6 +32,9 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
   // ── Coaching & training (certifications recommended, not state-licensed) ──
   {
     key: "sport_coach",
+    verifyUrl: "https://www.uspta.org/find-a-pro",
+    verifyNote: "If a certification is given: look the name up in the issuing body's directory (USPTA Find-a-Pro, PTR, USA Pickleball). Match full name and an active membership.",
+    renewalNote: "Coaching memberships typically renew annually — set the expiration to the membership year shown.",
     label: "Sport Coach",
     category: "coaching",
     blurb: "Teach tennis, pickleball, padel, racquetball, or beach volleyball — technique, strategy, match play.",
@@ -34,6 +43,9 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
   },
   {
     key: "personal_trainer",
+    verifyUrl: "https://usreps.org/registry/",
+    verifyNote: "Search USREPS (covers ACE, ACSM, NSCA-CPT, NASM and other NCCA-accredited certs): match full name + certification, status must be current. NSCA-only certs can also be verified in writing at nsca.com (1–2 business days).",
+    renewalNote: "Most trainer certifications run 2-year cycles — set the expiration date USREPS or the certificate shows.",
     label: "Personal Trainer",
     category: "coaching",
     blurb: "General fitness training and conditioning for players of all levels.",
@@ -43,6 +55,9 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
   },
   {
     key: "strength_conditioning",
+    verifyUrl: "https://usreps.org/registry/",
+    verifyNote: "Search USREPS for the CSCS: name + certification must show current. Alternative: NSCA's written verification form (1–2 business days).",
+    renewalNote: "CSCS recertifies on a 3-year cycle — use the expiration on the registry/certificate.",
     label: "Strength & Conditioning Coach",
     category: "coaching",
     blurb: "Sport-specific performance — speed, power, agility, and injury prevention.",
@@ -51,6 +66,9 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
   },
   {
     key: "group_fitness",
+    verifyUrl: "https://usreps.org/registry/",
+    verifyNote: "Search USREPS for ACE/AFAA/ACSM group-fitness certs: match name, status current. Yoga/pilates registries (e.g. Yoga Alliance) are searched at the issuer.",
+    renewalNote: "Typically 2-year cycles — set the expiration shown on the registry or certificate.",
     label: "Group Fitness Instructor",
     category: "coaching",
     blurb: "Lead group sessions — conditioning, mobility, yoga, or pilates.",
@@ -67,6 +85,9 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
   // ── Health & medical (proof of qualification required) ──
   {
     key: "athletic_trainer",
+    verifyUrl: "https://at.bocatc.org/atcs",
+    verifyNote: "Search the BOC public registry by name: status must read Certified (in good standing). Expired/Suspended statuses may not use the ATC mark.",
+    renewalNote: "BOC certification is maintained annually with 2-year CE cycles — set the expiration the registry shows.",
     label: "Athletic Trainer (ATC)",
     category: "health",
     blurb: "Injury prevention, on-court emergency care, and return-to-play rehab.",
@@ -77,6 +98,9 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
   },
   {
     key: "physical_therapist",
+    verifyUrl: "https://search.dca.ca.gov/",
+    verifyNote: "DCA License Search (primary source, real time): license type Physical Therapist, match name + license number, status Current/Active, check for disciplinary actions.",
+    renewalNote: "California PT licenses renew every 2 years — set the expiration date DCA shows.",
     label: "Physical Therapist (PT/DPT)",
     category: "health",
     blurb: "Licensed rehabilitation, manual therapy, and movement treatment.",
@@ -87,6 +111,9 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
   },
   {
     key: "dietitian",
+    verifyUrl: "https://www.cdrnet.org/",
+    verifyNote: "Use CDR's online credential verification (Verify at cdrnet.org): match name + registration number, status Registered.",
+    renewalNote: "CDR registration renews annually within a 5-year recertification cycle — set the registration expiration shown.",
     label: "Registered Dietitian (RD/RDN)",
     category: "health",
     blurb: "Medical nutrition therapy and evidence-based dietary care for athletes.",
@@ -95,6 +122,32 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
     credentialOrg: "Commission on Dietetic Registration (CDR)",
     legalNote:
       "California does not license dietitians, but medical nutrition therapy requires the national RD/RDN credential, which Klimr verifies.",
+  },
+  {
+    key: "massage_therapist",
+    verifyUrl: "https://www.camtc.org/",
+    verifyNote: "CAMTC certificant search: match name + certificate number, status Active.",
+    renewalNote: "CAMTC certification renews every 2 years — set the expiration on the certificate/lookup.",
+    label: "Sports Massage Therapist (CMT)",
+    category: "health",
+    blurb: "Recovery-focused sports massage and soft-tissue work for athletes.",
+    requiresCredential: true,
+    credentialLabel: "CAMTC certification number",
+    credentialOrg: "California Massage Therapy Council (CAMTC)",
+    legalNote: "California certifies massage therapists through CAMTC — Klimr verifies an active CMT certification.",
+  },
+  {
+    key: "mental_performance",
+    verifyUrl: "https://appliedsportpsych.org/certification/find-a-cmpc/",
+    verifyNote: "AASP's Find-a-CMPC directory: match the name; listing implies current certification. If they claim clinical practice, additionally verify a CA psychology/therapy license via DCA License Search.",
+    renewalNote: "CMPC recertifies on a 5-year cycle — set the expiration from the certificate.",
+    label: "Mental Performance Consultant (CMPC)",
+    category: "health",
+    blurb: "Focus, pressure, and competition-mindset training for athletes.",
+    requiresCredential: true,
+    credentialLabel: "CMPC certification number",
+    credentialOrg: "Association for Applied Sport Psychology (AASP)",
+    legalNote: "Performance consulting is verified via the national CMPC credential. Clinical psychology or therapy additionally requires a California license — CMPC alone does not cover it.",
   },
   {
     key: "nutrition_coach",

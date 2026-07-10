@@ -29,17 +29,20 @@ export function DivisionsEditor({
   initial,
   initialMode,
   capacityUnit = "team",
+  liveContext,
 }: {
   tournamentId: string;
   entryType: "team" | "individual";
   initial: DivisionRow[];
   initialMode: "pooled" | "per_division";
   capacityUnit?: "team" | "person";
+  liveContext?: { entries: number; scheduled: boolean };
 }) {
   const [rows, setRows] = useState<Row[]>(initial.length ? initial.map(toRow) : [blank(entryType)]);
   const mode = initialMode; // capacity mode now lives in Settings → Format & eligibility
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,8 +81,17 @@ export function DivisionsEditor({
       if (res.ok) {
         setRows(res.divisions.length ? res.divisions.map(toRow) : [blank(entryType)]);
         setSavedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
+        const r = (res as { reconcile?: { waitlisted: number; promoted: number; scheduleReset: boolean } }).reconcile;
+        const parts: string[] = [];
+        if (r?.waitlisted) parts.push(`${r.waitlisted} moved to waitlist`);
+        if (r?.promoted) parts.push(`${r.promoted} promoted`);
+        if (r?.scheduleReset) parts.push("schedule reset");
+        setSavedNote(parts.length ? parts.join(" · ") : null);
         if (flashTimer.current) clearTimeout(flashTimer.current);
-        flashTimer.current = setTimeout(() => setSavedAt(null), 3000);
+        flashTimer.current = setTimeout(() => {
+          setSavedAt(null);
+          setSavedNote(null);
+        }, parts.length ? 8000 : 3000);
       } else {
         setErr(res.error ?? "Couldn't save.");
       }
@@ -98,6 +110,12 @@ export function DivisionsEditor({
             : "Each division has its own cap below. Switch to a shared total in Settings → Format & eligibility."}
         </span>
       </div>
+      {liveContext && (liveContext.entries > 0 || liveContext.scheduled) ? (
+        <p className="mb-4 rounded-xl border border-[#F1E0B6] bg-[#FDF3DD] px-3 py-2 text-xs font-semibold text-[#B45309]">
+          {liveContext.entries > 0 ? `${liveContext.entries} live ${liveContext.entries === 1 ? "entry" : "entries"} — lowering a division's cap moves its newest over-cap entries to the waitlist; divisions with entries can't be deleted.` : ""}
+          {liveContext.scheduled ? " Saving changes here resets the built pools & bracket." : ""}
+        </p>
+      ) : null}
 
       <div className="grid gap-3">
         {rows.map((r, i) => (
@@ -163,7 +181,7 @@ export function DivisionsEditor({
         <button type="button" onClick={save} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save divisions
         </button>
-        {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : savedAt ? <span className="text-xs text-faint">Saved {savedAt}</span> : null}
+        {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : savedAt ? <span className="text-xs text-faint">Saved {savedAt}{savedNote ? ` · ${savedNote}` : ""}</span> : null}
       </div>
     </div>
   );

@@ -4,13 +4,25 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { RegistrationsToolbar } from "@/components/registrations-toolbar";
 import { RegistrationsTabs } from "@/components/registrations-tabs";
 import { WaitlistManager, type WaitlistRegItem, type WaitlistEmailItem } from "@/components/waitlist-manager";
+import { RegistrationDivisionSelect, type DivisionOption } from "@/components/registration-division-select";
+import { RegistrationModeration } from "@/components/registration-moderation";
 
-const REG_LABEL: Record<string, string> = { pending: "Pending", confirmed: "Confirmed", waitlisted: "Waitlisted" };
-const PAY_LABEL: Record<string, string> = { unpaid: "Unpaid", proof_submitted: "Under review", confirmed: "Paid", denied: "Declined" };
+const REG_LABEL: Record<string, string> = {
+  pending: "Pending",
+  confirmed: "Confirmed",
+  waitlisted: "Waitlisted",
+  under_review: "Under review",
+  withdrawn: "Withdrawn",
+  cancelled: "Cancelled",
+  disqualified: "Disqualified",
+};
+const PAY_LABEL: Record<string, string> = { unpaid: "Unpaid", proof_submitted: "Under review", confirmed: "Paid", denied: "Declined", refunded: "Refunded" };
 
 function regBadge(s: string) {
   if (s === "confirmed") return "bg-tint-success text-success";
-  if (s === "waitlisted") return "bg-bg text-mute";
+  if (s === "under_review") return "bg-[#FDF3DD] text-[#B45309]";
+  if (s === "cancelled" || s === "disqualified") return "bg-[#fdeaea] text-[#b91c1c]";
+  if (s === "withdrawn") return "bg-bg text-faint";
   return "bg-bg text-mute";
 }
 function payBadge(s: string) {
@@ -29,7 +41,7 @@ function val(answers: Record<string, unknown> | null | undefined, id: string): s
 
 type Field = { id: string; label: string };
 type Player = { name: string; isReserve: boolean; confirmed: boolean; waiver: boolean; rules: boolean; answers: Record<string, string> };
-type Entry = { regId: string; name: string; type: string; division: string | null; status: string; paymentStatus: string; registeredAt: string | null; teamAnswers: Record<string, string>; players: Player[] };
+type Entry = { regId: string; name: string; type: string; division: string | null; divisionId: string | null; moderationNote: string | null; status: string; paymentStatus: string; registeredAt: string | null; teamAnswers: Record<string, string>; players: Player[] };
 
 export default async function RegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,9 +57,9 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
 
   const { data: regs } = await supabase
     .from("tournament_registrations")
-    .select("id, status, payment_status, team_id, registrant_id, division_id, team_answers, created_at")
+    .select("id, status, payment_status, team_id, registrant_id, division_id, moderation_note, team_answers, created_at")
     .eq("tournament_id", id)
-    .not("status", "in", "(withdrawn,declined)")
+    .not("status", "in", "(declined)")
     .order("created_at");
   const list = regs ?? [];
   const regIds = list.map((r) => r.id);
@@ -92,9 +104,20 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
   }
 
   const divName = new Map<string, string>();
+  const divisionOptions: DivisionOption[] = [];
   {
-    const { data } = await supabase.from("tournament_divisions").select("id, name").eq("tournament_id", id);
-    for (const d of data ?? []) divName.set(d.id, d.name);
+    const { data } = await supabase
+      .from("tournament_divisions")
+      .select("id, name, fee_cents, fee_basis")
+      .eq("tournament_id", id)
+      .order("sort_order");
+    for (const d of data ?? []) {
+      divName.set(d.id, d.name);
+      divisionOptions.push({
+        id: d.id,
+        label: `${d.name}${d.fee_cents ? ` — $${Math.round(d.fee_cents / 100)}${d.fee_basis === "per_player" ? "/player" : "/team"}` : ""}`,
+      });
+    }
   }
 
   const entries: Entry[] = list.map((r) => {
@@ -114,6 +137,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
       name: r.team_id ? teamName.get(r.team_id) ?? "Team" : personName.get(r.registrant_id) ?? "Player",
       type: r.team_id ? "Team" : "Individual",
       division: r.division_id ? divName.get(r.division_id) ?? null : null,
+      divisionId: r.division_id ?? null,
+      moderationNote: r.moderation_note ?? null,
       status: r.status,
       paymentStatus: r.payment_status,
       registeredAt: r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null,
@@ -122,7 +147,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     };
   });
 
-  const activeEntries = entries.filter((e) => e.status !== "waitlisted");
+  const activeEntries = entries.filter((e) => ["pending", "confirmed", "under_review"].includes(e.status));
+  const closedEntries = entries.filter((e) => ["withdrawn", "cancelled", "disqualified"].includes(e.status));
   const waitlistedRegEntries = entries.filter((e) => e.status === "waitlisted");
   const playerCount = activeEntries.reduce((n, e) => n + e.players.length, 0);
   const paidCount = activeEntries.filter((e) => e.paymentStatus === "confirmed").length;
@@ -133,6 +159,8 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
     name: e.name,
     type: e.type,
     division: e.division,
+    divisionId: e.divisionId,
+    moderationNote: e.moderationNote,
     playerCount: e.players.length,
   }));
 
@@ -187,6 +215,20 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
                 </div>
               </div>
 
+              {e.moderationNote ? (
+                <p className={`mt-2 text-xs font-semibold ${e.status === "under_review" ? "text-[#B45309]" : "text-mute"}`}>
+                  {e.status === "under_review" ? "Fix needed: " : "Note: "}
+                  {e.moderationNote}
+                </p>
+              ) : null}
+
+              {isOwner ? (
+                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+                  {divisionOptions.length ? <RegistrationDivisionSelect regId={e.regId} current={e.divisionId} options={divisionOptions} /> : null}
+                  <RegistrationModeration regId={e.regId} status={e.status} />
+                </div>
+              ) : null}
+
               {perTeamFields.length ? (
                 <dl className="mt-3 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                   {perTeamFields.map((f) => (
@@ -238,6 +280,31 @@ export default async function RegistrationsPage({ params }: { params: Promise<{ 
               </div>
             </div>
           ))}
+
+          {closedEntries.length ? (
+            <details className="rounded-3xl border border-rule bg-bg/60 p-5">
+              <summary className="cursor-pointer text-sm font-bold text-mute">
+                Closed entries ({closedEntries.length}) — cancelled, withdrawn &amp; disqualified
+              </summary>
+              <div className="mt-4 grid gap-3">
+                {closedEntries.map((e, i) => (
+                  <div key={i} className="rounded-2xl border border-rule bg-surface p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-ink">{e.name}</p>
+                        <p className="text-xs text-mute">{[e.type, e.division].filter(Boolean).join(" · ")}</p>
+                        {e.moderationNote ? <p className="mt-1 text-xs text-mute">Note: {e.moderationNote}</p> : null}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${regBadge(e.status)}`}>{REG_LABEL[e.status] ?? e.status}</span>
+                        {isOwner ? <RegistrationModeration regId={e.regId} status={e.status} /> : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </div>
       )
         }

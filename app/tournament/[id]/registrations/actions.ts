@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notify";
 import { capacityState } from "@/lib/waitlist";
+import { reconcileTournamentStructure } from "@/app/tournaments/actions";
 
 async function origin(): Promise<string> {
   const h = await headers();
@@ -36,7 +37,7 @@ async function requireOwner(tournamentId: string) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." as const };
   const admin = createAdminClient();
-  const { data: t } = await admin.from("tournaments").select("id, title, code, owner_id").eq("id", tournamentId).maybeSingle();
+  const { data: t } = await admin.from("tournaments").select("id, title, code, owner_id, entry_type, format_config").eq("id", tournamentId).maybeSingle();
   if (!t || t.owner_id !== user.id) return { error: "Not authorized." as const };
   return { admin, t };
 }
@@ -49,11 +50,164 @@ async function ownedReg(registrationId: string) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." as const };
   const admin = createAdminClient();
-  const { data: r } = await admin.from("tournament_registrations").select("id, tournament_id, registrant_id, status").eq("id", registrationId).maybeSingle();
+  const { data: r } = await admin.from("tournament_registrations").select("id, tournament_id, registrant_id, status, division_id").eq("id", registrationId).maybeSingle();
   if (!r) return { error: "Registration not found." as const };
-  const { data: t } = await admin.from("tournaments").select("id, title, code, owner_id").eq("id", r.tournament_id).maybeSingle();
+  const { data: t } = await admin.from("tournaments").select("id, title, code, owner_id, entry_type, format_config").eq("id", r.tournament_id).maybeSingle();
   if (!t || t.owner_id !== user.id) return { error: "Not authorized." as const };
   return { admin, r, t };
+}
+
+/** Assign, switch, or unassign a registration's division. Never loses an
+ *  entry: moving out frees a spot (the reconciler promotes that division's
+ *  waitlist head), moving in is blocked when the target is full, and a move
+ *  under a built schedule resets it (groups reshaped). */
+export async function moveRegistrationDivision(
+  registrationId: string,
+  divisionId: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const ctx = await ownedReg(registrationId);
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  const { admin, r, t } = ctx;
+
+  const from = r.division_id ?? null;
+  const to = divisionId ?? null;
+  if (from === to) return { ok: true };
+
+  const fc = (t.format_config ?? {}) as Record<string, unknown>;
+  const unit = fc.capacity_unit === "person" ? "person" : "team";
+  const roster = Math.max(1, Number(fc.roster_size) || 1);
+
+  let targetName: string | null = null;
+  if (to) {
+    const { data: div } = await admin
+      .from("tournament_divisions")
+      .select("id, name, capacity")
+      .eq("id", to)
+      .eq("tournament_id", t.id)
+      .maybeSingle();
+    if (!div) return { ok: false, error: "That division no longer exists." };
+    targetName = div.name;
+
+    // A live entry can't move into a full division — say so with numbers.
+    if (fc.capacity_mode === "per_division" && div.capacity != null && (r.status === "pending" || r.status === "confirmed")) {
+      const capE = unit === "person" && t.entry_type === "team" ? Math.floor(div.capacity / roster) : div.capacity;
+      const { count } = await admin
+        .from("tournament_registrations")
+        .select("id", { count: "exact", head: true })
+        .eq("tournament_id", t.id)
+        .eq("division_id", to)
+        .in("status", ["pending", "confirmed", "under_review"]);
+      if ((count ?? 0) >= capE) {
+        return { ok: false, error: `“${div.name}” is full (${count}/${capE} entries). Raise its cap or move an entry out first.` };
+      }
+    }
+  }
+
+  await admin
+    .from("tournament_registrations")
+    .update({ division_id: to, updated_at: new Date().toISOString() })
+    .eq("id", r.id);
+
+  await createNotification({
+    userId: r.registrant_id,
+    kind: "system",
+    title: to ? `Your entry moved to ${targetName} — ${t.title}` : `Your entry is awaiting division placement — ${t.title}`,
+    body: to ? undefined : "The organizer will place it in a division.",
+    linkUrl: `/e/${t.code}`,
+  });
+
+  // Groups reshaped: renumber both buckets, promote the vacated one's
+  // waitlist, reset a built schedule.
+  await reconcileTournamentStructure(admin, t.id, { structureChanged: true });
+
+  revalidatePath(`/tournament/${t.id}/registrations`);
+  return { ok: true };
+}
+
+export type ModerationAction = "cancel_no_penalty" | "cancel_penalty" | "disqualify" | "under_review" | "reinstate";
+
+/** Organizer-only entry moderation (ownedReg checks the OWNER, never staff):
+ *  cancel without penalty (withdrawn), cancel with penalty (fee forfeited),
+ *  disqualify, put under review with a required fix note (holds its spot),
+ *  or reinstate (capacity-checked when coming back from a freed state). */
+export async function setEntryModeration(
+  registrationId: string,
+  action: ModerationAction,
+  note?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const ctx = await ownedReg(registrationId);
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  const { admin, r, t } = ctx;
+  const cleanNote = String(note ?? "").trim().slice(0, 400) || null;
+
+  const freed = ["withdrawn", "cancelled", "disqualified"];
+  let nextStatus: string;
+  let title: string;
+  let body: string | undefined;
+
+  if (action === "under_review") {
+    if (!cleanNote) return { ok: false, error: "Describe the fix you need — the player sees this note." };
+    nextStatus = "under_review";
+    title = `Action needed on your entry — ${t.title}`;
+    body = cleanNote;
+  } else if (action === "cancel_no_penalty") {
+    nextStatus = "withdrawn";
+    title = `Your entry was cancelled — ${t.title}`;
+    body = `No penalty applies${cleanNote ? ` — ${cleanNote}` : ""}. Any payment is handled directly by the organizer.`;
+  } else if (action === "cancel_penalty") {
+    nextStatus = "cancelled";
+    title = `Your entry was cancelled — ${t.title}`;
+    body = `Per the event's policy the entry fee is forfeited${cleanNote ? ` — ${cleanNote}` : ""}.`;
+  } else if (action === "disqualify") {
+    nextStatus = "disqualified";
+    title = `Your entry was disqualified — ${t.title}`;
+    body = cleanNote ?? undefined;
+  } else {
+    // Reinstate: coming back from a freed state must fit the bucket.
+    nextStatus = "pending";
+    title = `You're back in — ${t.title}`;
+    body = "Your entry was reinstated by the organizer.";
+    if (freed.includes(r.status)) {
+      const fc = (t.format_config ?? {}) as Record<string, unknown>;
+      const unit = fc.capacity_unit === "person" ? "person" : "team";
+      const roster = Math.max(1, Number(fc.roster_size) || 1);
+      const perDiv = fc.capacity_mode === "per_division";
+      if (perDiv && r.division_id) {
+        const { data: div } = await admin.from("tournament_divisions").select("name, capacity").eq("id", r.division_id).maybeSingle();
+        if (div?.capacity != null) {
+          const capE = unit === "person" && t.entry_type === "team" ? Math.floor(div.capacity / roster) : div.capacity;
+          const { count } = await admin
+            .from("tournament_registrations")
+            .select("id", { count: "exact", head: true })
+            .eq("tournament_id", t.id)
+            .eq("division_id", r.division_id)
+            .in("status", ["pending", "confirmed", "under_review"]);
+          if ((count ?? 0) >= capE) return { ok: false, error: `“${div.name}” is full (${count}/${capE}). Free a spot first, or unassign this entry's division before reinstating.` };
+        }
+      }
+    }
+  }
+
+  await admin
+    .from("tournament_registrations")
+    .update({
+      status: nextStatus,
+      moderation_note: action === "reinstate" ? null : cleanNote,
+      waitlist_position: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", r.id);
+
+  await createNotification({ userId: r.registrant_id, kind: "system", title, body, linkUrl: `/e/${t.code}` });
+
+  // Occupancy changed for everything except pending/confirmed ↔ under_review.
+  const occupying = (s: string) => ["pending", "confirmed", "under_review"].includes(s);
+  if (occupying(r.status) !== occupying(nextStatus)) {
+    await reconcileTournamentStructure(admin, t.id, { structureChanged: true });
+  }
+
+  revalidatePath(`/tournament/${t.id}/registrations`);
+  return { ok: true };
 }
 
 /** Load an email-only waitlist entry and verify the caller owns its event. */

@@ -86,6 +86,34 @@ export interface Database {
         Update: { id?: string; user_id?: string; sport_key?: string; session_id?: string | null; match_id?: string | null; points?: number; won?: boolean; earned_at?: string; created_at?: string };
         Relationships: [];
       };
+      deleted_users_ledger: {
+        Row: {
+          id: string;
+          user_id: string;
+          member_no: number | null;
+          display_name: string | null;
+          email: string | null;
+          account_created_at: string | null;
+          archived_at: string | null;
+          purged_at: string;
+          purged_by: string | null;
+          reason: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          member_no?: number | null;
+          display_name?: string | null;
+          email?: string | null;
+          account_created_at?: string | null;
+          archived_at?: string | null;
+          purged_at?: string;
+          purged_by?: string | null;
+          reason?: string;
+        };
+        Update: { reason?: string };
+        Relationships: [];
+      };
       error_logs: {
         Row: {
           id: string;
@@ -143,6 +171,7 @@ export interface Database {
       profiles: {
         Row: {
           id: string;
+          member_no: number | null;
           display_name: string;
           first_name: string | null;
           last_name: string | null;
@@ -177,6 +206,7 @@ export interface Database {
           following_count: number;
         };
         Insert: {
+          member_no?: number | null;
           id: string;
           display_name?: string;
           first_name?: string | null;
@@ -1144,9 +1174,9 @@ export interface Database {
         Relationships: [];
       };
       tournament_registrations: {
-        Row: { id: string; tournament_id: string; division_id: string | null; team_id: string | null; registrant_id: string; status: string; payment_status: string; team_answers: Json; waitlist_position: number | null; created_at: string; updated_at: string };
+        Row: { id: string; tournament_id: string; division_id: string | null; team_id: string | null; registrant_id: string; status: string; payment_status: string; team_answers: Json; waitlist_position: number | null; moderation_note: string | null; created_at: string; updated_at: string };
         Insert: { id?: string; tournament_id: string; division_id?: string | null; team_id?: string | null; registrant_id: string; status?: string; payment_status?: string; team_answers?: Json; waitlist_position?: number | null; created_at?: string; updated_at?: string };
-        Update: { division_id?: string | null; team_id?: string | null; status?: string; payment_status?: string; team_answers?: Json; waitlist_position?: number | null; updated_at?: string };
+        Update: { division_id?: string | null; team_id?: string | null; status?: string; payment_status?: string; team_answers?: Json; waitlist_position?: number | null; moderation_note?: string | null; updated_at?: string };
         Relationships: [];
       };
       tournament_registration_players: {
@@ -1505,10 +1535,16 @@ export interface Database {
         Update: { created_at?: string };
         Relationships: [];
       };
+      provider_reviews: {
+        Row: { id: string; provider_user_id: string; reviewer_id: string; rating: number; body: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; provider_user_id: string; reviewer_id: string; rating: number; body?: string | null; created_at?: string; updated_at?: string };
+        Update: { rating?: number; body?: string | null; updated_at?: string };
+        Relationships: [];
+      };
       class_providers: {
-        Row: { user_id: string; status: string; headline: string | null; bio: string | null; approved_by: string | null; approved_at: string; created_at: string; roles: string[]; verification_level: string };
-        Insert: { user_id: string; status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; approved_at?: string; created_at?: string; roles?: string[]; verification_level?: string };
-        Update: { status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; roles?: string[]; verification_level?: string };
+        Row: { user_id: string; status: string; headline: string | null; bio: string | null; approved_by: string | null; approved_at: string; created_at: string; roles: string[]; verification_level: string; rating_avg: number | null; rating_count: number; credential_expires_at: string | null };
+        Insert: { user_id: string; status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; approved_at?: string; created_at?: string; roles?: string[]; verification_level?: string; credential_expires_at?: string | null };
+        Update: { status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; roles?: string[]; verification_level?: string; credential_expires_at?: string | null };
         Relationships: [];
       };
       provider_applications: {

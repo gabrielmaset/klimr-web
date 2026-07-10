@@ -206,7 +206,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
   return (
     <div className="fixed inset-0 z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0c0e16, #050609 58%)" }}>
       {/* top bar — event + exit, then a bigger court/format/level row beneath it */}
-      <div className="px-[3vw] pt-[2vh]">
+      <div className="px-[max(0.9rem,3vw)] pt-[2vh]">
         <div className="flex items-center justify-between gap-4">
           <p className="min-w-0 truncate text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
           <button type="button" onClick={toggleFullscreen} className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
@@ -243,7 +243,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
           </div>
 
           {/* teams */}
-          <div className="grid flex-1 grid-cols-2 gap-[2vw] px-[3vw] py-[2vh]">
+          <div className="grid flex-1 grid-cols-1 gap-[max(0.6rem,2vw)] px-[max(0.75rem,3vw)] py-[2vh] landscape:grid-cols-2 md:grid-cols-2">
             {[court.current.a, court.current.b].map((t, idx) => {
               const s = SIDES[idx];
               return (
@@ -264,7 +264,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
                       </span>
                     ) : null}
                   </div>
-                  <div className="flex flex-1 items-center px-[2.2vw] py-[1.5vh]">
+                  <div className="flex min-h-0 flex-1 items-center overflow-y-auto px-[max(0.9rem,2.2vw)] py-[1.5vh]">
                     <StackedNames team={t} className="font-display font-semibold text-[clamp(1.1rem,2.3vw,2.2rem)]" />
                   </div>
                   {canOperate ? (
@@ -335,16 +335,16 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
       )}
 
       {/* up next (place in line only, no A/B) + the walk-up link so newcomers can join */}
-      <div className="border-t border-white/10 px-[3vw] py-[2vh]">
+      <div className="border-t border-white/10 px-[max(0.9rem,3vw)] py-[2vh]">
         <div className="flex flex-col gap-[1.6vh] xl:flex-row xl:items-stretch xl:gap-[2vw]">
           <div className="min-w-0 flex-1">
             <p className="mb-[1vh] text-[clamp(0.65rem,1vw,0.95rem)] font-bold uppercase tracking-[0.22em] text-white/50">Next up in line</p>
             {upNext.length === 0 ? (
               <p className="text-[clamp(0.9rem,1.4vw,1.4rem)] text-white/45">No teams waiting.</p>
             ) : (
-              <div className="grid grid-cols-3 gap-[1.5vw]">
+              <div className="grid grid-cols-1 gap-[max(0.5rem,1.5vw)] landscape:grid-cols-3 md:grid-cols-3">
                 {upNext.map((t, i) => (
-                  <div key={t.id} className="flex items-start gap-[1vw] rounded-[1.2vw] border border-white/10 bg-white/[0.05] px-[1.4vw] py-[1.3vh]">
+                  <div key={t.id} className="flex items-start gap-[max(0.5rem,1vw)] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)]">
                     <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(1.7rem,2.6vw,2.6rem)", height: "clamp(1.7rem,2.6vw,2.6rem)", fontSize: "clamp(0.85rem,1.4vw,1.4rem)" }}>
                       {i + 1}
                     </span>

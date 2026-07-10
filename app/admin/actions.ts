@@ -454,8 +454,25 @@ export async function purgeUserNow(formData: FormData) {
   const { data: staff } = await admin.from("admin_users").select("role").eq("user_id", target).maybeSingle();
   if (staff) redirect("/admin/users/archived");
 
-  const { data: prof } = await admin.from("profiles").select("display_name, avatar_path").eq("id", target).single();
+  const { data: prof } = await admin.from("profiles").select("display_name, avatar_path, member_no, created_at, archived_at").eq("id", target).single();
   if (prof?.avatar_path) await admin.storage.from("avatars").remove([prof.avatar_path]);
+
+  // The durable identity record survives the purge (CCPA security/fraud/debug
+  // exemptions) — written BEFORE deletion so nothing is ever lost to a race.
+  const { data: au } = await admin.auth.admin.getUserById(target);
+  await admin.from("deleted_users_ledger").upsert(
+    {
+      user_id: target,
+      member_no: prof?.member_no ?? null,
+      display_name: prof?.display_name ?? null,
+      email: au?.user?.email ?? null,
+      account_created_at: prof?.created_at ?? null,
+      archived_at: prof?.archived_at ?? null,
+      purged_by: userId,
+      reason: "admin_purge",
+    },
+    { onConflict: "user_id" },
+  );
 
   const { error } = await admin.auth.admin.deleteUser(target);
   if (error) {
@@ -499,6 +516,8 @@ export async function reviewProviderApplication(formData: FormData) {
   const appId = String(formData.get("appId") ?? "");
   const decision = String(formData.get("decision") ?? "");
   const note = String(formData.get("review_note") ?? "").trim() || null;
+  const expiresRaw = String(formData.get("credential_expires") ?? "").trim();
+  const credentialExpires = expiresRaw && !Number.isNaN(Date.parse(expiresRaw)) ? new Date(expiresRaw + "T23:59:59Z").toISOString() : null;
   if (!appId || !["approve", "reject"].includes(decision)) return;
 
   const admin = createAdminClient();
@@ -510,9 +529,13 @@ export async function reviewProviderApplication(formData: FormData) {
   if (!app) return;
 
   if (decision === "approve") {
-    const { data: existing } = await admin.from("class_providers").select("roles").eq("user_id", app.user_id).maybeSingle();
+    const { data: existing } = await admin.from("class_providers").select("roles, credential_expires_at").eq("user_id", app.user_id).maybeSingle();
     const roles = new Set<string>(existing?.roles ?? []);
     roles.add(app.role);
+    // The listing gate uses the EARLIEST credential expiration across roles —
+    // set at approval from the document/registry (0109).
+    const prevExp = existing?.credential_expires_at ?? null;
+    const nextExp = credentialExpires && prevExp ? (credentialExpires < prevExp ? credentialExpires : prevExp) : (credentialExpires ?? prevExp);
     await admin.from("class_providers").upsert(
       {
         user_id: app.user_id,
@@ -520,6 +543,7 @@ export async function reviewProviderApplication(formData: FormData) {
         roles: [...roles],
         approved_by: userId,
         approved_at: new Date().toISOString(),
+        credential_expires_at: nextExp,
         ...(app.headline ? { headline: app.headline } : {}),
       },
       { onConflict: "user_id" },

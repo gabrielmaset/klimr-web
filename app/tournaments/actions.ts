@@ -15,6 +15,7 @@ import { placementPoints, bracketPlaces, RESERVE_FACTOR } from "@/lib/ranking";
 import { recomputePlayerPoints } from "@/lib/points";
 import { notifyRegistration, notifyPayment } from "@/lib/emails/notify";
 import { randomInt, randomUUID } from "node:crypto";
+import { createNotification } from "@/lib/notify";
 
 /** Mark any email-only waitlist entry matching this email as converted, so the
  *  person stops getting "spot opened" notifications once they've actually entered. */
@@ -273,6 +274,148 @@ export async function deleteTournament(id: string): Promise<{ ok: true } | { ok:
 /** Save a slice of the draft. RLS restricts writes to the owner / managers; this
  *  whitelists fields and sanitizes the enum-like ones. Returns a result so the
  *  wizard can show an inline "saved" / error state without a full navigation. */
+export type ReconcileNote = { waitlisted: number; promoted: number; scheduleReset: boolean };
+
+/** Re-establish the capacity invariants after any rule change (mode, caps,
+ *  unit, roster size, entry type, format, divisions). Never drops anyone:
+ *  over-cap entries move to the waitlist (newest first — earliest sign-ups
+ *  keep their spots), freed capacity promotes the waitlist head, positions
+ *  renumber, and a built/published schedule that no longer matches the rules
+ *  is cleared with the organizer notified. */
+export async function reconcileTournamentStructure(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tournamentId: string,
+  opts: { structureChanged: boolean },
+): Promise<ReconcileNote> {
+  const note: ReconcileNote = { waitlisted: 0, promoted: 0, scheduleReset: false };
+  const { data: to } = await supabase
+    .from("tournaments")
+    .select("id, title, code, owner_id, entry_type, capacity, format_config")
+    .eq("id", tournamentId)
+    .maybeSingle();
+  if (!to) return note;
+  const fc = (to.format_config ?? {}) as Record<string, unknown>;
+  const mode = fc.capacity_mode === "per_division" ? "per_division" : "pooled";
+  const unit = fc.capacity_unit === "person" ? "person" : "team";
+  const roster = Math.max(1, Number(fc.roster_size) || 1);
+  const capToEntries = (cap: number | null | undefined): number | null => {
+    if (cap == null || !Number.isFinite(cap)) return null;
+    if (unit === "person" && to.entry_type === "team") return Math.max(0, Math.floor(cap / roster));
+    return Math.max(0, Math.floor(cap));
+  };
+
+  const [{ data: divs }, { data: regs }] = await Promise.all([
+    supabase.from("tournament_divisions").select("id, name, capacity").eq("tournament_id", tournamentId),
+    supabase
+      .from("tournament_registrations")
+      .select("id, registrant_id, division_id, status, created_at, waitlist_position")
+      .eq("tournament_id", tournamentId)
+      .in("status", ["pending", "confirmed", "under_review", "waitlisted"])
+      .order("created_at", { ascending: true }),
+  ]);
+  const all = regs ?? [];
+
+  type Bucket = { key: string; cap: number | null; rows: typeof all };
+  const buckets: Bucket[] = [];
+  if (mode === "per_division") {
+    for (const d of divs ?? []) {
+      buckets.push({ key: d.id, cap: capToEntries(d.capacity), rows: all.filter((r) => r.division_id === d.id) });
+    }
+    // Entries pointing at no division can't be cap-checked — left untouched.
+  } else {
+    buckets.push({ key: "pooled", cap: capToEntries(to.capacity), rows: all });
+  }
+
+  const demoted: typeof all = [];
+  const promoted: typeof all = [];
+  for (const b of buckets) {
+    const active = b.rows.filter((r) => r.status !== "waitlisted");
+    const waiting = b.rows
+      .filter((r) => r.status === "waitlisted")
+      .sort((a, z) => (a.waitlist_position ?? 1e9) - (z.waitlist_position ?? 1e9) || a.created_at.localeCompare(z.created_at));
+    if (b.cap == null) {
+      // Cap removed entirely: everyone waiting comes in.
+      for (const r of waiting) promoted.push(r);
+      continue;
+    }
+    if (active.length > b.cap) {
+      for (const r of active.slice(b.cap)) demoted.push(r); // newest first out (rows arrive created_at asc)
+    } else if (active.length < b.cap && waiting.length) {
+      for (const r of waiting.slice(0, b.cap - active.length)) promoted.push(r);
+    }
+  }
+
+  for (const r of demoted) {
+    await supabase.from("tournament_registrations").update({ status: "waitlisted", updated_at: new Date().toISOString() }).eq("id", r.id);
+    await createNotification({
+      userId: r.registrant_id,
+      kind: "system",
+      title: `Capacity changed — you're on the waitlist`,
+      body: `${to.title}: the organizer adjusted entry limits. Earliest sign-ups kept their spots; you'll be promoted automatically if room opens.`,
+      linkUrl: `/e/${to.code}`,
+    });
+  }
+  for (const r of promoted) {
+    await supabase
+      .from("tournament_registrations")
+      .update({ status: "pending", waitlist_position: null, updated_at: new Date().toISOString() })
+      .eq("id", r.id);
+    await createNotification({
+      userId: r.registrant_id,
+      kind: "system",
+      title: `A spot opened — you're in`,
+      body: `${to.title}: you've been moved off the waitlist.`,
+      linkUrl: `/e/${to.code}`,
+    });
+  }
+  note.waitlisted = demoted.length;
+  note.promoted = promoted.length;
+
+  // Renumber waitlist positions per bucket (created_at order).
+  if (demoted.length || promoted.length) {
+    const { data: fresh } = await supabase
+      .from("tournament_registrations")
+      .select("id, division_id, created_at")
+      .eq("tournament_id", tournamentId)
+      .eq("status", "waitlisted")
+      .order("created_at", { ascending: true });
+    const byBucket = new Map<string, { id: string }[]>();
+    for (const r of fresh ?? []) {
+      const k = mode === "per_division" ? (r.division_id ?? "none") : "pooled";
+      if (!byBucket.has(k)) byBucket.set(k, []);
+      byBucket.get(k)!.push({ id: r.id });
+    }
+    for (const rows of byBucket.values()) {
+      for (let i = 0; i < rows.length; i++) {
+        await supabase.from("tournament_registrations").update({ waitlist_position: i + 1 }).eq("id", rows[i].id);
+      }
+    }
+  }
+
+  // Rules changed under a built/published schedule: the structure is void.
+  // A pure cap change that moved nobody leaves a still-valid schedule alone —
+  // the reset fires on format-shape changes OR when composition actually moved.
+  const compositionChanged = demoted.length + promoted.length > 0;
+  const hadSchedule = !!(fc.schedule_built_at || fc.schedule_published || fc.published_schedule);
+  if ((opts.structureChanged || compositionChanged) && hadSchedule) {
+    const nextFc = { ...fc, schedule_built_at: null, schedule_published: false, published_schedule: null };
+    await supabase.from("tournaments").update({ format_config: nextFc as Json, updated_at: new Date().toISOString() }).eq("id", tournamentId);
+    note.scheduleReset = true;
+    // With zero entrants there's nobody affected and the organizer is the one
+    // saving right now — the save flash reports it; no bell needed.
+    if (to.owner_id && all.length > 0) {
+      await createNotification({
+        userId: to.owner_id,
+        kind: "system",
+        title: `Schedule reset — ${to.title}`,
+        body: "Format or capacity rules changed, so the built pools/bracket no longer fit. Rebuild the day plan when you're ready.",
+        linkUrl: `/tournament/${tournamentId}/planner`,
+      });
+    }
+  }
+  return note;
+}
+
 export async function updateTournamentDraft(id: string, patch: TournamentDraftPatch) {
   const supabase = await createClient();
   const {
@@ -282,13 +425,15 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
 
   const u: Database["public"]["Tables"]["tournaments"]["Update"] = { updated_at: new Date().toISOString() };
 
-  // If the start is changing, capture the previous value (and code) first so we
-  // can slide the day-planner by the same delta and refresh the public page.
-  let prev: { starts_at: string | null; code: string | null } | null = null;
-  if (patch.starts_at !== undefined) {
-    const { data: cur } = await supabase.from("tournaments").select("starts_at, code").eq("id", id).maybeSingle();
-    prev = cur ?? null;
-  }
+  // Capture the current row once: the starts_at delta needs the previous value,
+  // and capacity/format reconciliation compares VALUES (a section re-saving the
+  // same numbers must be a no-op, never a schedule reset).
+  const { data: prevRow } = await supabase
+    .from("tournaments")
+    .select("starts_at, code, capacity, entry_type, format_config")
+    .eq("id", id)
+    .maybeSingle();
+  const prev = prevRow ?? null;
 
   if (patch.title !== undefined) u.title = patch.title;
   if (patch.summary !== undefined) u.summary = patch.summary;
@@ -330,6 +475,21 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   const { error } = await supabase.from("tournaments").update(u).eq("id", id);
   if (error) return { ok: false as const, error: error.message };
 
+  // Capacity / format rules ACTUALLY changed (value comparison, not key
+  // presence — sections resend their whole slice on every save).
+  const fcPatch = (patch.format_config ?? null) as Record<string, unknown> | null;
+  const curFc = (prev?.format_config ?? {}) as Record<string, unknown>;
+  const fcKeyChanged = (k: string) => !!fcPatch && k in fcPatch && String(fcPatch[k] ?? "") !== String(curFc[k] ?? "");
+  const entryTypeChanged = patch.entry_type !== undefined && patch.entry_type !== prev?.entry_type;
+  const capacityValueChanged = patch.capacity !== undefined && (patch.capacity ?? null) !== (prev?.capacity ?? null);
+  // These reshape how groups are formed — they invalidate a built schedule.
+  const shapeChanged =
+    entryTypeChanged || ["format_type", "pool_count", "capacity_mode", "capacity_unit", "roster_size"].some(fcKeyChanged);
+  let reconcile: ReconcileNote | undefined;
+  if (capacityValueChanged || shapeChanged) {
+    reconcile = await reconcileTournamentStructure(supabase, id, { structureChanged: shapeChanged });
+  }
+
   // The date moved: slide the run-of-show planner by the same delta (keeping each
   // item's time-of-day and multi-day offset), and refresh the views that show the
   // date. Match times are governed by a separate "matches start time," so they're
@@ -343,7 +503,7 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
       if (prev.code) revalidatePath(`/e/${prev.code}`);
     }
   }
-  return { ok: true as const };
+  return { ok: true as const, reconcile };
 }
 
 /** Publish a draft so it becomes visible at /e/<code>. */
@@ -390,9 +550,12 @@ export async function saveDivisions(tournamentId: string, divisions: DivisionInp
   } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, error: "Not signed in." };
 
-  const { data: existing } = await supabase.from("tournament_divisions").select("id").eq("tournament_id", tournamentId);
+  const { data: existing } = await supabase.from("tournament_divisions").select("id, capacity").eq("tournament_id", tournamentId);
   const existingIds = new Set((existing ?? []).map((d) => d.id));
+  const oldCaps = new Map((existing ?? []).map((d) => [d.id, d.capacity ?? null]));
   const keepIds = new Set<string>();
+  let capsChanged = false;
+  let insertedAny = false;
 
   for (const d of divisions) {
     const name = (d.name ?? "").trim() || "Division";
@@ -402,22 +565,49 @@ export async function saveDivisions(tournamentId: string, divisions: DivisionInp
     const capacity = d.capacity == null ? null : Math.max(Math.round(d.capacity), 0);
     if (d.id && existingIds.has(d.id)) {
       keepIds.add(d.id);
+      if ((oldCaps.get(d.id) ?? null) !== capacity) capsChanged = true;
       await supabase.from("tournament_divisions").update({ name, description, fee_cents, fee_basis, capacity, sort_order: d.sort_order, updated_at: new Date().toISOString() }).eq("id", d.id);
     } else {
       const { data: ins } = await supabase.from("tournament_divisions").insert({ tournament_id: tournamentId, name, description, fee_cents, fee_basis, capacity, sort_order: d.sort_order }).select("id").single();
-      if (ins) keepIds.add(ins.id);
+      if (ins) {
+        keepIds.add(ins.id);
+        insertedAny = true;
+      }
     }
   }
 
   const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
-  if (toDelete.length) await supabase.from("tournament_divisions").delete().in("id", toDelete);
+  if (toDelete.length) {
+    // Never orphan entries: a division with live registrations can't be deleted.
+    const { data: liveRows } = await supabase
+      .from("tournament_registrations")
+      .select("division_id")
+      .eq("tournament_id", tournamentId)
+      .in("division_id", toDelete)
+      .in("status", ["pending", "confirmed", "under_review", "waitlisted"]);
+    if (liveRows?.length) {
+      const { data: names } = await supabase.from("tournament_divisions").select("id, name").in("id", toDelete);
+      const blocked = [...new Set(liveRows.map((r) => r.division_id))]
+        .map((d) => names?.find((n) => n.id === d)?.name ?? "a division")
+        .join(", ");
+      return { ok: false as const, error: `Can't delete ${blocked} — entries are registered there. Reassign them on the Registrations page (every entry has a division selector), then delete.` };
+    }
+    await supabase.from("tournament_divisions").delete().in("id", toDelete);
+  }
 
   const { data: fresh } = await supabase
     .from("tournament_divisions")
     .select("id, name, description, fee_cents, fee_basis, capacity, sort_order")
     .eq("tournament_id", tournamentId)
     .order("sort_order");
-  return { ok: true as const, divisions: fresh ?? [] };
+
+  // Renames, descriptions, and fee edits change nothing about capacity or
+  // group shape — no reconciliation, no schedule reset, plain "Saved".
+  const setChanged = insertedAny || toDelete.length > 0;
+  if (!capsChanged && !setChanged) return { ok: true as const, divisions: fresh ?? [] };
+
+  const reconcile = await reconcileTournamentStructure(supabase, tournamentId, { structureChanged: true });
+  return { ok: true as const, divisions: fresh ?? [], reconcile };
 }
 
 /** Replace the full set of registration questions (upsert + delete removed). */
@@ -678,11 +868,11 @@ async function capacityBlock(
         .from("tournament_registrations")
         .select("id", { count: "exact", head: true })
         .eq("tournament_id", tournamentId)
-        .not("status", "in", "(withdrawn,declined)");
+        .not("status", "in", "(withdrawn,declined,cancelled,disqualified)");
       const { count } = divScope ? await base.eq("division_id", divScope) : await base;
       return count ?? 0;
     }
-    const base = supabase.from("tournament_registrations").select("id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined)");
+    const base = supabase.from("tournament_registrations").select("id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined,cancelled,disqualified)");
     const { data: regs } = divScope ? await base.eq("division_id", divScope) : await base;
     const ids = (regs ?? []).map((r) => r.id);
     if (!ids.length) return 0;
@@ -734,7 +924,7 @@ export async function signUpIndividual(
     .eq("tournament_id", tournamentId)
     .eq("registrant_id", user.id)
     .is("team_id", null)
-    .not("status", "in", "(withdrawn,declined)")
+    .not("status", "in", "(withdrawn,declined,cancelled,disqualified)")
     .maybeSingle();
   if (existing) return { ok: false as const, error: "You're already registered." };
 
@@ -822,12 +1012,12 @@ export async function signUpTeam(
     if (women < (t.min_women ?? 0) || men < (t.min_men ?? 0)) return { ok: false as const, error: "This team doesn't meet the event's gender requirements." };
   }
 
-  const { data: dupTeam } = await supabase.from("tournament_registrations").select("id").eq("tournament_id", tournamentId).eq("team_id", team.id).not("status", "in", "(withdrawn,declined)").maybeSingle();
+  const { data: dupTeam } = await supabase.from("tournament_registrations").select("id").eq("tournament_id", tournamentId).eq("team_id", team.id).not("status", "in", "(withdrawn,declined,cancelled,disqualified)").maybeSingle();
   if (dupTeam) return { ok: false as const, error: "This team is already entered." };
 
   // Double-entry guard: no member may already be on another active entry here.
   const memberIds = roster.map((m) => m.user_id);
-  const { data: activeRegs } = await supabase.from("tournament_registrations").select("id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined)");
+  const { data: activeRegs } = await supabase.from("tournament_registrations").select("id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined,cancelled,disqualified)");
   const activeIds = (activeRegs ?? []).map((r) => r.id);
   if (activeIds.length && memberIds.length) {
     const { data: clash } = await supabase.from("tournament_registration_players").select("user_id").in("registration_id", activeIds).in("user_id", memberIds);
@@ -888,7 +1078,7 @@ export async function confirmMembership(
   if (!prs || prs.length === 0) return { ok: false as const, error: "You're not on a roster for this event." };
 
   const regIds = prs.map((p) => p.registration_id);
-  const { data: regs } = await supabase.from("tournament_registrations").select("id").in("id", regIds).not("status", "in", "(withdrawn,declined)");
+  const { data: regs } = await supabase.from("tournament_registrations").select("id").in("id", regIds).not("status", "in", "(withdrawn,declined,cancelled,disqualified)");
   const activeRegId = regs && regs.length ? regs[0].id : null;
   if (!activeRegId) return { ok: false as const, error: "Your entry is no longer active." };
   const pr = prs.find((p) => p.registration_id === activeRegId);
@@ -990,6 +1180,35 @@ export async function confirmPayment(registrationId: string) {
   return { ok: true as const };
 }
 
+/** Record that an entry's fee was returned. Staff-only (payments ops). */
+export async function markPaymentRefunded(registrationId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: reg } = await supabase.from("tournament_registrations").select("id, tournament_id, registrant_id").eq("id", registrationId).maybeSingle();
+  if (!reg) return { ok: false as const, error: "Entry not found." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, title").eq("id", reg.tournament_id).maybeSingle();
+  let staff = to?.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", reg.tournament_id).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  await supabase.from("tournament_registrations").update({ payment_status: "refunded" }).eq("id", registrationId);
+  await createNotification({
+    userId: reg.registrant_id,
+    kind: "system",
+    title: `Your entry fee was refunded — ${to?.title ?? "your event"}`,
+  });
+  revalidatePath(`/tournament/${reg.tournament_id}/payments`);
+  return { ok: true as const };
+}
+
 /** Organizer declines a payment with a reason the entrant will see. Staff-only. */
 export async function denyPayment(registrationId: string, reason: string) {
   const supabase = await createClient();
@@ -1055,7 +1274,7 @@ export async function generateGroups(tournamentId: string, divisionId: string) {
     .select("id, created_at")
     .eq("tournament_id", tournamentId)
     .eq("division_id", divisionId)
-    .not("status", "in", "(withdrawn,declined)")
+    .not("status", "in", "(withdrawn,declined,cancelled,disqualified)")
     .order("created_at");
   const ids = (entries ?? []).map((e) => e.id);
   if (ids.length === 0) return { ok: false as const, error: "No entries in this division yet." };
@@ -1246,7 +1465,7 @@ async function buildResultsSnapshot(tournamentId: string): Promise<PublishedResu
   const fc = (t?.format_config ?? {}) as TournamentFormatConfig;
   const formatType = fc.format_type ?? "pools_knockout";
 
-  const { data: regs } = await supabase.from("tournament_registrations").select("id, team_id, registrant_id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined)");
+  const { data: regs } = await supabase.from("tournament_registrations").select("id, team_id, registrant_id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined,cancelled,disqualified)");
   const list = regs ?? [];
   const teamIds = [...new Set(list.filter((r) => r.team_id).map((r) => r.team_id as string))];
   const teamName = new Map<string, string>();
@@ -1607,7 +1826,7 @@ export async function generateBracket(tournamentId: string, divisionId: string) 
     .select("id, created_at")
     .eq("tournament_id", tournamentId)
     .eq("division_id", divisionId)
-    .not("status", "in", "(withdrawn,declined)")
+    .not("status", "in", "(withdrawn,declined,cancelled,disqualified)")
     .order("created_at");
   const ids = (entries ?? []).map((e) => e.id);
   if (ids.length < 2) return { ok: false as const, error: "Need at least 2 entries to draw a bracket." };
@@ -1759,7 +1978,7 @@ export async function awardTournamentPoints(tournamentId: string) {
   const divs = divisions ?? [];
   if (divs.length === 0) return { ok: false as const, error: "No divisions to award." };
 
-  const { data: regs } = await admin.from("tournament_registrations").select("id, division_id, registrant_id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined)");
+  const { data: regs } = await admin.from("tournament_registrations").select("id, division_id, registrant_id").eq("tournament_id", tournamentId).not("status", "in", "(withdrawn,declined,cancelled,disqualified)");
   const regList = regs ?? [];
   const { data: players } = await admin.from("tournament_registration_players").select("registration_id, user_id, is_reserve, played").eq("tournament_id", tournamentId);
   const playerList = players ?? [];

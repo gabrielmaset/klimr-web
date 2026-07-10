@@ -42,8 +42,18 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
   const ids = [...new Set(logs.map((l) => l.user_id).filter((x): x is string => !!x))];
   const names = new Map<string, string>();
   if (ids.length) {
-    const { data: ps } = await admin.from("profiles").select("id, display_name").in("id", ids);
-    for (const p of (ps as { id: string; display_name: string }[] | null) ?? []) names.set(p.id, p.display_name);
+    const { data: ps } = await admin.from("profiles").select("id, display_name, member_no").in("id", ids);
+    for (const p of (ps as { id: string; display_name: string; member_no: number | null }[] | null) ?? [])
+      names.set(p.id, `${p.display_name} · #${p.member_no ?? p.id.slice(0, 8)}`);
+    const missing = ids.filter((x) => !names.has(x));
+    if (missing.length) {
+      const { data: gone } = await admin
+        .from("deleted_users_ledger")
+        .select("user_id, display_name, member_no")
+        .in("user_id", missing);
+      for (const g of (gone as { user_id: string; display_name: string | null; member_no: number | null }[] | null) ?? [])
+        names.set(g.user_id, `${g.display_name ?? "Deleted user"} (deleted) · #${g.member_no ?? g.user_id.slice(0, 8)}`);
+    }
   }
 
   return (
@@ -87,7 +97,7 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
                     <meta.Icon size={13} />
                   </span>
                   <span className={`text-xs font-bold uppercase tracking-wide ${meta.cls}`}>{e.level}</span>
-                  <span className="text-xs text-mute">{e.user_id ? names.get(e.user_id) ?? "Player" : "Signed-out"}</span>
+                  <span className="text-xs text-mute">{e.user_id ? (names.get(e.user_id) ?? `Unknown · ${e.user_id.slice(0, 8)}`) : "Signed-out"}</span>
                   <span className="ml-auto text-[11px] text-faint">{new Date(e.created_at).toLocaleString("en-US")}</span>
                 </div>
                 <p className="mt-1.5 break-words text-sm text-ink">{e.message}</p>

@@ -7,6 +7,8 @@ import { roleLabel } from "@/lib/professional-roles";
 import { ProfessionalStatusForm } from "@/components/professional-status-form";
 import { withdrawProfessionalApplication } from "./actions";
 
+const nowMs = () => Date.now();
+
 export const metadata: Metadata = { title: "Professional status · Settings" };
 
 type App = {
@@ -33,7 +35,7 @@ export default async function ProfessionalSettingsPage({ searchParams }: { searc
   if (!user) redirect("/login?next=/settings/professional");
 
   const [{ data: providerRow }, { data: appRows }] = await Promise.all([
-    supabase.from("class_providers").select("status, roles, verification_level").eq("user_id", user.id).maybeSingle(),
+    supabase.from("class_providers").select("status, roles, verification_level, credential_expires_at").eq("user_id", user.id).maybeSingle(),
     supabase.from("provider_applications").select("id, role, status, credential_id, review_note, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
   ]);
   const approvedRoles = providerRow?.status === "approved" ? providerRow.roles ?? [] : [];
@@ -71,6 +73,25 @@ export default async function ProfessionalSettingsPage({ searchParams }: { searc
       ) : null}
 
       {/* Current status */}
+      {providerRow?.status === "approved" && providerRow.credential_expires_at ? (() => {
+        const exp = new Date(providerRow.credential_expires_at);
+        const days = Math.ceil((exp.getTime() - nowMs()) / 86_400_000);
+        const dateStr = exp.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+        if (days < 0)
+          return (
+            <p className="mb-4 rounded-xl border border-[#f0c2b0] bg-[#fbeee7] px-3.5 py-2.5 text-[13px] font-semibold text-[#b91c1c]">
+              Your credential on file expired {dateStr} — your listing is hidden until you resubmit documentation below.
+            </p>
+          );
+        if (days <= 90)
+          return (
+            <p className="mb-4 rounded-xl border border-[#F1E0B6] bg-[#FDF3DD] px-3.5 py-2.5 text-[13px] font-semibold text-[#B45309]">
+              Your credential on file expires {dateStr} ({days} days). Resubmit your documentation below to stay listed — listings hide automatically at expiration.
+            </p>
+          );
+        return <p className="mb-4 text-xs text-faint">Credential on file expires {dateStr}.</p>;
+      })() : null}
+
       {approvedRoles.length > 0 ? (
         <section className="mb-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
           <div className="flex items-center gap-2">

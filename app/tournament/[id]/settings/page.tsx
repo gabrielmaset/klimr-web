@@ -71,6 +71,17 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
     capacity_unit: fc.capacity_unit === "person" ? "person" : "team",
   };
 
+  const { count: liveEntries } = await supabase
+    .from("tournament_registrations")
+    .select("id", { count: "exact", head: true })
+    .eq("tournament_id", t.id)
+    .in("status", ["pending", "confirmed", "under_review", "waitlisted"]);
+  const fcLive = (t.format_config ?? {}) as Record<string, unknown>;
+  const liveContext = {
+    entries: liveEntries ?? 0,
+    scheduled: !!(fcLive.schedule_built_at || fcLive.schedule_published || fcLive.published_schedule),
+  };
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6">
@@ -81,11 +92,12 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
 
       <TournamentSettingsEditor
         init={init}
+        liveContext={liveContext}
         divisionsSlot={
           <section id="divisions" className="scroll-mt-24 rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
             <h2 className="text-lg font-bold tracking-tight text-ink">Divisions &amp; fees</h2>
             <p className="mb-4 mt-0.5 text-sm text-mute">The categories {entryType === "team" ? "teams" : "players"} enter and what each costs.</p>
-            <DivisionsEditor tournamentId={t.id} entryType={entryType} initial={(divs as DivisionRow[]) ?? []} initialMode={capMode} capacityUnit={init.capacity_unit === "person" ? "person" : "team"} />
+            <DivisionsEditor tournamentId={t.id} entryType={entryType} initial={(divs as DivisionRow[]) ?? []} initialMode={capMode} capacityUnit={init.capacity_unit === "person" ? "person" : "team"} liveContext={liveContext} />
           </section>
         }
         gallerySlot={

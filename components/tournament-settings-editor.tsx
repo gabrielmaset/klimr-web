@@ -68,7 +68,7 @@ function SectionCard({
   id: string;
   title: string;
   desc?: string;
-  onSave: () => Promise<{ ok: boolean; error?: string }>;
+  onSave: () => Promise<{ ok: boolean; error?: string; reconcile?: { waitlisted: number; promoted: number; scheduleReset: boolean } }>;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -83,9 +83,14 @@ function SectionCard({
     setMsg(null);
     const res = await onSave();
     if (res.ok) {
-      setMsg({ ok: true, text: "Saved" });
+      const r = res.reconcile;
+      const parts: string[] = [];
+      if (r?.waitlisted) parts.push(`${r.waitlisted} moved to waitlist`);
+      if (r?.promoted) parts.push(`${r.promoted} promoted from waitlist`);
+      if (r?.scheduleReset) parts.push("schedule reset — rebuild the day plan");
+      setMsg({ ok: true, text: parts.length ? `Saved · ${parts.join(" · ")}` : "Saved" });
       if (flashTimer.current) clearTimeout(flashTimer.current);
-      flashTimer.current = setTimeout(() => setMsg(null), 3000);
+      flashTimer.current = setTimeout(() => setMsg(null), parts.length ? 8000 : 3000);
       router.refresh();
     } else {
       setMsg({ ok: false, text: res.error ?? "Couldn't save." });
@@ -162,7 +167,7 @@ function VisibilityRow({ init }: { init: SettingsInit }) {
   );
 }
 
-export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dangerSlot }: { init: SettingsInit; divisionsSlot?: ReactNode; gallerySlot?: ReactNode; dangerSlot?: ReactNode }) {
+export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dangerSlot, liveContext }: { init: SettingsInit; divisionsSlot?: ReactNode; gallerySlot?: ReactNode; dangerSlot?: ReactNode; liveContext?: { entries: number; scheduled: boolean } }) {
   const router = useRouter();
   const save = (patch: TournamentDraftPatch) => updateTournamentDraft(init.id, patch);
 
@@ -423,6 +428,12 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
         </div>
         <div className="rounded-2xl border border-rule bg-bg/40 p-4">
           <label className={labelCls}>Capacity</label>
+          {liveContext && (liveContext.entries > 0 || liveContext.scheduled) ? (
+            <p className="mb-2 mt-1 rounded-xl border border-[#F1E0B6] bg-[#FDF3DD] px-3 py-2 text-xs font-semibold text-[#B45309]">
+              {liveContext.entries > 0 ? `${liveContext.entries} live ${liveContext.entries === 1 ? "entry" : "entries"} — lowering caps moves the newest over-cap entries to the waitlist.` : ""}
+              {liveContext.scheduled ? " Changing these rules resets the built pools & bracket." : ""}
+            </p>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">Limit by</p>

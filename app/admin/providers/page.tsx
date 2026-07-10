@@ -1,7 +1,7 @@
 import { GraduationCap, ExternalLink } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
-import { roleLabel } from "@/lib/professional-roles";
+import { roleLabel, PROFESSIONAL_ROLES } from "@/lib/professional-roles";
 import { setClassProvider, reviewProviderApplication } from "../actions";
 
 export const metadata = { title: "Providers · Admin" };
@@ -85,8 +85,30 @@ export default async function AdminProvidersPage() {
                 ) : null}
                 {a.applicant_note ? <p className="mt-2 text-xs text-faint">Note: {a.applicant_note}</p> : null}
 
+                {(() => {
+                  const meta = PROFESSIONAL_ROLES.find((r) => r.key === a.role);
+                  if (!meta?.verifyUrl) return null;
+                  return (
+                    <div className="mt-3 rounded-xl border border-[#cfe3d2] bg-[#f2f9f3] p-3 text-xs leading-relaxed text-ink-soft">
+                      <p className="font-bold text-[#1f7a33]">
+                        Verify at the source:{" "}
+                        <a href={meta.verifyUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                          {new URL(meta.verifyUrl).hostname}
+                        </a>
+                      </p>
+                      {meta.verifyNote ? <p className="mt-1">{meta.verifyNote}</p> : null}
+                      {meta.renewalNote ? <p className="mt-1 text-mute">{meta.renewalNote}</p> : null}
+                      <p className="mt-1 text-mute">Applicant-provided links are context only — always confirm at the official registry above.</p>
+                    </div>
+                  );
+                })()}
+
                 <form action={reviewProviderApplication} className="mt-3 flex flex-wrap items-center gap-2">
                   <input type="hidden" name="appId" value={a.id} />
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-ink-soft">
+                    Expires
+                    <input type="date" name="credential_expires" className="rounded-[10px] border border-rule-2 bg-bg px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand" />
+                  </label>
                   <input
                     name="review_note"
                     placeholder="Review note (optional)"

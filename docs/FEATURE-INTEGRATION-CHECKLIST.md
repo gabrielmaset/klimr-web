@@ -62,3 +62,15 @@ everything else on Klimr" — evaluate each line, act where it applies, and note
 - Green full `eslint` + `build`; docs entry in `DESIGN_DECISIONS.md`; rebuild
   messages list **GitHub deletions** whenever files were removed; new env vars
   and migrations called out explicitly for deploy.
+
+## 10. Authorization — guard AND hide
+Every capability has exactly one required pattern: **a server-side guard** (owner-only via
+`ownedReg`-style checks, staff via owner-or-manager, admin via role) **AND a conditional
+render** — controls the viewer cannot use must not exist in their UI. Rendering a button that
+returns "Not authorized" is a bug even though it's safe. When building or touching a feature:
+(1) name the minimum role for each action; (2) enforce it in the action; (3) compute the
+viewer's role where the control renders (`isOwner`, `role`, etc.) and gate the element; (4) if
+a whole section is role-bound, gate the section/slot so its nav entry disappears too (the
+danger-zone pattern). Current map: entry moderation + division reassignment + danger zone =
+owner-only (guarded + hidden); payments review/refunds, gallery, announcements, schedule =
+staff (owner or manager); Klimr admin surfaces = platform admins.

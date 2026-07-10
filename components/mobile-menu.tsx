@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   X, IdCard, Newspaper, Swords, Trophy, Flag, Medal, CalendarDays, Contact, Users, Inbox,
   Radar, MapPin, ShoppingBag, GraduationCap, Sparkles, BookOpen, Settings, User, Gift, ShieldCheck, LogOut, CalendarRange, Bell,
+  HeartPulse,
 } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { Avatar } from "@/components/avatar";
@@ -42,6 +43,7 @@ const GROUPS: { header: string; items: Item[] }[] = [
       { href: "/courts", label: "Courts", Icon: MapPin },
       { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
       { href: "/classes", label: "Classes & Coaching", Icon: GraduationCap },
+      { href: "/health", label: "Health & Nutrition", Icon: HeartPulse },
       { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
       { href: "/resources", label: "Playbook", Icon: BookOpen },
     ],
@@ -127,7 +129,7 @@ export function MobileMenu({
         </div>
       </div>
 
-      <div className="px-safe min-h-0 flex-1 overflow-y-auto px-5 pb-10 pt-4">
+      <div className="px-safe min-h-0 flex-1 overflow-y-auto px-5 pb-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom)+2.5rem)] pt-4">
         <div className="grid grid-cols-2 gap-2">{PRIMARY.map(tile)}</div>
         {GROUPS.map((g) => (
           <div key={g.header} className="mt-5">

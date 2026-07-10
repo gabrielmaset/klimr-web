@@ -73,7 +73,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
   const renderItem = ({ href, label, Icon, exact, soon }: Item) => {
     if (soon) {
       return (
-        <span key={href} aria-disabled className="flex h-11 cursor-default items-center gap-3 rounded-2xl px-3 text-sm font-semibold text-rail-muted/70">
+        <span key={href} aria-disabled className="flex h-11 cursor-default items-center gap-3 rounded-2xl px-3 text-sm font-semibold text-rail-muted/70 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
           <Icon size={18} className="text-rail-muted/60" />
           {label}
           <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rail-muted">Soon</span>
@@ -97,7 +97,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
   return (
     <>
       {/* desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
+      <aside className="print:hidden sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
         <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-[#5a2c17] bg-[linear-gradient(180deg,#3a1608,#210c05)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
           <div className="rounded-2xl border border-rail-border bg-white/[0.05] p-3">
             <div className="flex items-center gap-3">
@@ -146,7 +146,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       </aside>
 
       {/* mobile top bar */}
-      <header className="pt-safe px-safe sticky top-0 z-40 border-b border-rule bg-surface md:hidden">
+      <header className="print:hidden pt-safe px-safe sticky top-0 z-40 border-b border-rule bg-surface md:hidden">
         <div className="flex items-center gap-3 px-4 py-2.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-tint-brand text-lg">{meta.emoji}</span>
           <div className="min-w-0 flex-1">
