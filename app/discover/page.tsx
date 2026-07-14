@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { FilterGroup, FacetLink } from "@/components/filter-chips";
 import { redirect } from "next/navigation";
 import { Radar, ArrowRight, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -165,23 +166,17 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
       />
 
       {mySports.length > 1 ? (
-        <div className="mt-5 flex flex-wrap gap-1.5">
-          {mySports.map((k) => {
-            const m = sportMeta(k);
-            const on = k === selected;
-            return (
-              <Link
-                key={k}
-                href={`/discover?sport=${k}`}
-                className="press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                style={on
-                  ? { borderColor: "transparent", background: "linear-gradient(140deg, #FF6A35, #E23E0D)", color: "#fff", boxShadow: "var(--shadow-flame)" }
-                  : { borderColor: "var(--color-rule-2)", background: "var(--color-surface)", color: "var(--color-mute)" }}
-              >
-                {m.emoji} {m.name}
-              </Link>
-            );
-          })}
+        <div className="mt-5 max-w-xs">
+          <FilterGroup label="Sport">
+            {mySports.map((k) => {
+              const m = sportMeta(k);
+              return (
+                <FacetLink key={k} href={`/discover?sport=${k}`} active={k === selected}>
+                  {m.emoji} {m.name}
+                </FacetLink>
+              );
+            })}
+          </FilterGroup>
         </div>
       ) : null}
 

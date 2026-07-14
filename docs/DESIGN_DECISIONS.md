@@ -222,6 +222,20 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Play court filter v2 (any court, searchable) · pill retirement complete
+- Gabriel's correction: courts-with-matches-only missed the point — checking a QUIET court
+  is the feature. v2: default list = ten courts nearest the member's home ZIP with live
+  open-match counts (zeros shown faint); FilterGroup footer carries a debounced search
+  (300ms → searchCourts server action): 5 digits = ZIP (courts nearest that ZIP via
+  bounding box + haversine), anything else = name/city ilike; distances relative to the
+  viewer's home. ANY court id is honored in ?court= (identity fetched even with zero
+  matches; selected court pins atop the list). Single unfiltered match fetch now feeds BOTH
+  facets' counts (sport filter moved from SQL to JS).
+- Sport pills on Play → FilterGroup/FacetLink radios with counts; FilterPill deleted.
+  Discover's flame-selected sport pills (double violation: pills + flame-as-selection) →
+  the facet standard. Tournaments' `near` is a lookup input, not pills — left as is.
+  Sitewide pill sweep complete.
+
 ### 2026-07-14 — classes.format → class_format (seed error #3, also a live code bug)
 - 42703 on the seed exposed that the column is **class_format** (0078, vocabulary
   group_class/clinic/private_lesson/workshop/camp/open_play) — the earlier types check

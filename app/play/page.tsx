@@ -5,6 +5,9 @@ import { CalendarClock, MapPin, Users, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SPORTS, sportMeta, sportSlug } from "@/lib/sports";
 import { FilterGroup, FacetLink } from "@/components/filter-chips";
+import { PlayCourtFilter } from "@/components/play-court-filter";
+import { lookupZip } from "@/lib/us-places";
+import type { CourtHit } from "@/app/play/court-actions";
 
 export const metadata: Metadata = { title: "Play" };
 
@@ -34,15 +37,17 @@ export default async function PlayPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/play");
 
-  let query = supabase
+  const query = supabase
     .from("matches")
     .select("*")
     .in("status", ["open", "scheduled"])
     .order("scheduled_at", { ascending: true, nullsFirst: false });
   const activeSport = sport && SPORTS.some((s) => s.key === sport) ? sport : null;
-  if (activeSport) query = query.eq("sport_key", activeSport);
   const { data: matches } = await query;
-  const list = matches ?? [];
+  const all = matches ?? [];
+  const sportCounts = new Map<string, number>();
+  for (const m of all) sportCounts.set(m.sport_key, (sportCounts.get(m.sport_key) ?? 0) + 1);
+  const list = activeSport ? all.filter((m) => m.sport_key === activeSport) : all;
 
   let orgs: Org[] = [];
   let parts: Part[] = [];
@@ -58,21 +63,55 @@ export default async function PlayPage({
   }
   const orgMap = new Map(orgs.map((o) => [o.id, o]));
 
-  const courtIds = [...new Set(list.map((m) => m.court_id).filter(Boolean) as string[])];
+  const courtIds = [...new Set(all.map((m) => m.court_id).filter(Boolean) as string[])];
   let courtMap = new Map<string, { id: string; name: string }>();
   if (courtIds.length) {
     const { data: cs } = await supabase.from("courts").select("id, name").in("id", courtIds);
     courtMap = new Map(((cs as { id: string; name: string }[] | null) ?? []).map((c) => [c.id, c]));
   }
-  // ── court filter: options come from the live open-match set (never a dead end) ──
-  const activeCourt = court && courtMap.has(court) ? court : null;
-  const courtCounts = new Map<string, number>();
-  for (const m of list) {
-    if (m.court_id) courtCounts.set(m.court_id, (courtCounts.get(m.court_id) ?? 0) + 1);
+  // ── court filter: ANY court is selectable (zero matches is a valid answer);
+  //    the default list is courts near the member's home ZIP with live counts ──
+  let activeCourtObj: { id: string; name: string } | null = null;
+  if (court) {
+    const known = courtMap.get(court);
+    if (known) activeCourtObj = known;
+    else {
+      const { data: c1 } = await supabase.from("courts").select("id, name").eq("id", court).maybeSingle();
+      if (c1) activeCourtObj = c1;
+    }
   }
-  const courtOptions = [...courtCounts.entries()]
-    .map(([id, n]) => ({ id, n, name: courtMap.get(id)?.name ?? "Court" }))
-    .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  const activeCourt = activeCourtObj?.id ?? null;
+  const courtCounts: Record<string, number> = {};
+  for (const m of list) {
+    if (m.court_id) courtCounts[m.court_id] = (courtCounts[m.court_id] ?? 0) + 1;
+  }
+  const { data: me } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
+  const homePt = me?.home_zip ? lookupZip(me.home_zip) : null;
+  let nearbyCourts: CourtHit[] = [];
+  if (homePt) {
+    const dLat = 0.22, dLng = 0.26;
+    const { data: nc } = await supabase
+      .from("courts")
+      .select("id, name, city, state, zip, lat, lng")
+      .not("lat", "is", null)
+      .gte("lat", homePt.lat - dLat)
+      .lte("lat", homePt.lat + dLat)
+      .gte("lng", homePt.lng - dLng)
+      .lte("lng", homePt.lng + dLng)
+      .limit(60);
+    const R = 3958.8;
+    const mi = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+      const dla = ((b.lat - a.lat) * Math.PI) / 180;
+      const dln = ((b.lng - a.lng) * Math.PI) / 180;
+      const s = Math.sin(dla / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dln / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(s));
+    };
+    nearbyCourts = (nc ?? [])
+      .map((c) => ({ c, d: mi(homePt, { lat: c.lat!, lng: c.lng! }) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 10)
+      .map(({ c, d }) => ({ id: c.id, name: c.name, city: c.city, state: c.state, zip: c.zip, distanceMi: Math.round(d * 10) / 10 }));
+  }
   const shown = activeCourt ? list.filter((m) => m.court_id === activeCourt) : list;
   const qs = (s: string | null, c: string | null) => {
     const parts = [s ? `sport=${s}` : null, c ? `court=${c}` : null].filter(Boolean);
@@ -102,34 +141,26 @@ export default async function PlayPage({
         </Link>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-1.5">
-        <FilterPill href={`/play${qs(null, activeCourt)}`} active={!activeSport} label="All sports" />
-        {SPORTS.map((s) => (
-          <FilterPill key={s.key} href={`/play${qs(s.key, activeCourt)}`} active={activeSport === s.key} label={`${s.emoji} ${s.name}`} />
-        ))}
-      </div>
-
-      {courtOptions.length > 0 ? (
-        <div className="mt-3 max-w-md">
-          <FilterGroup label="Court">
-            <FacetLink href={`/play${qs(activeSport, null)}`} active={!activeCourt} count={list.length}>
-              All courts
+      <div className="mt-6 flex flex-wrap items-stretch gap-3">
+        <FilterGroup label="Sport" className="min-w-[210px] flex-1 max-w-xs">
+          <FacetLink href={`/play${qs(null, activeCourt)}`} active={!activeSport} count={all.length}>
+            All sports
+          </FacetLink>
+          {SPORTS.map((s) => (
+            <FacetLink key={s.key} href={`/play${qs(s.key, activeCourt)}`} active={activeSport === s.key} count={sportCounts.get(s.key) ?? 0}>
+              {s.emoji} {s.name}
             </FacetLink>
-            {courtOptions.map((c) => (
-              <FacetLink key={c.id} href={`/play${qs(activeSport, c.id)}`} active={activeCourt === c.id} count={c.n}>
-                {c.name}
-              </FacetLink>
-            ))}
-          </FilterGroup>
-        </div>
-      ) : null}
+          ))}
+        </FilterGroup>
+        <PlayCourtFilter nearby={nearbyCourts} counts={courtCounts} total={list.length} activeSport={activeSport} activeCourt={activeCourtObj} />
+      </div>
 
       {shown.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
           <Users size={28} className="mx-auto text-faint" />
           <h2 className="mt-3 font-display text-2xl text-ink">
             No open matches{activeSport ? ` for ${sportMeta(activeSport).name.toLowerCase()}` : ""}
-            {activeCourt ? ` at ${courtMap.get(activeCourt)?.name}` : ""} yet
+            {activeCourtObj ? ` at ${activeCourtObj.name}` : ""} yet
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-mute">
             Be the one to get a game going. Organize a match and verified players nearby can join.
@@ -195,18 +226,3 @@ export default async function PlayPage({
   );
 }
 
-function FilterPill({ href, active, label }: { href: string; active: boolean; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="press rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors"
-      style={{
-        borderColor: active ? "var(--color-ink)" : "var(--color-rule)",
-        background: active ? "var(--color-ink)" : "transparent",
-        color: active ? "var(--color-surface)" : "var(--color-mute)",
-      }}
-    >
-      {label}
-    </Link>
-  );
-}
