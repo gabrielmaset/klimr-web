@@ -222,6 +222,131 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — classes.format → class_format (seed error #3, also a live code bug)
+- 42703 on the seed exposed that the column is **class_format** (0078, vocabulary
+  group_class/clinic/private_lesson/workshop/camp/open_play) — the earlier types check
+  regex-matched the tail of `class_format`, so the parity round shipped a select on a
+  nonexistent `format` column (Supabase selects aren't compile-checked → the browse query
+  would have errored at runtime). Fixed in three places: dev-seed.sql (column + vocab
+  values), app/classes/page.tsx (select + Cls type + mapping; browser keeps its internal
+  `format` field), classes-browser FORMAT_LABEL now labels the full real vocabulary.
+  Lesson recorded: verify column names against migrations, not types-regex.
+
+### 2026-07-14 — 0116: feed_items kind check widened (second latent 0111 blocker)
+- 0010 pinned feed_items.kind to ('announcement','news','result','update'); 0111/0112 added
+  nine emitter kinds without touching the check → every automated emission violated
+  feed_items_kind_check. Caught by the seed immediately after 0115 (the errors surface one
+  at a time: first the arbiter, then the row constraint). 0116 recreates the check with the
+  complete vocabulary (4 curated + 7 from 0111 + 2 from 0112). KIND_WEIGHT keys verified
+  against the list.
+
+### 2026-07-14 — 0115: feed_emit ON CONFLICT vs partial index (latent 0111 bug)
+- The dev seed surfaced 42P10: `on conflict (dedupe_key)` cannot infer the PARTIAL unique
+  index `feed_items_dedupe_idx (... where dedupe_key is not null)` — Postgres requires the
+  arbiter to repeat the index predicate. Latent in every feed emitter since 0111; never hit
+  in prod only because no profiles insert/home_zip update had fired feed_on_profile yet
+  (invite-only beta, no new signups). 0115 replaces feed_emit with
+  `on conflict (dedupe_key) where dedupe_key is not null do nothing`. Seed is unchanged —
+  run 0115, then dev-seed.sql (the failed run rolled back atomically).
+
+### 2026-07-14 — Dev seed system · Play court filter
+- **supabase/seed/** (outside the migration chain): dev-seed.sql populates 4 seed members
+  (reserved UUID range 1111…01-04, no passwords — display-only), 2 health pros + 2 coaches
+  with headlines/pricing/sports, 5 named cross-reviews, 3 classes (free clinic · paid group
+  · private at Mar Vista/Penmar) with future sessions and 4 enrollments (clinic shows
+  "2 spots left"). Idempotent (on conflict). dev-seed-cleanup.sql removes every row by the
+  reserved UUIDs **plus trigger side-effects** (feed_items by actor) — one script, total
+  cleanup. Defaulted vocab columns (format/availability on providers, recurrence on
+  classes) intentionally omitted to ride DB defaults.
+- **Play court filter**: server URL-param (?court=) beside ?sport=; options derived from
+  the live open-match set with counts (a court with zero matches never appears), sorted by
+  volume; sport pills and court rows preserve each other's params; filtered empty state
+  names the court and offers "Show all courts →". New server-safe **FacetLink** joins the
+  filter system (FacetRow visuals, Link navigation).
+
+### 2026-07-14 — Classes & Coaching brought to Training Room parity
+- Research (CoachUp/TeachMe.To — the coaching-marketplace standard): table-stakes are
+  filters by sport/format(private·group·clinic)/level/price/schedule, coach attribution +
+  ratings on listings, transparent per-session pricing; Klimr's registry-checked
+  credentials beat their vetting story and the copy now says so.
+- **components/classes-browser.tsx**: the FilterGroup/FacetRow deck tuned for coaching —
+  Sport (multi-check), Format (radio, from live data), Level (Beginner→Expert vs
+  level_min/max), Starts (week/month vs next session), Price (Free/Paid + Min–Max $ on
+  cents), search matching coaches and venues. Cards gain "with {coach}" attribution, level
+  chip, live seats ("3 spots left", ≤2 = flame urgency, 0 = "Full — waitlist") from
+  capacity minus non-cancelled enrollments, next session, location.
+- **Page parity**: hero subcopy sharpened; provider CTA wears the flame; NON-providers get
+  "Offer coaching" → /settings/professional; coaches section gains the Training Room header
+  grammar (kicker + credential/named-reviews subcopy) and a dashed "be the first" apply
+  state. No library section by design (health-only). Clock passed as nowMs (purity rule).
+
+### 2026-07-14 — Legal hardening: full protective Terms + complete CCPA privacy set
+- Research-grounded on Meetup's terms (the closest comparable: arbitration + class waiver,
+  release, 1-year time bar, no obligation in member disputes), arbitration-enforceability
+  case law (conspicuous, explains rights given up, small-claims + IP carve-outs, consumer
+  venue, opt-out window), and CCPA-litigation trends (incomplete disclosures targeted).
+- **Terms grew 10 → 17 sections**: Assumption of risk & release (caps notice, §1542 waiver),
+  no-background-checks disclosure, independent-provider + point-in-time credential + NOT
+  medical advice, marketplace P2P disclaimer, IP + DMCA notice path + repeat-infringer,
+  survival, AS-IS warranty disclaimer (caps), liability cap (greater of $100 / 12-mo
+  payments), indemnification, informal-resolution → AAA individual arbitration + jury/class
+  waiver + 30-day opt-out + 1-year bar + public-injunctive carve-out, CA governing law +
+  severability/assignment/entire-agreement/force-majeure, material-change re-acceptance.
+- **Privacy additions**: Retention, essential-cookies-only (no replay/ad-tech — CIPA-aware),
+  full CCPA rights block (know/access/portable/correct/delete/opt-out-n/a/limit-sensitive/
+  non-discrimination, verification, authorized agents, GPC-n/a rationale), International.
+- Date bumped to July 14, 2026. Reply advises real attorney review before go-live (not legal
+  advice).
+
+### 2026-07-14 — Privacy assurance: point-of-collection notice + CPRA phrasing
+- Research: the statutory formulation is "sell **or share**" (CPRA expanded "sell" to cover
+  cross-context behavioral advertising); a business that doesn't sell/share needn't post the
+  opt-out link but MUST state the position clearly in its privacy policy. Klimr's policy
+  already said "never sell" — upgraded to "never sell or share," with the CCPA definition of
+  "share" named and the service-provider disclosure clause kept accurate (processors like
+  hosting/email are disclosures, not sales).
+- The onboarding wizard gains a persistent point-of-collection notice above the error region
+  (ShieldCheck + "Klimr does not sell or share your personal information… used solely to
+  operate your Klimr profile and connect you with players" + Privacy Policy link, new tab) —
+  legal in substance, calm in tone, sitting exactly where DOB/gender hesitation happens.
+
+### 2026-07-14 — Onboarding wizard: accumulator redesign + hero sports step
+- Research-grounded (Duolingo gamified steps/visible progress; review steps catch errors
+  pre-submit; motivational framing over configuration; mobile-first): the wizard keeps its
+  proven 5-step machine + validation + saveProfile contract and gains:
+  **(1) Accumulating summary stack** — each completed step collapses into a parchment
+  read-only card (#F7F2E4) above the active one: mono "0N · STEP" label ON the border,
+  **Edit chip straddling the border top-right** (Gabriel's sketch), compact per-step content
+  (name·ZIP·DOB line, sport chips w/ level+★, style, availability windows, hue dot + bio).
+  Edit reopens that step; Next then jumps past still-done steps straight to Review.
+  **(2) Step 6 "Review & confirm"** — headline "Everything look right?", all cards above,
+  flame gradient submit; guard already keyed to last index so Enter-submit stays blocked.
+  **(3) Hero sports step** — tiles: 48px tinted emoji medallions (SPORT_TINT per sport),
+  16px bold names, border-2 selection w/ tint gradient wash + lift + 24px check badge; the
+  existing in-tile config (level w/ blurbs, rating, format, hand, primary ★) kept intact.
+  **(4) Motion + copy** — wiz-in/sum-in keyframes (globals), per-step display headlines
+  ("What do you play?"), flame progress bar. Competitor field-comparison verdict: Klimr
+  already collects more than typical (per-sport skill/format/hand, availability, DOB) — no
+  new fields; presentation was the gap. isEdit mode = all cards pre-done, jump-to-review.
+
+### 2026-07-14 — Sign-in link: explicit 15-minute expiry
+- Email copy in supabase/email-templates/magic-link.html now says "expires in 15 minutes
+  and can be used once" (was "expires soon"). The template is the in-repo source of truth
+  but is APPLIED in the Supabase dashboard — Gabriel pastes it under Authentication → Email
+  Templates → Magic Link, and sets Authentication → Providers → Email → **Email OTP
+  expiration = 900 seconds** so the copy states the actual behavior (default was 3600s).
+
+### 2026-07-14 — Phone menu: pill grid → right-edge drawer · shared nav module
+- The ☰ now opens a **right-edge drawer** (302px, ≤86vw) that slides over the page in 200ms
+  with a scrim — the desktop rail's anatomy (list rows, mono kickers, 3px flame active
+  indicator) with none of its footprint. Header: avatar + name + X; body scrolls; footer:
+  Admin (role-gated), My profile, Account, Settings, Invite (Soon), Sign out. Every row,
+  the scrim, the X, and Escape close it; body scroll locks while open. z-[58]/[59] tops the
+  bars and the rail.
+- **lib/nav.ts** now owns NAV_GROUPS + NavItem; both the desktop rail and the drawer render
+  from it — the two menus structurally cannot drift. side-nav's local GROUPS deleted, its
+  lucide import pruned to its own needs.
+
 ### 2026-07-14 — Tablet rail v2: overlay expansion · footer link fix
 - **Overlay mode (≤1180px)**: the rail's flow width is pinned at 76px; the chevron expands
   the CARD as a 234px overlay above the page (shadow-e3, z-10 in the z-[45] aside) instead

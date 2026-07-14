@@ -3,58 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Newspaper, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut,
-  Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
-  User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox, Medal, IdCard, GraduationCap, ChevronDown,
-  HeartPulse, ChevronLeft, ChevronRight,
-} from "lucide-react";
+import { Settings, ShieldCheck, LogOut, User, Gift, ChevronsUpDown, IdCard, ChevronDown, ChevronLeft, ChevronRight, MessageSquare, HelpCircle } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
+import { NAV_GROUPS, type NavItem } from "@/lib/nav";
 import { KlimrLogo } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
 import type { PresenceMode } from "@/app/account/presence";
 
-type Item = { href: string; label: string; Icon: typeof Newspaper };
+type Item = NavItem;
 
 // Daylight §2.1 grouping. Invites (Community) and Sponsorships (Discover) are
 // live destinations kept beyond the spec's list — flagged in DESIGN_DECISIONS.
-const GROUPS: { header?: string; items: Item[] }[] = [
-  {
-    items: [
-      { href: "/feed", label: "Home", Icon: Newspaper },
-      { href: "/play", label: "Play", Icon: Swords },
-      { href: "/rankings", label: "Rankings", Icon: Trophy },
-    ],
-  },
-  {
-    header: "Compete",
-    items: [
-      { href: "/challenges", label: "Challenges", Icon: Flag },
-      { href: "/tournaments", label: "Tournaments", Icon: Medal },
-      { href: "/events", label: "Events", Icon: CalendarDays },
-    ],
-  },
-  {
-    header: "Community",
-    items: [
-      { href: "/network", label: "Network", Icon: Contact },
-      { href: "/teams", label: "Teams", Icon: Users },
-      { href: "/invites", label: "Invites", Icon: Inbox },
-    ],
-  },
-  {
-    header: "Discover",
-    items: [
-      { href: "/discover", label: "Players", Icon: Radar },
-      { href: "/courts", label: "Courts", Icon: MapPin },
-      { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
-      { href: "/classes", label: "Classes & Coaching", Icon: GraduationCap },
-      { href: "/health", label: "Health & Nutrition", Icon: HeartPulse },
-      { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
-      { href: "/resources", label: "Playbook", Icon: BookOpen },
-    ],
-  },
-];
+const GROUPS = NAV_GROUPS;
 
 const kicker = "font-mono text-[9px] font-semibold uppercase tracking-[.18em] text-faint";
 

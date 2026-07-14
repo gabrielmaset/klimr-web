@@ -106,3 +106,22 @@ export function FacetRow({ mode = "check", active, onClick, children, count }: {
     </button>
   );
 }
+
+/** Server-safe sibling of FacetRow for URL-param filters — same radio visuals,
+ *  navigation instead of state. */
+export function FacetLink({ href, active, children, count }: { href: string; active: boolean; children: React.ReactNode; count?: number | null }) {
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      aria-current={active ? "true" : undefined}
+      className="press flex h-8 w-full items-center gap-2.5 rounded-lg px-2 text-left transition-colors hover:bg-bg"
+    >
+      <span className={`grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full border transition-colors ${active ? "border-ink" : "border-[#CDC3AE]"} bg-surface`}>
+        {active ? <span className="h-[7px] w-[7px] rounded-full bg-ink" /> : null}
+      </span>
+      <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? "font-semibold text-ink" : "font-medium text-ink-soft"}`}>{children}</span>
+      {count != null ? <span className={`shrink-0 font-mono text-[10px] font-bold ${active ? "text-ink" : "text-faint"}`}>{count}</span> : null}
+    </Link>
+  );
+}

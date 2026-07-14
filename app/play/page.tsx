@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CalendarClock, MapPin, Users, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SPORTS, sportMeta, sportSlug } from "@/lib/sports";
+import { FilterGroup, FacetLink } from "@/components/filter-chips";
 
 export const metadata: Metadata = { title: "Play" };
 
@@ -24,9 +25,9 @@ function whenLabel(scheduledAt: string | null) {
 export default async function PlayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sport?: string }>;
+  searchParams: Promise<{ sport?: string; court?: string }>;
 }) {
-  const { sport } = await searchParams;
+  const { sport, court } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -63,6 +64,21 @@ export default async function PlayPage({
     const { data: cs } = await supabase.from("courts").select("id, name").in("id", courtIds);
     courtMap = new Map(((cs as { id: string; name: string }[] | null) ?? []).map((c) => [c.id, c]));
   }
+  // ── court filter: options come from the live open-match set (never a dead end) ──
+  const activeCourt = court && courtMap.has(court) ? court : null;
+  const courtCounts = new Map<string, number>();
+  for (const m of list) {
+    if (m.court_id) courtCounts.set(m.court_id, (courtCounts.get(m.court_id) ?? 0) + 1);
+  }
+  const courtOptions = [...courtCounts.entries()]
+    .map(([id, n]) => ({ id, n, name: courtMap.get(id)?.name ?? "Court" }))
+    .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  const shown = activeCourt ? list.filter((m) => m.court_id === activeCourt) : list;
+  const qs = (s: string | null, c: string | null) => {
+    const parts = [s ? `sport=${s}` : null, c ? `court=${c}` : null].filter(Boolean);
+    return parts.length ? `?${parts.join("&")}` : "";
+  };
+
   const countMap = new Map<string, number>();
   const mineSet = new Set<string>();
   for (const p of parts) {
@@ -87,20 +103,44 @@ export default async function PlayPage({
       </div>
 
       <div className="mt-6 flex flex-wrap gap-1.5">
-        <FilterPill href="/play" active={!activeSport} label="All sports" />
+        <FilterPill href={`/play${qs(null, activeCourt)}`} active={!activeSport} label="All sports" />
         {SPORTS.map((s) => (
-          <FilterPill key={s.key} href={`/play?sport=${s.key}`} active={activeSport === s.key} label={`${s.emoji} ${s.name}`} />
+          <FilterPill key={s.key} href={`/play${qs(s.key, activeCourt)}`} active={activeSport === s.key} label={`${s.emoji} ${s.name}`} />
         ))}
       </div>
 
-      {list.length === 0 ? (
+      {courtOptions.length > 0 ? (
+        <div className="mt-3 max-w-md">
+          <FilterGroup label="Court">
+            <FacetLink href={`/play${qs(activeSport, null)}`} active={!activeCourt} count={list.length}>
+              All courts
+            </FacetLink>
+            {courtOptions.map((c) => (
+              <FacetLink key={c.id} href={`/play${qs(activeSport, c.id)}`} active={activeCourt === c.id} count={c.n}>
+                {c.name}
+              </FacetLink>
+            ))}
+          </FilterGroup>
+        </div>
+      ) : null}
+
+      {shown.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
           <Users size={28} className="mx-auto text-faint" />
           <h2 className="mt-3 font-display text-2xl text-ink">
-            No open matches{activeSport ? ` for ${sportMeta(activeSport).name.toLowerCase()}` : ""} yet
+            No open matches{activeSport ? ` for ${sportMeta(activeSport).name.toLowerCase()}` : ""}
+            {activeCourt ? ` at ${courtMap.get(activeCourt)?.name}` : ""} yet
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-mute">
             Be the one to get a game going. Organize a match and verified players nearby can join.
+            {activeCourt ? (
+              <>
+                {" "}
+                <Link href={`/play${qs(activeSport, null)}`} className="font-semibold text-brand-deep hover:underline">
+                  Show all courts →
+                </Link>
+              </>
+            ) : null}
           </p>
           <Link
             href="/play/new"
@@ -111,7 +151,7 @@ export default async function PlayPage({
         </div>
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((m) => {
+          {shown.map((m) => {
             const org = orgMap.get(m.organizer_id);
             const filled = countMap.get(m.id) ?? 0;
             const left = m.total_slots - filled;

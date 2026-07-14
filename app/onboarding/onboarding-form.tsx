@@ -1,7 +1,8 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
-import { Check, Plus, Star, X } from "lucide-react";
+import Link from "next/link";
+import { Check, Pencil, Plus, ShieldCheck, Star, X } from "lucide-react";
 import { saveProfile, type WizardState } from "./actions";
 import { ageFromDob } from "@/lib/age";
 
@@ -40,7 +41,22 @@ const DAYS = [
 
 const HUES = [12, 35, 95, 150, 200, 235, 280, 330];
 
-const STEPS = ["About you", "Your sports", "How you play", "When you play", "Finishing touches"];
+const STEPS = ["About you", "Your sports", "How you play", "When you play", "Finishing touches", "Review & confirm"];
+const HEADS: { h: string; sub: string }[] = [
+  { h: "First, the basics", sub: "The name on your player card — and where home base is." },
+  { h: "What do you play?", sub: "Pick your sports, then tell us how you show up on court." },
+  { h: "How do you like to play?", sub: "Singles grinder, doubles strategist — or both." },
+  { h: "When are you usually free?", sub: "Set your usual windows so matches can find you." },
+  { h: "Make it yours", sub: "Your color, your story." },
+  { h: "Everything look right?", sub: "Review your profile — tap Edit on any card to change it." },
+];
+const SPORT_TINT: Record<string, string> = {
+  tennis: "#EAF5E4",
+  pickleball: "#FDEFF4",
+  padel: "#FFF6DF",
+  racquetball: "#E9F0FE",
+  beach_volleyball: "#F3ECFC",
+};
 
 type PillOption = { value: string; label: string };
 const FORMATS: PillOption[] = [
@@ -163,6 +179,11 @@ export function OnboardingWizard({
 }) {
   const [state, formAction, pending] = useActionState(saveProfile, initialState);
   const [step, setStep] = useState(Math.min(Math.max(startStep, 0), STEPS.length - 1));
+  const [done, setDone] = useState<boolean[]>(() => STEPS.map(() => isEdit));
+  const editStep = (i: number) => {
+    setStepError(null);
+    setStep(i);
+  };
   const [stepError, setStepError] = useState<string | null>(null);
   const submitIntent = useRef(false);
 
@@ -267,7 +288,17 @@ export function OnboardingWizard({
       }
     }
     setStepError(null);
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    setDone((d) => {
+      const n = [...d];
+      n[step] = true;
+      return n;
+    });
+    setStep((s) => {
+      for (let i = s + 1; i < STEPS.length - 1; i++) {
+        if (!done[i]) return i;
+      }
+      return STEPS.length - 1;
+    });
   }
   function back() {
     setStepError(null);
@@ -312,13 +343,78 @@ export function OnboardingWizard({
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-rule">
           <div
-            className="h-full rounded-full bg-brand transition-all duration-300"
-            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${((step + 1) / STEPS.length) * 100}%`, background: "linear-gradient(90deg, #FF7A4D, #D63A0F)" }}
           />
         </div>
       </div>
 
-      <div key={step} className="rise">
+      {/* completed steps accumulate as read-only cards — Edit sits on the border */}
+      {STEPS.slice(0, STEPS.length - 1).map((title, i) =>
+        done[i] && i !== step ? (
+          <section key={title} className="wiz-sum relative rounded-2xl border border-[#E4DAC2] bg-[#F7F2E4] px-4 pb-3.5 pt-4">
+            <span className="absolute -top-2 left-3 bg-[#F7F2E4] px-1.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">
+              0{i + 1} · {title}
+            </span>
+            <button
+              type="button"
+              onClick={() => editStep(i)}
+              className="press absolute -top-3 right-3 inline-flex items-center gap-1 rounded-full border border-rule-2 bg-surface px-2.5 py-1 text-[11px] font-bold text-ink shadow-e1"
+            >
+              <Pencil size={11} /> Edit
+            </button>
+            {i === 0 ? (
+              <p className="text-sm text-ink">
+                <span className="font-bold">{firstName} {lastName}</span>
+                <span className="text-mute"> · ZIP {zip}{dob ? ` · ${dob}` : ""}{gender ? ` · ${gender.replace(/_/g, " ")}` : ""}</span>
+              </p>
+            ) : null}
+            {i === 1 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {pickedKeys.map((k) => {
+                  const meta = sports.find((s) => s.key === k);
+                  return (
+                    <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink">
+                      <span aria-hidden>{SPORT_EMOJI[k] ?? "•"}</span>
+                      {meta?.name ?? k}
+                      <span className="text-faint">· {LEVELS.find((l) => l.key === picked[k].level)?.label ?? picked[k].level}</span>
+                      {picked[k].primary ? <Star size={10} fill="currentColor" className="text-brand-deep" aria-hidden /> : null}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : null}
+            {i === 2 ? (
+              <p className="text-sm font-semibold text-ink">{FORMATS.find((f) => f.value === style)?.label ?? style}</p>
+            ) : null}
+            {i === 3 ? (
+              ranges.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {ranges.map((r, idx) => (
+                    <span key={idx} className="rounded-full border border-rule bg-surface px-2.5 py-1 font-mono text-[11px] font-semibold text-ink">
+                      {r.day} {r.start}–{r.end}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-mute">Flexible — no set windows.</p>
+              )
+            ) : null}
+            {i === 4 ? (
+              <p className="flex items-center gap-2 text-sm text-ink">
+                <span aria-hidden className="shrink-0 rounded-full border border-rule" style={{ height: 18, width: 18, background: `hsl(${hue} 62% 58%)` }} />
+                <span className="min-w-0 truncate text-mute">{bio.trim() ? bio.slice(0, 90) : "No bio yet — that's fine."}</span>
+              </p>
+            ) : null}
+          </section>
+        ) : null,
+      )}
+
+      <div key={step} className="wiz-card rounded-[24px] border border-rule bg-surface p-5 shadow-e1 sm:p-7">
+        <div className="mb-5">
+          <h2 className="text-2xl font-bold tracking-[-0.01em] text-ink sm:text-[27px]">{HEADS[step].h}</h2>
+          <p className="mt-1 text-sm text-mute">{HEADS[step].sub}</p>
+        </div>
         {/* ---- step 1 · about you ---- */}
         {step === 0 ? (
           <div className="space-y-4">
@@ -406,20 +502,21 @@ export function OnboardingWizard({
                       }
                     }}
                     className={
-                      "lift relative cursor-pointer rounded-2xl border p-3.5 transition-colors " +
-                      (sel ? "border-ink bg-surface" : "border-rule bg-surface")
+                      "lift relative cursor-pointer rounded-[20px] border-2 p-4 transition-all " +
+                      (sel ? "-translate-y-0.5 border-brand shadow-e2" : "border-rule bg-surface hover:border-rule-2")
                     }
+                    style={sel ? { background: `linear-gradient(135deg, ${SPORT_TINT[s.key] ?? "#F6F1E4"}, #FFFDF8 70%)` } : undefined}
                   >
                     {sel ? (
-                      <span className="absolute right-2.5 top-2.5 grid h-5 w-5 place-items-center rounded-full bg-brand">
-                        <Check size={12} strokeWidth={3} className="text-white" aria-hidden />
+                      <span className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-brand shadow-e1">
+                        <Check size={13} strokeWidth={3.5} className="text-white" aria-hidden />
                       </span>
                     ) : null}
                     <div className="flex items-center gap-2.5">
-                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-bg text-xl" aria-hidden>
+                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[26px]" style={{ background: SPORT_TINT[s.key] ?? "#F4EFE3" }} aria-hidden>
                         {SPORT_EMOJI[s.key] ?? "•"}
                       </div>
-                      <div className="text-sm font-bold text-ink">{s.name}</div>
+                      <div className="text-[16px] font-bold text-ink">{s.name}</div>
                     </div>
                     {sel ? (
                       <div className="mt-3 space-y-2.5" onClick={(e) => e.stopPropagation()}>
@@ -735,6 +832,14 @@ export function OnboardingWizard({
             </p>
           </div>
         ) : null}
+
+        {/* ---- step 6 · review ---- */}
+        {step === 5 ? (
+          <div className="rounded-2xl border border-dashed border-rule-2 bg-bg px-4 py-5 text-center">
+            <p className="text-sm font-semibold text-ink">Your whole profile is above — every card, exactly as it will save.</p>
+            <p className="mt-1 text-xs text-mute">Tap <span className="font-bold">Edit</span> on any card to change it, then make it official below.</p>
+          </div>
+        ) : null}
       </div>
 
       {/* serialized payload */}
@@ -778,12 +883,25 @@ export function OnboardingWizard({
             onClick={() => {
               submitIntent.current = true;
             }}
-            className="press flex-1 rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
+            className="press flex-1 rounded-xl px-3.5 py-3 text-[15px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-60" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
           >
             {pending ? "Saving…" : isEdit ? "Save profile" : "Finish profile"}
           </button>
         )}
       </div>
+      <p className="flex items-start gap-2 rounded-xl border border-rule-soft bg-bg px-3.5 py-2.5 text-[11.5px] leading-relaxed text-mute">
+        <ShieldCheck size={14} className="mt-0.5 shrink-0 text-ink-soft" aria-hidden />
+        <span>
+          <span className="font-semibold text-ink-soft">Your privacy:</span> Klimr does not sell or share your personal
+          information. The details you provide are used solely to operate your Klimr profile and connect you with
+          players, as described in our{" "}
+          <Link href="/legal#privacy" target="_blank" className="font-semibold text-ink underline decoration-rule-2 underline-offset-2 hover:text-brand-deep">
+            Privacy Policy
+          </Link>
+          .
+        </span>
+      </p>
+
       <div aria-live="polite">
         {stepError || state.error ? (
           <p role="alert" className="text-sm text-brand-deep">

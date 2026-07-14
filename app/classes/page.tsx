@@ -8,6 +8,7 @@ import { formatClassPrice, enrollmentLabel } from "@/lib/classes";
 import { isApprovedProvider } from "@/app/classes/actions";
 import { LocalTime } from "@/components/local-time";
 import { ProviderCard, type ProviderCardData } from "@/components/provider-card";
+import { ClassesBrowser, type BrowseClass } from "@/components/classes-browser";
 import type { ReviewItem } from "@/components/provider-reviews";
 import { PROFESSIONAL_ROLES } from "@/lib/professional-roles";
 
@@ -24,6 +25,11 @@ type Cls = {
   price_basis: string;
   recurrence: string;
   location_name: string | null;
+  class_format: string;
+  level_min: number | null;
+  level_max: number | null;
+  capacity: number | null;
+  provider_id: string;
 };
 
 function PriceTag({ c }: { c: Cls }) {
@@ -82,7 +88,7 @@ export default async function ClassesPage() {
   // Published classes + their next upcoming session.
   const { data: pub } = await supabase
     .from("classes")
-    .select("id, title, sport_key, summary, status, is_paid, price_cents, price_basis, recurrence, location_name")
+    .select("id, title, sport_key, summary, status, is_paid, price_cents, price_basis, recurrence, location_name, class_format, level_min, level_max, capacity, provider_id")
     .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(60);
@@ -137,7 +143,7 @@ export default async function ClassesPage() {
   if (provider) {
     const { data: mine } = await supabase
       .from("classes")
-      .select("id, title, sport_key, summary, status, is_paid, price_cents, price_basis, recurrence, location_name")
+      .select("id, title, sport_key, summary, status, is_paid, price_cents, price_basis, recurrence, location_name, class_format, level_min, level_max, capacity, provider_id")
       .eq("provider_id", user.id)
       .order("created_at", { ascending: false });
     hosting = (mine as Cls[] | null) ?? [];
@@ -196,36 +202,97 @@ export default async function ClassesPage() {
     }))
     .sort((a, b) => (b.ratingAvg ?? 0) - (a.ratingAvg ?? 0) || b.ratingCount - a.ratingCount || a.name.localeCompare(b.name));
 
+  // ── browse enrichment: coach names, live seat counts ──────────────────
+  const providerIds = [...new Set(published.map((c) => c.provider_id))];
+  const providerName = new Map<string, string>();
+  if (providerIds.length) {
+    const { data: pn } = await supabase.from("profiles").select("id, display_name").in("id", providerIds);
+    for (const x of pn ?? []) providerName.set(x.id, x.display_name ?? "Coach");
+  }
+  const pubIds = published.map((c) => c.id);
+  const seatTaken = new Map<string, number>();
+  if (pubIds.length) {
+    const { data: ens } = await supabase.from("class_enrollments").select("class_id, status").in("class_id", pubIds);
+    for (const e of ens ?? []) {
+      if (e.status === "cancelled") continue;
+      seatTaken.set(e.class_id, (seatTaken.get(e.class_id) ?? 0) + 1);
+    }
+  }
+  const browseItems: BrowseClass[] = published.map((c) => ({
+    id: c.id,
+    title: c.title,
+    sportKey: c.sport_key,
+    summary: c.summary,
+    isPaid: c.is_paid,
+    priceCents: c.price_cents,
+    priceBasis: c.price_basis,
+    recurrence: c.recurrence,
+    locationName: c.location_name,
+    format: c.class_format,
+    levelMin: c.level_min,
+    levelMax: c.level_max,
+    nextStart: nextByClass.get(c.id) ?? null,
+    coachName: providerName.get(c.provider_id) ?? null,
+    spotsLeft: c.capacity != null ? Math.max(0, c.capacity - (seatTaken.get(c.id) ?? 0)) : null,
+  }));
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="mb-6 flex items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Discover — Classes &amp; Coaching</p>
         <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Classes &amp; Coaching</h1>
-          <p className="mt-1 text-sm text-mute">Clinics, lessons, and coaching with verified Klimr professionals.</p>
+          <p className="mt-1 text-sm text-mute">Private lessons, group classes, and clinics — from coaches whose credentials we verify and members rate.</p>
           <Link href="/classes/past" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past classes →</Link>
         </div>
         {provider ? (
           <Link
             href="/classes/new"
-            className="press flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+            className="press flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]"
+            style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
           >
             <Plus size={16} /> Create class
           </Link>
-        ) : null}
+        ) : (
+          <Link
+            href="/settings/professional"
+            className="press flex shrink-0 items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-brand-deep shadow-e1 transition-colors hover:border-brand/40"
+          >
+            <GraduationCap size={16} /> Offer coaching
+          </Link>
+        )}
       </div>
 
-      {coachCards.length ? (
-        <section className="mb-8">
-          <h2 className="text-sm font-bold text-ink">Verified coaches &amp; trainers</h2>
-          <p className="mt-1 text-xs text-mute">Credential-checked pros, rated by the members who train with them.</p>
+      <section className="mb-8">
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-faint">Find a coach</p>
+        <h2 className="mt-0.5 text-xl font-bold text-ink">Verified coaches &amp; trainers</h2>
+        <p className="mt-1 text-xs text-mute">
+          Every credential is checked against its issuing body, and reviews come from named Klimr members. Sessions and payment are arranged
+          directly with the coach.
+        </p>
+        {coachCards.length === 0 ? (
+          <div className="mt-3 rounded-2xl border-2 border-dashed border-rule-2 bg-surface/60 p-8 text-center">
+            <p className="text-sm font-bold text-ink">No verified coaches yet — be the first.</p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-mute">Tennis, pickleball, padel, racquetball, and beach volleyball coaches: get credential-verified and reach players near you.</p>
+            <Link
+              href="/settings/professional"
+              className="press mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-flame"
+              style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
+            >
+              Apply as a coach →
+            </Link>
+          </div>
+        ) : null}
+        {coachCards.length ? (
+          <>
           <div className="mt-3 grid gap-4 lg:grid-cols-2">
             {coachCards.map((c) => (
               <ProviderCard key={c.userId} p={c} viewerId={user.id} roleFilter={(k) => COACH_KEYS.has(k)} />
             ))}
           </div>
-        </section>
-      ) : null}
+          </>
+        ) : null}
+      </section>
 
       {upcoming.length > 0 ? (
         <section className="mb-8">
@@ -274,19 +341,9 @@ export default async function ClassesPage() {
       ) : null}
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-mute">{provider ? "All classes" : "Browse classes"}</h2>
-        {published.length === 0 ? (
-          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
-            <GraduationCap size={28} className="mx-auto text-faint" />
-            <p className="mt-2 text-sm text-mute">No classes are published yet. Check back soon.</p>
-          </div>
-        ) : (
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {published.map((c) => (
-              <ClassCard key={c.id} c={c} nextStart={nextByClass.get(c.id)} />
-            ))}
-          </div>
-        )}
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-faint">Learn &amp; train</p>
+        <h2 className="mb-3 mt-0.5 text-xl font-bold text-ink">{provider ? "All classes" : "Browse classes"}</h2>
+        <ClassesBrowser items={browseItems} nowMs={Date.parse(nowISO)} />
       </section>
     </div>
   );

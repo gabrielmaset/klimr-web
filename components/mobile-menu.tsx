@@ -3,66 +3,15 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  X, IdCard, Newspaper, Swords, Trophy, Flag, Medal, CalendarDays, Contact, Users, Inbox,
-  Radar, MapPin, ShoppingBag, GraduationCap, Sparkles, BookOpen, Settings, User, Gift, ShieldCheck, LogOut, CalendarRange, Bell,
-  HeartPulse,
-} from "lucide-react";
-import { signOutAction } from "@/app/auth/actions";
+import { X, ShieldCheck, IdCard, User, Settings, Gift, LogOut } from "lucide-react";
+import { NAV_GROUPS, type NavItem } from "@/lib/nav";
 import { Avatar } from "@/components/avatar";
+import { signOutAction } from "@/app/auth/actions";
 
-type Item = { href: string; label: string; Icon: typeof X };
-
-const PRIMARY: Item[] = [
-  { href: "/me", label: "My profile", Icon: IdCard },
-  { href: "/feed", label: "Home", Icon: Newspaper },
-  { href: "/play", label: "Play", Icon: Swords },
-  { href: "/rankings", label: "Rankings", Icon: Trophy },
-];
-const GROUPS: { header: string; items: Item[] }[] = [
-  {
-    header: "Compete",
-    items: [
-      { href: "/challenges", label: "Challenges", Icon: Flag },
-      { href: "/tournaments", label: "Tournaments", Icon: Medal },
-      { href: "/events", label: "Events", Icon: CalendarDays },
-    ],
-  },
-  {
-    header: "Community",
-    items: [
-      { href: "/network", label: "Network", Icon: Contact },
-      { href: "/teams", label: "Teams", Icon: Users },
-      { href: "/invites", label: "Invites", Icon: Inbox },
-    ],
-  },
-  {
-    header: "Discover",
-    items: [
-      { href: "/discover", label: "Players", Icon: Radar },
-      { href: "/courts", label: "Courts", Icon: MapPin },
-      { href: "/marketplace", label: "Marketplace", Icon: ShoppingBag },
-      { href: "/classes", label: "Classes & Coaching", Icon: GraduationCap },
-      { href: "/health", label: "Health & Nutrition", Icon: HeartPulse },
-      { href: "/sponsorships", label: "Sponsorships", Icon: Sparkles },
-      { href: "/resources", label: "Playbook", Icon: BookOpen },
-    ],
-  },
-  {
-    header: "Your account",
-    items: [
-      { href: "/calendar", label: "Calendar", Icon: CalendarRange },
-      { href: "/notifications", label: "Notifications", Icon: Bell },
-      { href: "/account", label: "Account", Icon: User },
-      { href: "/settings", label: "Settings", Icon: Settings },
-      { href: "/invite", label: "Invite friends", Icon: Gift },
-    ],
-  },
-];
-
-/** Full-screen mobile navigation sheet (the Facebook pattern): every
- *  destination in one tap-friendly grouped grid. Solid surfaces — no blur —
- *  so it stays fast on mobile WebKit. */
+/** The phone menu — a right-edge drawer (the ☰ lives top-right) that slides
+ *  over the page: the desktop rail's anatomy (list rows, mono kickers, flame
+ *  active state), none of its footprint. Every row closes it; so do the
+ *  scrim, the X, and Escape. */
 export function MobileMenu({
   open,
   onClose,
@@ -79,75 +28,99 @@ export function MobileMenu({
   adminRole: boolean;
 }) {
   const pathname = usePathname();
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
-  // Close when navigation happens; lock body scroll while open.
-  useEffect(() => {
-    onClose();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, onClose]);
 
-  if (!open) return null;
+  const row = (active: boolean) =>
+    `group relative flex h-10 items-center gap-3 rounded-[10px] px-3 text-[13.5px] font-semibold transition-colors ${
+      active ? "bg-brand/[0.08] text-ink shadow-[inset_0_0_0_1px_rgba(214,58,15,0.12)]" : "text-mute active:bg-[rgba(32,27,18,0.05)]"
+    }`;
 
-  const tile = (it: Item) => {
-    const active = pathname === it.href || pathname.startsWith(it.href + "/");
+  const renderItem = ({ href, label, Icon }: NavItem) => {
+    const active = isActive(href);
     return (
-      <Link
-        key={it.href}
-        href={it.href}
-        className={`press flex items-center gap-2.5 rounded-[14px] border px-3 py-3 text-[13.5px] font-semibold ${
-          active ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule bg-surface text-ink"
-        }`}
-      >
-        <it.Icon size={17} className={active ? "text-brand-deep" : "text-mute"} />
-        {it.label}
+      <Link key={href} href={href} onClick={onClose} aria-current={active ? "page" : undefined} className={row(active)}>
+        {active ? (
+          <span aria-hidden className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(180deg, #FF7A4D, #D63A0F)" }} />
+        ) : null}
+        <Icon size={17} className={active ? "text-brand-deep" : "text-faint"} />
+        {label}
       </Link>
     );
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-      <div className="pt-safe px-safe border-b border-rule bg-[#FFFDF8]">
-        <div className="flex items-center justify-between px-5 py-3">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={34} ring />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-bold text-ink">{avatarName}</span>
-              <span className="block font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">Menu</span>
-            </span>
+    <div className="md:hidden" aria-hidden={!open}>
+      <div
+        onClick={onClose}
+        aria-hidden
+        className={`fixed inset-0 z-[58] bg-ink/30 transition-opacity duration-200 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        className={`pt-safe pb-safe fixed inset-y-0 right-0 z-[59] flex w-[302px] max-w-[86vw] transform flex-col border-l border-rule bg-[#FFFDF8] shadow-e3 transition-transform duration-200 ease-out ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex shrink-0 items-center gap-3 border-b border-rule-soft px-4 py-3.5">
+          <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={34} ring />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-ink">{avatarName}</p>
+            <p className="font-mono text-[8.5px] font-bold uppercase tracking-[.18em] text-faint">Menu</p>
           </div>
-          <button type="button" aria-label="Close menu" onClick={onClose} className="press grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface text-ink">
-            <X size={18} />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="press grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface text-mute"
+          >
+            <X size={16} />
           </button>
         </div>
-      </div>
 
-      <div className="px-safe min-h-0 flex-1 overflow-y-auto px-5 pb-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom)+2.5rem)] pt-4">
-        <div className="grid grid-cols-2 gap-2">{PRIMARY.map(tile)}</div>
-        {GROUPS.map((g) => (
-          <div key={g.header} className="mt-5">
-            <p className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[.18em] text-faint">{g.header}</p>
-            <div className="grid grid-cols-2 gap-2">{g.items.map(tile)}</div>
-          </div>
-        ))}
-        {adminRole ? (
-          <div className="mt-5">
-            <p className="mb-2 font-mono text-[9px] font-bold uppercase tracking-[.18em] text-faint">Admin</p>
-            <div className="grid grid-cols-2 gap-2">{tile({ href: "/admin", label: "Admin", Icon: ShieldCheck })}</div>
-          </div>
-        ) : null}
-        <form action={signOutAction} className="mt-6">
-          <button type="submit" className="press flex w-full items-center justify-center gap-2 rounded-[14px] border border-rule bg-surface px-3 py-3 text-[13.5px] font-semibold text-mute">
-            <LogOut size={16} /> Log out
-          </button>
-        </form>
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2" aria-label="Main">
+          {NAV_GROUPS.map((g) => (
+            <div key={g.header ?? "primary"}>
+              {g.header ? (
+                <p className="px-3 pb-1 pt-3.5 font-mono text-[9px] font-bold uppercase tracking-[.18em] text-faint">{g.header}</p>
+              ) : null}
+              <div className="flex flex-col gap-0.5">{g.items.map(renderItem)}</div>
+            </div>
+          ))}
+        </nav>
+
+        <div className="shrink-0 border-t border-rule-soft px-3 py-2">
+          {adminRole ? renderItem({ href: "/admin", label: "Admin", Icon: ShieldCheck }) : null}
+          {renderItem({ href: "/me", label: "My profile", Icon: IdCard })}
+          {renderItem({ href: "/account", label: "Account", Icon: User })}
+          {renderItem({ href: "/settings", label: "Settings", Icon: Settings })}
+          <Link href="/invite" onClick={onClose} className={row(isActive("/invite"))}>
+            <Gift size={17} className="text-faint" />
+            Invite friends
+            <span className="ml-auto rounded-full bg-bg px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-faint">Soon</span>
+          </Link>
+          <form action={signOutAction}>
+            <button type="submit" className={`${row(false)} w-full`}>
+              <LogOut size={17} className="text-faint" />
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
