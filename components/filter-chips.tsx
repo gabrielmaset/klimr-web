@@ -65,7 +65,10 @@ export function ChipButton({ active, onClick, children, count, size = "md" }: { 
 export function FilterGroup({ label, children, className = "", trailing, footer, pinned }: { label: string; children: React.ReactNode; className?: string; trailing?: React.ReactNode; footer?: React.ReactNode; pinned?: React.ReactNode }) {
   return (
     <div role="group" aria-label={label} className={`relative flex min-w-0 flex-col rounded-2xl border border-rule-2 bg-surface px-1.5 pb-1.5 pt-3 ${className}`}>
-      <span className="absolute -top-[7px] left-3 inline-flex items-center gap-2 bg-surface px-1.5 font-mono text-[9px] font-bold uppercase leading-none tracking-[.16em] text-faint">
+      <span
+        className="absolute -top-[7px] left-3 inline-flex items-center gap-2 px-1.5 font-mono text-[9px] font-bold uppercase leading-none tracking-[.16em] text-faint"
+        style={{ background: "linear-gradient(to bottom, transparent 45%, var(--color-surface) 45%)" }}
+      >
         {label}
         {trailing}
       </span>

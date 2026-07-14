@@ -222,6 +222,14 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Group label: split background (kills the white box)
+- The emulated on-border label used bg-surface, which painted a visible white rectangle
+  against the cream page ABOVE the border line (iOS screenshots). Universal fix in
+  FilterGroup: the label's background is now `linear-gradient(to bottom, transparent 45%,
+  var(--color-surface) 45%)` — top half transparent so the page shows through, bottom half
+  surface so the 1px border is masked and blends into the container. Works over any page
+  background; no per-page knowledge needed.
+
 ### 2026-07-14 — Mobile polish: Safari-proof group labels · stacked decks · composer fit
 - iOS Safari renders <legend> gaps inconsistently (the "border doesn't end next to the
   title" screenshots). FilterGroup no longer uses native fieldset/legend: div[role=group] +
