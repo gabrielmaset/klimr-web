@@ -101,6 +101,12 @@ export function ProfessionalStatusForm({ existingRoles }: { existingRoles: strin
           <label className="block">
             <span className={labelCls}>Anything else for our reviewers? (optional)</span>
             <textarea name="applicant_note" rows={2} maxLength={400} className={field} />
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold text-ink-soft">Credential document <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-faint">Optional</span></span>
+              <input type="file" name="credential_doc" accept=".pdf,.png,.jpg,.jpeg" className="block w-full cursor-pointer rounded-[12px] border border-rule-2 bg-bg px-3 py-2.5 text-xs text-ink-soft file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-surface" />
+              <span className="text-[11px] text-faint">A copy of your license or certificate (PDF/JPG/PNG, ≤5 MB) — visible only to Klimr admins during review.</span>
+            </label>
           </label>
 
           <div className="flex items-start gap-2 rounded-xl border border-brand/20 bg-tint-brand px-3.5 py-2.5">

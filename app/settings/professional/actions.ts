@@ -31,6 +31,24 @@ export async function requestProfessionalStatus(formData: FormData) {
     .maybeSingle();
   if (existing) redirect("/settings/professional?error=duplicate");
 
+  // Optional credential document — private bucket, owner-scoped (0114);
+  // admins view via short-lived signed URLs.
+  let documentPath: string | null = null;
+  const doc = formData.get("credential_doc");
+  if (doc instanceof File && doc.size > 0) {
+    if (doc.size > 5 * 1024 * 1024) redirect("/settings/professional?error=doc-size");
+    const okTypes = ["application/pdf", "image/png", "image/jpeg"];
+    if (!okTypes.includes(doc.type)) redirect("/settings/professional?error=doc-type");
+    const safe = doc.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80);
+    const path = `${user.id}/${Date.now()}-${safe}`;
+    const { error: upErr } = await supabase.storage.from("credential-docs").upload(path, doc, { contentType: doc.type });
+    if (upErr) {
+      console.error("[professional] doc upload failed", upErr.message);
+      redirect("/settings/professional?error=doc-upload");
+    }
+    documentPath = path;
+  }
+
   await supabase.from("provider_applications").insert({
     user_id: user.id,
     role,
@@ -42,6 +60,7 @@ export async function requestProfessionalStatus(formData: FormData) {
     credential_jurisdiction: s("credential_jurisdiction") || null,
     verification_url: s("verification_url") || null,
     applicant_note: s("applicant_note") || null,
+    document_path: documentPath,
   });
 
   revalidatePath("/settings/professional");

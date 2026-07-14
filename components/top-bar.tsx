@@ -151,9 +151,11 @@ function IconLink({ href, label, badge, badgeNode, children }: { href: string; l
       aria-label={badge > 0 ? `${label}, ${badge} unread` : label}
       className="press inline-flex h-[34px] min-w-9 flex-[0_1_auto] items-center justify-center gap-1.5 overflow-hidden rounded-[10px] px-2.5 text-[13px] font-semibold text-mute transition-colors hover:bg-[rgba(32,27,18,0.05)] hover:text-ink"
     >
-      <span className="shrink-0">{children}</span>
+      <span className="relative shrink-0">
+        {children}
+        <span className="absolute -right-2 -top-1.5">{badgeNode ?? <CountBadge count={badge} className="ring-2 ring-surface" />}</span>
+      </span>
       <span className="min-w-0 truncate">{label}</span>
-      {badgeNode ?? <CountBadge count={badge} />}
     </Link>
   );
 }
@@ -248,7 +250,7 @@ export function TopBar({
             <MessageCircle size={17} />
           </IconLink>
 
-          <IconLink href="/notifications" label="Notifications" badge={unreadCount} badgeNode={<NotificationBadge initialCount={unreadCount} />}>
+          <IconLink href="/notifications" label="Notifications" badge={unreadCount} badgeNode={<NotificationBadge initialCount={unreadCount} className="ring-2 ring-surface" />}>
             <Bell size={17} />
           </IconLink>
 

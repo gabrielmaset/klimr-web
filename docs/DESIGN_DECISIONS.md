@@ -222,6 +222,43 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Join-instead suggester · match-page energy · perf pass · house FilterChips
+- **Before-you-create crosscheck**: as soon as sport (+ ZIP context) is chosen on /play/new,
+  `findOpenMatches` (server action, debounced 400ms) surfaces ≤3 open matches nearby with
+  free seats (same sport, ≤15 mi, upcoming/anytime, not yours, not already joined) in a
+  warm non-blocking panel — when/court/distance/seats/organizer + one-tap **Join** (direct
+  joinMatch, pending spinner). Creating below stays untouched.
+- **Organize a match**: sport pills → a scalable auto-fill **tile grid** (emoji + name,
+  tint/ring/lift selection, grows to any sport count); Create button wears the flame.
+- **Performance pass** (docs/PERFORMANCE.md): the sluggishness was perceived-responsiveness
+  — ZERO loading.tsx + missing pending states = silent navigations and the double-click
+  symptom. Shipped: PageSkeleton + loading.tsx across nine segments (clicks paint within a
+  frame), standing rules for pending states, both remaining <a> internals verified
+  legitimate. Follow-ups: Vercel Speed Insights + web-vitals field data.
+- **FilterChips = the sitewide-standard candidate** (Gabriel to approve): filters never wear
+  the flame — selected = solid-ink + check (Material/Spotify grammar) so filters can't
+  compete with CTAs; 32px single size, outline resting, mono counts, fixed label column
+  (SPORT/TYPE/WHEN/PRICE/NEAR ME) for alignment, horizontal scroll (hidden scrollbar) on
+  small screens instead of wrap-noise. Events browser swapped as the pilot; Link (`Chip`) and
+  state (`ChipButton`) variants share one visual system.
+
+### 2026-07-14 — Provider review console (0114) · definitive badge · no member DMs
+- **Review console**: applications now show full identity (name · Member #NNNNN ·
+  city, state · joined date · account UUID) from a richer profiles fetch; applicants can
+  attach a credential document (PDF/JPG/PNG ≤5 MB) — **private** `credential-docs` bucket,
+  owner-scoped storage policies, admins view via 10-minute service-role signed URLs;
+  **Decision history** section lists approved/rejected applications with status pill,
+  reviewer name (reviewed_by — the code already wrote it; 0114 supplies the column), date,
+  and the review note — every admin sees every decision.
+- **Badge, definitively**: the gradient at 17px was the "cheap" read. New CountBadge = the
+  FB/iOS spec — flat solid #E7350F perfect circle, 18px, white 11px semibold grid-centered
+  digits (no baseline hacks), pill only past one digit, ring where floating. Top-bar badges
+  now float over the ICON (relative wrapper, -top-1.5/-right-2) instead of trailing the
+  label; mobile bell + bottom-nav share the exact geometry.
+- **No free-form member DMs**: Message removed from the profile ··· menu, the
+  `messageMember` action and its notice banner deleted. The DM primitive itself stays —
+  Training Room "Message {pro}" is its only entry, per product intent.
+
 ### 2026-07-13 — Public player profile rebuilt to the Daylight handoff (+ /settings/profile-page)
 - **Kept the machinery, rebuilt the skin**: the existing page already ran the geographic
   ladder (`ranked_players` RPC, ZIP→World), honest badges, full safety state (blocks both

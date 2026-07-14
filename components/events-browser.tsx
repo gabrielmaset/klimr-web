@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ChipRow, ChipButton } from "@/components/filter-chips";
 import { EventsMap } from "@/components/events-map";
 import { resolveEventArea } from "@/app/events/area-actions";
 import { reportClientError } from "@/lib/client-diagnostics";
@@ -40,23 +41,13 @@ const gradientFor = (sportKey: string) => {
 type Chip = { value: string; label: string };
 function Chips({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: Chip[] }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => {
-        const on = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(o.value)}
-            className={`press rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-              on ? "border-brand bg-brand text-white" : "border-rule bg-surface text-mute hover:border-brand/50 hover:text-ink"
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      {options.map((o) => (
+        <ChipButton key={o.value} active={o.value === value} onClick={() => onChange(o.value)}>
+          {o.label}
+        </ChipButton>
+      ))}
+    </>
   );
 }
 
@@ -196,10 +187,10 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
         />
       </div>
 
-      <div className="mb-6 space-y-2.5">
-        {sportChips.length > 2 ? <Chips value={sport} onChange={setSport} options={sportChips} /> : null}
-        {kindChips.length > 2 ? <Chips value={kind} onChange={setKind} options={kindChips} /> : null}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
+      <div className="mb-6 space-y-2">
+        {sportChips.length > 2 ? <ChipRow label="Sport"><Chips value={sport} onChange={setSport} options={sportChips} /></ChipRow> : null}
+        {kindChips.length > 2 ? <ChipRow label="Type"><Chips value={kind} onChange={setKind} options={kindChips} /></ChipRow> : null}
+        <ChipRow label="When">
           <Chips
             value={when}
             onChange={setWhen}
@@ -210,6 +201,8 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
               { value: "month", label: "This month" },
             ]}
           />
+        </ChipRow>
+        <ChipRow label="Price">
           <Chips
             value={price}
             onChange={setPrice}
@@ -219,31 +212,22 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
               { value: "paid", label: "Paid" },
             ]}
           />
-        </div>
+        </ChipRow>
         {/* Proximity — real browser location, honest about unmapped events */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[.18em] text-faint">Near me</span>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[64px_minmax(0,1fr)]">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">Near me</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex gap-1.5">
             {[
               { v: null, label: "Off" },
               { v: 5, label: "5 mi" },
               { v: 10, label: "10 mi" },
               { v: 25, label: "25 mi" },
-            ].map((o) => {
-              const on = nearMi === o.v;
-              return (
-                <button
-                  key={o.label}
-                  type="button"
-                  onClick={() => (o.v === null ? setNearMi(null) : requestNear(o.v))}
-                  className={`press rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    on ? "border-brand bg-brand text-white" : "border-rule bg-surface text-mute hover:border-brand/50 hover:text-ink"
-                  }`}
-                >
-                  {o.label}
-                </button>
-              );
-            })}
+            ].map((o) => (
+              <ChipButton key={o.label} active={nearMi === o.v} onClick={() => (o.v === null ? setNearMi(null) : requestNear(o.v))}>
+                {o.label}
+              </ChipButton>
+            ))}
           </div>
           <span className="text-faint" aria-hidden>·</span>
           <form
@@ -272,6 +256,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
             <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">{geoLabel}</span>
           ) : null}
           {geoErr ? <span className="text-xs text-danger">{geoErr}</span> : null}
+          </div>
         </div>
       </div>
 

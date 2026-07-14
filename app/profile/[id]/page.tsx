@@ -98,9 +98,8 @@ const fmtMonYr = (iso: string) => new Date(iso).toLocaleDateString("en-US", { mo
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const mono = "font-mono";
 
-export default async function ProfilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string }> }) {
+export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { notice } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -373,8 +372,6 @@ export default async function ProfilePage({ params, searchParams }: { params: Pr
         <BackPill />
         <p className={`${mono} text-[10px] font-bold uppercase tracking-[.2em] text-flame-text`}>Community — Player profile</p>
       </div>
-
-      {notice === "chat" ? <p className="mt-4 rounded-[12px] border border-[#f0c2b0] bg-[#fbeee7] px-3.5 py-2.5 text-[13px] font-semibold text-[#b91c1c]">Couldn&rsquo;t open the chat right now.</p> : null}
 
       {/* ── hero ───────────────────────────────────────────────────── */}
       <section className="mt-5 overflow-hidden rounded-[22px] border border-rule bg-surface shadow-e2">

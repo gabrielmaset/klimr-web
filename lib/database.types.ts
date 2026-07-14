@@ -1609,7 +1609,7 @@ export interface Database {
           reviewed_at?: string | null;
           created_at?: string;
           updated_at?: string;
-        };
+         document_path?: string | null; };
         Update: {
           status?: string;
           headline?: string | null;

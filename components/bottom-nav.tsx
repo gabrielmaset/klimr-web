@@ -67,7 +67,7 @@ export function BottomNav({
               >
                 <span className={`relative ${SLOT}`}>
                   <Icon size={20} className={active ? "text-brand-deep" : "text-mute"} />
-                  <CountBadge count={badge} className="absolute -right-2 -top-1 ring-2 ring-surface" />
+                  <CountBadge count={badge} className="absolute -right-2 -top-1.5 ring-2 ring-surface" />
                 </span>
                 <span className={active ? "text-flame-text" : "text-mute"}>{label}</span>
               </Link>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MoreHorizontal, MessageCircle, Share2, Ban, Flag, Check } from "lucide-react";
-import { blockUser, reportUser, messageMember } from "@/app/profile/[id]/actions";
+import { MoreHorizontal, Share2, Ban, Flag, Check } from "lucide-react";
+import { blockUser, reportUser } from "@/app/profile/[id]/actions";
 
 const REASONS = [
   { value: "harassment", label: "Harassment or bullying" },
@@ -54,12 +54,6 @@ export function ProfileMenu({ userId, name, alreadyReported }: { userId: string;
         <div className="absolute right-0 top-11 z-30 w-64 rounded-2xl border border-rule bg-surface p-2 shadow-e2">
           {mode === "menu" ? (
             <>
-              <form action={messageMember}>
-                <input type="hidden" name="userId" value={userId} />
-                <button className={`${item} text-ink hover:bg-bg`}>
-                  <MessageCircle size={15} /> Message {name.split(" ")[0]}
-                </button>
-              </form>
               <button
                 type="button"
                 onClick={() => {

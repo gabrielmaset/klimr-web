@@ -5,6 +5,7 @@ import { createMatch } from "./actions";
 import { SPORTS } from "@/lib/sports";
 import { CourtPicker } from "./court-picker";
 import { DateTimePicker } from "./datetime-picker";
+import { JoinSuggest } from "./join-suggest";
 import type { PickerCourt } from "@/app/courts/search-actions";
 
 export function CreateMatchForm({
@@ -48,7 +49,7 @@ export function CreateMatchForm({
           {/* sport */}
           <div>
             <label className="kicker text-faint">Sport</label>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(104px,1fr))" }}>
               {SPORTS.map((s) => {
                 const on = sport === s.key;
                 return (
@@ -57,14 +58,10 @@ export function CreateMatchForm({
                     type="button"
                     onClick={() => setSport(s.key)}
                     aria-pressed={on}
-                    className="press flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors"
-                    style={{
-                      borderColor: on ? "var(--color-brand)" : "var(--color-rule)",
-                      background: on ? "var(--color-tint-brand)" : "transparent",
-                      color: on ? "var(--color-brand-deep)" : "var(--color-mute)",
-                    }}
+                    className={`press rounded-2xl border px-2 py-3 text-center transition-all ${on ? "-translate-y-0.5 border-[#FFD4BC] bg-tint-brand shadow-[0_10px_28px_-18px_rgba(90,68,35,.45)] ring-2 ring-brand/25" : "border-rule bg-surface hover:-translate-y-0.5 hover:border-rule-2 hover:shadow-e1"}`}
                   >
-                    <span aria-hidden>{s.emoji}</span> {s.name}
+                    <span className={`block text-[22px] leading-none transition-transform ${on ? "scale-110" : ""}`} aria-hidden>{s.emoji}</span>
+                    <span className={`mt-1.5 block text-xs font-bold ${on ? "text-brand-deep" : "text-ink-soft"}`}>{s.name}</span>
                   </button>
                 );
               })}
@@ -179,6 +176,8 @@ export function CreateMatchForm({
       <input type="hidden" name="recurring" value={recurring ? "on" : ""} />
       <input type="hidden" name="recurrence" value={recurring ? recurrence : ""} />
 
+      <JoinSuggest sport={sport} zip={defaultZip ?? ""} />
+
       {state?.error ? (
         <p className="mt-6 rounded-xl border border-brand/30 bg-tint-brand px-4 py-3 text-sm text-brand-deep">{state.error}</p>
       ) : null}
@@ -187,7 +186,7 @@ export function CreateMatchForm({
         <button
           type="submit"
           disabled={pending || !sport}
-          className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+          className="press rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-50" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
         >
           {pending ? "Creating…" : "Create match"}
         </button>

@@ -19,6 +19,18 @@ type AppRow = {
   bio: string | null;
   applicant_note: string | null;
   created_at: string;
+  document_path: string | null;
+};
+type Ident = { name: string; memberNo: number | null; area: string | null; joined: string };
+type DecidedRow = {
+  id: string;
+  user_id: string;
+  role: string;
+  status: string;
+  review_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  credential_id: string | null;
 };
 
 export default async function AdminProvidersPage() {
@@ -33,17 +45,54 @@ export default async function AdminProvidersPage() {
 
   const { data: pendingApps } = await admin
     .from("provider_applications")
-    .select("id, user_id, role, credential_type, credential_id, credential_jurisdiction, verification_url, headline, bio, applicant_note, created_at")
+    .select("id, user_id, role, credential_type, credential_id, credential_jurisdiction, verification_url, headline, bio, applicant_note, created_at, document_path")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
   const apps = (pendingApps as AppRow[] | null) ?? [];
 
-  const ids = [...new Set([...rows.map((r) => r.user_id), ...apps.map((a) => a.user_id)])];
+  // Decision history — visible to every admin: what was decided, by whom, when.
+  const { data: decidedRows } = await admin
+    .from("provider_applications")
+    .select("id, user_id, role, status, review_note, reviewed_by, reviewed_at, credential_id")
+    .in("status", ["approved", "rejected"])
+    .order("reviewed_at", { ascending: false, nullsFirst: false })
+    .limit(40);
+  const decided = (decidedRows as DecidedRow[] | null) ?? [];
+
+  const ids = [
+    ...new Set([
+      ...rows.map((r) => r.user_id),
+      ...apps.map((a) => a.user_id),
+      ...decided.map((d) => d.user_id),
+      ...decided.map((d) => d.reviewed_by).filter((x): x is string => !!x),
+    ]),
+  ];
   const nameMap = new Map<string, string>();
+  const identMap = new Map<string, Ident>();
   if (ids.length) {
-    const { data: profs } = await admin.from("profiles").select("id, display_name").in("id", ids);
-    (profs ?? []).forEach((p) => nameMap.set(p.id, p.display_name));
+    const { data: profs } = await admin.from("profiles").select("id, display_name, member_no, city, state, created_at").in("id", ids);
+    for (const pr of profs ?? []) {
+      nameMap.set(pr.id, pr.display_name);
+      identMap.set(pr.id, {
+        name: pr.display_name,
+        memberNo: pr.member_no,
+        area: [pr.city, pr.state].filter(Boolean).join(", ") || null,
+        joined: new Date(pr.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+      });
+    }
   }
+
+  // Short-lived signed URLs for applicant documents (private bucket, 0114).
+  const docUrls = new Map<string, string>();
+  await Promise.all(
+    apps
+      .filter((a) => a.document_path)
+      .map(async (a) => {
+        const { data } = await admin.storage.from("credential-docs").createSignedUrl(a.document_path!, 600);
+        if (data?.signedUrl) docUrls.set(a.id, data.signedUrl);
+      }),
+  );
+  const memberRef = (m: number | null) => (m != null ? `Member #${String(m).padStart(5, "0")}` : null);
 
   return (
     <div className="space-y-8">
@@ -64,7 +113,12 @@ export default async function AdminProvidersPage() {
                       <span className="rounded-full bg-tint-brand px-2 py-0.5 text-xs font-semibold text-brand-deep">{roleLabel(a.role)}</span>
                     </div>
                     {a.headline ? <div className="mt-0.5 text-xs text-mute">{a.headline}</div> : null}
-                    <div className="text-[11px] text-faint">{a.user_id}</div>
+                    <div className="mt-0.5 text-xs font-semibold text-ink-soft">
+                      {[memberRef(identMap.get(a.user_id)?.memberNo ?? null), identMap.get(a.user_id)?.area, identMap.get(a.user_id) ? `Joined ${identMap.get(a.user_id)!.joined}` : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
+                    <div className="font-mono text-[10px] text-faint">Account {a.user_id}</div>
                   </div>
                   <span className="shrink-0 text-[11px] text-faint">{new Date(a.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
                 </div>
@@ -79,6 +133,11 @@ export default async function AdminProvidersPage() {
                     {a.verification_url ? (
                       <a href={a.verification_url} target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex items-center gap-1 font-semibold text-brand-deep hover:underline">
                         Verify <ExternalLink size={11} />
+                      </a>
+                    ) : null}
+                    {docUrls.get(a.id) ? (
+                      <a href={docUrls.get(a.id)} target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex items-center gap-1 rounded-full border border-rule-2 bg-surface px-2 py-0.5 font-semibold text-ink hover:text-brand-deep">
+                        View document <ExternalLink size={11} />
                       </a>
                     ) : null}
                   </div>
@@ -158,6 +217,35 @@ export default async function AdminProvidersPage() {
             Approve
           </button>
         </form>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-mute">Decision history ({decided.length})</h2>
+        {decided.length === 0 ? (
+          <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-6 text-center text-sm text-mute">No decisions yet — approved and rejected applications will appear here for every admin.</div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
+            <div className="divide-y divide-rule-soft">
+              {decided.map((d) => (
+                <div key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide ${d.status === "approved" ? "bg-[#EFF8F0] text-[#217A34]" : "bg-[#FDECEA] text-[#D92D20]"}`}
+                  >
+                    {d.status}
+                  </span>
+                  <span className="text-sm font-bold text-ink">{nameMap.get(d.user_id) ?? d.user_id.slice(0, 8)}</span>
+                  <span className="rounded-full bg-tint-brand px-2 py-0.5 text-[11px] font-semibold text-brand-deep">{roleLabel(d.role)}</span>
+                  {d.credential_id ? <span className="font-mono text-[11px] text-faint">#{d.credential_id}</span> : null}
+                  <span className="ml-auto text-[11px] text-faint">
+                    by <span className="font-semibold text-ink-soft">{d.reviewed_by ? nameMap.get(d.reviewed_by) ?? "an admin" : "an admin"}</span>
+                    {d.reviewed_at ? ` · ${new Date(d.reviewed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}
+                  </span>
+                  {d.review_note ? <span className="w-full text-xs italic text-mute">&ldquo;{d.review_note}&rdquo;</span> : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section>
