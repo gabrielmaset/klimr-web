@@ -62,13 +62,44 @@ export function ChipButton({ active, onClick, children, count, size = "md" }: { 
  *  options live inside a bounded, vertically scrolling cloud. Dozens of
  *  options never change the container's footprint; boxes sit side by side
  *  and wrap as a deck on smaller screens. */
-export function FilterGroup({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+export function FilterGroup({ label, children, className = "", trailing }: { label: string; children: React.ReactNode; className?: string; trailing?: React.ReactNode }) {
   return (
-    <fieldset className={`relative min-w-0 rounded-2xl border border-rule-2 bg-surface px-3 pb-3 pt-1.5 ${className}`}>
-      <legend className="ml-0.5 px-1.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">{label}</legend>
-      <div className="flex max-h-[104px] flex-wrap content-start gap-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] [scrollbar-color:#E4DCCB_transparent]">
+    <fieldset className={`relative min-w-0 rounded-2xl border border-rule-2 bg-surface px-1.5 pb-1.5 pt-0.5 ${className}`}>
+      <legend className="ml-1 flex items-center gap-2 px-1.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">
+        {label}
+        {trailing}
+      </legend>
+      <div className="grid max-h-[158px] content-start overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:#E4DCCB_transparent]">
         {children}
       </div>
     </fieldset>
+  );
+}
+
+/** A facet option row — uniform width, indicator + label + optional count.
+ *  `mode="check"` = multi-select (square); `mode="radio"` = single (circle).
+ *  Uniform rows are the fix for ragged pill clouds: every option occupies the
+ *  container's full width, so the column always reads clean. */
+export function FacetRow({ mode = "check", active, onClick, children, count }: { mode?: "check" | "radio"; active: boolean; onClick: () => void; children: React.ReactNode; count?: number | null }) {
+  return (
+    <button
+      type="button"
+      role={mode === "radio" ? "radio" : "checkbox"}
+      aria-checked={active}
+      onClick={onClick}
+      className="press flex h-8 w-full items-center gap-2.5 rounded-lg px-2 text-left transition-colors hover:bg-bg"
+    >
+      {mode === "check" ? (
+        <span className={`grid h-[15px] w-[15px] shrink-0 place-items-center rounded-[4px] border transition-colors ${active ? "border-ink bg-ink" : "border-[#CDC3AE] bg-surface"}`}>
+          {active ? <Check size={10} strokeWidth={3.5} className="text-surface" /> : null}
+        </span>
+      ) : (
+        <span className={`grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full border transition-colors ${active ? "border-ink" : "border-[#CDC3AE]"} bg-surface`}>
+          {active ? <span className="h-[7px] w-[7px] rounded-full bg-ink" /> : null}
+        </span>
+      )}
+      <span className={`min-w-0 flex-1 truncate text-[13px] ${active ? "font-semibold text-ink" : "font-medium text-ink-soft"}`}>{children}</span>
+      {count != null ? <span className={`shrink-0 font-mono text-[10px] font-bold ${active ? "text-ink" : "text-faint"}`}>{count}</span> : null}
+    </button>
   );
 }

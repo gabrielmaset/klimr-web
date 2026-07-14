@@ -222,6 +222,18 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Filters v3: pills → the facet LIST (Amazon grammar) + real multi-select
+- Gabriel's diagnosis was exact: variable-width pills make a ragged cloud no container can
+  fix. v3 keeps the fieldset deck and replaces the interior with **uniform facet rows** —
+  full-width, h-8, indicator + label + optional mono count — the mature e-commerce sidebar
+  pattern. **Checkbox squares = multi-select** (Sport, Type — now genuinely multi: state is
+  Set<string>, empty = all, legends grow an "n · Clear" micro-link); **radio circles =
+  single-select** (When, Price, Near-me radius) so the indicator itself teaches the
+  behavior. Near-me stacks its City/ZIP + Go under a hairline inside its box. Rows scroll
+  inside max-h ~4.5 rows — fifty sports, same footprint, always a clean column.
+  FacetRow + FilterGroup(trailing) live in components/filter-chips.tsx; ChipButton remains
+  for non-facet uses.
+
 ### 2026-07-14 — Badge v4 (context-correct placements) · FilterGroup fieldset deck
 - **Badge, rethought per context**: overlapping an 18px badge on a 17px glyph covered the
   icon, and ring-surface (pure white) haloed against the #FFFDF8 bars — that's what read

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FilterGroup, ChipButton } from "@/components/filter-chips";
+import { FilterGroup, FacetRow } from "@/components/filter-chips";
 import { EventsMap } from "@/components/events-map";
 import { resolveEventArea } from "@/app/events/area-actions";
 import { reportClientError } from "@/lib/client-diagnostics";
@@ -39,23 +39,27 @@ const gradientFor = (sportKey: string) => {
 };
 
 type Chip = { value: string; label: string };
-function Chips({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: Chip[] }) {
+function toggleIn(set: Set<string>, v: string): Set<string> {
+  const next = new Set(set);
+  if (next.has(v)) next.delete(v);
+  else next.add(v);
+  return next;
+}
+
+function ClearLink({ n, onClear }: { n: number; onClear: () => void }) {
+  if (n === 0) return null;
   return (
-    <>
-      {options.map((o) => (
-        <ChipButton key={o.value} size="sm" active={o.value === value} onClick={() => onChange(o.value)}>
-          {o.label}
-        </ChipButton>
-      ))}
-    </>
+    <button type="button" onClick={onClear} className="press font-mono text-[9px] font-bold uppercase tracking-[.14em] text-brand-deep hover:underline">
+      {n} · Clear
+    </button>
   );
 }
 
 export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null }: { events: CardEvent[]; myEvents?: CardEvent[]; nowMs: number; mapboxToken?: string | null }) {
   const [mode, setMode] = useState<"browse" | "mine">("browse");
   const [q, setQ] = useState("");
-  const [sport, setSport] = useState("all");
-  const [kind, setKind] = useState("all");
+  const [sports, setSports] = useState<Set<string>>(new Set());
+  const [kinds, setKinds] = useState<Set<string>>(new Set());
   const [price, setPrice] = useState("all");
   const [when, setWhen] = useState("all");
   const [nearMi, setNearMi] = useState<number | null>(null);
@@ -125,14 +129,14 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
   };
 
   const base = mode === "mine" ? myEvents : events;
-  const sports = useMemo(() => [...new Set(base.map((e) => e.sportKey))], [base]);
-  const kinds = useMemo(() => [...new Set(base.map((e) => e.kind))], [base]);
+  const allSports = useMemo(() => [...new Set(base.map((e) => e.sportKey))], [base]);
+  const allKinds = useMemo(() => [...new Set(base.map((e) => e.kind))], [base]);
 
   const filtered = useMemo(() => {
     const day = 86400000;
     return base.filter((e) => {
-      if (sport !== "all" && e.sportKey !== sport) return false;
-      if (kind !== "all" && e.kind !== kind) return false;
+      if (sports.size > 0 && !sports.has(e.sportKey)) return false;
+      if (kinds.size > 0 && !kinds.has(e.kind)) return false;
       if (price === "free" && !isFree(e.costText)) return false;
       if (price === "paid" && isFree(e.costText)) return false;
       if (when !== "all") {
@@ -159,10 +163,10 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
       }
       return true;
     });
-  }, [base, q, sport, kind, price, when, nowMs, nearMi, geo]);
+  }, [base, q, sports, kinds, price, when, nowMs, nearMi, geo]);
 
-  const sportChips: Chip[] = [{ value: "all", label: "All sports" }, ...sports.map((s) => ({ value: s, label: `${sportMeta(s).emoji} ${sportMeta(s).name}` }))];
-  const kindChips: Chip[] = [{ value: "all", label: "All types" }, ...kinds.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }))];
+  const sportChips: Chip[] = allSports.map((s) => ({ value: s, label: `${sportMeta(s).emoji} ${sportMeta(s).name}` }));
+  const kindChips: Chip[] = allKinds.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }));
 
   return (
     <div>
@@ -188,82 +192,76 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
       </div>
 
       <div className="mb-6 flex flex-wrap items-stretch gap-3">
-        {sportChips.length > 2 ? (
-          <FilterGroup label="Sport" className="min-w-[260px] flex-[1.5]">
-            <Chips value={sport} onChange={setSport} options={sportChips} />
+        {sportChips.length > 1 ? (
+          <FilterGroup label="Sport" className="min-w-[210px] flex-[1.2]" trailing={<ClearLink n={sports.size} onClear={() => setSports(new Set())} />}>
+            {sportChips.map((o) => (
+              <FacetRow key={o.value} mode="check" active={sports.has(o.value)} onClick={() => setSports((s) => toggleIn(s, o.value))}>
+                {o.label}
+              </FacetRow>
+            ))}
           </FilterGroup>
         ) : null}
-        {kindChips.length > 2 ? (
-          <FilterGroup label="Type" className="min-w-[240px] flex-[1.2]">
-            <Chips value={kind} onChange={setKind} options={kindChips} />
+        {kindChips.length > 1 ? (
+          <FilterGroup label="Type" className="min-w-[190px] flex-1" trailing={<ClearLink n={kinds.size} onClear={() => setKinds(new Set())} />}>
+            {kindChips.map((o) => (
+              <FacetRow key={o.value} mode="check" active={kinds.has(o.value)} onClick={() => setKinds((s) => toggleIn(s, o.value))}>
+                {o.label}
+              </FacetRow>
+            ))}
           </FilterGroup>
         ) : null}
-        <FilterGroup label="When" className="min-w-[220px] flex-1">
-          <Chips
-            value={when}
-            onChange={setWhen}
-            options={[
-              { value: "all", label: "Any time" },
-              { value: "week", label: "This week" },
-              { value: "weekend", label: "This weekend" },
-              { value: "month", label: "This month" },
-            ]}
-          />
+        <FilterGroup label="When" className="min-w-[170px] flex-[0.9]">
+          {[
+            { value: "all", label: "Any time" },
+            { value: "week", label: "This week" },
+            { value: "weekend", label: "This weekend" },
+            { value: "month", label: "This month" },
+          ].map((o) => (
+            <FacetRow key={o.value} mode="radio" active={when === o.value} onClick={() => setWhen(o.value)}>
+              {o.label}
+            </FacetRow>
+          ))}
         </FilterGroup>
-        <FilterGroup label="Price" className="min-w-[170px] flex-[0.7]">
-          <Chips
-            value={price}
-            onChange={setPrice}
-            options={[
-              { value: "all", label: "Any price" },
-              { value: "free", label: "Free" },
-              { value: "paid", label: "Paid" },
-            ]}
-          />
+        <FilterGroup label="Price" className="min-w-[140px] flex-[0.7]">
+          {[
+            { value: "all", label: "Any price" },
+            { value: "free", label: "Free" },
+            { value: "paid", label: "Paid" },
+          ].map((o) => (
+            <FacetRow key={o.value} mode="radio" active={price === o.value} onClick={() => setPrice(o.value)}>
+              {o.label}
+            </FacetRow>
+          ))}
         </FilterGroup>
         {/* Proximity — real browser location, honest about unmapped events */}
-        <FilterGroup label="Near me" className="min-w-[300px] flex-[1.4]">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="flex gap-1.5">
-            {[
-              { v: null, label: "Off" },
-              { v: 5, label: "5 mi" },
-              { v: 10, label: "10 mi" },
-              { v: 25, label: "25 mi" },
-            ].map((o) => (
-              <ChipButton size="sm" key={o.label} active={nearMi === o.v} onClick={() => (o.v === null ? setNearMi(null) : requestNear(o.v))}>
-                {o.label}
-              </ChipButton>
-            ))}
-          </div>
-          <span className="text-faint" aria-hidden>·</span>
+        <FilterGroup label="Near me" className="min-w-[210px] flex-[1.1]">
+          {[
+            { v: null, label: "Off" },
+            { v: 5, label: "Within 5 mi" },
+            { v: 10, label: "Within 10 mi" },
+            { v: 25, label: "Within 25 mi" },
+          ].map((o) => (
+            <FacetRow key={o.label} mode="radio" active={nearMi === o.v} onClick={() => (o.v === null ? setNearMi(null) : requestNear(o.v))}>
+              {o.label}
+            </FacetRow>
+          ))}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void searchArea();
             }}
-            className="flex items-center gap-1.5"
+            className="mt-1 flex items-center gap-1.5 border-t border-rule-soft px-1.5 pt-2"
           >
             <input
               value={areaQ}
               onChange={(e) => setAreaQ(e.target.value)}
               placeholder="City or ZIP"
               aria-label="Search events near a city or ZIP"
-              className="h-8 w-36 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+              className="h-8 w-full min-w-0 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand"
             />
-            <button
-              type="submit"
-              disabled={areaBusy || !areaQ.trim()}
-              className="press h-8 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs font-semibold text-mute transition-colors hover:text-ink disabled:opacity-50"
-            >
-              {areaBusy ? "…" : "Go"}
-            </button>
+            <button className="press shrink-0 rounded-full border border-rule-2 bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft hover:text-ink">Go</button>
           </form>
-          {geoLabel && nearMi !== null ? (
-            <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">{geoLabel}</span>
-          ) : null}
-          {geoErr ? <span className="text-xs text-danger">{geoErr}</span> : null}
-          </div>
+          {geoErr ? <span className="px-1.5 pt-1 text-xs text-danger">{geoErr}</span> : null}
         </FilterGroup>
       </div>
 
