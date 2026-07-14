@@ -222,6 +222,26 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Collapsible rail: icon-only on tablets (iPad fix)
+- iPad Air (820px) fell in the ≥768 "desktop" band and got the full 248px rail → cramped
+  everything. The rail now **auto-collapses to a 76px icon column under 1180px** (Notion/
+  Linear/Gmail pattern), with an **edge chevron** floating on the rail border to expand/
+  collapse; the user's choice persists in localStorage and beats the auto-default. Collapsed
+  mode: mark-only logo, centered icons with `title` tooltips + sr-only labels, group kickers
+  become hairline separators (accordion suspended — all sections reachable), avatar-only
+  user pill whose menu escapes rightward (inner card no longer overflow-hidden). Width
+  animates 200ms; content reflows with it.
+
+### 2026-07-14 — Facet deck refinements: 5-row threshold · footer slot · price range
+- **Scroll threshold**: rows are h-8 (32px); the old max-h-[158px] made five rows overflow by
+  2px and summon a useless scrollbar. Now max-h-[176px] — five items always fit clean, the
+  scrollbar earns its place at six+.
+- **FilterGroup gains a `footer` slot** rendered OUTSIDE the scroll area: inputs never hide
+  under a scrollbar. Near-me's City/ZIP + Go (and its error line) moved there.
+- **Price range**: Min $ / Max $ inputs in the Price footer refine the radios — best-effort
+  dollars parsed from costText, Free = $0, unparsable costs pass (never hide what we can't
+  read). Deps wired into the filter memo.
+
 ### 2026-07-14 — Filters v3: pills → the facet LIST (Amazon grammar) + real multi-select
 - Gabriel's diagnosis was exact: variable-width pills make a ragged cloud no container can
   fix. v3 keeps the fieldset deck and replaces the interior with **uniform facet rows** —

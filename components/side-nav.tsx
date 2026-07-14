@@ -7,7 +7,7 @@ import {
   Newspaper, Swords, Trophy, Sparkles, Settings, ShieldCheck, LogOut,
   Users, MapPin, Flag, CalendarDays, ShoppingBag, BookOpen, Radar, Gift,
   User, MessageSquare, HelpCircle, ChevronsUpDown, Contact, Inbox, Medal, IdCard, GraduationCap, ChevronDown,
-  HeartPulse,
+  HeartPulse, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { KlimrLogo } from "@/components/logo";
@@ -84,6 +84,32 @@ export function SideNav({
   // On screens too short to show the whole menu at once, collapse the labeled
   // sections into an accordion (one open at a time) so the menu never scrolls.
   const [compact, setCompact] = useState(false);
+  // Rail collapse: icon-only under ~1180px (tablets) unless the user chose;
+  // the chevron persists their choice.
+  const [railStored, setRailStored] = useState<boolean | null>(null);
+  const [railAuto, setRailAuto] = useState(false);
+  const collapsed = railStored ?? railAuto;
+  useEffect(() => {
+    const saved = window.localStorage.getItem("klimr.rail");
+    const raf = requestAnimationFrame(() => {
+      if (saved === "1") setRailStored(true);
+      else if (saved === "0") setRailStored(false);
+    });
+    const mq = window.matchMedia("(max-width: 1180px)");
+    const update = () => setRailAuto(mq.matches);
+    const raf2 = requestAnimationFrame(update);
+    mq.addEventListener("change", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      cancelAnimationFrame(raf2);
+      mq.removeEventListener("change", update);
+    };
+  }, []);
+  const toggleRail = () => {
+    const next = !collapsed;
+    setRailStored(next);
+    window.localStorage.setItem("klimr.rail", next ? "1" : "0");
+  };
   useEffect(() => {
     const mq = window.matchMedia("(max-height: 960px)");
     const update = () => setCompact(mq.matches);
@@ -135,7 +161,13 @@ export function SideNav({
   const renderLink = ({ href, label, Icon }: Item) => {
     const active = isActive(href);
     return (
-      <Link key={href} href={href} aria-current={active ? "page" : undefined} className={navLink(active)}>
+      <Link
+        key={href}
+        href={href}
+        aria-current={active ? "page" : undefined}
+        title={collapsed ? label : undefined}
+        className={`${navLink(active)} ${collapsed ? "justify-center px-0" : ""}`}
+      >
         {active ? (
           <span
             aria-hidden
@@ -144,16 +176,25 @@ export function SideNav({
           />
         ) : null}
         <Icon size={16.5} className={active ? "text-brand-deep" : "text-faint group-hover:text-ink-soft"} />
-        {label}
+        <span className={collapsed ? "sr-only" : ""}>{label}</span>
       </Link>
     );
   };
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 self-start py-3.5 pl-3.5 md:block">
-      <div className="flex h-full flex-col overflow-hidden rounded-[22px] border border-rule bg-white/[0.66] px-3 pb-3 pt-5 shadow-bar backdrop-blur-[14px]">
-        <Link href="/" aria-label="Klimr home" className="shrink-0 px-3">
-          <KlimrLogo />
+    <aside className={`group/rail relative sticky top-0 hidden h-dvh shrink-0 self-start py-3.5 pl-3.5 transition-[width] duration-200 md:block ${collapsed ? "w-[76px]" : "w-[248px]"}`}>
+      <button
+        type="button"
+        onClick={toggleRail}
+        aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+        title={collapsed ? "Expand menu" : "Collapse menu"}
+        className="press absolute -right-3 top-8 z-20 grid h-6 w-6 place-items-center rounded-full border border-rule bg-surface text-mute shadow-e1 transition-colors hover:text-ink"
+      >
+        {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+      </button>
+      <div className={`flex h-full flex-col rounded-[22px] border border-rule bg-white/[0.66] pb-3 pt-5 shadow-bar backdrop-blur-[14px] ${collapsed ? "px-2" : "px-3"}`}>
+        <Link href="/" aria-label="Klimr home" className={`shrink-0 ${collapsed ? "self-center px-0" : "px-3"}`}>
+          <KlimrLogo textClassName={collapsed ? "hidden" : "text-[26px]"} />
         </Link>
 
         <div className={`mt-3.5 min-h-0 flex-1 overflow-y-auto scrollbar-hidden ${compact ? "space-y-1" : "space-y-2"}`}>
@@ -165,10 +206,12 @@ export function SideNav({
                 </nav>
               );
             }
-            const open = !compact || openSection === g.header;
+            const open = collapsed || !compact || openSection === g.header;
             return (
               <div key={g.header}>
-                {compact ? (
+                {collapsed ? (
+                  <div aria-hidden className="mx-2 my-2 border-t border-rule-soft" />
+                ) : compact ? (
                   <button
                     type="button"
                     onClick={() => setOpenSection((cur) => (cur === g.header ? null : g.header!))}
@@ -211,7 +254,7 @@ export function SideNav({
               <div
                 ref={menuRef}
                 role="menu"
-                className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-2xl border border-rule bg-surface shadow-e3"
+                className={`absolute bottom-full mb-2 overflow-hidden rounded-2xl border border-rule bg-surface shadow-e3 ${collapsed ? "left-0 w-60" : "left-0 right-0"}`}
               >
                 <div className="border-b border-rule-soft px-3.5 py-3">
                   <p className="truncate text-sm font-semibold text-ink">{avatarName}</p>
@@ -252,7 +295,7 @@ export function SideNav({
               onClick={() => setMenuOpen((o) => !o)}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              className="lift flex w-full items-center gap-2.5 rounded-[13px] border border-rule bg-surface p-2"
+              className={`lift flex w-full items-center rounded-[13px] border border-rule bg-surface p-2 ${collapsed ? "justify-center gap-0" : "gap-2.5"}`}
             >
               <span className="relative shrink-0">
                 <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={31} ring />
@@ -262,8 +305,12 @@ export function SideNav({
                   aria-hidden
                 />
               </span>
-              <span className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold text-ink">{avatarName}</span>
-              <ChevronsUpDown size={15} className="shrink-0 text-faint" />
+              {collapsed ? null : (
+                <>
+                  <span className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold text-ink">{avatarName}</span>
+                  <ChevronsUpDown size={15} className="shrink-0 text-faint" />
+                </>
+              )}
             </button>
           </div>
         </div>

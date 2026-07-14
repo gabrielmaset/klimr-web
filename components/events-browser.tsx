@@ -33,6 +33,12 @@ const SPORT_HUE: Record<string, number> = { tennis: 96, pickleball: 40, padel: 2
 
 const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleString("en-US", { ...opts, timeZone: TZ });
 const isFree = (c: string | null) => !c || /free/i.test(c.trim());
+/** Best-effort dollars from costText ("$15", "15/person") — null when unparsable. */
+const costDollars = (c: string | null): number | null => {
+  if (isFree(c)) return 0;
+  const m = c!.replace(/,/g, "").match(/(\d+(?:\.\d{1,2})?)/);
+  return m ? parseFloat(m[1]) : null;
+};
 const gradientFor = (sportKey: string) => {
   const h = SPORT_HUE[sportKey] ?? 210;
   return `linear-gradient(140deg, hsl(${h} 72% 90%), hsl(${(h + 30) % 360} 74% 80%))`;
@@ -61,6 +67,8 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
   const [sports, setSports] = useState<Set<string>>(new Set());
   const [kinds, setKinds] = useState<Set<string>>(new Set());
   const [price, setPrice] = useState("all");
+  const [minP, setMinP] = useState("");
+  const [maxP, setMaxP] = useState("");
   const [when, setWhen] = useState("all");
   const [nearMi, setNearMi] = useState<number | null>(null);
   const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null);
@@ -139,6 +147,15 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
       if (kinds.size > 0 && !kinds.has(e.kind)) return false;
       if (price === "free" && !isFree(e.costText)) return false;
       if (price === "paid" && isFree(e.costText)) return false;
+      const minV = minP.trim() ? parseFloat(minP) : null;
+      const maxV = maxP.trim() ? parseFloat(maxP) : null;
+      if (minV != null || maxV != null) {
+        const cost = costDollars(e.costText);
+        if (cost != null) {
+          if (minV != null && cost < minV) return false;
+          if (maxV != null && cost > maxV) return false;
+        }
+      }
       if (when !== "all") {
         const t = new Date(e.whenIso).getTime();
         if (when === "week" && !(t >= nowMs && t <= nowMs + 7 * day)) return false;
@@ -163,7 +180,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
       }
       return true;
     });
-  }, [base, q, sports, kinds, price, when, nowMs, nearMi, geo]);
+  }, [base, q, sports, kinds, price, minP, maxP, when, nowMs, nearMi, geo]);
 
   const sportChips: Chip[] = allSports.map((s) => ({ value: s, label: `${sportMeta(s).emoji} ${sportMeta(s).name}` }));
   const kindChips: Chip[] = allKinds.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }));
@@ -222,7 +239,31 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
             </FacetRow>
           ))}
         </FilterGroup>
-        <FilterGroup label="Price" className="min-w-[140px] flex-[0.7]">
+        <FilterGroup
+          label="Price"
+          className="min-w-[180px] flex-[0.9]"
+          footer={
+            <div className="flex items-center gap-1.5">
+              <input
+                value={minP}
+                onChange={(e) => setMinP(e.target.value.replace(/[^\d.]/g, ""))}
+                inputMode="decimal"
+                placeholder="Min $"
+                aria-label="Minimum price"
+                className="h-8 w-full min-w-0 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand"
+              />
+              <span className="text-faint" aria-hidden>–</span>
+              <input
+                value={maxP}
+                onChange={(e) => setMaxP(e.target.value.replace(/[^\d.]/g, ""))}
+                inputMode="decimal"
+                placeholder="Max $"
+                aria-label="Maximum price"
+                className="h-8 w-full min-w-0 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand"
+              />
+            </div>
+          }
+        >
           {[
             { value: "all", label: "Any price" },
             { value: "free", label: "Free" },
@@ -234,7 +275,31 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
           ))}
         </FilterGroup>
         {/* Proximity — real browser location, honest about unmapped events */}
-        <FilterGroup label="Near me" className="min-w-[210px] flex-[1.1]">
+        <FilterGroup
+          label="Near me"
+          className="min-w-[220px] flex-[1.1]"
+          footer={
+            <>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void searchArea();
+                }}
+                className="flex items-center gap-1.5"
+              >
+                <input
+                  value={areaQ}
+                  onChange={(e) => setAreaQ(e.target.value)}
+                  placeholder="City or ZIP"
+                  aria-label="Search events near a city or ZIP"
+                  className="h-8 w-full min-w-0 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand"
+                />
+                <button className="press shrink-0 rounded-full border border-rule-2 bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft hover:text-ink">Go</button>
+              </form>
+              {geoErr ? <span className="block pt-1 text-xs text-danger">{geoErr}</span> : null}
+            </>
+          }
+        >
           {[
             { v: null, label: "Off" },
             { v: 5, label: "Within 5 mi" },
@@ -245,23 +310,6 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
               {o.label}
             </FacetRow>
           ))}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void searchArea();
-            }}
-            className="mt-1 flex items-center gap-1.5 border-t border-rule-soft px-1.5 pt-2"
-          >
-            <input
-              value={areaQ}
-              onChange={(e) => setAreaQ(e.target.value)}
-              placeholder="City or ZIP"
-              aria-label="Search events near a city or ZIP"
-              className="h-8 w-full min-w-0 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand"
-            />
-            <button className="press shrink-0 rounded-full border border-rule-2 bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft hover:text-ink">Go</button>
-          </form>
-          {geoErr ? <span className="px-1.5 pt-1 text-xs text-danger">{geoErr}</span> : null}
         </FilterGroup>
       </div>
 

@@ -62,16 +62,19 @@ export function ChipButton({ active, onClick, children, count, size = "md" }: { 
  *  options live inside a bounded, vertically scrolling cloud. Dozens of
  *  options never change the container's footprint; boxes sit side by side
  *  and wrap as a deck on smaller screens. */
-export function FilterGroup({ label, children, className = "", trailing }: { label: string; children: React.ReactNode; className?: string; trailing?: React.ReactNode }) {
+export function FilterGroup({ label, children, className = "", trailing, footer }: { label: string; children: React.ReactNode; className?: string; trailing?: React.ReactNode; footer?: React.ReactNode }) {
   return (
-    <fieldset className={`relative min-w-0 rounded-2xl border border-rule-2 bg-surface px-1.5 pb-1.5 pt-0.5 ${className}`}>
+    <fieldset className={`relative flex min-w-0 flex-col rounded-2xl border border-rule-2 bg-surface px-1.5 pb-1.5 pt-0.5 ${className}`}>
       <legend className="ml-1 flex items-center gap-2 px-1.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">
         {label}
         {trailing}
       </legend>
-      <div className="grid max-h-[158px] content-start overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:#E4DCCB_transparent]">
+      {/* Five rows (h-8) fit before this scrolls — a five-item list never
+          shows a scrollbar; the affordance appears at six or more. */}
+      <div className="grid max-h-[176px] min-h-0 flex-1 content-start overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:#E4DCCB_transparent]">
         {children}
       </div>
+      {footer ? <div className="mt-1 shrink-0 border-t border-rule-soft px-1.5 pb-0.5 pt-2">{footer}</div> : null}
     </fieldset>
   );
 }
