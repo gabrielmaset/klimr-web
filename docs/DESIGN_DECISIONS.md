@@ -222,6 +222,26 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Mobile polish: Safari-proof group labels · stacked decks · composer fit
+- iOS Safari renders <legend> gaps inconsistently (the "border doesn't end next to the
+  title" screenshots). FilterGroup no longer uses native fieldset/legend: div[role=group] +
+  absolutely positioned label (−7px top, bg-surface px-1.5, leading-none) masks the border
+  to exactly the text width — identical in every browser. pt-3 replaces the legend's flow
+  space.
+- Facet decks (events, classes, play, courts explorer): flex-wrap's ragged rows paired
+  unequal boxes on phones → "random spaces." Now `grid grid-cols-1` under sm (full-width
+  stacked boxes, uniform 12px gaps), the flex deck from sm up. 
+- FeedComposer placeholder shortened to "Share something with players nearby…" — the long
+  example list clipped inside the field on phones.
+
+### 2026-07-14 — Play court filter: sport-aware everywhere
+- Courts carry sports[]; neither the search nor the nearby default consulted it (tennis
+  selected → padel clubs listed). Fixed at all three surfaces: searchCourts(q, sport) adds
+  `.contains("sports",[sport])` on both branches (ZIP box + name/city); the page's nearby
+  query does the same for the default list; the client refetches on activeSport change
+  (effect deps [q, activeSport]) so an existing search re-scopes the instant the sport
+  radio changes — before or after typing, per Gabriel's spec.
+
 ### 2026-07-14 — Drawer bottom-bar bug: stacking escape + single scroll surface
 - The drawer rendered INSIDE the sticky mobile header (z-40 stacking context), so its
   z-[59] only won within that context — the sibling bottom nav (z-40, later in DOM)

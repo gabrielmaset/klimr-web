@@ -64,11 +64,11 @@ export function ChipButton({ active, onClick, children, count, size = "md" }: { 
  *  and wrap as a deck on smaller screens. */
 export function FilterGroup({ label, children, className = "", trailing, footer, pinned }: { label: string; children: React.ReactNode; className?: string; trailing?: React.ReactNode; footer?: React.ReactNode; pinned?: React.ReactNode }) {
   return (
-    <fieldset className={`relative flex min-w-0 flex-col rounded-2xl border border-rule-2 bg-surface px-1.5 pb-1.5 pt-0.5 ${className}`}>
-      <legend className="ml-1 flex items-center gap-2 px-1.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">
+    <div role="group" aria-label={label} className={`relative flex min-w-0 flex-col rounded-2xl border border-rule-2 bg-surface px-1.5 pb-1.5 pt-3 ${className}`}>
+      <span className="absolute -top-[7px] left-3 inline-flex items-center gap-2 bg-surface px-1.5 font-mono text-[9px] font-bold uppercase leading-none tracking-[.16em] text-faint">
         {label}
         {trailing}
-      </legend>
+      </span>
       {pinned ? <div className="mb-1 shrink-0 border-b border-rule-soft pb-1">{pinned}</div> : null}
       {/* Five rows (h-8) fit before this scrolls — a five-item list never
           shows a scrollbar; the affordance appears at six or more. */}
@@ -76,7 +76,7 @@ export function FilterGroup({ label, children, className = "", trailing, footer,
         {children}
       </div>
       {footer ? <div className="mt-1 shrink-0 border-t border-rule-soft px-1.5 pb-0.5 pt-2">{footer}</div> : null}
-    </fieldset>
+    </div>
   );
 }
 

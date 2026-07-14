@@ -33,7 +33,7 @@ export function FeedComposer() {
         onChange={(e) => setBody(e.target.value)}
         rows={body ? 3 : 1}
         maxLength={500}
-        placeholder="Share something with players nearby — a court find, a result, a shout-out…"
+        placeholder="Share something with players nearby…"
         aria-label="Write a post"
         className="w-full resize-y rounded-[12px] border border-rule-soft bg-[#FDFBF7] px-3.5 py-2.5 text-[13.5px] text-ink outline-none placeholder:text-faint focus:border-brand"
       />

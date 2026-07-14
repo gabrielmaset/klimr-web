@@ -53,7 +53,7 @@ export function PlayCourtFilter({ nearby, counts, total, activeSport, activeCour
         return;
       }
       setSearching(true);
-      void searchCourts(query).then((r) => {
+      void searchCourts(query, activeSport).then((r) => {
         setHits(r);
         setSearching(false);
       });
@@ -61,7 +61,7 @@ export function PlayCourtFilter({ nearby, counts, total, activeSport, activeCour
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [q]);
+  }, [q, activeSport]);
 
   const list = hits ?? nearby;
   const pinActive = activeCourt && !list.some((c) => c.id === activeCourt.id);

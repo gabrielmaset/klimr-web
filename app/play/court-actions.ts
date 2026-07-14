@@ -23,7 +23,7 @@ function miles(a: { lat: number; lng: number }, b: { lat: number; lng: number })
 /** Court search for the Play filter: a 5-digit query is treated as a ZIP
  *  (courts nearest that ZIP); anything else matches name or city. Distances
  *  are relative to the viewer's home ZIP when known. */
-export async function searchCourts(q: string): Promise<CourtHit[]> {
+export async function searchCourts(q: string, sport: string | null): Promise<CourtHit[]> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,7 +39,7 @@ export async function searchCourts(q: string): Promise<CourtHit[]> {
     const z = lookupZip(query);
     if (!z) return [];
     const dLat = 0.22, dLng = 0.26;
-    const { data: cs } = await supabase
+    let zq = supabase
       .from("courts")
       .select("id, name, city, state, zip, lat, lng")
       .not("lat", "is", null)
@@ -48,6 +48,8 @@ export async function searchCourts(q: string): Promise<CourtHit[]> {
       .gte("lng", z.lng - dLng)
       .lte("lng", z.lng + dLng)
       .limit(60);
+    if (sport) zq = zq.contains("sports", [sport]);
+    const { data: cs } = await zq;
     return (cs ?? [])
       .map((c) => ({ c, d: miles({ lat: z.lat, lng: z.lng }, { lat: c.lat!, lng: c.lng! }) }))
       .sort((a, b) => a.d - b.d)
@@ -63,11 +65,13 @@ export async function searchCourts(q: string): Promise<CourtHit[]> {
   }
 
   const esc = query.replace(/[%_]/g, "");
-  const { data: cs } = await supabase
+  let nq = supabase
     .from("courts")
     .select("id, name, city, state, zip, lat, lng")
     .or(`name.ilike.%${esc}%,city.ilike.%${esc}%`)
     .limit(12);
+  if (sport) nq = nq.contains("sports", [sport]);
+  const { data: cs } = await nq;
   return (cs ?? []).map((c) => ({
     id: c.id,
     name: c.name,

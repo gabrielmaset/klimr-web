@@ -90,7 +90,7 @@ export default async function PlayPage({
   let nearbyCourts: CourtHit[] = [];
   if (homePt) {
     const dLat = 0.22, dLng = 0.26;
-    const { data: nc } = await supabase
+    let ncq = supabase
       .from("courts")
       .select("id, name, city, state, zip, lat, lng")
       .not("lat", "is", null)
@@ -99,6 +99,8 @@ export default async function PlayPage({
       .gte("lng", homePt.lng - dLng)
       .lte("lng", homePt.lng + dLng)
       .limit(60);
+    if (activeSport) ncq = ncq.contains("sports", [activeSport]);
+    const { data: nc } = await ncq;
     const R = 3958.8;
     const mi = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
       const dla = ((b.lat - a.lat) * Math.PI) / 180;
@@ -141,7 +143,7 @@ export default async function PlayPage({
         </Link>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-start gap-3">
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-start">
         <FilterGroup
           label="Sport"
           className="min-w-[210px] flex-1 max-w-xs"

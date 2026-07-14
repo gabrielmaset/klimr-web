@@ -208,7 +208,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
         />
       </div>
 
-      <div className="mb-6 flex flex-wrap items-start gap-3">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-start">
         {sportChips.length > 1 ? (
           <FilterGroup label="Sport" className="min-w-[210px] flex-[1.2]" trailing={<ClearLink n={sports.size} onClear={() => setSports(new Set())} />}>
             {sportChips.map((o) => (

@@ -265,7 +265,7 @@ export function CourtsExplorer({
         {locMsg ? <p className="mt-2 px-1 text-xs text-danger">{locMsg}</p> : null}
 
         {/* Radius + sport — the house facet system */}
-        <div className="mt-4 flex flex-wrap items-start gap-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-start">
           <FilterGroup label="Within" className="min-w-[130px] flex-[0.8]">
             {RADII_MI.map((r) => (
               <FacetRow key={r} mode="radio" active={radiusMi === r} onClick={() => setRadiusMi(r)}>
