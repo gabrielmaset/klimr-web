@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChipRow, ChipButton } from "@/components/filter-chips";
+import { FilterGroup, ChipButton } from "@/components/filter-chips";
 import { EventsMap } from "@/components/events-map";
 import { resolveEventArea } from "@/app/events/area-actions";
 import { reportClientError } from "@/lib/client-diagnostics";
@@ -43,7 +43,7 @@ function Chips({ value, onChange, options }: { value: string; onChange: (v: stri
   return (
     <>
       {options.map((o) => (
-        <ChipButton key={o.value} active={o.value === value} onClick={() => onChange(o.value)}>
+        <ChipButton key={o.value} size="sm" active={o.value === value} onClick={() => onChange(o.value)}>
           {o.label}
         </ChipButton>
       ))}
@@ -187,10 +187,18 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
         />
       </div>
 
-      <div className="mb-6 space-y-2">
-        {sportChips.length > 2 ? <ChipRow label="Sport"><Chips value={sport} onChange={setSport} options={sportChips} /></ChipRow> : null}
-        {kindChips.length > 2 ? <ChipRow label="Type"><Chips value={kind} onChange={setKind} options={kindChips} /></ChipRow> : null}
-        <ChipRow label="When">
+      <div className="mb-6 flex flex-wrap items-stretch gap-3">
+        {sportChips.length > 2 ? (
+          <FilterGroup label="Sport" className="min-w-[260px] flex-[1.5]">
+            <Chips value={sport} onChange={setSport} options={sportChips} />
+          </FilterGroup>
+        ) : null}
+        {kindChips.length > 2 ? (
+          <FilterGroup label="Type" className="min-w-[240px] flex-[1.2]">
+            <Chips value={kind} onChange={setKind} options={kindChips} />
+          </FilterGroup>
+        ) : null}
+        <FilterGroup label="When" className="min-w-[220px] flex-1">
           <Chips
             value={when}
             onChange={setWhen}
@@ -201,8 +209,8 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
               { value: "month", label: "This month" },
             ]}
           />
-        </ChipRow>
-        <ChipRow label="Price">
+        </FilterGroup>
+        <FilterGroup label="Price" className="min-w-[170px] flex-[0.7]">
           <Chips
             value={price}
             onChange={setPrice}
@@ -212,10 +220,9 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
               { value: "paid", label: "Paid" },
             ]}
           />
-        </ChipRow>
+        </FilterGroup>
         {/* Proximity — real browser location, honest about unmapped events */}
-        <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[64px_minmax(0,1fr)]">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">Near me</span>
+        <FilterGroup label="Near me" className="min-w-[300px] flex-[1.4]">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex gap-1.5">
             {[
@@ -224,7 +231,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
               { v: 10, label: "10 mi" },
               { v: 25, label: "25 mi" },
             ].map((o) => (
-              <ChipButton key={o.label} active={nearMi === o.v} onClick={() => (o.v === null ? setNearMi(null) : requestNear(o.v))}>
+              <ChipButton size="sm" key={o.label} active={nearMi === o.v} onClick={() => (o.v === null ? setNearMi(null) : requestNear(o.v))}>
                 {o.label}
               </ChipButton>
             ))}
@@ -257,7 +264,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
           ) : null}
           {geoErr ? <span className="text-xs text-danger">{geoErr}</span> : null}
           </div>
-        </div>
+        </FilterGroup>
       </div>
 
       {/* Map — right under the filters; pins for events linked to located courts */}

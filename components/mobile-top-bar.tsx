@@ -57,7 +57,7 @@ export function MobileTopBar({
             className="press relative grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface"
           >
             <Bell size={17} className={active ? "text-brand-deep" : "text-ink"} />
-            <NotificationBadge initialCount={unreadCount} className="absolute -right-2 -top-1.5 ring-2 ring-surface" />
+            <NotificationBadge initialCount={unreadCount} className="absolute right-0 top-0 translate-x-[45%] -translate-y-[40%] ring-2 ring-[#FFFDF8]" />
           </Link>
           <button
             type="button"

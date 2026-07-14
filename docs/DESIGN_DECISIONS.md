@@ -222,6 +222,30 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Badge v4 (context-correct placements) · FilterGroup fieldset deck
+- **Badge, rethought per context**: overlapping an 18px badge on a 17px glyph covered the
+  icon, and ring-surface (pure white) haloed against the #FFFDF8 bars — that's what read
+  wrong. v4: **labeled** nav items (desktop top bar) carry the badge TRAILING the label,
+  vertically centered (the Discord/Slack labeled-row pattern); **icon-only** sites (mobile
+  bell, bottom-nav Chats) keep a corner badge but with corner-clip geometry
+  (translate 45%/−40% — covers only the glyph's corner) and the ring matched to the actual
+  bar color (#FFFDF8).
+- **Filters = the FilterGroup deck** (Gabriel's sketch, built): each facet is a real
+  fieldset — rounded container, mono legend sitting ON the border — whose options live in a
+  bounded chip cloud (max-h 104px ≈ 3 rows, thin styled scrollbar) so fifty sports never
+  change the footprint. Boxes sit side by side (flex weights: Sport 1.5 · Type 1.2 · When 1 ·
+  Price 0.7 · Near me 1.4) and wrap into a deck on smaller screens; chips inside use the
+  compact size of the ink-selected system. Near-me keeps its radius chips + city/ZIP + Go
+  inside its own box. Events is the pilot; this is the sitewide-standard candidate.
+
+### 2026-07-14 — Dependabot: TypeScript majors ignored (TS 7 preview failures)
+- Dependabot's "Bump typescript 5.9.3 → 7.0.2" PR fails its Vercel preview by design of the
+  ecosystem: @typescript-eslint@8.63 pins `typescript >=4.8.4 <6.1.0`, so the install leaves
+  Next unable to load TS ("please install typescript") → exit 1. Production (main, TS ^5) was
+  never affected — only that PR branch's preview. Fix: `@dependabot ignore this major
+  version` comment on the PR + a permanent `ignore` rule in dependabot.yml for typescript
+  semver-major. TS 7 becomes a deliberate migration when typescript-eslint supports it.
+
 ### 2026-07-14 — Join-instead suggester · match-page energy · perf pass · house FilterChips
 - **Before-you-create crosscheck**: as soon as sport (+ ZIP context) is chosen on /play/new,
   `findOpenMatches` (server action, debounced 400ms) surfaces ≤3 open matches nearby with
