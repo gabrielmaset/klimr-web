@@ -88,7 +88,13 @@ export function SideNav({
   // the chevron persists their choice.
   const [railStored, setRailStored] = useState<boolean | null>(null);
   const [railAuto, setRailAuto] = useState(false);
-  const collapsed = railStored ?? railAuto;
+  // ≤1180px: the rail stays icon-width in the flow and EXPANDS AS AN OVERLAY
+  // over the page (transient — closes on navigation/outside click), so
+  // content never reflows on tablets. >1180px: in-flow, choice persisted.
+  const overlayMode = railAuto;
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const collapsed = overlayMode ? !overlayOpen : (railStored ?? false);
+  const asideRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const saved = window.localStorage.getItem("klimr.rail");
     const raf = requestAnimationFrame(() => {
@@ -106,10 +112,33 @@ export function SideNav({
     };
   }, []);
   const toggleRail = () => {
+    if (overlayMode) {
+      setOverlayOpen((o) => !o);
+      return;
+    }
     const next = !collapsed;
     setRailStored(next);
     window.localStorage.setItem("klimr.rail", next ? "1" : "0");
   };
+  const closeOverlay = () => {
+    if (overlayMode) setOverlayOpen(false);
+  };
+  useEffect(() => {
+    if (!(overlayMode && overlayOpen)) return;
+    function onDoc(e: MouseEvent) {
+      if (asideRef.current?.contains(e.target as Node)) return;
+      setOverlayOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOverlayOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [overlayMode, overlayOpen]);
   useEffect(() => {
     const mq = window.matchMedia("(max-height: 960px)");
     const update = () => setCompact(mq.matches);
@@ -166,6 +195,7 @@ export function SideNav({
         href={href}
         aria-current={active ? "page" : undefined}
         title={collapsed ? label : undefined}
+        onClick={closeOverlay}
         className={`${navLink(active)} ${collapsed ? "justify-center px-0" : ""}`}
       >
         {active ? (
@@ -182,17 +212,21 @@ export function SideNav({
   };
 
   return (
-    <aside className={`group/rail relative sticky top-0 hidden h-dvh shrink-0 self-start py-3.5 pl-3.5 transition-[width] duration-200 md:block ${collapsed ? "w-[76px]" : "w-[248px]"}`}>
-      <button
-        type="button"
-        onClick={toggleRail}
-        aria-label={collapsed ? "Expand menu" : "Collapse menu"}
-        title={collapsed ? "Expand menu" : "Collapse menu"}
-        className="press absolute -right-3 top-8 z-20 grid h-6 w-6 place-items-center rounded-full border border-rule bg-surface text-mute shadow-e1 transition-colors hover:text-ink"
+    <aside ref={asideRef} className={`group/rail relative sticky top-0 z-[45] hidden h-dvh shrink-0 self-start py-3.5 pl-3.5 transition-[width] duration-200 md:block ${overlayMode ? "w-[76px]" : collapsed ? "w-[76px]" : "w-[248px]"}`}>
+      <div
+        className={`flex flex-col rounded-[22px] border border-rule bg-white/[0.66] pb-3 pt-5 backdrop-blur-[14px] transition-[width,box-shadow] duration-200 ${collapsed ? "px-2" : "px-3"} ${
+          overlayMode && overlayOpen ? "absolute inset-y-3.5 left-3.5 z-10 w-[234px] shadow-e3" : "relative h-full w-auto shadow-bar"
+        }`}
       >
-        {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
-      </button>
-      <div className={`flex h-full flex-col rounded-[22px] border border-rule bg-white/[0.66] pb-3 pt-5 shadow-bar backdrop-blur-[14px] ${collapsed ? "px-2" : "px-3"}`}>
+        <button
+          type="button"
+          onClick={toggleRail}
+          aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+          title={collapsed ? "Expand menu" : "Collapse menu"}
+          className="press absolute -right-[11px] top-[22px] z-20 grid h-6 w-6 place-items-center rounded-full border border-rule bg-surface text-mute shadow-e1 transition-colors hover:text-ink"
+        >
+          {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+        </button>
         <Link href="/" aria-label="Klimr home" className={`shrink-0 ${collapsed ? "self-center px-0" : "px-3"}`}>
           <KlimrLogo textClassName={collapsed ? "hidden" : "text-[26px]"} />
         </Link>
@@ -244,9 +278,15 @@ export function SideNav({
 
         {/* Footer — hairline, invite, then the Daylight user pill. */}
         <div className="mt-2 shrink-0 border-t border-rule-soft pt-2">
-          <Link href="/me" aria-current={isActive("/me") ? "page" : undefined} className={navLink(isActive("/me"))}>
+          <Link
+            href="/me"
+            aria-current={isActive("/me") ? "page" : undefined}
+            title={collapsed ? "My profile" : undefined}
+            onClick={closeOverlay}
+            className={`${navLink(isActive("/me"))} ${collapsed ? "justify-center px-0" : ""}`}
+          >
             <IdCard size={16.5} className={isActive("/me") ? "text-brand-deep" : "text-faint group-hover:text-ink-soft"} />
-            My profile
+            <span className={collapsed ? "sr-only" : ""}>My profile</span>
           </Link>
 
           <div className="relative mt-1.5">

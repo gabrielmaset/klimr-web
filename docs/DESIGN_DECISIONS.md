@@ -222,6 +222,24 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Tablet rail v2: overlay expansion · footer link fix
+- **Overlay mode (≤1180px)**: the rail's flow width is pinned at 76px; the chevron expands
+  the CARD as a 234px overlay above the page (shadow-e3, z-10 in the z-[45] aside) instead
+  of reflowing content. Transient by design: any nav click, outside mousedown, or Escape
+  collapses it — the page never readjusts on tablets. Desktop (>1180) keeps the in-flow rail
+  with the persisted choice. The chevron now lives inside the card (static branch explicitly
+  `relative`) so it rides the card's edge in both states without jumping.
+- **Footer bug**: "My profile" was a hand-written Link that skipped renderLink and wrapped
+  to two lines when collapsed — now carries the same collapsed grammar (centered icon,
+  sr-only label, title tooltip, closeOverlay on click).
+
+### 2026-07-14 — Rail/TopBar seam: stacking fix for the edge chevron
+- The clipped-chevron sliver: the TopBar's sticky wrapper (z-40, later in DOM, bg-bg strip
+  starting at the aside's edge) painted over the button's overhang — sibling stacking
+  contexts, not a layout bug. Fix: aside gets **z-[45]** (above the bar strip, below z-50
+  modal overlays) and the chevron moves to -right-[11px]/top-9 for comfortable clearance in
+  the 22px gutter. The "doesn't blend" perception was this artifact.
+
 ### 2026-07-14 — Collapsible rail: icon-only on tablets (iPad fix)
 - iPad Air (820px) fell in the ≥768 "desktop" band and got the full 248px rail → cramped
   everything. The rail now **auto-collapses to a 76px icon column under 1180px** (Notion/
