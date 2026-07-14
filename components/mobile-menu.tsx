@@ -93,7 +93,7 @@ export function MobileMenu({
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2" aria-label="Main">
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-6 pt-2" aria-label="Main">
           {NAV_GROUPS.map((g) => (
             <div key={g.header ?? "primary"}>
               {g.header ? (
@@ -102,9 +102,8 @@ export function MobileMenu({
               <div className="flex flex-col gap-0.5">{g.items.map(renderItem)}</div>
             </div>
           ))}
-        </nav>
 
-        <div className="shrink-0 border-t border-rule-soft px-3 py-2">
+          <div className="mt-2 border-t border-rule-soft pt-2">
           {adminRole ? renderItem({ href: "/admin", label: "Admin", Icon: ShieldCheck }) : null}
           {renderItem({ href: "/me", label: "My profile", Icon: IdCard })}
           {renderItem({ href: "/account", label: "Account", Icon: User })}
@@ -120,7 +119,8 @@ export function MobileMenu({
               Sign out
             </button>
           </form>
-        </div>
+          </div>
+        </nav>
       </div>
     </div>
   );

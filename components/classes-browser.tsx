@@ -160,7 +160,7 @@ export function ClassesBrowser({ items, nowMs }: { items: BrowseClass[]; nowMs: 
         />
       </label>
 
-      <div className="mb-6 flex flex-wrap items-stretch gap-3">
+      <div className="mb-6 flex flex-wrap items-start gap-3">
         {allSports.length > 1 ? (
           <FilterGroup label="Sport" className="min-w-[200px] flex-[1.1]" trailing={<ClearLink n={sports.size} onClear={() => setSports(new Set())} />}>
             {allSports.map((k) => (

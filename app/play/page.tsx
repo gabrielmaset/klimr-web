@@ -141,11 +141,16 @@ export default async function PlayPage({
         </Link>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-stretch gap-3">
-        <FilterGroup label="Sport" className="min-w-[210px] flex-1 max-w-xs">
-          <FacetLink href={`/play${qs(null, activeCourt)}`} active={!activeSport} count={all.length}>
-            All sports
-          </FacetLink>
+      <div className="mt-6 flex flex-wrap items-start gap-3">
+        <FilterGroup
+          label="Sport"
+          className="min-w-[210px] flex-1 max-w-xs"
+          pinned={
+            <FacetLink href={`/play${qs(null, activeCourt)}`} active={!activeSport} count={all.length}>
+              All sports
+            </FacetLink>
+          }
+        >
           {SPORTS.map((s) => (
             <FacetLink key={s.key} href={`/play${qs(s.key, activeCourt)}`} active={activeSport === s.key} count={sportCounts.get(s.key) ?? 0}>
               {s.emoji} {s.name}

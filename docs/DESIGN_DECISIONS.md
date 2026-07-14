@@ -222,6 +222,29 @@ surface-by-surface in later phases; **new code should use these from the start.*
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
 
+### 2026-07-14 — Drawer bottom-bar bug: stacking escape + single scroll surface
+- The drawer rendered INSIDE the sticky mobile header (z-40 stacking context), so its
+  z-[59] only won within that context — the sibling bottom nav (z-40, later in DOM)
+  painted over the account rows (same disease as the rail chevron). Fix: MobileMenu moved
+  outside </header> (fragment) → root context → drawer + scrim genuinely cover the bar
+  (scrim dims the bar's visible left strip; taps there close the menu).
+- Per Gabriel: the menu is now ONE scroll surface — the account section (Admin/My profile/
+  Account/Settings/Invite/Sign out) merged into the nav scroller behind a hairline, pb-6
+  tail room; only the avatar header stays pinned for the X. Sign out can never hide again.
+
+### 2026-07-14 — Facet polish: pinned "All" rows · natural deck heights · Courts converted
+- Gabriel's screenshots caught two real defects. (1) The Play deck's `items-stretch` forced
+  Sport to Court's height → phantom bottom gap, and All-sports living inside the scroll made
+  6 rows (192px) overflow the 176px cap → a pointless scrollbar. Fix: **FilterGroup gains a
+  `pinned` slot** — fixed above the scroll area behind a hairline, never moves — used for
+  "All sports", "All courts (near you)", and the active-court pin; with "All" out of the
+  scroll, five options fit clean again. Decks switch to **items-start** (natural heights,
+  tops aligned) across events/classes/play.
+- (2) The careful re-scan (broad conditional-pill pattern, then manual triage of 12 hits —
+  the rest were status badges/tabs) found ONE true straggler: **courts-explorer** radius
+  segmented-control + sport pills → two FilterGroups (Within · Sport, radio FacetRows);
+  dead `chipStyle` removed. Pill sweep now actually complete.
+
 ### 2026-07-14 — Play court filter v2 (any court, searchable) · pill retirement complete
 - Gabriel's correction: courts-with-matches-only missed the point — checking a QUIET court
   is the feature. v2: default list = ten courts nearest the member's home ZIP with live

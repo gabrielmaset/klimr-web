@@ -1,5 +1,6 @@
 "use client";
 
+import { FilterGroup, FacetRow } from "@/components/filter-chips";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, CalendarPlus, Check, Globe } from "lucide-react";
@@ -203,11 +204,6 @@ export function CourtsExplorer({
       ? "Court search isn't switched on yet — check back soon."
       : resp?.message ?? (resp?.status === "empty" ? "No courts found within 50 miles." : null);
 
-  const chipStyle = (on: boolean) => ({
-    borderColor: on ? "var(--color-brand)" : "var(--color-rule)",
-    background: on ? "var(--color-tint-brand)" : "transparent",
-    color: on ? "var(--color-brand-deep)" : "var(--color-mute)",
-  });
 
   return (
     <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
@@ -268,38 +264,22 @@ export function CourtsExplorer({
         </div>
         {locMsg ? <p className="mt-2 px-1 text-xs text-danger">{locMsg}</p> : null}
 
-        {/* Radius */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="kicker text-faint">Within</span>
-          <div className="inline-flex flex-wrap gap-1 rounded-xl border border-rule bg-bg p-1">
-            {RADII_MI.map((r) => {
-              const on = radiusMi === r;
-              return (
-                <button
-                  key={r}
-                  onClick={() => setRadiusMi(r)}
-                  className="press rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                  style={{ background: on ? "var(--color-surface)" : "transparent", color: on ? "var(--color-ink)" : "var(--color-mute)", boxShadow: on ? "0 1px 2px rgba(10,10,11,.12)" : "none" }}
-                >
-                  {r} mi
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Sport */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {SPORTS.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSport(s.key)}
-              className="press shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={chipStyle(sport === s.key)}
-            >
-              {s.emoji} {s.name}
-            </button>
-          ))}
+        {/* Radius + sport — the house facet system */}
+        <div className="mt-4 flex flex-wrap items-start gap-3">
+          <FilterGroup label="Within" className="min-w-[130px] flex-[0.8]">
+            {RADII_MI.map((r) => (
+              <FacetRow key={r} mode="radio" active={radiusMi === r} onClick={() => setRadiusMi(r)}>
+                {r} mi
+              </FacetRow>
+            ))}
+          </FilterGroup>
+          <FilterGroup label="Sport" className="min-w-[190px] flex-1">
+            {SPORTS.map((s) => (
+              <FacetRow key={s.key} mode="radio" active={sport === s.key} onClick={() => setSport(s.key)}>
+                {s.emoji} {s.name}
+              </FacetRow>
+            ))}
+          </FilterGroup>
         </div>
         </div>
 

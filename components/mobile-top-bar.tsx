@@ -30,6 +30,7 @@ export function MobileTopBar({
   const calActive = pathname === "/calendar" || pathname.startsWith("/calendar/");
 
   return (
+    <>
     <header className="pt-safe px-safe sticky top-0 z-40 border-b border-rule/70 bg-[#FFFDF8] md:hidden">
       <div className="flex items-center justify-between px-5 py-3">
         <Link href="/" aria-label="Klimr home">
@@ -70,6 +71,7 @@ export function MobileTopBar({
           </button>
         </div>
       </div>
+    </header>
       <MobileMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -78,6 +80,6 @@ export function MobileTopBar({
         avatarName={avatarName}
         adminRole={adminRole}
       />
-    </header>
+    </>
   );
 }

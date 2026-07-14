@@ -70,6 +70,14 @@ export function PlayCourtFilter({ nearby, counts, total, activeSport, activeCour
     <FilterGroup
       label="Court"
       className="min-w-[280px] max-w-md flex-[1.3]"
+      pinned={
+        <>
+          <Row href={`/play${qs(activeSport, null)}`} active={!activeCourt} name="All courts" sub="near you" count={total} />
+          {pinActive ? (
+            <Row href={`/play${qs(activeSport, activeCourt!.id)}`} active name={activeCourt!.name} count={counts[activeCourt!.id] ?? 0} />
+          ) : null}
+        </>
+      }
       footer={
         <label className="relative block">
           {searching ? (
@@ -88,10 +96,6 @@ export function PlayCourtFilter({ nearby, counts, total, activeSport, activeCour
         </label>
       }
     >
-      <Row href={`/play${qs(activeSport, null)}`} active={!activeCourt} name="All courts" sub="near you" count={total} />
-      {pinActive ? (
-        <Row href={`/play${qs(activeSport, activeCourt!.id)}`} active name={activeCourt!.name} count={counts[activeCourt!.id] ?? 0} />
-      ) : null}
       {list.map((c) => (
         <Row
           key={c.id}
