@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { lookupZip, suggestCities, milesBetween } from "@/lib/us-places";
 import { WithdrawEntryButton } from "@/components/withdraw-entry-button";
+import { normalizeGallery, type GalleryItem } from "@/lib/tournament";
 
 export const metadata: Metadata = { title: "Tournaments" };
 
@@ -41,6 +42,12 @@ function coverUrl(path: string | null): string | null {
   return path ? `${SUPA_URL}/storage/v1/object/public/tournament-gallery/${path}` : null;
 }
 
+/** The card cover = the gallery's lead photo (same source as the /e hero),
+ *  falling back to the legacy cover_path, then the sport gradient. */
+function leadPhoto(fc: unknown): GalleryItem | null {
+  return normalizeGallery((fc as { gallery?: unknown } | null)?.gallery)[0] ?? null;
+}
+
 type PubRow = {
   id: string;
   code: string;
@@ -56,6 +63,7 @@ type PubRow = {
   promoted: boolean;
   cover_path: string | null;
   logo_path: string | null;
+ format_config: unknown;
 };
 
 function fmtDate(iso: string | null): string | null {
@@ -75,6 +83,7 @@ function CardMedia({
   miles,
   date,
   className = "aspect-[16/10]",
+  crop = null,
 }: {
   cover: string | null;
   logo: string | null;
@@ -85,10 +94,17 @@ function CardMedia({
   miles?: number | null;
   date?: string | null;
   className?: string;
+  crop?: { zoom: number; x: number; y: number } | null;
 }) {
   const badge = statusKey ? STATUS_BADGE[statusKey] : null;
+  const coverStyle = cover
+    ? {
+        backgroundImage: `url("${cover}")`,
+        ...(crop ? { backgroundPosition: `${crop.x}% ${crop.y}%`, backgroundSize: `${Math.max(100, Math.round(crop.zoom * 100))}%` } : {}),
+      }
+    : { background: sportGrad(sportKey) };
   return (
-    <div className={`relative w-full overflow-hidden bg-cover bg-center ${className}`} style={cover ? { backgroundImage: `url("${cover}")` } : { background: sportGrad(sportKey) }}>
+    <div className={`relative w-full overflow-hidden bg-cover bg-center ${className}`} style={coverStyle}>
       {!cover ? <span className="pointer-events-none absolute inset-0 grid place-items-center text-[88px] opacity-25">{emoji}</span> : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-black/10" />
 
@@ -126,10 +142,11 @@ function CardMedia({
 function PhotoCard({ t, miles }: { t: PubRow; miles: number | null }) {
   const meta = sportMeta(t.sport_key);
   const place = t.location_name || t.location_address;
-  const cover = coverUrl(t.cover_path);
+  const lead = leadPhoto(t.format_config);
+  const cover = lead?.url ?? coverUrl(t.cover_path);
   return (
     <Link href={`/e/${t.code}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
-      <CardMedia cover={cover} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} promoted={t.promoted} miles={miles} date={fmtDate(t.starts_at)} />
+      <CardMedia cover={cover} crop={lead} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} promoted={t.promoted} miles={miles} date={fmtDate(t.starts_at)} />
       <div className="flex flex-1 flex-col p-4">
         <h3 className="truncate text-base font-bold text-ink">{t.title}</h3>
         {place ? (
@@ -176,11 +193,11 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
     if (z) center = { lat: z.lat, lng: z.lng, label: `${z.city}, ${z.state}` };
   }
 
-  const COLS = "id, code, title, sport_key, status, summary, starts_at, location_name, location_address, location_lat, location_lng, promoted, cover_path, logo_path";
+  const COLS = "id, code, title, sport_key, status, summary, starts_at, location_name, location_address, location_lat, location_lng, promoted, cover_path, logo_path, format_config";
   const [{ data: pub }, { data: promo }, { data: mine }] = await Promise.all([
     supabase.from("tournaments").select(COLS).eq("visibility", "public").is("cancelled_at", null).in("status", ACTIVE_PUBLIC).not("location_lat", "is", null).limit(150),
     supabase.from("tournaments").select(COLS).eq("visibility", "public").eq("promoted", true).is("cancelled_at", null).in("status", ACTIVE_PUBLIC).order("starts_at", { ascending: true }).limit(12),
-    supabase.from("tournaments").select("id, code, title, sport_key, status, starts_at, location_name, cover_path, logo_path, cancelled_at").eq("owner_id", user.id).order("created_at", { ascending: false }),
+    supabase.from("tournaments").select("id, code, title, sport_key, status, starts_at, location_name, cover_path, logo_path, cancelled_at, format_config").eq("owner_id", user.id).order("created_at", { ascending: false }),
   ]);
 
   const promoted = (promo as PubRow[] | null) ?? [];
@@ -198,7 +215,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
     nearby = allPub.slice(0, 24).map((t) => ({ t, miles: null }));
   }
 
-  const organizing = (mine as Pick<PubRow, "id" | "code" | "title" | "sport_key" | "status" | "starts_at" | "location_name" | "cover_path" | "logo_path">[] | null) ?? [];
+  const organizing = (mine as Pick<PubRow, "id" | "code" | "title" | "sport_key" | "status" | "starts_at" | "location_name" | "cover_path" | "logo_path" | "format_config">[] | null) ?? [];
 
   // The viewer's entries (registered + waitlisted), newest first.
   const { data: myRegs } = await supabase
@@ -209,10 +226,10 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
     .order("created_at", { ascending: false });
   const myRegList = myRegs ?? [];
   const entryTournIds = [...new Set(myRegList.map((r) => r.tournament_id))];
-  const entryTournMap = new Map<string, { code: string; title: string; sport_key: string; cover_path: string | null; starts_at: string | null; location_name: string | null }>();
+  const entryTournMap = new Map<string, { code: string; title: string; sport_key: string; cover_path: string | null; starts_at: string | null; location_name: string | null; format_config: unknown }>();
   if (entryTournIds.length) {
-    const { data: et } = await supabase.from("tournaments").select("id, code, title, sport_key, cover_path, starts_at, location_name").in("id", entryTournIds);
-    for (const x of et ?? []) entryTournMap.set(x.id, { code: x.code, title: x.title, sport_key: x.sport_key, cover_path: x.cover_path, starts_at: x.starts_at, location_name: x.location_name });
+    const { data: et } = await supabase.from("tournaments").select("id, code, title, sport_key, cover_path, starts_at, location_name, format_config").in("id", entryTournIds);
+    for (const x of et ?? []) entryTournMap.set(x.id, { code: x.code, title: x.title, sport_key: x.sport_key, cover_path: x.cover_path, starts_at: x.starts_at, location_name: x.location_name, format_config: x.format_config });
   }
   const myEntries = myRegList
     .map((r) => {
@@ -235,7 +252,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           <div>
             <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Tournaments</h1>
             <p className="mt-1 text-sm text-mute">Find a bracket to join near you — or host your own.</p>
-            <Link href="/archive?tab=tournaments" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past tournaments →</Link>
+            <Link href="/tournaments/past" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past tournaments →</Link>
           </div>
         </div>
         <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
@@ -349,7 +366,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
               return (
                 <div key={e.regId} className="flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
                   <Link href={`/e/${e.code}`} className="group block">
-                    <CardMedia cover={coverUrl(e.cover_path)} logo={null} sportKey={e.sport_key} emoji={meta.emoji} statusKey={null} date={fmtDate(e.starts_at)} className="aspect-[16/9]" />
+                    <CardMedia cover={leadPhoto(e.format_config)?.url ?? coverUrl(e.cover_path)} crop={leadPhoto(e.format_config)} logo={null} sportKey={e.sport_key} emoji={meta.emoji} statusKey={null} date={fmtDate(e.starts_at)} className="aspect-[16/9]" />
                   </Link>
                   <div className="flex flex-1 flex-col p-4">
                     <Link href={`/e/${e.code}`} className="truncate text-sm font-bold text-ink hover:underline">
@@ -379,7 +396,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
               const meta = sportMeta(t.sport_key);
               return (
                 <Link key={t.id} href={`/tournament/${t.id}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
-                  <CardMedia cover={coverUrl(t.cover_path)} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} date={fmtDate(t.starts_at)} className="aspect-[16/9]" />
+                  <CardMedia cover={leadPhoto(t.format_config)?.url ?? coverUrl(t.cover_path)} crop={leadPhoto(t.format_config)} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} date={fmtDate(t.starts_at)} className="aspect-[16/9]" />
                   <div className="flex flex-1 flex-col p-4">
                     <h3 className="truncate text-sm font-bold text-ink">{t.title}</h3>
                     <p className="mt-0.5 truncate text-xs text-mute">/e/{t.code}</p>

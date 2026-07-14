@@ -198,6 +198,12 @@ export interface Database {
           archived_at: string | null;
           suspended_until: string | null;
           signup_code: string | null;
+          gear: Json;
+          usual_times: string | null;
+          profile_gallery: Json;
+          show_courts: boolean;
+          show_teams: boolean;
+          show_tournaments: boolean;
           created_at: string;
           last_seen_at: string | null;
           presence_mode: string;
@@ -271,13 +277,13 @@ export interface Database {
           connections_count?: number;
           followers_count?: number;
           following_count?: number;
-        };
+         gear?: Json; usual_times?: string | null; profile_gallery?: Json; show_courts?: boolean; show_teams?: boolean; show_tournaments?: boolean; };
         Relationships: [];
       };
       gate_access_codes: {
         Row: { code: string; email: string; expires_at: string; used_at: string | null; created_at: string };
         Insert: { code: string; email: string; expires_at: string; used_at?: string | null; created_at?: string };
-        Update: { code?: string; email?: string; expires_at?: string; used_at?: string | null; created_at?: string };
+        Update: { code?: string; email?: string; expires_at?: string; used_at?: string | null; created_at?: string; };
         Relationships: [];
       };
       invite_codes: {
@@ -507,6 +513,12 @@ export interface Database {
           reviewed_at?: string | null;
           resolution?: string | null;
         };
+        Relationships: [];
+      };
+      rank_snapshots: {
+        Row: { snap_date: string; user_id: string; sport_key: string; points: number; rank: number };
+        Insert: { snap_date: string; user_id: string; sport_key: string; points: number; rank: number };
+        Update: { points?: number; rank?: number };
         Relationships: [];
       };
       posts: {
@@ -777,6 +789,15 @@ export interface Database {
           created_by: string | null;
           published_at: string;
           created_at: string;
+          actor_id: string | null;
+          zip: string | null;
+          lat: number | null;
+          lng: number | null;
+          object_kind: string | null;
+          object_id: string | null;
+          meta: Json;
+          dedupe_key: string | null;
+          audience: string;
         };
         Insert: {
           id?: string;
@@ -788,8 +809,7 @@ export interface Database {
           link_label?: string | null;
           created_by?: string | null;
           published_at?: string;
-          created_at?: string;
-        };
+          created_at?: string; actor_id?: string | null; zip?: string | null; object_kind?: string | null; object_id?: string | null; meta?: Json; dedupe_key?: string | null; audience?: string; };
         Update: {
           kind?: string;
           title?: string | null;

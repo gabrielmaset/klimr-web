@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Newspaper, MessageCircle, Swords, Trophy } from "lucide-react";
 import { Avatar } from "@/components/avatar";
+import { CountBadge } from "@/components/count-badge";
 
 const TABS = [
   { href: "/feed", label: "Feed", Icon: Newspaper },
@@ -66,11 +67,7 @@ export function BottomNav({
               >
                 <span className={`relative ${SLOT}`}>
                   <Icon size={20} className={active ? "text-brand-deep" : "text-mute"} />
-                  {badge > 0 ? (
-                    <span className="absolute right-2 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white ring-2 ring-[#FFFDF8]">
-                      {badge > 9 ? "9+" : badge}
-                    </span>
-                  ) : null}
+                  <CountBadge count={badge} className="absolute -right-2 -top-1 ring-2 ring-surface" />
                 </span>
                 <span className={active ? "text-flame-text" : "text-mute"}>{label}</span>
               </Link>

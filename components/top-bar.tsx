@@ -7,6 +7,8 @@ import { setPresenceMode } from "@/app/account/presence-actions";
 import type { PresenceMode } from "@/app/account/presence";
 import { TopSearch } from "@/components/top-search";
 import { sportMeta } from "@/lib/sports";
+import { CountBadge } from "@/components/count-badge";
+import { NotificationBadge } from "@/components/notification-badge";
 
 const SPORT_LABEL: Record<string, string> = {
   tennis: "Tennis",
@@ -142,7 +144,7 @@ function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key:
   );
 }
 
-function IconLink({ href, label, badge, children }: { href: string; label: string; badge: number; children: React.ReactNode }) {
+function IconLink({ href, label, badge, badgeNode, children }: { href: string; label: string; badge: number; badgeNode?: React.ReactNode; children: React.ReactNode }) {
   return (
     <Link
       href={href}
@@ -151,11 +153,7 @@ function IconLink({ href, label, badge, children }: { href: string; label: strin
     >
       <span className="shrink-0">{children}</span>
       <span className="min-w-0 truncate">{label}</span>
-      {badge > 0 ? (
-        <span className="grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full bg-brand px-1 font-mono text-[10px] font-bold leading-none text-white">
-          {badge > 9 ? "9+" : badge}
-        </span>
-      ) : null}
+      {badgeNode ?? <CountBadge count={badge} />}
     </Link>
   );
 }
@@ -250,7 +248,7 @@ export function TopBar({
             <MessageCircle size={17} />
           </IconLink>
 
-          <IconLink href="/notifications" label="Notifications" badge={unreadCount}>
+          <IconLink href="/notifications" label="Notifications" badge={unreadCount} badgeNode={<NotificationBadge initialCount={unreadCount} />}>
             <Bell size={17} />
           </IconLink>
 

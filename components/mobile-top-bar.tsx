@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Bell, Search, CalendarRange, Menu } from "lucide-react";
 import { MobileMenu } from "@/components/mobile-menu";
 import { KlimrLogo } from "@/components/logo";
+import { NotificationBadge } from "@/components/notification-badge";
 
 export function MobileTopBar({
   unreadCount,
@@ -56,11 +57,7 @@ export function MobileTopBar({
             className="press relative grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface"
           >
             <Bell size={17} className={active ? "text-brand-deep" : "text-ink"} />
-            {unreadCount > 0 ? (
-              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            ) : null}
+            <NotificationBadge initialCount={unreadCount} className="absolute -right-1.5 -top-1 ring-2 ring-surface" />
           </Link>
           <button
             type="button"

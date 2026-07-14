@@ -203,7 +203,7 @@ export default async function ClassesPage() {
           <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Discover — Classes &amp; Coaching</p>
         <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Classes &amp; Coaching</h1>
           <p className="mt-1 text-sm text-mute">Clinics, lessons, and coaching with verified Klimr professionals.</p>
-          <Link href="/archive?tab=classes" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past classes →</Link>
+          <Link href="/classes/past" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past classes →</Link>
         </div>
         {provider ? (
           <Link

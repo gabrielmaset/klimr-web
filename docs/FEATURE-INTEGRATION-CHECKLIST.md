@@ -74,3 +74,9 @@ a whole section is role-bound, gate the section/slot so its nav entry disappears
 danger-zone pattern). Current map: entry moderation + division reassignment + danger zone =
 owner-only (guarded + hidden); payments review/refunds, gallery, announcements, schedule =
 staff (owner or manager); Klimr admin surfaces = platform admins.
+
+## 11. Feed emission?
+Does this feature create a moment the region would enjoy knowing about? If yes: emit into
+`feed_items` — prefer a **DB trigger** (0111 pattern: SECURITY DEFINER, dedupe_key, zip at
+write) so every code path is captured; use `lib/feed.ts → publishFeedItem()` only for
+context the database can't see. Only public objects; respect the audience field.

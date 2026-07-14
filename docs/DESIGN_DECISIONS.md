@@ -196,6 +196,132 @@ surface-by-surface in later phases; **new code should use these from the start.*
   limits, invite-code lockout + CAPTCHA, magic-link + TOTP, E2E chat, no payment handling,
   the data-governance ledger — scanners can't validate authorization logic.
 
+### 2026-07-10 — Live regional feed BUILT (Phase 1 + social ranking) — migration 0111
+- feed_items extended (actor/zip/lat-lng-ready/object refs/meta jsonb/dedupe unique/audience;
+  existing composer rows backfilled to audience='global'); **seven SECURITY DEFINER trigger
+  emitters** (profiles→player_joined incl. first-ZIP-set, queue_points won→match_result
+  deduped per match, events→active, tournaments→public, listings→gear_listed,
+  providers→pro_verified, teams→team_formed) + `feed_emit()` helper + 90-day regional prune
+  cron; `lib/feed.ts publishFeedItem()` app seam; checklist §11 "Feed emission?".
+- Feed page: ranked regional stream — 25 mi via lookupZip haversine over a 120-row window,
+  affinity ×2.2 from accepted friendships with a visible **"Your circle" badge**
+  (transparent ranking > black box), kind weights + 48 h half-life decay, global ops ×1.35,
+  blocks filtered read-time, fresh actor-name hydration, player-group collapse cards,
+  per-kind templates linking into the object (tournament /e/{code}, listing, pro overlay),
+  Realtime **"New updates" pill** (never jank-inserts). Zipless viewers: global lane + ZIP
+  prompt. Wire kicker now shows the viewer's city.
+
+### 2026-07-10 — Feed architecture designed (docs/FEED-ARCHITECTURE.md)
+- Recon: app/feed already composes next-match hero + events + feed_items; feed_items (0010)
+  is the live curated ops channel (admin composer); 0006 posts layer dormant (P2 social lane).
+- Decision: **one stream, three writer classes** — curated (exists), **automated DB triggers**
+  on seven domain tables (SECURITY DEFINER, dedupe keys — emission in the DB per the scale
+  mandate), and a lib/feed.ts app seam (checklist gains "Feed emission?"). Regional not
+  follower-based ⇒ no per-viewer fan-out needed; 0111 extends feed_items with
+  actor/zip/lat-lng/object refs/audience. Read = newest window + 25mi filter (bounding-box
+  columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
+  climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
+
+### 2026-07-13 — Public player profile rebuilt to the Daylight handoff (+ /settings/profile-page)
+- **Kept the machinery, rebuilt the skin**: the existing page already ran the geographic
+  ladder (`ranked_players` RPC, ZIP→World), honest badges, full safety state (blocks both
+  directions w/ cloaking, reports, friendship, follows), relationship_context +
+  mutual_connections. All preserved verbatim inside the new hero/stat-band/scope-strip layout.
+- **New panels, all real data**: form dots + recent matches + head-to-head sourced from
+  queue_points (the authoritative won ledger; scores parsed defensively from matches.result,
+  omitted when absent); teams (team_members+teams w/ role chips); tournaments (live entries,
+  pulsing IN BRACKET when in_progress); courts derived from actual recent match venues (≤3,
+  distance vs the viewer's ZIP); gear bag + usual times + gallery from 0113 columns. **Every
+  optional panel hides when empty; courts/teams/tournaments additionally obey the owner's
+  privacy toggles.**
+- **Config mandate delivered**: migration **0113** (gear jsonb, usual_times, profile_gallery,
+  show_courts/show_teams/show_tournaments) + **/settings/profile-page** (privacy toggles,
+  gear editor ≤8 rows, usual times) + settings-index row + "Edit profile" routes there.
+- **Actions per the design**: Challenge = flame primary → /play/new; Connect/Follow reuse
+  RelationshipButtons; **Block/Report live only in the ··· menu** (with Message via the 0110
+  DM primitive and Share-link); BackPill is history-aware (router.back, /players fallback) so
+  Network/Players/feed entries all return correctly.
+- **Follow-ups**: owner gallery editor (column ships, mgmt is its own task per handoff);
+  /play/new opponent-prefill param; World scope hidden-by-data until international.
+
+### 2026-07-13 — Notification badge: live-clearing + the house CountBadge
+- **Staleness fixed at both ends**: (a) visiting /notifications now auto-marks everything
+  read (visiting IS reading; the redundant "Mark all read" button removed); (b) the bubble is
+  a client `NotificationBadge` — layouts never re-render on navigation, so it refetches on
+  route change + window focus and subscribes to the user's notification INSERT/UPDATEs,
+  clearing the instant reads land (and ticking up live on new ones).
+- **One visual system**: shared `CountBadge` — 17px pill, flame gradient, white tabular-nums
+  bold 10px, `pb-px` optical centering (the old baseline sag), soft flame shadow, `ring-2`
+  where it overlaps icons. Swapped at all four sites: top-bar Notifications (live) + Chats,
+  mobile top-bar bell (live), bottom-nav Chats. Chats-count liveness = follow-up (same
+  pattern over conversation_reads).
+
+### 2026-07-13 — Archive retired: history lives in each section
+- Gabriel's call: the combined /archive misled ("View past events" landed on a three-tab
+  account page). Split into **/events/past** (30-day window — events are a pulse),
+  **/tournaments/past** and **/classes/past** (full history — results and records stay
+  reachable), each with its section back-link, History kicker, and the shared `HistoryList`.
+  The three "View past …" links repointed; /archive now redirects tab-aware so old links
+  never break.
+
+### 2026-07-13 — Tournaments listing cards show the gallery lead photo
+- Bug: cards fell back to the sport gradient because they read the legacy `cover_path`
+  column while photos live in `format_config.gallery` (the /e hero's source). Fix: all three
+  card surfaces (near-you, Organizing, Your entries) now derive
+  `leadPhoto(format_config) → gallery[0]` — same source as the public page — **including the
+  saved crop** (background-position from x/y, background-size from zoom, ≥100%), falling back
+  to cover_path, then the gradient. Queries extended to carry format_config.
+
+### 2026-07-13 — Feed Phase 2 BUILT (migration 0112): ranking moves, circle lane, 0006 revival
+- **Ranking-move cards**: `rank_snapshots` (per-sport ranks over summed queue points) written
+  nightly by `klimr-rank-snapshots` cron; the diff vs the previous snapshot emits
+  `ranking_move` (climb ≥5 places into the top 200, region-scoped by the climber's ZIP,
+  deduped per user·sport·day; snapshots roll at 14 days). Card: "#18 → #9 · up 9 places."
+- **Circle lane**: `/feed?lane=circle` — connections' activity at any distance
+  (fan-out-on-read over the friendship graph, `feed_items(actor_id)` indexed). Tabs (Nearby ·
+  Your circle) at the wire header; circle-specific empty state.
+- **0006 social revival**: member posts (auto-approved — invite-only community; the trigger
+  honors the full moderation lifecycle: emit on approved, retract on rejection/delete) flow
+  into the wire as Community cards with the composer atop the feed (500 chars, optional sport
+  tag) and **likes** (optimistic heart, batched counts, author notified with a 60-min guard,
+  never self). Delete-own with inline confirm; grants hardened on the 0006 tables. Comments
+  remain deferred — a threaded content product deserving its own design turn. Write-time
+  aggregation stays volume-gated per the architecture doc (read-time collapse already serves).
+
+### 2026-07-13 — Live feed Phase 1 BUILT (migration 0111)
+- Everything in FEED-ARCHITECTURE.md P1 shipped: **0111_live_feed.sql** (columns + indexes +
+  audience backfill for legacy curated rows + `feed_emit()` dedupe helper + seven SECURITY
+  DEFINER emitters: profiles/home_zip, queue_points wins, events→active, tournaments→public,
+  listings, providers→approved, teams + 90-day prune cron `klimr-feed-prune`), `lib/feed.ts`
+  seam, checklist feed-emission line, and the feed page read model: 120-item fetch → block
+  filter → 25-mi radius via lookupZip → **recency half-life decay × kind weight × 2.2
+  connection-circle boost** scoring → top 40 → fresh actor-name hydration (names never stored)
+  → same-city 24h player collapse → per-kind cards; `FeedLivePill` subscribes to INSERTs and
+  offers refresh (banner-not-jank).
+
+### 2026-07-13 — Feed architecture designed (docs/FEED-ARCHITECTURE.md)
+- Recon: feed_items (0010) already live with ONE writer — the admin composer = the ops-comms
+  channel; the page also renders next-match hero + 3 upcoming events; 0006 social schema dormant.
+- Design: **one append-only stream, three writer classes** (curated · SECURITY DEFINER trigger
+  emitters on profiles/queue_points/events/tournaments/listings/providers/teams · lib/feed.ts
+  app seam). Region-scoped broadcast means one row serves the whole audience — push-model read
+  speed at single-write cost; no follower fan-out problem by construction. 0111 drafted:
+  actor/zip/lat/lng/object/dedupe_key/audience + indexes (audience leads reads → leads indexes;
+  denormalized rows so reads never join; idempotent emitters). Live pill (banner-not-jank,
+  the pattern feed products converge on), 25-mi JS radius v1 → bounding-box SQL later (columns
+  ship now), 24h client collapse, 90-day region retention, ranking climbs = P2 via
+  rank_snapshots + nightly diff. Checklist gains a feed-emission line when P1 builds.
+
+### 2026-07-10 — Health directory facets: chips → the marketplace rail pattern
+- Gabriel rejected the specialty pill row (wraps into noise as specialties grow). Replaced
+  with the house facet pattern from Second Serve: a **left rail** (`210px`, sticky) with two
+  labeled groups — **Specialty** (identity-color dot + label + right-aligned mono count,
+  active = tint-brand row) and **Format** (with per-format counts against the other active
+  facets) — beside the results column. Scales vertically to any number of specialties.
+  **Mobile**: the rail becomes two native selects (specialty w/ counts, format) above the
+  results. ProControls slimmed to search + sort. All state stays in URL params; the bounded
+  well is unchanged.
+
 ### 2026-07-10 — The Training Room: Health & Nutrition rebuilt to the scoped handoff
 - **Scope held**: only /health (page + read/[slug] + review-policy), health-only components,
   lib/health-content.ts, the new /messages DM primitive, and migration 0110 + types. Side nav,

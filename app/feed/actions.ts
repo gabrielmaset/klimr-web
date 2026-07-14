@@ -3,93 +3,66 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { moderateText } from "@/lib/moderation";
-import { accountActive } from "@/lib/guards";
-import { SPORT_KEYS } from "@/lib/sports";
+import { createNotification } from "@/lib/notify";
 
-export type PostState = { ok?: boolean; error?: string } | undefined;
-export type CommentState = { ok?: boolean; error?: string } | undefined;
-
-export async function createPost(_prev: PostState, formData: FormData): Promise<PostState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Please sign in." };
-  if (!(await accountActive(supabase, user.id)))
-    return { error: "Your account is restricted and can't post right now." };
-
-  const body = String(formData.get("body") ?? "").trim().slice(0, 1000);
-  const sportRaw = String(formData.get("sport") ?? "");
-  const sport_key = SPORT_KEYS.includes(sportRaw) ? sportRaw : null;
-
-  if (!body) return { error: "Write something to post." };
-
-  // Screen text before publish. Image uploads are intentionally disabled in the
-  // feed for now; the media-safety pipeline stays in the codebase for later.
-  const v = await moderateText(body);
-  if (!v.allowed) {
-    return { error: `Your post was blocked by our safety check${v.reason ? `: ${v.reason}` : "."}` };
-  }
-
-  // Publish via the service role (the only role allowed to set 'approved').
-  const admin = createAdminClient();
-  const { error } = await admin.from("posts").insert({
-    author_id: user.id,
-    body,
-    sport_key,
-    moderation_status: "approved",
-    moderation_labels: v.categories.length ? v.categories : null,
-  });
-  if (error) return { error: "Could not publish your post. Please try again." };
-
-  revalidatePath("/feed");
-  revalidatePath("/");
-  return { ok: true };
-}
-
-export async function toggleLike(formData: FormData) {
-  const postId = String(formData.get("postId"));
+/** Share a post with players nearby. Invite-only community → auto-approved;
+ *  the 0112 trigger emits the regional feed card. */
+export async function createFeedPost(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return;
-  const { data: existing } = await supabase
-    .from("post_likes")
-    .select("post_id")
-    .eq("post_id", postId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (existing) {
-    await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.id);
-  } else {
-    await supabase.from("post_likes").insert({ post_id: postId, user_id: user.id });
-  }
+  const body = String(formData.get("body") ?? "").trim().slice(0, 500);
+  if (body.length < 2) return;
+  const sport = String(formData.get("sport") ?? "").trim() || null;
+  await supabase.from("posts").insert({ author_id: user.id, body, sport_key: sport, moderation_status: "approved" });
   revalidatePath("/feed");
 }
 
-export async function addComment(_prev: CommentState, formData: FormData): Promise<CommentState> {
-  const postId = String(formData.get("postId"));
-  const body = String(formData.get("body") ?? "").trim().slice(0, 500);
+/** Remove your own post — the trigger clears its feed card. */
+export async function deleteOwnPost(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Please sign in." };
-  if (!(await accountActive(supabase, user.id)))
-    return { error: "Your account is restricted and can't comment right now." };
-  if (!body) return { error: "Write a comment first." };
-
-  const v = await moderateText(body);
-  if (!v.allowed) return { error: `Your comment was blocked by our safety check${v.reason ? `: ${v.reason}` : "."}` };
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("post_comments")
-    .insert({ post_id: postId, author_id: user.id, body, moderation_status: "approved" });
-  if (error) return { error: "Could not post your comment." };
-
+  if (!user) return;
+  const postId = String(formData.get("post_id") ?? "");
+  if (!postId) return;
+  await supabase.from("posts").delete().eq("id", postId).eq("author_id", user.id);
   revalidatePath("/feed");
-  return { ok: true };
+}
+
+/** Heart / unheart a post. Notifies the author (guarded, never self). */
+export async function togglePostLike(postId: string): Promise<{ ok: boolean; liked: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, liked: false, error: "Sign in first." };
+
+  const { data: mine } = await supabase.from("post_likes").select("post_id").eq("post_id", postId).eq("user_id", user.id).maybeSingle();
+  if (mine) {
+    await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.id);
+    return { ok: true, liked: false };
+  }
+  const { error } = await supabase.from("post_likes").insert({ post_id: postId, user_id: user.id });
+  if (error) return { ok: false, liked: false, error: error.message };
+
+  const { data: post } = await supabase.from("posts").select("author_id").eq("id", postId).maybeSingle();
+  if (post && post.author_id !== user.id) {
+    const admin = createAdminClient();
+    const { data: recent } = await admin
+      .from("notifications")
+      .select("id")
+      .eq("user_id", post.author_id)
+      .eq("link_url", "/feed")
+      .gte("created_at", new Date(Date.now() - 60 * 60000).toISOString())
+      .limit(1);
+    if (!recent?.length) {
+      const { data: me } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
+      await createNotification({ userId: post.author_id, kind: "system", title: `${me?.display_name ?? "A member"} liked your post`, linkUrl: "/feed" });
+    }
+  }
+  return { ok: true, liked: true };
 }

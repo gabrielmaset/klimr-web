@@ -54,3 +54,39 @@ export async function reportUser(formData: FormData) {
   }
   revalidatePath(`/profile/${target}`);
 }
+
+/** Open (or reuse) the direct E2E thread with this player — same primitive as
+ *  Training Room chats (0110). Blocked pairs can't open threads. */
+export async function messageMember(formData: FormData) {
+  const target = String(formData.get("userId"));
+  const { supabase, user } = await ctx();
+  if (!user) redirect(`/login?next=/profile/${target}`);
+  if (!target || target === user.id) redirect(`/profile/${target}`);
+
+  const { data: existing } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("kind", "dm")
+    .or(`and(created_by.eq.${user.id},peer_id.eq.${target}),and(created_by.eq.${target},peer_id.eq.${user.id})`)
+    .maybeSingle();
+  let convId = existing?.id ?? null;
+  if (!convId) {
+    const { data: created, error } = await supabase
+      .from("conversations")
+      .insert({ kind: "dm", created_by: user.id, peer_id: target })
+      .select("id")
+      .single();
+    if (created) convId = created.id;
+    else if (error) {
+      const { data: again } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("kind", "dm")
+        .or(`and(created_by.eq.${user.id},peer_id.eq.${target}),and(created_by.eq.${target},peer_id.eq.${user.id})`)
+        .maybeSingle();
+      convId = again?.id ?? null;
+    }
+  }
+  if (!convId) redirect(`/profile/${target}?notice=chat`);
+  redirect(`/messages/${convId}`);
+}

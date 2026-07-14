@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PROFESSIONAL_ROLES } from "@/lib/professional-roles";
 import { HEALTH_TOPICS, HEALTH_ARTICLES, FEATURED_COLLECTION, QUICK_ANSWERS, topicLabel, articleBySlug, LONGEST_TOPIC_CH } from "@/lib/health-content";
 import { ProControls } from "@/components/health/pro-controls";
+import { FacetSelects } from "@/components/health/facet-selects";
 import { LibraryControls } from "@/components/health/library-controls";
 import { QuickAnswers } from "@/components/health/quick-answers";
 import { ProviderReviews, Stars, type ReviewItem } from "@/components/provider-reviews";
@@ -156,6 +157,12 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
   const matchSpec = (p: Pro, key: string) => p.specs.some((s) => s.key === key);
   const base = allPros.filter((p) => matchFormat(p) && matchQ(p));
   const specCounts = new Map(SPECIALTIES.map((s) => [s.key, base.filter((p) => matchSpec(p, s.key)).length]));
+  const fmtBase = allPros.filter((p) => matchQ(p) && (!fSpec || matchSpec(p, fSpec)));
+  const fmtCounts = {
+    all: fmtBase.length,
+    inperson: fmtBase.filter((p) => p.format === "both" || p.format === "inperson").length,
+    virtual: fmtBase.filter((p) => p.format === "both" || p.format === "virtual").length,
+  };
   let shown = fSpec ? base.filter((p) => matchSpec(p, fSpec)) : base;
   shown = [...shown].sort((a, b) => {
     if (fSort === "reviewed") return b.reviewCount - a.reviewCount || (b.rating ?? 0) - (a.rating ?? 0);
@@ -235,26 +242,58 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
           <p className={`${mono} text-[10px] font-bold uppercase tracking-wider text-faint`}>{shown.length} of {allPros.length} verified</p>
         </div>
 
-        <div className="mt-3"><ProControls /></div>
+        <div className="mt-4 grid gap-5 md:grid-cols-[210px_minmax(0,1fr)]">
+          {/* facet rail — the marketplace pattern: scales vertically, counts right-aligned */}
+          <aside className="hidden md:block">
+            <div className="sticky top-24 grid gap-5">
+              <div>
+                <p className={`${mono} px-2.5 text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Specialty</p>
+                <div className="mt-1.5 grid gap-0.5">
+                  <Link href={buildHref({ spec: null, page: null })} className={`press flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] ${!fSpec ? "bg-tint-brand font-bold text-brand-deep" : "font-semibold text-ink-soft hover:bg-bg hover:text-ink"}`}>
+                    All specialties <span className={`${mono} text-[10.5px] ${!fSpec ? "text-brand-deep" : "text-faint"}`}>{base.length}</span>
+                  </Link>
+                  {SPECIALTIES.map((s) => {
+                    const active = fSpec === s.key;
+                    return (
+                      <Link key={s.key} href={buildHref({ spec: active ? null : s.key, page: null })} className={`press flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] ${active ? "bg-tint-brand font-bold text-brand-deep" : "font-semibold text-ink-soft hover:bg-bg hover:text-ink"}`}>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.fg }} />
+                          <span className="truncate">{s.label}</span>
+                        </span>
+                        <span className={`${mono} text-[10.5px] ${active ? "text-brand-deep" : "text-faint"}`}>{specCounts.get(s.key)}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <p className={`${mono} px-2.5 text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Format</p>
+                <div className="mt-1.5 grid gap-0.5">
+                  {[
+                    { value: "", label: "All formats", count: fmtCounts.all },
+                    { value: "inperson", label: "In-person", count: fmtCounts.inperson },
+                    { value: "virtual", label: "Virtual", count: fmtCounts.virtual },
+                  ].map((f) => {
+                    const active = fFormat === f.value;
+                    return (
+                      <Link key={f.value || "all"} href={buildHref({ format: f.value || null, page: null })} className={`press flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] ${active ? "bg-tint-brand font-bold text-brand-deep" : "font-semibold text-ink-soft hover:bg-bg hover:text-ink"}`}>
+                        {f.label} <span className={`${mono} text-[10.5px] ${active ? "text-brand-deep" : "text-faint"}`}>{f.count}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </aside>
 
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          <Link href={buildHref({ spec: null, page: null })} className={`press rounded-full border px-3 py-1.5 text-xs font-semibold ${!fSpec ? "border-[#FFD4BC] bg-tint-brand text-brand-deep" : "border-rule bg-surface text-ink-soft hover:text-ink"}`}>
-            All specialties <span className={`${mono} ml-1 text-[10px]`}>{base.length}</span>
-          </Link>
-          {SPECIALTIES.map((s) => (
-            <Link
-              key={s.key}
-              href={buildHref({ spec: fSpec === s.key ? null : s.key, page: null })}
-              className="press rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={fSpec === s.key ? { background: s.bg, borderColor: s.bd, color: s.fg } : undefined}
-            >
-              <span className={fSpec === s.key ? "" : "text-ink-soft"}>{s.label}</span> <span className={`${mono} ml-1 text-[10px] ${fSpec === s.key ? "" : "text-faint"}`}>{specCounts.get(s.key)}</span>
-            </Link>
-          ))}
-        </div>
+          <div className="min-w-0">
+            <div className="grid gap-2">
+              <ProControls />
+              <FacetSelects specialties={SPECIALTIES.map((s) => ({ key: s.key, label: s.label, count: specCounts.get(s.key) ?? 0 }))} />
+            </div>
 
-        {/* bounded results well — page height never grows with the directory */}
-        <div className="mt-4 rounded-[18px] border border-[#EFE9DC] bg-[#FDFBF7] p-3" style={{ maxHeight: 540, overflowY: "auto", overscrollBehavior: "contain" }}>
+            {/* bounded results well — page height never grows with the directory */}
+            <div className="mt-3 rounded-[18px] border border-[#EFE9DC] bg-[#FDFBF7] p-3" style={{ maxHeight: 540, overflowY: "auto", overscrollBehavior: "contain" }}>
           {allPros.length === 0 ? (
             <div className="grid place-items-center rounded-2xl border-2 border-dashed border-rule-2 bg-surface/60 px-6 py-12 text-center">
               <p className="text-sm font-bold text-ink">No health professionals yet — be the first.</p>
@@ -321,6 +360,8 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
               ))}
             </div>
           )}
+            </div>
+          </div>
         </div>
       </section>
 
