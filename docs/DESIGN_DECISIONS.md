@@ -166,6 +166,16 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-15 — Tournament rail: compact accordion (the second adaptive layer)
+- Scrollbar hiding treated the symptom; the main rail's real short-screen answer is the
+  compact accordion — under max-height 960px the labeled sections (Setup/Registration/
+  Competition/Promotion) become one-open-at-a-time toggle headers (ChevronDown rotate,
+  grid-rows 1fr↔0fr 200ms) so the menu NEVER needs to scroll. Ported verbatim from
+  side-nav: openSection follows the pathname's section; Dashboard (headerless) always
+  visible; icon-collapsed mode shows all rows with hairline dividers between sections
+  (accordion N/A when rows are 44px icons). Tournament rail now carries the main rail's
+  full contract: width collapse + overlay + persisted choice + compact accordion.
+
 ### 2026-07-15 — Tournament organizer rail: main-rail adaptive contract
 - The org dashboard's dark rail was the last pre-system aside: fixed w-64, visible inner
   scrollbar on short laptops, no collapse. Reworked to the main rail's exact mechanics

@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, ClipboardList, CreditCard, CalendarClock, ListChecks,
-  Network, Handshake, Megaphone, Settings, Globe, ChevronLeft,
+  Network, Handshake, Megaphone, Settings, Globe, ChevronDown,
+  ChevronLeft,
   ChevronRight, Users, Award,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
@@ -93,6 +94,29 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       mq.removeEventListener("change", update);
     };
   }, []);
+  // On screens too short to show the whole menu at once, collapse the labeled
+  // sections into an accordion (one open at a time) so the menu never scrolls.
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-height: 960px)");
+    const update = () => setCompact(mq.matches);
+    const raf = requestAnimationFrame(update);
+    mq.addEventListener("change", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      mq.removeEventListener("change", update);
+    };
+  }, []);
+  const sectionForPath = (p: string) =>
+    groups.find((g) => g.header && g.items.some((it) => p === it.href || p.startsWith(it.href + "/")))?.header ?? null;
+  const [openSection, setOpenSection] = useState<string | null>(null);
+  useEffect(() => {
+    const s = sectionForPath(pathname);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s) setOpenSection(s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   const toggleRail = () => {
     if (overlayMode) {
       setOverlayOpen((o) => !o);
@@ -192,14 +216,42 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
             )}
           </div>
 
-          {groups.map((g, gi) => (
-            <div key={g.header ?? "overview"} className={gi === 0 ? "mt-5" : "mt-5"}>
-              {g.header && !collapsed ? <p className="kicker mb-1 px-3 text-rail-muted">{g.header}</p> : null}
-              <nav className="flex flex-col gap-1" aria-label={g.header ?? "Overview"}>
-                {g.items.map((it) => renderItem(it))}
-              </nav>
-            </div>
-          ))}
+          {groups.map((g) => {
+            if (!g.header) {
+              return (
+                <nav key="overview" className="mt-5 flex flex-col gap-1" aria-label="Overview">
+                  {g.items.map((it) => renderItem(it))}
+                </nav>
+              );
+            }
+            const open = collapsed || !compact || openSection === g.header;
+            return (
+              <div key={g.header} className="mt-5">
+                {collapsed ? (
+                  <div aria-hidden className="mx-2 -mt-2.5 mb-2.5 border-t border-rail-border" />
+                ) : compact ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpenSection((cur) => (cur === g.header ? null : g.header!))}
+                    aria-expanded={open}
+                    className="kicker mb-1 flex w-full items-center justify-between gap-2 rounded-[10px] px-3 text-rail-muted transition-colors hover:text-rail-fg"
+                  >
+                    <span>{g.header}</span>
+                    <ChevronDown size={13} className={`transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
+                  </button>
+                ) : (
+                  <p className="kicker mb-1 px-3 text-rail-muted">{g.header}</p>
+                )}
+                <div className={`grid transition-[grid-template-rows] duration-200 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className="overflow-hidden">
+                    <nav className="flex flex-col gap-1" aria-label={g.header}>
+                      {g.items.map((it) => renderItem(it))}
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
 
           <div className="flex-1" />
 
