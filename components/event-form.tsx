@@ -52,6 +52,7 @@ type Initial = {
   description: string | null;
   location_text: string | null;
   location_url: string | null;
+  location_reveal?: string;
   starts_at: string;
   ends_at: string | null;
   capacity: number | null;
@@ -88,6 +89,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
   const [endsLocal, setEndsLocal] = useState(() => toLocalInput(initial?.ends_at ?? null));
   const [location, setLocation] = useState(initial?.location_text ?? "");
   const [locationUrl, setLocationUrl] = useState(initial?.location_url ?? "");
+  const [revealRsvp, setRevealRsvp] = useState(initial?.location_reveal === "rsvp");
   const [resolvedPoint, setResolvedPoint] = useState<LatLng | null>(null);
   const [resolveState, setResolveState] = useState<"idle" | "resolving" | "failed">("idle");
 
@@ -221,6 +223,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
         description: linkifyHtml(description),
         location_text: location.trim() || null,
         location_url: locationUrl.trim() || null,
+        location_reveal: revealRsvp ? "rsvp" : "public",
         starts_at: toIso(startsLocal),
         ends_at: endsLocal ? toIso(endsLocal) : null,
         capacity: capacity ? Number(capacity) : null,
@@ -361,6 +364,14 @@ export function EventForm({ initial }: { initial?: Initial }) {
           ) : null}
           <span className="mt-1.5 block text-[11px] text-faint">When set, the location on the event page opens this exact pin. Otherwise it searches the venue text above.</span>
         </label>
+
+          <label className="flex items-start gap-2.5 rounded-xl border border-rule-soft bg-bg px-3.5 py-3">
+            <input type="checkbox" checked={revealRsvp} onChange={(e) => setRevealRsvp(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#201B12]" />
+            <span className="text-[13.5px] leading-relaxed text-ink-soft">
+              <span className="font-bold text-ink">Share exact location only with people who RSVP.</span> Everyone else sees the neighborhood —
+              the court, address, and map unlock when they join.
+            </span>
+          </label>
       </section>
 
       <section className="space-y-4 rounded-2xl border border-rule bg-surface shadow-e1 p-5">
@@ -368,7 +379,8 @@ export function EventForm({ initial }: { initial?: Initial }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className={labelCls}>Capacity (optional)</span>
-            <input type="number" min={1} className={field} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="e.g. 16" />
+            <input type="number" min={1} className={field} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="Unlimited" />
+            <span className="mt-1 block text-[12.5px] text-mute">Leave blank for unlimited — set a number only if you need to cap attendance.</span>
           </label>
           <label className="block">
             <span className={labelCls}>Cost</span>

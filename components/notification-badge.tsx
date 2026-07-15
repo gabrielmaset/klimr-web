@@ -42,7 +42,7 @@ export function NotificationBadge({ initialCount, className = "" }: { initialCou
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
       channel = supabase
-        .channel("notif-badge")
+        .channel(`notif-badge:${Math.random().toString(36).slice(2)}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => void refetch())
         .subscribe();
     })();
@@ -51,7 +51,7 @@ export function NotificationBadge({ initialCount, className = "" }: { initialCou
     return () => {
       cancelled = true;
       window.removeEventListener("focus", onFocus);
-      if (channel) void createClient().removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [refetch]);
 

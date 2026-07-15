@@ -10,12 +10,21 @@
 --   reviews:  55555555-5555-4555-8555-5555555555 01..05
 
 -- ── seed members (auth + profile) ───────────────────────────────────────
-insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+-- NOTE: GoTrue's admin API (listUsers etc.) requires the token columns to be
+-- EMPTY STRINGS, not NULL — manually inserted rows must set them or the whole
+-- admin user listing 500s with "Database error finding users".
+insert into auth.users (
+  id, instance_id, aud, role, email, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change, email_change_token_new,
+  email_change_token_current, phone_change, phone_change_token,
+  reauthentication_token, is_sso_user, is_anonymous
+)
 values
-  ('11111111-1111-4111-8111-111111111101', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seed-maya@klimr.test',  now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
-  ('11111111-1111-4111-8111-111111111102', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seed-jonah@klimr.test', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
-  ('11111111-1111-4111-8111-111111111103', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seed-cole@klimr.test',  now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
-  ('11111111-1111-4111-8111-111111111104', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seed-priya@klimr.test', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now())
+  ('11111111-1111-4111-8111-111111111101', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seed-maya@klimr.test',  now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', '', false, false),
+  ('11111111-1111-4111-8111-111111111102', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seed-jonah@klimr.test', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', '', false, false),
+  ('11111111-1111-4111-8111-111111111103', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seed-cole@klimr.test',  now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', '', false, false),
+  ('11111111-1111-4111-8111-111111111104', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seed-priya@klimr.test', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '', '', '', false, false)
 on conflict (id) do nothing;
 
 insert into public.profiles (id, display_name, home_zip, avatar_hue, bio)

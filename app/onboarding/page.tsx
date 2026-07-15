@@ -82,41 +82,7 @@ export default async function OnboardingPage() {
 
   return (
     <div className="mx-auto max-w-page px-5 py-12 lg:py-16">
-      <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start lg:gap-14">
-        {/* left rail — heading + reassurance, sticky on desktop */}
-        <div className="lg:sticky lg:top-24">
-          <p className="kicker text-brand-deep">{isEdit ? "Your profile" : "Almost in"}</p>
-          <h1 className="mt-2 font-display text-4xl text-ink sm:text-5xl">
-            {isEdit ? (
-              <>Edit your <span className="italic">profile.</span></>
-            ) : (
-              <>Build your <span className="italic">profile.</span></>
-            )}
-          </h1>
-          <p className="mt-3 max-w-sm text-sm leading-relaxed text-mute">
-            {isEdit
-              ? "Everything here can change as your game does — update a rating, add a sport, reset your times."
-              : "Five quick steps and your spot on the board is reserved. It all stays editable later."}
-          </p>
-          <ul className="mt-6 hidden space-y-2.5 lg:block">
-            {[
-              "Takes about two minutes",
-              "Each sport gets its own ranking",
-              "Nothing here is locked in",
-            ].map((t) => (
-              <li key={t} className="flex items-center gap-2.5 text-sm text-ink-soft">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
-                {t}
-              </li>
-            ))}
-          </ul>
+      <OnboardingWizard sports={sports ?? []} initial={initial} isEdit={isEdit} startStep={0} />
         </div>
-
-        {/* right — the wizard, in a card that fills the column */}
-        <div className="rounded-3xl border border-rule bg-surface p-6 shadow-[0_1px_0_rgba(10,10,11,0.02)] sm:p-8">
-          <OnboardingWizard sports={sports ?? []} initial={initial} isEdit={isEdit} startStep={0} />
-        </div>
-      </div>
-    </div>
   );
 }

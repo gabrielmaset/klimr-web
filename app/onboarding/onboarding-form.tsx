@@ -2,8 +2,10 @@
 import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
-import { Check, Pencil, Plus, ShieldCheck, Star, X } from "lucide-react";
+import { Camera, Check, Loader2, Pencil, Plus, ShieldCheck, Star, X } from "lucide-react";
 import { saveProfile, type WizardState } from "./actions";
+import { createAvatarUploadUrl, commitAvatar } from "@/app/account/avatar-actions";
+import { createClient } from "@/lib/supabase/client";
 import { ageFromDob } from "@/lib/age";
 
 /* ---------- vocabulary ---------- */
@@ -13,6 +15,7 @@ const SPORT_EMOJI: Record<string, string> = {
   pickleball: "🏓",
   padel: "🟡",
   racquetball: "🟦",
+  beach_volleyball: "🏐",
 };
 
 const LEVELS = [
@@ -22,12 +25,7 @@ const LEVELS = [
   { key: "advanced", label: "Advanced", blurb: "Tournament-level game." },
 ] as const;
 
-const RATING_HINT: Record<string, string> = {
-  NTRP: "e.g. 3.5",
-  DUPR: "e.g. 3.5",
-  Level: "e.g. 3.0",
-  USAR: "e.g. 4.0",
-};
+const RATING_HINT: Record<string, string> = { NTRP: "e.g. 3.5", DUPR: "e.g. 3.5", Level: "e.g. 3.0", USAR: "e.g. 4.0" };
 
 const DAYS = [
   { key: "mon", label: "Mon" },
@@ -41,14 +39,13 @@ const DAYS = [
 
 const HUES = [12, 35, 95, 150, 200, 235, 280, 330];
 
-const STEPS = ["About you", "Your sports", "How you play", "When you play", "Finishing touches", "Review & confirm"];
+const STEPS = ["About you", "Your sports", "When you play", "Finishing touches", "Review & confirm"];
 const HEADS: { h: string; sub: string }[] = [
-  { h: "First, the basics", sub: "The name on your player card — and where home base is." },
-  { h: "What do you play?", sub: "Pick your sports, then tell us how you show up on court." },
-  { h: "How do you like to play?", sub: "Singles grinder, doubles strategist — or both." },
+  { h: "First, the basics", sub: "The name and face on your player card — and where home base is." },
+  { h: "Build your lineup", sub: "Pick a sport, set how you show up on court, add it — one at a time." },
   { h: "When are you usually free?", sub: "Set your usual windows so matches can find you." },
-  { h: "Make it yours", sub: "Your color, your story." },
-  { h: "Everything look right?", sub: "Review your profile — tap Edit on any card to change it." },
+  { h: "Make it yours", sub: "A line about your game — and anything else you want on the card." },
+  { h: "Everything look right?", sub: "Your whole profile is in the rail on the left — tap Edit on any card." },
 ];
 const SPORT_TINT: Record<string, string> = {
   tennis: "#EAF5E4",
@@ -58,21 +55,21 @@ const SPORT_TINT: Record<string, string> = {
   beach_volleyball: "#F3ECFC",
 };
 
-type PillOption = { value: string; label: string };
-const FORMATS: PillOption[] = [
-  { value: "singles", label: "Singles" },
-  { value: "doubles", label: "Doubles" },
-  { value: "both", label: "Both" },
+const FORMATS = [
+  { value: "singles", label: "Singles", blurb: "One on one — your game, your board." },
+  { value: "doubles", label: "Doubles", blurb: "Team chemistry and net play." },
+  { value: "both", label: "Both", blurb: "Whatever the court calls for." },
 ];
-const STYLES: PillOption[] = [
-  { value: "social", label: "Mostly social" },
-  { value: "competitive", label: "Mostly competitive" },
-  { value: "both", label: "Both" },
+const STYLES = [
+  { value: "social", label: "Mostly social", blurb: "It's about the game and the people." },
+  { value: "competitive", label: "Mostly competitive", blurb: "It's about the board." },
+  { value: "both", label: "Both", blurb: "A fine answer." },
 ];
-const HANDS: PillOption[] = [
-  { value: "right", label: "Right" },
-  { value: "left", label: "Left" },
-  { value: "either", label: "Either" },
+const HANDS = [
+  { value: "", label: "No preference", blurb: "" },
+  { value: "right", label: "Right", blurb: "" },
+  { value: "left", label: "Left", blurb: "" },
+  { value: "either", label: "Either", blurb: "Ambidextrous — a rare weapon." },
 ];
 
 /* ---------- time helpers (15-minute schedule) ---------- */
@@ -108,61 +105,71 @@ export type WizardInitial = {
   hue: number;
   availability: Range[];
   playStyle: string;
-  sports: {
-    key: string;
-    level: string;
-    primary: boolean;
-    rating: string;
-    format: string;
-    hand: string;
-  }[];
+  sports: { key: string; level: string; primary: boolean; rating: string; format: string; hand: string }[];
 };
 
 type SportMeta = { key: string; name: string; skill_system: string | null };
-type Picked = Record<
-  string,
-  { level: string; primary: boolean; rating: string; format: string; hand: string }
->;
+type SportConfig = { level: string; primary: boolean; rating: string; format: string; hand: string };
+type Picked = Record<string, SportConfig>;
 
 const initialState: WizardState = {};
 
-/* ---------- small shared pieces ---------- */
+/* ---------- shared pieces ---------- */
 
-function PillRow({
-  options,
-  value,
-  onPick,
-  allowNone,
-}: {
-  options: PillOption[];
-  value: string;
-  onPick: (v: string) => void;
-  allowNone?: boolean;
-}) {
+/** Radio row — the wizard's option grammar (no pills). */
+function OptionRow({ active, label, blurb, onPick }: { active: boolean; label: string; blurb?: string; onPick: () => void }) {
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {options.map((o) => {
-        const on = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onPick(allowNone && on ? "" : o.value)}
-            className={
-              "press rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors " +
-              (on
-                ? "border-ink bg-ink text-pop"
-                : "border-rule bg-surface text-mute hover:text-ink")
-            }
-          >
-            {o.label}
-          </button>
-        );
-      })}
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onPick}
+      className="press flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-bg"
+    >
+      <span className={`grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-2 transition-colors ${active ? "border-ink" : "border-[#CDC3AE]"} bg-surface`}>
+        {active ? <span className="h-2 w-2 rounded-full bg-ink" /> : null}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-[15px] leading-tight ${active ? "font-bold text-ink" : "font-semibold text-ink-soft"}`}>{label}</span>
+        {blurb ? <span className="mt-0.5 block text-[13px] leading-snug text-mute">{blurb}</span> : null}
+      </span>
+    </button>
+  );
+}
+
+function OptionGroup({ label, children, optional }: { label: string; children: React.ReactNode; optional?: boolean }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[13px] font-bold uppercase tracking-[.08em] text-faint">
+        {label}
+        {optional ? <span className="ml-1.5 font-semibold normal-case tracking-normal text-faint/80">· optional</span> : null}
+      </p>
+      <div className="divide-y divide-rule-soft overflow-hidden rounded-2xl border border-rule bg-surface" role="radiogroup" aria-label={label}>
+        {children}
+      </div>
     </div>
   );
 }
+
+/** Big playful sport medallion with the crest-style watermark. */
+function SportSplash({ sportKey, name, size = 56 }: { sportKey: string; name: string; size?: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className="grid shrink-0 place-items-center rounded-2xl shadow-e1"
+        style={{ height: size, width: size, fontSize: size * 0.52, background: `linear-gradient(145deg, ${SPORT_TINT[sportKey] ?? "#F4EFE3"}, #FFFDF8)` }}
+        aria-hidden
+      >
+        {SPORT_EMOJI[sportKey] ?? "•"}
+      </div>
+      <div className="min-w-0 text-[17px] font-bold text-ink">{name}</div>
+    </div>
+  );
+}
+
+const summaryLabel = {
+  background: "linear-gradient(to bottom, transparent calc(50% - 1px), #F7F2E4 calc(50% - 1px))",
+} as const;
 
 /* ---------- wizard ---------- */
 
@@ -180,75 +187,96 @@ export function OnboardingWizard({
   const [state, formAction, pending] = useActionState(saveProfile, initialState);
   const [step, setStep] = useState(Math.min(Math.max(startStep, 0), STEPS.length - 1));
   const [done, setDone] = useState<boolean[]>(() => STEPS.map(() => isEdit));
+  const [stepError, setStepError] = useState<string | null>(null);
+  const submitIntent = useRef(false);
   const editStep = (i: number) => {
     setStepError(null);
     setStep(i);
   };
-  const [stepError, setStepError] = useState<string | null>(null);
-  const submitIntent = useRef(false);
 
   const [firstName, setFirstName] = useState(initial.firstName);
   const [lastName, setLastName] = useState(initial.lastName);
   const [zip, setZip] = useState(initial.zip);
-  const [picked, setPicked] = useState<Picked>(
-    Object.fromEntries(
-      initial.sports.map((s) => [
-        s.key,
-        {
-          level: s.level,
-          primary: s.primary,
-          rating: s.rating,
-          format: s.format || "both",
-          hand: s.hand || "",
-        },
-      ]),
-    ),
-  );
+  const [dob, setDob] = useState(initial.dob);
+  const [gender, setGender] = useState(initial.gender);
+  const [hue, setHue] = useState(initial.hue);
+  const [bio, setBio] = useState(initial.bio);
   const [style, setStyle] = useState(initial.playStyle || "both");
   const [ranges, setRanges] = useState<Range[]>(initial.availability);
   const [addingDay, setAddingDay] = useState<string | null>(null);
   const [draftStart, setDraftStart] = useState("18:00");
   const [draftEnd, setDraftEnd] = useState("21:00");
-  const [hue, setHue] = useState(initial.hue);
-  const [bio, setBio] = useState(initial.bio);
-  const [dob, setDob] = useState(initial.dob);
-  const [gender, setGender] = useState(initial.gender);
+
+  const [picked, setPicked] = useState<Picked>(
+    Object.fromEntries(
+      initial.sports.map((s) => [s.key, { level: s.level, primary: s.primary, rating: s.rating, format: s.format || "both", hand: s.hand || "" }]),
+    ),
+  );
+
+  // ── the add-a-sport flow ──────────────────────────────────────────────
+  const [configuring, setConfiguring] = useState<string | null>(null);
+  const [draft, setDraft] = useState<SportConfig>({ level: "casual", primary: false, rating: "", format: "both", hand: "" });
+  const openConfig = (key: string) => {
+    setStepError(null);
+    setDraft(picked[key] ? { ...picked[key] } : { level: "casual", primary: false, rating: "", format: "both", hand: "" });
+    setConfiguring(key);
+  };
+  const commitConfig = () => {
+    if (!configuring) return;
+    const r = draft.rating.trim();
+    if (r && !/^\d{1,2}(\.\d)?$/.test(r)) {
+      setStepError("Ratings look like 3.5 or 18 — or leave it blank.");
+      return;
+    }
+    setStepError(null);
+    setPicked((p) => {
+      const isFirst = Object.keys(p).length === 0 && !p[configuring];
+      return { ...p, [configuring]: { ...draft, rating: r, primary: p[configuring]?.primary ?? (isFirst || draft.primary) } };
+    });
+    setConfiguring(null);
+  };
+  const removeSport = (key: string) => {
+    setPicked((p) => {
+      const next = { ...p };
+      const wasPrimary = next[key]?.primary;
+      delete next[key];
+      const rest = Object.keys(next);
+      if (wasPrimary && rest.length) next[rest[0]] = { ...next[rest[0]], primary: true };
+      return next;
+    });
+    if (configuring === key) setConfiguring(null);
+  };
+  const setPrimary = (key: string) =>
+    setPicked((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, { ...v, primary: k === key }])));
 
   const pickedKeys = Object.keys(picked);
   const sportName = (k: string) => sports.find((s) => s.key === k)?.name ?? k;
-  const initials = useMemo(
-    () =>
-      `${(firstName.trim()[0] ?? "")}${(lastName.trim()[0] ?? "")}`.toUpperCase() || "Y",
-    [firstName, lastName],
-  );
+  const skillSys = (k: string) => sports.find((s) => s.key === k)?.skill_system ?? "Rating";
+  const initials = useMemo(() => `${(firstName.trim()[0] ?? "")}${(lastName.trim()[0] ?? "")}`.toUpperCase() || "Y", [firstName, lastName]);
 
-  /* ---- sport helpers ---- */
-  function toggleSport(key: string) {
-    setPicked((p) => {
-      const next = { ...p };
-      if (next[key]) {
-        const wasPrimary = next[key].primary;
-        delete next[key];
-        const rest = Object.keys(next);
-        if (wasPrimary && rest.length) next[rest[0]] = { ...next[rest[0]], primary: true };
-      } else {
-        next[key] = {
-          level: "casual",
-          primary: Object.keys(next).length === 0,
-          rating: "",
-          format: "both",
-          hand: "",
-        };
-      }
-      return next;
-    });
+  // ── profile photo ─────────────────────────────────────────────────────
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  async function onPhoto(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return setStepError("Choose an image file.");
+    if (file.size > 5 * 1024 * 1024) return setStepError("Photos need to be under 5 MB.");
+    setStepError(null);
+    setUploading(true);
+    try {
+      const { path, token } = await createAvatarUploadUrl(file.type);
+      const supabase = createClient();
+      const { error } = await supabase.storage.from("avatars").uploadToSignedUrl(path, token, file);
+      if (error) throw error;
+      await commitAvatar(path);
+      setAvatarUrl(supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl);
+    } catch {
+      setStepError("That upload didn't take — try another photo.");
+    } finally {
+      setUploading(false);
+    }
   }
-  const setSport = (key: string, patch: Partial<Picked[string]>) =>
-    setPicked((p) => ({ ...p, [key]: { ...p[key], ...patch } }));
-  const setPrimary = (key: string) =>
-    setPicked((p) =>
-      Object.fromEntries(Object.entries(p).map(([k, v]) => [k, { ...v, primary: k === key }])),
-    );
 
   /* ---- schedule helpers ---- */
   function addRange(day: string) {
@@ -279,13 +307,8 @@ export function OnboardingWizard({
       if (age > 120) return setStepError("Enter a valid date of birth.");
     }
     if (step === 1) {
-      if (pickedKeys.length === 0) return setStepError("Pick at least one sport.");
-      for (const k of pickedKeys) {
-        const r = picked[k].rating.trim();
-        if (r && !/^\d{1,2}(\.\d)?$/.test(r)) {
-          return setStepError("Ratings look like 3.5 or 18 — or leave them blank.");
-        }
-      }
+      if (configuring) return setStepError(`Finish adding ${sportName(configuring)} — or cancel it — before continuing.`);
+      if (pickedKeys.length === 0) return setStepError("Add at least one sport to your lineup.");
     }
     setStepError(null);
     setDone((d) => {
@@ -304,17 +327,7 @@ export function OnboardingWizard({
     setStepError(null);
     setStep((s) => Math.max(s - 1, 0));
   }
-  const enterAdvances = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      next();
-    }
-  };
 
-  // The form may ONLY submit from an explicit click on the final step's button.
-  // This stops the Continue->Submit button (rendered in the same slot) from
-  // firing a save the instant the user lands on the last step, and blocks any
-  // stray Enter-key submission on earlier steps.
   const onSubmit = (e: React.FormEvent) => {
     if (step !== STEPS.length - 1 || !submitIntent.current) e.preventDefault();
     submitIntent.current = false;
@@ -331,583 +344,471 @@ export function OnboardingWizard({
     })),
   );
 
-  return (
-    <form action={formAction} onSubmit={onSubmit} className="space-y-6">
-      {/* progress */}
-      <div>
-        <div className="flex items-baseline justify-between">
-          <span className="kicker text-brand-deep">
-            Step {step + 1} of {STEPS.length}
+  const configMeta = configuring ? sports.find((s) => s.key === configuring) : null;
+
+  /* ---- the journey rail: every step, in order, done cards outside ---- */
+  const summaryFor = (i: number) => {
+    if (i === 0)
+      return (
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full font-display text-base text-surface"
+            style={avatarUrl ? undefined : { background: `linear-gradient(145deg, hsl(${hue},85%,62%) 0%, hsl(${(hue + 22) % 360},80%,48%) 100%)` }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initials}
           </span>
-          <span className="kicker text-faint">{STEPS[step]}</span>
+          <p className="min-w-0 text-[15px] text-ink">
+            <span className="font-bold">{firstName} {lastName}</span>
+            <span className="block truncate text-[13.5px] text-mute">ZIP {zip}{dob ? ` · ${dob}` : ""}{gender ? ` · ${gender.replace(/_/g, " ")}` : ""}</span>
+          </p>
         </div>
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-rule">
-          <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${((step + 1) / STEPS.length) * 100}%`, background: "linear-gradient(90deg, #FF7A4D, #D63A0F)" }}
-          />
-        </div>
-      </div>
-
-      {/* completed steps accumulate as read-only cards — Edit sits on the border */}
-      {STEPS.slice(0, STEPS.length - 1).map((title, i) =>
-        done[i] && i !== step ? (
-          <section key={title} className="wiz-sum relative rounded-2xl border border-[#E4DAC2] bg-[#F7F2E4] px-4 pb-3.5 pt-4">
-            <span className="absolute -top-2 left-3 bg-[#F7F2E4] px-1.5 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">
-              0{i + 1} · {title}
-            </span>
-            <button
-              type="button"
-              onClick={() => editStep(i)}
-              className="press absolute -top-3 right-3 inline-flex items-center gap-1 rounded-full border border-rule-2 bg-surface px-2.5 py-1 text-[11px] font-bold text-ink shadow-e1"
-            >
-              <Pencil size={11} /> Edit
-            </button>
-            {i === 0 ? (
-              <p className="text-sm text-ink">
-                <span className="font-bold">{firstName} {lastName}</span>
-                <span className="text-mute"> · ZIP {zip}{dob ? ` · ${dob}` : ""}{gender ? ` · ${gender.replace(/_/g, " ")}` : ""}</span>
-              </p>
-            ) : null}
-            {i === 1 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {pickedKeys.map((k) => {
-                  const meta = sports.find((s) => s.key === k);
-                  return (
-                    <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink">
-                      <span aria-hidden>{SPORT_EMOJI[k] ?? "•"}</span>
-                      {meta?.name ?? k}
-                      <span className="text-faint">· {LEVELS.find((l) => l.key === picked[k].level)?.label ?? picked[k].level}</span>
-                      {picked[k].primary ? <Star size={10} fill="currentColor" className="text-brand-deep" aria-hidden /> : null}
-                    </span>
-                  );
-                })}
-              </div>
-            ) : null}
-            {i === 2 ? (
-              <p className="text-sm font-semibold text-ink">{FORMATS.find((f) => f.value === style)?.label ?? style}</p>
-            ) : null}
-            {i === 3 ? (
-              ranges.length ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {ranges.map((r, idx) => (
-                    <span key={idx} className="rounded-full border border-rule bg-surface px-2.5 py-1 font-mono text-[11px] font-semibold text-ink">
-                      {r.day} {r.start}–{r.end}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-mute">Flexible — no set windows.</p>
-              )
-            ) : null}
-            {i === 4 ? (
-              <p className="flex items-center gap-2 text-sm text-ink">
-                <span aria-hidden className="shrink-0 rounded-full border border-rule" style={{ height: 18, width: 18, background: `hsl(${hue} 62% 58%)` }} />
-                <span className="min-w-0 truncate text-mute">{bio.trim() ? bio.slice(0, 90) : "No bio yet — that's fine."}</span>
-              </p>
-            ) : null}
-          </section>
-        ) : null,
-      )}
-
-      <div key={step} className="wiz-card rounded-[24px] border border-rule bg-surface p-5 shadow-e1 sm:p-7">
-        <div className="mb-5">
-          <h2 className="text-2xl font-bold tracking-[-0.01em] text-ink sm:text-[27px]">{HEADS[step].h}</h2>
-          <p className="mt-1 text-sm text-mute">{HEADS[step].sub}</p>
-        </div>
-        {/* ---- step 1 · about you ---- */}
-        {step === 0 ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="kicker text-faint">First name</span>
-                <input
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value.slice(0, 40))}
-                  onKeyDown={enterAdvances}
-                  placeholder="Alex"
-                  autoFocus
-                  className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
-                />
-              </label>
-              <label className="block">
-                <span className="kicker text-faint">Last name</span>
-                <input
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value.slice(0, 40))}
-                  onKeyDown={enterAdvances}
-                  placeholder="Rivera"
-                  className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
-                />
-              </label>
-            </div>
-            <p className="-mt-1 text-xs text-mute">
-              Only your first name is shown to other players. Your full name verifies your identity.
+      );
+    if (i === 1)
+      return (
+        <div className="space-y-1.5">
+          {pickedKeys.map((k) => (
+            <p key={k} className="flex items-center gap-2 text-[14.5px] text-ink">
+              <span aria-hidden className="text-[17px]">{SPORT_EMOJI[k] ?? "•"}</span>
+              <span className="font-bold">{sportName(k)}</span>
+              <span className="min-w-0 truncate text-[13px] text-mute">
+                {LEVELS.find((l) => l.key === picked[k].level)?.label} · {FORMATS.find((f) => f.value === picked[k].format)?.label}
+                {picked[k].rating ? ` · ${skillSys(k)} ${picked[k].rating}` : ""}
+              </span>
+              {picked[k].primary ? <Star size={12} fill="currentColor" className="shrink-0 text-brand-deep" aria-hidden /> : null}
             </p>
-            <label className="block">
-              <span className="kicker text-faint">Date of birth</span>
-              <input
-                type="date"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
-              />
-              <span className="mt-1.5 block text-xs text-mute">
-                Klimr is 18+. Your age is shown on your profile; your full date of birth is not.
-              </span>
-            </label>
-            <label className="block">
-              <span className="kicker text-faint">Home ZIP</span>
-              <input
-                value={zip}
-                onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
-                onKeyDown={enterAdvances}
-                inputMode="numeric"
-                placeholder="90066"
-                className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 font-mono text-lg tracking-[0.2em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
-              />
-              <span className="mt-1.5 block text-xs text-mute">
-                Your home board. Rankings start at the ZIP level.
-              </span>
-            </label>
-            <div className="rounded-xl border border-rule bg-bg p-3.5">
-              <p className="text-xs leading-relaxed text-mute">
-                <span className="font-semibold text-ink">Your information is private.</span> Your name, date of birth, and ZIP
-                are kept confidential and stored encrypted. We never sell your personal information and never share these
-                details with other members. See our{" "}
-                <a href="/legal" target="_blank" className="font-semibold text-brand-deep underline underline-offset-2">Privacy policy</a>.
-              </p>
-            </div>
-          </div>
-        ) : null}
+          ))}
+        </div>
+      );
+    if (i === 2)
+      return ranges.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {ranges.map((r, idx) => (
+            <span key={idx} className="rounded-lg border border-rule bg-surface px-2 py-1 font-mono text-[12px] font-semibold text-ink">
+              {r.day} {r.start}–{r.end}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[14.5px] text-mute">Flexible — no set windows.</p>
+      );
+    if (i === 3)
+      return (
+        <p className="text-[14.5px] text-ink-soft">{bio.trim() ? bio.slice(0, 110) : <span className="text-mute">No bio yet — that&rsquo;s fine.</span>}</p>
+      );
+    return null;
+  };
 
-        {/* ---- step 2 · sports ---- */}
-        {step === 1 ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {sports.map((s) => {
-                const sel = picked[s.key];
-                const levelBlurb = sel ? LEVELS.find((l) => l.key === sel.level)?.blurb : null;
-                return (
-                  <div
-                    key={s.key}
-                    role="checkbox"
-                    aria-checked={!!sel}
-                    tabIndex={0}
-                    onClick={() => toggleSport(s.key)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        toggleSport(s.key);
-                      }
-                    }}
-                    className={
-                      "lift relative cursor-pointer rounded-[20px] border-2 p-4 transition-all " +
-                      (sel ? "-translate-y-0.5 border-brand shadow-e2" : "border-rule bg-surface hover:border-rule-2")
-                    }
-                    style={sel ? { background: `linear-gradient(135deg, ${SPORT_TINT[s.key] ?? "#F6F1E4"}, #FFFDF8 70%)` } : undefined}
+  return (
+    <form action={formAction} onSubmit={onSubmit} className="grid gap-10 lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] lg:items-start lg:gap-14">
+      {/* ════ the journey rail ════ */}
+      <aside className="lg:sticky lg:top-24">
+        <p className="kicker text-brand-deep">{isEdit ? "Your profile" : "Almost in"}</p>
+        <h1 className="mt-2 font-display text-4xl text-ink sm:text-5xl">
+          {isEdit ? <>Edit your <span className="italic">profile.</span></> : <>Build your <span className="italic">profile.</span></>}
+        </h1>
+        <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-mute">
+          {isEdit
+            ? "Everything here can change as your game does — update a rating, add a sport, reset your times."
+            : "Five quick steps and your spot on the board is reserved. It all stays editable later."}
+        </p>
+
+        <ol className="mt-7 space-y-3">
+          {STEPS.map((title, i) => {
+            const isReview = i === STEPS.length - 1;
+            if (i === step) {
+              return (
+                <li key={title} className="relative rounded-2xl border border-brand/35 bg-surface px-4 py-3 shadow-e1">
+                  <span aria-hidden className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(180deg,#FF7A4D,#D63A0F)" }} />
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-[.16em] text-brand-deep">Step {i + 1} · now</p>
+                  <p className="text-[16px] font-bold text-ink">{title}</p>
+                </li>
+              );
+            }
+            if (done[i] && !isReview) {
+              return (
+                <li key={title} className="wiz-sum relative rounded-2xl border border-[#E4DAC2] bg-[#F7F2E4] px-4 pb-3.5 pt-4">
+                  <span className="absolute -top-[8px] left-3 inline-flex h-[16px] items-center px-1.5 font-mono text-[10px] font-bold uppercase tracking-[.16em] text-faint" style={summaryLabel}>
+                    0{i + 1} · {title}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => editStep(i)}
+                    className="press absolute -top-3 right-3 inline-flex items-center gap-1 rounded-full border border-rule-2 bg-surface px-2.5 py-1 text-[12px] font-bold text-ink shadow-e1"
                   >
-                    {sel ? (
-                      <span className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-brand shadow-e1">
-                        <Check size={13} strokeWidth={3.5} className="text-white" aria-hidden />
+                    <Pencil size={11} /> Edit
+                  </button>
+                  {summaryFor(i)}
+                </li>
+              );
+            }
+            return (
+              <li key={title} className="flex items-center gap-3 rounded-2xl border border-dashed border-rule px-4 py-3">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-rule font-mono text-[11px] font-bold text-faint">{i + 1}</span>
+                <span className="text-[15px] font-semibold text-faint">{title}</span>
+              </li>
+            );
+          })}
+        </ol>
+
+        <ul className="mt-7 hidden space-y-2.5 lg:block">
+          {["Takes about two minutes", "Each sport gets its own ranking", "Nothing here is locked in"].map((t) => (
+            <li key={t} className="flex items-center gap-2.5 text-[14px] text-ink-soft">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
+              {t}
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      {/* ════ the work card: only the active step ════ */}
+      <div className="min-w-0">
+        <div className="rounded-3xl border border-rule bg-surface p-6 shadow-[0_1px_0_rgba(10,10,11,0.02)] sm:p-8">
+          <div className="flex items-baseline justify-between">
+            <span className="kicker text-brand-deep">Step {step + 1} of {STEPS.length}</span>
+            <span className="kicker text-faint">{STEPS[step]}</span>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-rule">
+            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${((step + 1) / STEPS.length) * 100}%`, background: "linear-gradient(90deg, #FF7A4D, #D63A0F)" }} />
+          </div>
+
+          <div key={step} className="wiz-card mt-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold tracking-[-0.01em] text-ink sm:text-[28px]">{HEADS[step].h}</h2>
+              <p className="mt-1 text-[15px] text-mute">{HEADS[step].sub}</p>
+            </div>
+
+            {/* ---- 1 · about you (+ photo + color) ---- */}
+            {step === 0 ? (
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center gap-5 rounded-2xl border border-rule bg-bg/50 p-4">
+                  <div className="relative">
+                    <div
+                      aria-hidden
+                      className="grid h-[76px] w-[76px] place-items-center overflow-hidden rounded-full font-display text-2xl text-surface shadow-e1"
+                      style={avatarUrl ? undefined : { background: `linear-gradient(145deg, hsl(${hue},85%,62%) 0%, hsl(${(hue + 22) % 360},80%,48%) 100%)` }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {avatarUrl ? <img src={avatarUrl} alt="Your profile photo" className="h-full w-full object-cover" /> : initials}
+                    </div>
+                    {uploading ? (
+                      <span className="absolute inset-0 grid place-items-center rounded-full bg-ink/40">
+                        <Loader2 size={20} className="animate-spin text-white" />
                       </span>
                     ) : null}
-                    <div className="flex items-center gap-2.5">
-                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[26px]" style={{ background: SPORT_TINT[s.key] ?? "#F4EFE3" }} aria-hidden>
-                        {SPORT_EMOJI[s.key] ?? "•"}
-                      </div>
-                      <div className="text-[16px] font-bold text-ink">{s.name}</div>
-                    </div>
-                    {sel ? (
-                      <div className="mt-3 space-y-2.5" onClick={(e) => e.stopPropagation()}>
-                        <div>
-                          <div className="flex flex-wrap gap-1">
-                            {LEVELS.map((l) => (
-                              <button
-                                key={l.key}
-                                type="button"
-                                onClick={() => setSport(s.key, { level: l.key })}
-                                className={
-                                  "kicker rounded-full border px-2 py-1 transition-colors " +
-                                  (sel.level === l.key
-                                    ? "border-ink bg-ink text-pop"
-                                    : "border-rule bg-surface text-mute hover:text-ink")
-                                }
-                              >
-                                {l.label}
-                              </button>
-                            ))}
-                          </div>
-                          {levelBlurb ? (
-                            <p className="mt-1.5 text-[11px] leading-snug text-mute">{levelBlurb}</p>
-                          ) : null}
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-                          <label className="flex min-w-0 items-center gap-1.5">
-                            <span className="kicker shrink-0 text-faint">{s.skill_system ?? "Rating"}</span>
-                            <input
-                              value={sel.rating}
-                              onChange={(e) =>
-                                setSport(s.key, {
-                                  rating: e.target.value.replace(/[^\d.]/g, "").slice(0, 4),
-                                })
-                              }
-                              inputMode="decimal"
-                              placeholder={RATING_HINT[s.skill_system ?? ""] ?? "e.g. 4.0"}
-                              className="w-16 rounded-[10px] border border-rule-2 bg-surface px-2 py-1.5 font-mono text-[13px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setPrimary(s.key)}
-                            className={
-                              "flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-semibold transition-colors " +
-                              (sel.primary ? "text-brand-deep" : "text-faint hover:text-mute")
-                            }
-                          >
-                            <Star size={11} fill={sel.primary ? "currentColor" : "none"} aria-hidden />
-                            {sel.primary ? "Primary" : "Make primary"}
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
-                );
-              })}
-            </div>
-            <p className="text-xs text-mute">
-              Pick everything you play — each sport gets its own ranking. Know
-              your NTRP, DUPR, or USAR? Add it; leave it blank if not.
-            </p>
-          </div>
-        ) : null}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-bold text-ink">Profile photo</p>
+                    <p className="text-[13.5px] text-mute">A face gets more matches than a color — but the color works too.</p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                        className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-3.5 py-2 text-[14px] font-bold text-ink shadow-e1 transition-colors hover:border-ink disabled:opacity-50"
+                      >
+                        <Camera size={15} /> {avatarUrl ? "Change photo" : "Upload photo"}
+                      </button>
+                      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => void onPhoto(e.target.files?.[0] ?? null)} />
+                      <div className="flex gap-1.5">
+                        {HUES.map((h) => (
+                          <button
+                            key={h}
+                            type="button"
+                            aria-label={`Color ${h}`}
+                            onClick={() => setHue(h)}
+                            className={"h-6 w-6 rounded-full transition-transform " + (hue === h ? "scale-110 ring-2 ring-ink ring-offset-2 ring-offset-surface" : "hover:scale-105")}
+                            style={{ background: `linear-gradient(145deg, hsl(${h},85%,62%) 0%, hsl(${(h + 22) % 360},80%,48%) 100%)` }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-        {/* ---- step 3 · how you play (per sport) ---- */}
-        {step === 2 ? (
-          <div className="space-y-5">
-            {pickedKeys.length > 1 ? (
-              <p className="text-xs text-mute">
-                Set these per sport — your format and hand can differ between them.
-              </p>
-            ) : null}
-            {pickedKeys.map((key) => (
-              <div key={key} className="rounded-2xl border border-rule bg-bg/50 p-4">
-                <div className="flex items-center gap-2">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface text-lg" aria-hidden>
-                    {SPORT_EMOJI[key] ?? "•"}
-                  </span>
-                  <span className="text-sm font-bold text-ink">{sportName(key)}</span>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">First name</span>
+                    <input value={firstName} onChange={(e) => setFirstName(e.target.value.slice(0, 40))} autoComplete="given-name" className="mt-1.5 w-full rounded-xl border border-rule-2 bg-surface px-3.5 py-3 text-[16px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15" />
+                  </label>
+                  <label className="block">
+                    <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">Last name</span>
+                    <input value={lastName} onChange={(e) => setLastName(e.target.value.slice(0, 40))} autoComplete="family-name" className="mt-1.5 w-full rounded-xl border border-rule-2 bg-surface px-3.5 py-3 text-[16px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15" />
+                  </label>
                 </div>
-                <div className="mt-3">
-                  <span className="kicker text-faint">Format</span>
-                  <PillRow
-                    options={FORMATS}
-                    value={picked[key].format}
-                    onPick={(v) => setSport(key, { format: v })}
-                  />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">Home ZIP</span>
+                    <input value={zip} onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" placeholder="90066" className="mt-1.5 w-full rounded-xl border border-rule-2 bg-surface px-3.5 py-3 font-mono text-[16px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15" />
+                  </label>
+                  <label className="block">
+                    <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">Date of birth</span>
+                    <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="mt-1.5 w-full rounded-xl border border-rule-2 bg-surface px-3.5 py-3 text-[16px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15" />
+                  </label>
                 </div>
-                <div className="mt-3">
-                  <span className="kicker text-faint">Racquet hand · optional</span>
-                  <PillRow
-                    options={HANDS}
-                    value={picked[key].hand}
-                    onPick={(v) => setSport(key, { hand: v })}
-                    allowNone
-                  />
-                </div>
+                <p className="text-[13px] leading-relaxed text-mute">Klimr is 18+. Your birthday is used for verification and never shown on your profile.</p>
               </div>
-            ))}
-            <div>
-              <span className="kicker text-faint">Match style</span>
-              <PillRow options={STYLES} value={style} onPick={setStyle} />
-              <p className="mt-1.5 text-xs text-mute">
-                Social matches are about the game; competitive ones are about the board. Both is a fine answer.
-              </p>
-            </div>
-          </div>
-        ) : null}
+            ) : null}
 
-        {/* ---- step 4 · schedule (15-minute blocks per day) ---- */}
-        {step === 3 ? (
-          <div className="space-y-3">
-            <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
-              <div className="divide-y divide-rule">
-                {DAYS.map((d) => {
-                  const dayRanges = ranges
-                    .map((r, i) => ({ ...r, i }))
-                    .filter((r) => r.day === d.key);
-                  const adding = addingDay === d.key;
-                  const invalid = toMin(draftStart) >= toMin(draftEnd);
-                  return (
-                    <div key={d.key} className="px-3 py-3 sm:px-4">
-                      <div className="flex items-start gap-3">
-                        <span className="mt-1 w-9 shrink-0 font-mono text-[12px] font-bold text-ink-soft">
-                          {d.label}
-                        </span>
-                        <div className="flex flex-1 flex-wrap items-center gap-1.5">
-                          {dayRanges.length === 0 && !adding ? (
-                            <span className="text-[12px] text-faint">Not available</span>
-                          ) : null}
-                          {dayRanges.map((r) => (
-                            <span
-                              key={r.i}
-                              className="inline-flex items-center gap-1 rounded-full border border-rule bg-bg py-1 pl-2.5 pr-1.5 text-[12px] font-semibold text-ink"
-                            >
-                              {timeLabel(r.start)} – {timeLabel(r.end)}
-                              <button
-                                type="button"
-                                onClick={() => removeRange(r.i)}
-                                aria-label={`Remove ${d.label} ${timeLabel(r.start)} to ${timeLabel(r.end)}`}
-                                className="press grid h-4 w-4 place-items-center rounded-full text-mute transition-colors hover:bg-rule hover:text-brand-deep"
-                              >
-                                <X size={11} strokeWidth={2.5} aria-hidden />
-                              </button>
-                            </span>
-                          ))}
-                          {!adding ? (
-                            <button
-                              type="button"
-                              onClick={() => openAdder(d.key)}
-                              className="press inline-flex items-center gap-1 rounded-full border border-dashed border-rule px-2.5 py-1 text-[12px] font-semibold text-mute transition-colors hover:border-ink hover:text-ink"
-                            >
-                              <Plus size={12} strokeWidth={2.5} aria-hidden /> Add time
+            {/* ---- 2 · your lineup (merged pick + configure, one at a time) ---- */}
+            {step === 1 ? (
+              <div className="space-y-6">
+                {pickedKeys.length ? (
+                  <div>
+                    <p className="mb-2 text-[13px] font-bold uppercase tracking-[.08em] text-faint">Your lineup</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {pickedKeys.map((k) => (
+                        <div key={k} className="relative overflow-hidden rounded-[20px] border-2 border-brand/50 p-4 shadow-e1" style={{ background: `linear-gradient(135deg, ${SPORT_TINT[k] ?? "#F6F1E4"}, #FFFDF8 72%)` }}>
+                          <span aria-hidden className="pointer-events-none absolute -bottom-4 -right-2 select-none text-[84px] opacity-10" style={{ transform: "rotate(-12deg)" }}>
+                            {SPORT_EMOJI[k] ?? "•"}
+                          </span>
+                          <SportSplash sportKey={k} name={sportName(k)} size={48} />
+                          <p className="mt-2 text-[13.5px] font-semibold text-ink-soft">
+                            {LEVELS.find((l) => l.key === picked[k].level)?.label} · {FORMATS.find((f) => f.value === picked[k].format)?.label}
+                            {picked[k].hand ? ` · ${HANDS.find((h) => h.value === picked[k].hand)?.label}` : ""}
+                            {picked[k].rating ? ` · ${skillSys(k)} ${picked[k].rating}` : ""}
+                          </p>
+                          <div className="mt-3 flex items-center gap-3">
+                            <button type="button" onClick={() => setPrimary(k)} className={"flex items-center gap-1 text-[13px] font-bold transition-colors " + (picked[k].primary ? "text-brand-deep" : "text-faint hover:text-mute")}>
+                              <Star size={13} fill={picked[k].primary ? "currentColor" : "none"} aria-hidden />
+                              {picked[k].primary ? "Primary" : "Make primary"}
                             </button>
-                          ) : null}
+                            <button type="button" onClick={() => openConfig(k)} className="text-[13px] font-bold text-ink-soft transition-colors hover:text-ink">Edit</button>
+                            <button type="button" onClick={() => removeSport(k)} aria-label={`Remove ${sportName(k)}`} className="press ml-auto grid h-7 w-7 place-items-center rounded-full text-mute transition-colors hover:bg-white/70 hover:text-brand-deep">
+                              <X size={15} strokeWidth={2.5} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {configuring && configMeta ? (
+                  <div className="wiz-card relative overflow-hidden rounded-[22px] border-2 border-rule-2 p-5" style={{ background: `linear-gradient(150deg, ${SPORT_TINT[configuring] ?? "#F6F1E4"}, #FFFDF8 60%)` }}>
+                    <span aria-hidden className="pointer-events-none absolute -bottom-8 -right-4 select-none text-[150px] opacity-[0.08]" style={{ transform: "rotate(-12deg)" }}>
+                      {SPORT_EMOJI[configuring] ?? "•"}
+                    </span>
+                    <div className="relative">
+                      <SportSplash sportKey={configuring} name={configMeta.name} size={56} />
+                      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                        <OptionGroup label="Experience">
+                          {LEVELS.map((l) => (
+                            <OptionRow key={l.key} active={draft.level === l.key} label={l.label} blurb={l.blurb} onPick={() => setDraft((d) => ({ ...d, level: l.key }))} />
+                          ))}
+                        </OptionGroup>
+                        <div className="space-y-5">
+                          <OptionGroup label="Format">
+                            {FORMATS.map((f) => (
+                              <OptionRow key={f.value} active={draft.format === f.value} label={f.label} blurb={f.blurb} onPick={() => setDraft((d) => ({ ...d, format: f.value }))} />
+                            ))}
+                          </OptionGroup>
+                          <OptionGroup label="Racquet hand" optional>
+                            {HANDS.map((h) => (
+                              <OptionRow key={h.value || "none"} active={draft.hand === h.value} label={h.label} blurb={h.blurb || undefined} onPick={() => setDraft((d) => ({ ...d, hand: h.value }))} />
+                            ))}
+                          </OptionGroup>
                         </div>
                       </div>
-                      {adding ? (
-                        <div className="mt-2.5 flex flex-wrap items-center gap-2 pl-12">
-                          <select
-                            value={draftStart}
-                            onChange={(e) => setDraftStart(e.target.value)}
-                            aria-label="Start time"
-                            className="rounded-[10px] border border-rule-2 bg-surface px-2 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
-                          >
-                            {TIME_OPTS.map((t) => (
-                              <option key={t.value} value={t.value}>
-                                {t.label}
-                              </option>
-                            ))}
-                          </select>
-                          <span className="text-[13px] text-mute">to</span>
-                          <select
-                            value={draftEnd}
-                            onChange={(e) => setDraftEnd(e.target.value)}
-                            aria-label="End time"
-                            className="rounded-[10px] border border-rule-2 bg-surface px-2 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
-                          >
-                            {TIME_OPTS.map((t) => (
-                              <option key={t.value} value={t.value}>
-                                {t.label}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => addRange(d.key)}
-                            disabled={invalid}
-                            className="press rounded-lg bg-ink px-3 py-1.5 text-[13px] font-bold text-surface transition-colors hover:bg-ink-soft disabled:opacity-40"
-                          >
-                            Add
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setAddingDay(null)}
-                            className="press text-[13px] text-mute transition-colors hover:text-ink"
-                          >
-                            Cancel
-                          </button>
-                          {invalid ? (
-                            <span className="w-full text-[11px] text-brand-deep">
-                              End time must be after the start.
-                            </span>
-                          ) : null}
-                        </div>
+                      <div className="mt-5 flex flex-wrap items-end gap-4">
+                        <label className="block">
+                          <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">{configMeta.skill_system ?? "Rating"} <span className="font-semibold normal-case tracking-normal text-faint/80">· optional</span></span>
+                          <input
+                            value={draft.rating}
+                            onChange={(e) => setDraft((d) => ({ ...d, rating: e.target.value.replace(/[^\d.]/g, "").slice(0, 4) }))}
+                            inputMode="decimal"
+                            placeholder={RATING_HINT[configMeta.skill_system ?? ""] ?? "e.g. 4.0"}
+                            className="mt-1.5 w-28 rounded-xl border border-rule-2 bg-surface px-3 py-2.5 font-mono text-[16px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+                          />
+                        </label>
+                        <button type="button" onClick={commitConfig} className="press inline-flex items-center gap-1.5 rounded-xl px-5 py-3 text-[15px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
+                          <Check size={16} strokeWidth={3} /> {picked[configuring] ? `Save ${configMeta.name}` : `Add ${configMeta.name} to my lineup`}
+                        </button>
+                        <button type="button" onClick={() => setConfiguring(null)} className="press py-3 text-[14px] font-semibold text-mute transition-colors hover:text-ink">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="mb-2 text-[13px] font-bold uppercase tracking-[.08em] text-faint">{pickedKeys.length ? "Add another sport" : "Pick a sport to start"}</p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {sports.filter((s) => !picked[s.key]).map((s) => (
+                        <button
+                          key={s.key}
+                          type="button"
+                          onClick={() => openConfig(s.key)}
+                          className="lift relative overflow-hidden rounded-[20px] border-2 border-rule bg-surface p-4 text-left transition-all hover:border-brand/50"
+                        >
+                          <span aria-hidden className="pointer-events-none absolute -bottom-4 -right-2 select-none text-[76px] opacity-10 transition-transform duration-300 group-hover:scale-110" style={{ transform: "rotate(-12deg)" }}>
+                            {SPORT_EMOJI[s.key] ?? "•"}
+                          </span>
+                          <div className="grid h-14 w-14 place-items-center rounded-2xl text-[30px] shadow-e1" style={{ background: `linear-gradient(145deg, ${SPORT_TINT[s.key] ?? "#F4EFE3"}, #FFFDF8)` }} aria-hidden>
+                            {SPORT_EMOJI[s.key] ?? "•"}
+                          </div>
+                          <p className="mt-2.5 text-[16px] font-bold text-ink">{s.name}</p>
+                          <p className="mt-0.5 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-deep"><Plus size={13} strokeWidth={3} /> Add</p>
+                        </button>
+                      ))}
+                      {sports.every((s) => picked[s.key]) ? (
+                        <p className="col-span-full rounded-2xl border border-dashed border-rule px-4 py-5 text-center text-[14px] text-mute">That&rsquo;s every sport on Klimr — full lineup. 🏆</p>
                       ) : null}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setRanges(DAYS.slice(0, 5).map((d) => ({ day: d.key, start: "18:00", end: "21:00" })))
-                }
-                className="press rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:border-ink"
-              >
-                Weekday evenings
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setRanges(["sat", "sun"].map((d) => ({ day: d, start: "09:00", end: "12:00" })))
-                }
-                className="press rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:border-ink"
-              >
-                Weekend mornings
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setRanges([]);
-                  setAddingDay(null);
-                }}
-                className="press rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:border-ink"
-              >
-                Clear
-              </button>
-            </div>
-            <p className="text-xs text-mute">
-              Add the times you’re usually free, in 15-minute steps — as many blocks per day as you like. Change them anytime.
-            </p>
-          </div>
-        ) : null}
+                  </div>
+                )}
 
-        {/* ---- step 5 · finishing touches ---- */}
-        {step === 4 ? (
-          <div className="space-y-5">
-            <div className="flex items-center gap-4 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
-              <div
-                aria-hidden
-                className="grid h-14 w-14 shrink-0 place-items-center rounded-full font-display text-xl text-surface"
-                style={{
-                  background: `linear-gradient(145deg, hsl(${hue},85%,62%) 0%, hsl(${(hue + 22) % 360},80%,48%) 100%)`,
-                }}
-              >
-                {initials}
-              </div>
-              <div>
-                <div className="kicker text-faint">Your color</div>
-                <div className="mt-2 flex gap-1.5">
-                  {HUES.map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      aria-label={`Color ${h}`}
-                      onClick={() => setHue(h)}
-                      className={
-                        "h-6 w-6 rounded-full transition-transform " +
-                        (hue === h
-                          ? "scale-110 ring-2 ring-ink ring-offset-2 ring-offset-surface"
-                          : "hover:scale-105")
-                      }
-                      style={{
-                        background: `linear-gradient(145deg, hsl(${h},85%,62%) 0%, hsl(${(h + 22) % 360},80%,48%) 100%)`,
-                      }}
-                    />
+                <OptionGroup label="Match style">
+                  {STYLES.map((s) => (
+                    <OptionRow key={s.value} active={style === s.value} label={s.label} blurb={s.blurb} onPick={() => setStyle(s.value)} />
                   ))}
-                </div>
+                </OptionGroup>
               </div>
+            ) : null}
+
+            {/* ---- 3 · schedule (15-minute blocks per day) ---- */}
+            {step === 2 ? (
+              <div className="space-y-4">
+                <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
+                  <div className="divide-y divide-rule">
+                    {DAYS.map((d) => {
+                      const dayRanges = ranges.map((r, i) => ({ ...r, i })).filter((r) => r.day === d.key);
+                      const adding = addingDay === d.key;
+                      const invalid = toMin(draftStart) >= toMin(draftEnd);
+                      return (
+                        <div key={d.key} className="px-3 py-3 sm:px-4">
+                          <div className="flex items-start gap-3">
+                            <span className="mt-1.5 w-10 shrink-0 font-mono text-[13px] font-bold text-ink-soft">{d.label}</span>
+                            <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                              {dayRanges.length === 0 && !adding ? <span className="text-[13.5px] text-faint">Not available</span> : null}
+                              {dayRanges.map((r) => (
+                                <span key={r.i} className="inline-flex items-center gap-1 rounded-full border border-rule bg-bg py-1.5 pl-3 pr-1.5 text-[13.5px] font-semibold text-ink">
+                                  {timeLabel(r.start)} – {timeLabel(r.end)}
+                                  <button type="button" onClick={() => removeRange(r.i)} aria-label={`Remove ${d.label} ${timeLabel(r.start)} to ${timeLabel(r.end)}`} className="press grid h-5 w-5 place-items-center rounded-full text-mute transition-colors hover:bg-rule hover:text-brand-deep">
+                                    <X size={12} strokeWidth={2.5} aria-hidden />
+                                  </button>
+                                </span>
+                              ))}
+                              {!adding ? (
+                                <button type="button" onClick={() => openAdder(d.key)} className="press inline-flex items-center gap-1 rounded-full border border-dashed border-rule px-3 py-1.5 text-[13.5px] font-semibold text-mute transition-colors hover:border-ink hover:text-ink">
+                                  <Plus size={13} strokeWidth={2.5} aria-hidden /> Add time
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                          {adding ? (
+                            <div className="mt-2.5 flex flex-wrap items-center gap-2 pl-[52px]">
+                              <select value={draftStart} onChange={(e) => setDraftStart(e.target.value)} aria-label="Start time" className="rounded-[10px] border border-rule-2 bg-surface px-2.5 py-2 text-[14px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15">
+                                {TIME_OPTS.map((t) => (
+                                  <option key={t.value} value={t.value}>{t.label}</option>
+                                ))}
+                              </select>
+                              <span className="text-[14px] text-mute">to</span>
+                              <select value={draftEnd} onChange={(e) => setDraftEnd(e.target.value)} aria-label="End time" className="rounded-[10px] border border-rule-2 bg-surface px-2.5 py-2 text-[14px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15">
+                                {TIME_OPTS.map((t) => (
+                                  <option key={t.value} value={t.value}>{t.label}</option>
+                                ))}
+                              </select>
+                              <button type="button" onClick={() => addRange(d.key)} disabled={invalid} className="press rounded-lg bg-ink px-3.5 py-2 text-[14px] font-bold text-surface transition-colors hover:bg-ink-soft disabled:opacity-40">Add</button>
+                              <button type="button" onClick={() => setAddingDay(null)} className="press text-[14px] text-mute transition-colors hover:text-ink">Cancel</button>
+                              {invalid ? <span className="w-full text-[12.5px] text-brand-deep">End time must be after the start.</span> : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setRanges(DAYS.slice(0, 5).map((d) => ({ day: d.key, start: "18:00", end: "21:00" })))} className="press rounded-full border border-rule bg-surface px-3.5 py-2 text-[13.5px] font-semibold text-ink-soft transition-colors hover:border-ink">Weekday evenings</button>
+                  <button type="button" onClick={() => setRanges(["sat", "sun"].map((d) => ({ day: d, start: "09:00", end: "12:00" })))} className="press rounded-full border border-rule bg-surface px-3.5 py-2 text-[13.5px] font-semibold text-ink-soft transition-colors hover:border-ink">Weekend mornings</button>
+                  <button type="button" onClick={() => { setRanges([]); setAddingDay(null); }} className="press rounded-full border border-rule bg-surface px-3.5 py-2 text-[13.5px] font-semibold text-mute transition-colors hover:border-ink">Clear</button>
+                </div>
+                <p className="text-[13.5px] text-mute">Add the times you&rsquo;re usually free, in 15-minute steps — as many blocks per day as you like. Change them anytime.</p>
+              </div>
+            ) : null}
+
+            {/* ---- 4 · finishing touches ---- */}
+            {step === 3 ? (
+              <div className="space-y-5">
+                <label className="block">
+                  <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">Bio <span className="font-semibold normal-case tracking-normal text-faint/80">· optional</span></span>
+                  <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 160))} rows={3} placeholder="Weekend pickleball, always up for a rally." className="mt-1.5 w-full resize-none rounded-xl border border-rule-2 bg-surface px-3.5 py-3 text-[16px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15" />
+                  <span className="mt-1 block text-right font-mono text-[11px] text-faint">{bio.length}/160</span>
+                </label>
+                <label className="block">
+                  <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">Gender <span className="font-semibold normal-case tracking-normal text-faint/80">· optional</span></span>
+                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="mt-1.5 w-full rounded-xl border border-rule-2 bg-surface px-3.5 py-3 text-[16px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15">
+                    <option value="">Prefer not to say</option>
+                    <option value="woman">Woman</option>
+                    <option value="man">Man</option>
+                    <option value="nonbinary">Non-binary</option>
+                  </select>
+                </label>
+                <p className="text-[13.5px] leading-relaxed text-mute">Gender is used only for optional match filters and is never shown without your say.</p>
+              </div>
+            ) : null}
+
+            {/* ---- 5 · review ---- */}
+            {step === 4 ? (
+              <div className="rounded-2xl border border-dashed border-rule-2 bg-bg px-5 py-7 text-center">
+                <p className="text-[16px] font-bold text-ink">Your whole profile is in the rail — every card, exactly as it will save.</p>
+                <p className="mt-1.5 text-[14px] text-mute">Tap <span className="font-bold">Edit</span> on any card to change it, then make it official below.</p>
+              </div>
+            ) : null}
+
+            <div aria-live="polite">
+              {stepError || state.error ? (
+                <p role="alert" className="mt-4 rounded-xl border border-[#f0c2b0] bg-[#fbeee7] px-3.5 py-2.5 text-[14px] font-semibold text-brand-deep">
+                  {stepError ?? state.error}
+                </p>
+              ) : null}
             </div>
 
-            <label className="block">
-              <span className="kicker text-faint">Bio · optional</span>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value.slice(0, 160))}
-                rows={2}
-                placeholder="Weekend pickleball, always up for a rally."
-                className="mt-1.5 w-full resize-none rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
-              />
-              <span className="mt-1 block text-right font-mono text-[10px] text-faint">{bio.length}/160</span>
-            </label>
-
-            <label className="block">
-              <span className="kicker text-faint">Gender · optional</span>
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
-              >
-                <option value="">Prefer not to say</option>
-                <option value="woman">Woman</option>
-                <option value="man">Man</option>
-                <option value="nonbinary">Non-binary</option>
-              </select>
-            </label>
-            <p className="text-xs leading-relaxed text-mute">
-              Gender is used only for optional match filters and is never shown without your say.
-            </p>
+            {/* nav */}
+            <div className="mt-6 flex items-center gap-3">
+              {step > 0 ? (
+                <button type="button" onClick={back} className="press rounded-xl border border-rule bg-surface px-5 py-3 text-[15px] font-semibold text-ink shadow-e1 transition-colors hover:border-ink">Back</button>
+              ) : null}
+              {step < STEPS.length - 1 ? (
+                <button key="continue" type="button" onClick={next} className="press flex-1 rounded-xl bg-ink px-4 py-3 text-[16px] font-bold text-surface transition-colors hover:bg-ink-soft">Continue</button>
+              ) : (
+                <button
+                  key="finish"
+                  type="submit"
+                  disabled={pending}
+                  onClick={() => { submitIntent.current = true; }}
+                  className="press flex-1 rounded-xl px-4 py-3 text-[16px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-60"
+                  style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
+                >
+                  {pending ? "Saving…" : isEdit ? "Save profile" : "Finish profile"}
+                </button>
+              )}
+            </div>
           </div>
-        ) : null}
+        </div>
 
-        {/* ---- step 6 · review ---- */}
-        {step === 5 ? (
-          <div className="rounded-2xl border border-dashed border-rule-2 bg-bg px-4 py-5 text-center">
-            <p className="text-sm font-semibold text-ink">Your whole profile is above — every card, exactly as it will save.</p>
-            <p className="mt-1 text-xs text-mute">Tap <span className="font-bold">Edit</span> on any card to change it, then make it official below.</p>
-          </div>
-        ) : null}
-      </div>
+        <p className="mt-4 flex items-start gap-2 rounded-xl border border-rule-soft bg-bg px-3.5 py-2.5 text-[12.5px] leading-relaxed text-mute">
+          <ShieldCheck size={14} className="mt-0.5 shrink-0 text-ink-soft" aria-hidden />
+          <span>
+            <span className="font-semibold text-ink-soft">Your privacy:</span> Klimr does not sell or share your personal information. The details you provide are used solely to operate your Klimr profile and connect you with players, as described in our{" "}
+            <Link href="/legal#privacy" target="_blank" className="font-semibold text-ink underline decoration-rule-2 underline-offset-2 hover:text-brand-deep">Privacy Policy</Link>.
+          </span>
+        </p>
 
-      {/* serialized payload */}
-      <input type="hidden" name="display_name" value={firstName.trim()} />
-      <input type="hidden" name="first_name" value={firstName.trim()} />
-      <input type="hidden" name="last_name" value={lastName.trim()} />
-      <input type="hidden" name="zip" value={zip} />
-      <input type="hidden" name="sports_json" value={sportsJson} />
-      <input type="hidden" name="play_style" value={style} />
-      <input type="hidden" name="availability_json" value={JSON.stringify(ranges)} />
-      <input type="hidden" name="avatar_hue" value={hue} />
-      <input type="hidden" name="bio" value={bio} />
-      <input type="hidden" name="dob" value={dob} />
-      <input type="hidden" name="gender" value={gender} />
-
-      {/* nav */}
-      <div className="flex items-center gap-3">
-        {step > 0 ? (
-          <button
-            type="button"
-            onClick={back}
-            className="press rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink"
-          >
-            Back
-          </button>
-        ) : null}
-        {step < STEPS.length - 1 ? (
-          <button
-            key="continue"
-            type="button"
-            onClick={next}
-            className="press flex-1 rounded-xl bg-ink px-3.5 py-3 text-[15px] font-bold text-surface transition-colors hover:bg-ink-soft"
-          >
-            Continue
-          </button>
-        ) : (
-          <button
-            key="finish"
-            type="submit"
-            disabled={pending}
-            onClick={() => {
-              submitIntent.current = true;
-            }}
-            className="press flex-1 rounded-xl px-3.5 py-3 text-[15px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-60" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
-          >
-            {pending ? "Saving…" : isEdit ? "Save profile" : "Finish profile"}
-          </button>
-        )}
-      </div>
-      <p className="flex items-start gap-2 rounded-xl border border-rule-soft bg-bg px-3.5 py-2.5 text-[11.5px] leading-relaxed text-mute">
-        <ShieldCheck size={14} className="mt-0.5 shrink-0 text-ink-soft" aria-hidden />
-        <span>
-          <span className="font-semibold text-ink-soft">Your privacy:</span> Klimr does not sell or share your personal
-          information. The details you provide are used solely to operate your Klimr profile and connect you with
-          players, as described in our{" "}
-          <Link href="/legal#privacy" target="_blank" className="font-semibold text-ink underline decoration-rule-2 underline-offset-2 hover:text-brand-deep">
-            Privacy Policy
-          </Link>
-          .
-        </span>
-      </p>
-
-      <div aria-live="polite">
-        {stepError || state.error ? (
-          <p role="alert" className="text-sm text-brand-deep">
-            {stepError ?? state.error}
-          </p>
-        ) : null}
+        {/* serialized payload */}
+        <input type="hidden" name="display_name" value={firstName.trim()} />
+        <input type="hidden" name="first_name" value={firstName.trim()} />
+        <input type="hidden" name="last_name" value={lastName.trim()} />
+        <input type="hidden" name="zip" value={zip} />
+        <input type="hidden" name="sports_json" value={sportsJson} />
+        <input type="hidden" name="play_style" value={style} />
+        <input type="hidden" name="availability_json" value={JSON.stringify(ranges)} />
+        <input type="hidden" name="avatar_hue" value={hue} />
+        <input type="hidden" name="bio" value={bio} />
+        <input type="hidden" name="dob" value={dob} />
+        <input type="hidden" name="gender" value={gender} />
       </div>
     </form>
   );

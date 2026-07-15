@@ -17,6 +17,7 @@ type Ev = {
   court_id: string | null;
   location_text: string | null;
   location_url: string | null;
+  location_reveal: string;
   starts_at: string;
   capacity: number | null;
   cost_text: string | null;
@@ -27,7 +28,7 @@ type Ev = {
 };
 
 const COVER_BUCKET = "tournament-gallery";
-const CARD_COLS = "id, title, sport_key, kind, court_id, location_text, location_url, starts_at, capacity, cost_text, cover_path, thumb_path, created_by, status";
+const CARD_COLS = "id, title, sport_key, kind, court_id, location_text, location_url, starts_at, capacity, cost_text, cover_path, thumb_path, created_by, status, location_reveal";
 
 function nowIso() {
   return new Date().toISOString();
@@ -91,7 +92,7 @@ export default async function EventsPage() {
     sportKey: e.sport_key,
     kind: e.kind,
     whenIso: e.starts_at,
-    venue: e.court_id ? courtName.get(e.court_id) ?? null : e.location_text,
+    venue: e.location_reveal === "rsvp" ? "Location after RSVP" : e.court_id ? courtName.get(e.court_id) ?? null : e.location_text,
     goingCount: counts.get(e.id) ?? 0,
     capacity: e.capacity,
     amGoing: going.has(e.id),
@@ -107,7 +108,8 @@ export default async function EventsPage() {
   /** Coordinate chain for the map + Near-me: linked court → the organizer's
    *  pasted Google Maps link → the venue text geocoded against the local US
    *  dataset ("Santa Monica, CA" pins at the city centroid). */
-  function eventPoint(e: { court_id: string | null; location_url: string | null; location_text: string | null }): { lat: number | null; lng: number | null } {
+  function eventPoint(e: { court_id: string | null; location_url: string | null; location_text: string | null; location_reveal?: string }): { lat: number | null; lng: number | null } {
+  if (e.location_reveal === "rsvp") return { lat: null, lng: null };
     if (e.court_id) {
       const g = courtGeo.get(e.court_id);
       if (g?.lat != null && g?.lng != null) return { lat: g.lat, lng: g.lng };

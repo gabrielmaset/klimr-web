@@ -33,7 +33,7 @@ export function ChatsLiveRefresher({ conversationIds, userId }: { conversationId
     document.addEventListener("visibilitychange", onVisible);
 
     const supabase = createClient();
-    const channel = supabase.channel("courtside-live");
+    const channel = supabase.channel(`courtside-live:${Math.random().toString(36).slice(2)}`);
     if (conversationIds.length > 0) {
       channel.on(
         "postgres_changes",

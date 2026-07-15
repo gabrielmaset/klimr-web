@@ -219,6 +219,7 @@ type EventInput = {
   recurrence_days?: string[];
   queue_enabled?: boolean;
   host_ack?: boolean;
+  location_reveal?: string;
 };
 
 const WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
@@ -264,6 +265,7 @@ function normalizeEvent(input: EventInput) {
       description: sanitizeRichText(input.description) || null,
       location_text: (input.location_text ?? "").trim().slice(0, 200) || null,
       location_url: cleanMapsUrl(input.location_url),
+      location_reveal: input.location_reveal === "rsvp" ? "rsvp" : "public",
       starts_at: starts.toISOString(),
       ends_at: endsIso,
       capacity: cap,
@@ -300,7 +302,6 @@ export async function createEvent(input: EventInput) {
     if (!looksFree(norm.row.cost_text)) {
       return { ok: false as const, error: "Community events are free to attend. Hosting paid events needs Organizer status — apply under Settings → Professional & hosting." };
     }
-    if (norm.row.capacity == null || norm.row.capacity > 12) norm.row.capacity = 12;
     const { count } = await supabase
       .from("events")
       .select("id", { count: "exact", head: true })

@@ -166,6 +166,81 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-15 — Events: no capacity cap, ever (host-optional only)
+- Superseding the 12→40 change same-day: the community-bounds capacity clamp is REMOVED
+  entirely. Capacity defaults to unlimited (null); the host may set a number in event
+  settings if they want one. Form: placeholder "Unlimited" + "leave blank" helper.
+  Downstream already null-safe (full/spotsLeft/share-kit spots line all guard on null).
+  Community bounds now: free · open_play/social · ≤2 upcoming. Organizer status gates
+  paid + all kinds.
+
+### 2026-07-15 — Community cap 12→40 · location_reveal ('DM for location' as a feature)
+- Community-event capacity clamp raised 12→40 (Gabriel: Sunday volleyball outgrew 12) —
+  one constant in createEvent; free/kinds/≤2-upcoming bounds unchanged; Organizer status
+  still unlocks paid/any-kind/uncapped.
+- **0121**: events.location_reveal 'public'|'rsvp' (default public). Form toggle beside
+  the location fields ("Share exact location only with people who RSVP"). Detail page:
+  locked viewers (not owner/manager/going) see neighborhood/city + "Exact spot after
+  RSVP" chip — no court name, no address link, no map. Browse cards show "Location after
+  RSVP" and contribute NO map pin (eventPoint short-circuits). Share kit emits
+  "📍 Location shared once you RSVP" for locked copies. RSVP → full location on next
+  render, host/managers always see everything.
+
+### 2026-07-15 — Event share kit (one-click platform-formatted promo)
+- Born from a real WhatsApp ad in Gabriel's beach volleyball group. Gap analysis: every
+  element of the ad maps to existing event fields (title/kind/description/starts+ends/
+  court|location_text/cost_text/capacity/cover; events even carry whatsapp_url already).
+  Two honest gaps noted for the roadmap: reveal-location-to-RSVPs-only (the "DM for
+  location" pattern) and nothing else — donations stay host-side text in cost_text (no
+  payment features per directive).
+- components/event-share-kit.tsx on every event page (after the location map): "Spread
+  the word" — WhatsApp (*bold* markers, emoji lines, airy breaks), Instagram (caption +
+  auto hashtags), X/Threads (280-char cut), SMS (one-liner). Each format carries the
+  event's RSVP link; preview pane + one-click clipboard copy with a green "Copied" state.
+
+### 2026-07-15 — Onboarding wizard v2: the journey rail (Gabriel's original idea, realized)
+- Structural redesign answering six critiques at once. The dead left column becomes the
+  **journey rail**: every step in fixed order — done steps as parchment summary cards
+  OUTSIDE the work container (Edit chips, split-gradient on-border labels: transparent →
+  #F7F2E4 at calc(50%−1px), h-16px — the filter-label fix applied), the active step as a
+  flame-barred "STEP N · NOW" card, pending steps as dashed ghost rows. The step-order
+  bug (editing 2 dropped it below 5) is dead by construction: the rail maps STEPS in
+  order; editing just moves the highlight. The right card holds ONLY the active step at
+  full width.
+- Steps 6→5: sports+how-you-play MERGED into "Build your lineup" — pick a sport from a
+  playful tile grid (scales to dozens; 56px gradient medallions + crest-style rotated
+  emoji watermarks), configure everything in a focused tinted panel (experience/format/
+  hand as **OptionRow radio rows w/ blurbs — zero pills**, big rating input), then "Add
+  {sport} to my lineup"; lineup cards carry summary line + primary star + Edit/Remove.
+  Match style joins the same step as an OptionGroup.
+- Profile photo lands in step 1: circular preview + upload via the existing
+  createAvatarUploadUrl/commitAvatar rails (uploadToSignedUrl client-side, 5MB/type
+  guards, spinner overlay); hue dots move beside it (identity in one place).
+- Font scale-up throughout: inputs 16px, options 15px, summaries 14.5px, metas 13.5px —
+  no more 11px body text. Page shell handed to the wizard (page.tsx mounts it bare).
+
+### 2026-07-15 — Realtime "callbacks after subscribe()" (diagnostics flood) fixed
+- Root cause: static channel topics ("notif-badge", "courtside-live", "feed-live") —
+  supabase-js returns the EXISTING channel for a repeated topic, so overlapping mounts
+  across layouts (app top bar ↔ /admin's own bar) had the second mount attach
+  postgres_changes to an already-subscribed instance → unhandled rejection on every
+  layout transition (the /admin + /tournaments entries in Diagnostics). Cleanup existed;
+  the collision was the shared topic itself.
+- Fix: **unique topic per mount** (`name:${random}`) on all three channels — collisions
+  impossible by construction; badge cleanup also uses the captured client instance
+  instead of re-calling createClient(). Standing rule: realtime channel topics in
+  components must be per-mount unique.
+
+### 2026-07-15 — Broadcast "Database error finding users": seed rows broke GoTrue
+- listUsers 500ed platform-wide because the dev seed inserted auth.users rows with NULL
+  token columns; GoTrue scans expect EMPTY STRINGS (confirmation_token, recovery_token,
+  email_change*, phone_change*, reauthentication_token) + is_sso_user/is_anonymous set.
+  The @klimr.test exclusion in the broadcast action couldn't help — the listing itself
+  failed before filtering. Fix: repair UPDATE for existing seed rows (delivered verbatim)
+  + dev-seed.sql inserts now include the columns explicitly. Lesson recorded: any manual
+  auth.users insert must satisfy GoTrue's empty-string contract or the ENTIRE admin user
+  API breaks.
+
 ### 2026-07-15 — Tournament rail: compact accordion (the second adaptive layer)
 - Scrollbar hiding treated the symptom; the main rail's real short-screen answer is the
   compact accordion — under max-height 960px the labeled sections (Setup/Registration/

@@ -1362,7 +1362,7 @@ export interface Database {
           join_policy: string;
           recurrence: string;
           recurrence_days: string[];
-         host_ack_at: string | null; };
+         host_ack_at: string | null;  location_reveal: string; };
         Insert: {
           id?: string;
           title: string;
@@ -1387,7 +1387,7 @@ export interface Database {
           join_policy?: string;
           recurrence?: string;
           recurrence_days?: string[];
-         host_ack_at?: string | null; };
+         host_ack_at?: string | null;  location_reveal?: string; };
         Update: {
           title?: string;
           sport_key?: string;
@@ -1409,7 +1409,7 @@ export interface Database {
           join_policy?: string;
           recurrence?: string;
           recurrence_days?: string[];
-        };
+         location_reveal?: string; };
         Relationships: [];
       };
       event_rsvps: {

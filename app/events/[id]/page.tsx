@@ -7,6 +7,7 @@ import { EventHeroCover } from "@/components/event-hero-cover";
 import { EventQueueAdmin } from "@/components/event-queue-admin";
 import { EventAdmins } from "@/components/event-admins";
 import { EventLocationMap } from "@/components/event-location-map";
+import { EventShareKit } from "@/components/event-share-kit";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { sanitizeRichText, looksLikeHtml } from "@/lib/rich-text";
@@ -64,7 +65,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const { data: e } = await supabase
     .from("events")
-    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at")
+    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at, location_reveal")
     .eq("id", id)
     .maybeSingle();
   if (!e) notFound();
@@ -126,6 +127,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const courtData = court.data as { id: string; name: string; neighborhood: string | null; city: string | null } | null;
   const where = courtData ? courtData.name : e.location_text;
+  const locationLocked = e.location_reveal === "rsvp" && !isAdmin && myStatus !== "going";
+  const whereShown = locationLocked ? (courtData?.neighborhood ?? courtData?.city ?? "Location shared after RSVP") : where;
   const full = e.capacity != null && count >= e.capacity && myStatus !== "going";
   const past = isPast(e.starts_at);
   const cancelled = e.status === "cancelled";
@@ -185,7 +188,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <span className="inline-flex items-center gap-1.5">
             <Clock size={15} /> {fmt(e.starts_at, { weekday: "short", month: "short", day: "numeric" })} · {fmt(e.starts_at, { hour: "numeric", minute: "2-digit" })} PT
           </span>
-          {where ? (
+          {locationLocked ? (
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin size={15} /> {whereShown}
+              <span className="rounded-full border border-rule bg-bg px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-faint">Exact spot after RSVP</span>
+            </span>
+          ) : where ? (
             mapsHref ? (
               <a href={mapsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline">
                 <MapPin size={15} /> {where} <ExternalLink size={12} />
@@ -334,7 +342,22 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         ) : (
           <div />
         )}
-        {where ? <EventLocationMap name={courtData?.name ?? e.location_text} address={e.location_text} zip={null} lat={null} lng={null} point={mapPoint} href={mapsHref ?? undefined} /> : null}
+        {!locationLocked && where ? <EventLocationMap name={courtData?.name ?? e.location_text} address={e.location_text} zip={null} lat={null} lng={null} point={mapPoint} href={mapsHref ?? undefined} /> : null}
+
+        <EventShareKit
+          title={e.title}
+          sportName={sportMeta(e.sport_key).name}
+          sportEmoji={sportMeta(e.sport_key).emoji}
+          kindLabel={eventKindLabel(e.kind)}
+          startsAt={e.starts_at}
+          endsAt={e.ends_at}
+          where={locationLocked ? null : (where ?? null)}
+          whereLocked={locationLocked}
+          costText={e.cost_text}
+          capacity={e.capacity}
+          description={e.description}
+          url={`https://klimr.com/events/${e.id}`}
+        />
       </div>
 
       {/* ORGANIZER TOOLS — everything admin-only lives here, clearly separated */}
