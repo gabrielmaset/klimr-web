@@ -176,6 +176,8 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
   if (!user) redirect("/login?next=/tournaments");
 
   const { data: prof } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
+  const { data: provRow } = await supabase.from("class_providers").select("roles, status").eq("user_id", user.id).maybeSingle();
+  const isTD = provRow?.status === "approved" && Array.isArray(provRow.roles) && provRow.roles.includes("tournament_director");
 
   const nearRaw = (near ?? "").trim();
   let center: { lat: number; lng: number; label: string } | null = null;
@@ -255,9 +257,11 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
             <Link href="/tournaments/past" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past tournaments →</Link>
           </div>
         </div>
-        <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
-          <Plus size={16} /> Host a tournament
-        </Link>
+        {isTD ? (
+          <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+            <Plus size={16} /> Host a tournament
+          </Link>
+        ) : null}
       </div>
 
       {/* Featured hero (promoted) */}
@@ -342,9 +346,11 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
             </span>
             <p className="mt-3 text-base font-bold text-ink">{center ? "No tournaments here yet" : "No location set"}</p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-mute">{center ? "Be the first to run one in your area — it takes a few minutes to set up." : "Search a ZIP or city above to find local brackets."}</p>
+            {isTD ? (
             <Link href="/tournaments/new" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
               <Plus size={15} /> Host a tournament
             </Link>
+            ) : null}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

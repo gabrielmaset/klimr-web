@@ -64,6 +64,55 @@ export function ProfessionalStatusForm({ existingRoles }: { existingRoles: strin
           </label>
 
           {/* Credential block */}
+          {meta.requiresPhone ? (
+            <label className="grid gap-1.5">
+              <span className="text-sm font-bold text-ink">Phone number <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-brand-deep">Required</span></span>
+              <input name="phone" type="tel" required inputMode="tel" maxLength={24} placeholder="(310) 555-0142" className={field} />
+              <span className="text-[11px] text-faint">Used to verify your application and reach you about events you host — never shown publicly.</span>
+            </label>
+          ) : null}
+
+          {meta.venueAttestation ? (
+            <label className="flex items-start gap-2.5 rounded-xl border border-rule-soft bg-bg px-3.5 py-3">
+              <input name="venue_attestation" type="checkbox" required className="mt-0.5 h-4 w-4 shrink-0 accent-[#201B12]" />
+              <span className="text-xs leading-relaxed text-ink-soft">
+                <span className="font-bold text-ink">Venue attestation.</span> I confirm that for every tournament I publish, I will have the venue&rsquo;s
+                permission or a confirmed booking for the courts and times listed before opening registration.
+              </span>
+            </label>
+          ) : null}
+
+          {meta.agreement ? (
+            <div className="rounded-xl border border-rule-soft bg-bg px-3.5 py-3">
+              <details className="group">
+                <summary className="cursor-pointer text-xs font-bold text-ink">
+                  {meta.agreement === "td" ? "Tournament Director Agreement" : "Organizer Agreement"} <span className="font-normal text-faint">— tap to read</span>
+                </summary>
+                <div className="mt-2 space-y-2 text-[11.5px] leading-relaxed text-mute">
+                  <p>
+                    As a host on Klimr, I will describe my {meta.agreement === "td" ? "tournaments" : "events"} accurately (time, place, format, and skill
+                    expectations), show up for what I publish, and give registered players prompt notice of any change or cancellation.
+                  </p>
+                  <p>
+                    I am responsible for the conduct and safety practices of my {meta.agreement === "td" ? "tournaments" : "events"} as the host; participation
+                    is governed by the Klimr Terms of Service, including the assumption-of-risk and release provisions, and by the Community guidelines.
+                  </p>
+                  {meta.agreement === "td" ? (
+                    <p>
+                      I will run brackets and record results honestly, apply the published format consistently, and resolve disputes in good faith. I
+                      understand Klimr may review results and remove tournaments that violate these commitments.
+                    </p>
+                  ) : null}
+                  <p>Klimr may suspend or revoke hosting privileges for violations of this agreement, the Terms, or the guidelines.</p>
+                </div>
+              </details>
+              <label className="mt-2.5 flex items-start gap-2.5">
+                <input name="host_agreement" type="checkbox" required className="mt-0.5 h-4 w-4 shrink-0 accent-[#201B12]" />
+                <span className="text-xs font-semibold text-ink">I have read and agree to the {meta.agreement === "td" ? "Tournament Director" : "Organizer"} Agreement.</span>
+              </label>
+            </div>
+          ) : null}
+
           {meta.requiresCredential || meta.credentialLabel ? (
             <div className="space-y-4 rounded-xl border border-rule bg-bg/40 p-4">
               <div className="flex items-center gap-2">

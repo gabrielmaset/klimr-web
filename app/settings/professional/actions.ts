@@ -61,6 +61,11 @@ export async function requestProfessionalStatus(formData: FormData) {
     verification_url: s("verification_url") || null,
     applicant_note: s("applicant_note") || null,
     document_path: documentPath,
+    phone: s("phone") || null,
+    attestations: {
+      ...(formData.get("host_agreement") ? { host_agreement_at: new Date().toISOString() } : {}),
+      ...(formData.get("venue_attestation") ? { venue_attestation_at: new Date().toISOString() } : {}),
+    },
   });
 
   revalidatePath("/settings/professional");

@@ -166,6 +166,18 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-15 — Tournament organizer rail: main-rail adaptive contract
+- The org dashboard's dark rail was the last pre-system aside: fixed w-64, visible inner
+  scrollbar on short laptops, no collapse. Reworked to the main rail's exact mechanics
+  (mirrored from side-nav, storage key **klimr.trail**): auto icon-rail (76px) ≤1180px with
+  **overlay expansion** (absolute 232px card, page never reflows; closes on nav/outside/
+  Escape), persisted chevron choice above 1180px, transition-[width] 200ms, chevron at
+  -right-[11px] top-[22px] (aside is the positioning context — the stacking lesson).
+- Collapsed grammar: emoji tile w/ title tooltip, kickers hidden, icon-only rows (h-11
+  centered, tooltips), footer = globe + avatar only. Scrollbar hidden on the card
+  ([scrollbar-width:none] + webkit) — still scrollable, never visible. Phone untouched:
+  the existing md:hidden top tab strip already handles small screens.
+
 ### 2026-07-07 — Phase 2: design-system foundations
 - **Reconciled this doc with the code.** Corrected the type system — `font-display`
   is **Inter**, not Fraunces (Fraunces is logotype-only). Removed the stale claim that
@@ -221,6 +233,48 @@ surface-by-surface in later phases; **new code should use these from the start.*
   actor/zip/lat-lng/object refs/audience. Read = newest window + 25mi filter (bounding-box
   columns ready for the scale query). Live = Realtime INSERT → "New updates" pill. Ranking
   climbs via nightly rank_snapshots = Phase 2. Grounded in industry fan-out guidance.
+
+### 2026-07-14 — 180-day gate live + THE CLIMB (permanent history graph) · 0120
+- **0120**: player_sports.last_result_at (+ full ledger backfill + activity index);
+  ranked_players recreated with the approved 180-day visibility gate + last_result_at in
+  the return (drop/recreate — return-type change; grants restored). Every percentile/
+  standings consumer of the RPC becomes active-cohort by construction. Award sites (queue
+  + tournament) stamp last_result_at on every result. Ladder rows show a faint last-played
+  chip (today/3d/2w/4mo).
+- **rank_history**: (user, sport, week) → points + rank; nightly snapshot job upserts the
+  current week's row (converges to end-of-week); one-time backfill reconstructs points-
+  only weekly series from both ledgers (rank unknowable in hindsight; zero weeks skipped).
+  RLS: authenticated read.
+- **components/rank-history-chart.tsx** on every profile ("THE CLIMB", after the hero):
+  hand-rolled SVG — Catmull-Rom smoothed line, flame area fill, Points|Rank toggle (rank
+  inverted, #1 on top), per-sport pills sorted by current points, adaptive month/year axis,
+  zero-filled valleys for honest pauses, pointer crosshair + dot + readout, peak/best-rank
+  stat line, dashed empty state. nowMs threaded (module clock helper — purity rule).
+  Container was reset this session: all unzipped rounds replayed from transcript before
+  this build (verified by full green + rebuild battery).
+
+### 2026-07-14 — (session-consolidated) Ladder · broadcast · attestations · ranking spec
+- **Hosting ladder (Gabriel: 1B/2A/3D/4C/5C/6C/7A/9DE/10BCE/11B/12B)**: bounded community
+  events for all members (free · open_play/social · cap 12 · ≤2 upcoming, createEvent-
+  enforced); tournaments TD-only (guard + hidden hub buttons); Organizer/TD = free
+  applications on provider rails (category "organizing", agreement blocks, phone for
+  organizer); zero payment language; Settings-only discovery ("Professional & hosting");
+  no grandfathering; profile badges (TD/Organizer/Verified Pro). 0117.
+- **Admin Broadcast** (/admin/broadcast + nav): audiences all/organizers/TDs/pros via
+  paginated listUsers ∩ approved roles (seed accounts excluded), branded shell, typed-SEND
+  confirm, audit rows (broadcasts, 0117) with sender + counts.
+- **Per-listing attestations (0118)**: venue attestation checkbox per tournament (wizard
+  step; createTournamentFromWizard stamps host_agreed_at + venue_attested_at); event host
+  acknowledgment (form checkbox → host_ack_at, action-enforced); participant disclosures
+  at event Join and both tournament signup forms; "Free during launch" copy removed.
+- **Ranking**: docs/RANKING-POINTS.md v1.2 — computed tables, LIVE vs PROPOSED (format
+  factor 1/.8/.7/.6/.5; organized-match 15/5 pending result reporting; √N champBase v1.1
+  after Monte Carlo proved steady state + linear mega-draw distortion). **0119**: snapshot
+  fn reads player_sports (was full-ledger lifetime queue-only sum — scale + correctness
+  bug), emitter contract preserved; composite ledger indexes. §11: 180-day ladder
+  visibility gate approved (points intact, active-cohort percentiles, last-played chip).
+- Mobile: FilterGroup label geometry (h-14, split at 50%−1px); drawer clip cage (WebKit
+  phantom-scroll fix).
 
 ### 2026-07-14 — Group label: split background (kills the white box)
 - The emulated on-border label used bg-surface, which painted a visible white rectangle

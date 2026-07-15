@@ -152,6 +152,7 @@ function makeCode(len = 6) {
 export async function createTournamentFromWizard(
   patch: TournamentDraftPatch,
   agree: boolean,
+  venueAttested: boolean,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const supabase = await createClient();
   const {
@@ -162,6 +163,7 @@ export async function createTournamentFromWizard(
   const { data: prof } = await supabase.from("profiles").select("verification_status").eq("id", user.id).maybeSingle();
   if (prof?.verification_status !== "verified") return { ok: false, error: "Get verified to host." };
   if (!agree) return { ok: false, error: "Please accept the organizer terms." };
+  if (!venueAttested) return { ok: false, error: "Confirm the venue attestation before publishing." };
 
   const title = (patch.title ?? "").trim();
   const sport = patch.sport_key ?? "";
@@ -213,7 +215,7 @@ export async function createTournamentFromWizard(
   if (patch.registration_deadline !== undefined) row.registration_deadline = patch.registration_deadline;
   if (patch.format_config !== undefined) row.format_config = patch.format_config as Json;
 
-  const { data: created, error } = await supabase.from("tournaments").insert(row).select("id").single();
+  const { data: created, error } = await supabase.from("tournaments").insert({ ...row, host_agreed_at: new Date().toISOString(), venue_attested_at: new Date().toISOString() }).select("id").single();
   if (error || !created) {
     console.error("[tournaments] create-from-wizard failed", error?.code, error?.message);
     return { ok: false, error: error?.message ?? "Couldn't create the event." };
@@ -2056,6 +2058,7 @@ export async function awardTournamentPoints(tournamentId: string) {
 
   const userIds = [...new Set(ledgerRows.map((r) => r.user_id))];
   for (const uid of userIds) await recomputePlayerPoints(admin, uid, sport);
+  await admin.from("player_sports").update({ last_result_at: new Date().toISOString() }).in("user_id", userIds).eq("sport_key", sport);
 
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   revalidatePath("/rankings");

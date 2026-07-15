@@ -168,6 +168,12 @@ export interface Database {
         Update: { zip?: string; neighborhood?: string; city?: string; state?: string; country?: string };
         Relationships: [];
       };
+      rank_history: {
+        Row: { user_id: string; sport_key: string; week: string; points: number; rank: number | null; };
+        Insert: { user_id: string; sport_key: string; week: string; points: number; rank?: number | null; };
+        Update: { points?: number; rank?: number | null; };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -357,7 +363,7 @@ export interface Database {
           handedness: string | null;
           active: boolean;
           updated_at: string;
-        };
+         last_result_at: string | null; };
         Insert: {
           user_id: string;
           sport_key: string;
@@ -370,7 +376,7 @@ export interface Database {
           handedness?: string | null;
           active?: boolean;
           updated_at?: string;
-        };
+         last_result_at?: string | null; };
         Update: {
           points?: number;
           skill_rating?: number | null;
@@ -381,7 +387,7 @@ export interface Database {
           handedness?: string | null;
           active?: boolean;
           updated_at?: string;
-        };
+         last_result_at?: string | null; };
         Relationships: [];
       };
       matches: {
@@ -1035,7 +1041,7 @@ export interface Database {
           suspended_reason: string | null;
           created_at: string;
           updated_at: string;
-        };
+         host_agreed_at: string | null; venue_attested_at: string | null; };
         Insert: {
           id?: string;
           owner_id: string;
@@ -1074,7 +1080,7 @@ export interface Database {
           suspended_reason?: string | null;
           created_at?: string;
           updated_at?: string;
-        };
+         host_agreed_at?: string | null; venue_attested_at?: string | null; };
         Update: {
           title?: string;
           sport_key?: string;
@@ -1356,7 +1362,7 @@ export interface Database {
           join_policy: string;
           recurrence: string;
           recurrence_days: string[];
-        };
+         host_ack_at: string | null; };
         Insert: {
           id?: string;
           title: string;
@@ -1381,7 +1387,7 @@ export interface Database {
           join_policy?: string;
           recurrence?: string;
           recurrence_days?: string[];
-        };
+         host_ack_at?: string | null; };
         Update: {
           title?: string;
           sport_key?: string;
@@ -1573,6 +1579,12 @@ export interface Database {
         Update: { status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; roles?: string[]; verification_level?: string; credential_expires_at?: string | null; format?: string; price_from_cents?: number | null; availability?: string; next_opening?: string | null; area_text?: string | null; sports?: string[] };
         Relationships: [];
       };
+      broadcasts: {
+        Row: { id: string; subject: string; body: string; audience: Json; recipient_count: number; sent_by: string | null; created_at: string; };
+        Insert: { id?: string; subject: string; body: string; audience?: Json; recipient_count?: number; sent_by?: string | null; created_at?: string; };
+        Update: { subject?: string; body?: string; audience?: Json; recipient_count?: number; };
+        Relationships: [];
+      };
       provider_applications: {
         Row: {
           id: string;
@@ -1591,7 +1603,7 @@ export interface Database {
           reviewed_at: string | null;
           created_at: string;
           updated_at: string;
-        };
+         phone: string | null; attestations: Json; };
         Insert: {
           id?: string;
           user_id: string;
@@ -1609,7 +1621,7 @@ export interface Database {
           reviewed_at?: string | null;
           created_at?: string;
           updated_at?: string;
-         document_path?: string | null; };
+         document_path?: string | null;  phone?: string | null; attestations?: Json; };
         Update: {
           status?: string;
           headline?: string | null;

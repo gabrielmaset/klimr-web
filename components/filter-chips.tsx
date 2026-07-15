@@ -66,8 +66,8 @@ export function FilterGroup({ label, children, className = "", trailing, footer,
   return (
     <div role="group" aria-label={label} className={`relative flex min-w-0 flex-col rounded-2xl border border-rule-2 bg-surface px-1.5 pb-1.5 pt-3 ${className}`}>
       <span
-        className="absolute -top-[7px] left-3 inline-flex items-center gap-2 px-1.5 font-mono text-[9px] font-bold uppercase leading-none tracking-[.16em] text-faint"
-        style={{ background: "linear-gradient(to bottom, transparent 45%, var(--color-surface) 45%)" }}
+        className="absolute -top-[7px] left-3 inline-flex h-[14px] items-center gap-2 px-1.5 font-mono text-[9px] font-bold uppercase leading-none tracking-[.16em] text-faint"
+        style={{ background: "linear-gradient(to bottom, transparent calc(50% - 1px), var(--color-surface) calc(50% - 1px))" }}
       >
         {label}
         {trailing}

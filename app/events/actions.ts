@@ -191,6 +191,17 @@ export async function removeEventThumb(eventId: string) {
 
 /* ---------- event authoring (create / edit / cancel — host owns the row) ---------- */
 
+/** Hosting ladder: approved Organizer status unlocks paid/large/all-kind events;
+ *  every verified member can host bounded community events (free · social or
+ *  open play · up to 12 · max 2 upcoming). */
+const COMMUNITY_KINDS = new Set(["open_play", "social"]);
+const looksFree = (c: string | null) => !c || /free|^\$?0(\.0{1,2})?$/i.test(c.trim());
+async function isOrganizer(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<boolean> {
+  const { data } = await supabase.from("class_providers").select("roles, status").eq("user_id", userId).maybeSingle();
+  return data?.status === "approved" && Array.isArray(data.roles) && data.roles.includes("organizer");
+}
+
+
 type EventInput = {
   title: string;
   sport_key: string;
@@ -207,6 +218,7 @@ type EventInput = {
   recurrence?: string;
   recurrence_days?: string[];
   queue_enabled?: boolean;
+  host_ack?: boolean;
 };
 
 const WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
@@ -276,9 +288,33 @@ export async function createEvent(input: EventInput) {
   const norm = normalizeEvent(input);
   if ("error" in norm) return { ok: false as const, error: norm.error };
 
+  if (!input.host_ack) {
+    return { ok: false as const, error: "Please confirm the host acknowledgment to publish your event." };
+  }
+
+  // Community-event bounds for members without Organizer status.
+  if (!(await isOrganizer(supabase, user.id))) {
+    if (!COMMUNITY_KINDS.has(norm.row.kind)) {
+      return { ok: false as const, error: "Community events can be open play or social. Ladder nights, clinics, and tournaments need Organizer status — apply under Settings → Professional & hosting." };
+    }
+    if (!looksFree(norm.row.cost_text)) {
+      return { ok: false as const, error: "Community events are free to attend. Hosting paid events needs Organizer status — apply under Settings → Professional & hosting." };
+    }
+    if (norm.row.capacity == null || norm.row.capacity > 12) norm.row.capacity = 12;
+    const { count } = await supabase
+      .from("events")
+      .select("id", { count: "exact", head: true })
+      .eq("created_by", user.id)
+      .eq("status", "active")
+      .gte("starts_at", new Date().toISOString());
+    if ((count ?? 0) >= 2) {
+      return { ok: false as const, error: "You can have two upcoming community events at a time. Wrap one up first, or apply for Organizer status under Settings → Professional & hosting." };
+    }
+  }
+
   const { data, error } = await supabase
     .from("events")
-    .insert({ ...norm.row, created_by: user.id, status: "active" })
+    .insert({ ...norm.row, created_by: user.id, status: "active", host_ack_at: new Date().toISOString() })
     .select("id")
     .single();
   if (error || !data) return { ok: false as const, error: error?.message ?? "Couldn't create the event." };

@@ -115,6 +115,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
   const [description, setDescription] = useState(initial?.description ?? "");
   const [whatsapp, setWhatsapp] = useState(initial?.whatsapp_url ?? "");
   const [joinPolicy, setJoinPolicy] = useState(initial?.join_policy === "approval" ? "approval" : "open");
+  const [hostAck, setHostAck] = useState(false);
   const [recurrence, setRecurrence] = useState(initial?.recurrence ?? "none");
   const [recurDays, setRecurDays] = useState<string[]>(initial?.recurrence_days ?? []);
   const [queueEnabled, setQueueEnabled] = useState(!!initial?.queue_enabled);
@@ -209,6 +210,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
   async function submit() {
     setErr(null);
     if (!title.trim()) return setErr("Add a title.");
+    if (!editing && !hostAck) return setErr("Please confirm the host acknowledgment.");
     if (!startsLocal) return setErr("Pick a date and time.");
     setBusy(true);
     try {
@@ -228,6 +230,7 @@ export function EventForm({ initial }: { initial?: Initial }) {
         recurrence,
         recurrence_days: showDays ? recurDays : [],
         queue_enabled: queueEnabled,
+        host_ack: hostAck,
       };
 
       if (initial) {
@@ -482,6 +485,17 @@ export function EventForm({ initial }: { initial?: Initial }) {
       ) : null}
 
       <div className="flex items-center gap-3">
+        {!editing ? (
+          <label className="mb-3 flex items-start gap-2.5 rounded-xl border border-rule-soft bg-bg px-3.5 py-3">
+            <input type="checkbox" checked={hostAck} onChange={(e) => setHostAck(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#201B12]" />
+            <span className="text-xs leading-relaxed text-ink-soft">
+              I&rsquo;m hosting this event and will keep the listing accurate and give attendees prompt notice of changes. Member events are
+              hosted by members, not Klimr, and participation is under the{" "}
+              <a href="/legal#terms" target="_blank" className="font-semibold text-ink underline decoration-rule-2 underline-offset-2">Klimr Terms</a>, including
+              the assumption-of-risk and release provisions.
+            </span>
+          </label>
+        ) : null}
         <button type="button" onClick={submit} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-50">
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} {editing ? "Save changes" : "Publish event"}
         </button>

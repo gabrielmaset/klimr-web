@@ -131,6 +131,11 @@ export function TeamSignupForm({
       </div>
 
       <div className="flex items-center gap-3 border-t border-rule pt-5">
+      <p className="rounded-xl border border-rule-soft bg-bg px-3.5 py-2.5 text-[10.5px] leading-relaxed text-faint">
+        This tournament is organized by a Klimr member — not by Klimr. By registering you also agree to the{" "}
+        <a href="/legal#terms" target="_blank" className="font-semibold text-ink underline decoration-rule-2 underline-offset-2">Klimr Terms</a>, including assumption of risk &amp; release and the
+        limitation of liability; Klimr is not a party to arrangements between you and the host.
+      </p>
         <button type="button" onClick={submit} disabled={submitting || !teamId} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
           {submitting ? <Loader2 size={16} className="animate-spin" /> : null} Enter team
         </button>

@@ -125,7 +125,7 @@ export default async function SettingsPage() {
               { Icon: Trophy, title: "Sports & skill levels", desc: "The sports you play and your levels", href: "/settings/sports" },
               { Icon: BadgeCheck, title: "Identity verification", desc: "Your verified-player status", href: "/settings/verification" },
               { Icon: Eye, title: "Profile page", desc: "Privacy, gear bag, and what visitors see", href: "/settings/profile-page" },
-              { Icon: GraduationCap, title: "Professional status", desc: "Apply as a coach, trainer, or health pro", href: "/settings/professional" },
+              { Icon: GraduationCap, title: "Professional & hosting", desc: "Apply as a coach, health pro, event organizer, or tournament director", href: "/settings/professional" },
               { Icon: Mail, title: "Linked email & phone", desc: "How you sign in and get reached", href: "/settings/email" },
               { Icon: KeyRound, title: "Sign-in & security", desc: "Magic link and two-factor", href: "/account/security" },
             ]}

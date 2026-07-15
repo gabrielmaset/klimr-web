@@ -9,9 +9,13 @@
 //    massage is CAMTC-certified and required by Los Angeles.)
 // Editing this list updates the Settings request flow and the admin review UI.
 
-export type RoleCategory = "coaching" | "health" | "organizer";
+export type RoleCategory = "coaching" | "health" | "organizer" | "organizing";
 
 export type ProfessionalRole = {
+  /** organizing-ladder extras */
+  agreement?: "organizer" | "td";
+  requiresPhone?: boolean;
+  venueAttestation?: boolean;
   key: string;
   /** Where an admin verifies the credential online (primary source). */
   verifyUrl?: string;
@@ -29,6 +33,30 @@ export type ProfessionalRole = {
 };
 
 export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
+  // ── Organizing (the hosting ladder — no credential; agreement-gated) ──
+  {
+    key: "organizer",
+    label: "Event Organizer",
+    category: "organizing",
+    blurb: "Host paid and larger events — ladder nights, big open plays, recurring series.",
+    requiresCredential: false,
+    verifyUrl: "",
+    verifyNote: "No external registry — review the application, confirm the phone number, and check the member's history on Klimr.",
+    renewalNote: "",
+    agreement: "organizer",
+    requiresPhone: true,
+  },
+  {
+    key: "tournament_director",
+    label: "Tournament Director",
+    category: "organizing",
+    blurb: "Create and run tournaments on Klimr — brackets, registration, results.",
+    requiresCredential: false,
+    verifyUrl: "",
+    verifyNote: "No external registry — review the application; confirm the member's history on Klimr.",
+    renewalNote: "",
+    agreement: "td",
+  },
   // ── Coaching & training (certifications recommended, not state-licensed) ──
   {
     key: "sport_coach",
@@ -195,4 +223,5 @@ export const ROLE_CATEGORY_LABEL: Record<RoleCategory, string> = {
   coaching: "Coaching & training",
   health: "Health & medical",
   organizer: "Events",
+  organizing: "Organizing",
 };

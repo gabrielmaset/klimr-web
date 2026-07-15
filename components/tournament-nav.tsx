@@ -1,10 +1,12 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, ClipboardList, CreditCard, CalendarClock, ListChecks,
-  Network, Handshake, Megaphone, Settings, Globe, ChevronLeft, Users, Award,
+  Network, Handshake, Megaphone, Settings, Globe, ChevronLeft,
+  ChevronRight, Users, Award,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
@@ -67,16 +69,73 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       ],
     },
   ];
+  // Rail collapse — same contract as the main rail: icon-only under 1180px
+  // with overlay expansion (page never reflows); persisted choice above it.
+  const [railStored, setRailStored] = useState<boolean | null>(null);
+  const [railAuto, setRailAuto] = useState(false);
+  const overlayMode = railAuto;
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const collapsed = overlayMode ? !overlayOpen : (railStored ?? false);
+  const asideRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const saved = window.localStorage.getItem("klimr.trail");
+    const raf = requestAnimationFrame(() => {
+      if (saved === "1") setRailStored(true);
+      else if (saved === "0") setRailStored(false);
+    });
+    const mq = window.matchMedia("(max-width: 1180px)");
+    const update = () => setRailAuto(mq.matches);
+    const raf2 = requestAnimationFrame(update);
+    mq.addEventListener("change", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      cancelAnimationFrame(raf2);
+      mq.removeEventListener("change", update);
+    };
+  }, []);
+  const toggleRail = () => {
+    if (overlayMode) {
+      setOverlayOpen((o) => !o);
+      return;
+    }
+    const next = !collapsed;
+    setRailStored(next);
+    window.localStorage.setItem("klimr.trail", next ? "1" : "0");
+  };
+  const closeOverlay = () => {
+    if (overlayMode) setOverlayOpen(false);
+  };
+  useEffect(() => {
+    if (!(overlayMode && overlayOpen)) return;
+    function onDoc(e: MouseEvent) {
+      if (asideRef.current?.contains(e.target as Node)) return;
+      setOverlayOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOverlayOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [overlayMode, overlayOpen]);
+
   const allItems = groups.flatMap((g) => g.items);
   const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname === href || pathname.startsWith(href + "/"));
 
   const renderItem = ({ href, label, Icon, exact, soon }: Item) => {
     if (soon) {
       return (
-        <span key={href} aria-disabled className="flex h-11 cursor-default items-center gap-3 rounded-2xl px-3 text-sm font-semibold text-rail-muted/70 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
+        <span key={href} aria-disabled title={collapsed ? label : undefined} className={`flex h-11 cursor-default items-center rounded-2xl text-sm font-semibold text-rail-muted/70 whitespace-nowrap ${collapsed ? "justify-center px-0" : "gap-3 px-3 overflow-x-auto [scrollbar-width:none]"}`}>
           <Icon size={18} className="text-rail-muted/60" />
-          {label}
-          <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rail-muted">Soon</span>
+          {collapsed ? null : (
+            <>
+              {label}
+              <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rail-muted">Soon</span>
+            </>
+          )}
         </span>
       );
     }
@@ -85,11 +144,13 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       <Link
         key={href}
         href={href}
+        onClick={closeOverlay}
+        title={collapsed ? label : undefined}
         aria-current={active ? "page" : undefined}
-        className={`flex h-11 items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-colors ${active ? "bg-rail-activebg text-rail-active" : "text-rail-fg hover:bg-rail-hover hover:text-white"}`}
+        className={`flex h-11 items-center rounded-2xl text-sm font-semibold transition-colors ${collapsed ? "justify-center px-0" : "gap-3 px-3"} ${active ? "bg-rail-activebg text-rail-active" : "text-rail-fg hover:bg-rail-hover hover:text-white"}`}
       >
         <Icon size={18} className={active ? "text-brand" : "text-rail-muted"} />
-        {label}
+        {collapsed ? null : label}
       </Link>
     );
   };
@@ -97,24 +158,43 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
   return (
     <>
       {/* desktop sidebar */}
-      <aside className="print:hidden sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
-        <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-[#5a2c17] bg-[linear-gradient(180deg,#3a1608,#210c05)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
-          <div className="rounded-2xl border border-rail-border bg-white/[0.05] p-3">
-            <div className="flex items-center gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-2xl">{meta.emoji}</span>
-              <div className="min-w-0">
-                <p className="kicker text-rail-muted">Organizer</p>
-                <p className="text-sm font-bold leading-snug text-rail-fg line-clamp-2 [overflow-wrap:anywhere]">{tournament.title}</p>
-              </div>
+      <aside
+        ref={asideRef}
+        className={`print:hidden relative sticky top-0 z-[45] hidden h-dvh shrink-0 self-start p-3 transition-[width] duration-200 md:block ${collapsed || overlayMode ? "w-[76px]" : "w-64"}`}
+      >
+        <button
+          type="button"
+          onClick={toggleRail}
+          aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+          className="press absolute -right-[11px] top-[22px] z-20 grid h-6 w-6 place-items-center rounded-full border border-rule bg-surface text-mute shadow-e1 transition-colors hover:text-ink"
+        >
+          {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+        </button>
+        <div
+          className={`flex flex-col overflow-y-auto rounded-3xl border border-[#5a2c17] bg-[linear-gradient(180deg,#3a1608,#210c05)] py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
+            overlayMode && overlayOpen ? "absolute inset-y-3 left-3 z-10 w-[232px] px-3 shadow-e3" : collapsed ? "relative h-full w-auto px-1.5" : "relative h-full w-auto px-3"
+          }`}
+        >
+          <div className={`rounded-2xl border border-rail-border bg-white/[0.05] ${collapsed ? "p-1.5" : "p-3"}`}>
+            <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
+              <span className={`grid shrink-0 place-items-center rounded-2xl bg-white ${collapsed ? "h-10 w-10 text-xl" : "h-11 w-11 text-2xl"}`} title={collapsed ? tournament.title : undefined}>{meta.emoji}</span>
+              {collapsed ? null : (
+                <div className="min-w-0">
+                  <p className="kicker text-rail-muted">Organizer</p>
+                  <p className="text-sm font-bold leading-snug text-rail-fg line-clamp-2 [overflow-wrap:anywhere]">{tournament.title}</p>
+                </div>
+              )}
             </div>
-            <span className="mt-2.5 inline-block rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rail-fg">
-              {STATUS_LABEL[tournament.status] ?? tournament.status}
-            </span>
+            {collapsed ? null : (
+              <span className="mt-2.5 inline-block rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rail-fg">
+                {STATUS_LABEL[tournament.status] ?? tournament.status}
+              </span>
+            )}
           </div>
 
           {groups.map((g, gi) => (
             <div key={g.header ?? "overview"} className={gi === 0 ? "mt-5" : "mt-5"}>
-              {g.header ? <p className="kicker mb-1 px-3 text-rail-muted">{g.header}</p> : null}
+              {g.header && !collapsed ? <p className="kicker mb-1 px-3 text-rail-muted">{g.header}</p> : null}
               <nav className="flex flex-col gap-1" aria-label={g.header ?? "Overview"}>
                 {g.items.map((it) => renderItem(it))}
               </nav>
@@ -128,18 +208,27 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
               href={`/e/${tournament.code}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-10 items-center gap-3 rounded-2xl px-3 text-sm font-semibold text-rail-fg transition-colors hover:bg-rail-hover hover:text-white"
+              title={collapsed ? "View public page" : undefined}
+              className={`flex h-10 items-center rounded-2xl text-sm font-semibold text-rail-fg transition-colors hover:bg-rail-hover hover:text-white ${collapsed ? "justify-center px-0" : "gap-3 px-3"}`}
             >
               <Globe size={17} className="text-rail-muted" />
-              View public page
+              {collapsed ? null : "View public page"}
             </a>
-            <Link href="/tournaments" className="lift mt-1 flex items-center gap-2.5 rounded-2xl bg-white/[0.06] p-2 transition-colors hover:bg-white/[0.10]">
+            <Link
+              href="/tournaments"
+              title={collapsed ? "Back to Klimr" : undefined}
+              className={`lift mt-1 flex items-center rounded-2xl bg-white/[0.06] transition-colors hover:bg-white/[0.10] ${collapsed ? "justify-center p-1.5" : "gap-2.5 p-2"}`}
+            >
               <Avatar url={personal.url} hue={personal.hue} name={personal.name} size={28} ring />
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block truncate text-sm font-semibold text-rail-fg">{personal.name}</span>
-                <span className="block text-xs text-rail-muted">{roleLabel} · back to Klimr</span>
-              </span>
-              <ChevronLeft size={15} className="shrink-0 text-rail-muted" />
+              {collapsed ? null : (
+                <>
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block truncate text-sm font-semibold text-rail-fg">{personal.name}</span>
+                    <span className="block text-xs text-rail-muted">{roleLabel} · back to Klimr</span>
+                  </span>
+                  <ChevronLeft size={15} className="shrink-0 text-rail-muted" />
+                </>
+              )}
             </Link>
           </div>
         </div>

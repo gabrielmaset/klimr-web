@@ -63,17 +63,23 @@ export function MobileMenu({
   };
 
   return (
-    <div className="md:hidden" aria-hidden={!open}>
+    /* Viewport-sized clip cage: the translated drawer can never extend the
+       document's scrollable bounds (WebKit counts transformed fixed boxes),
+       which was letting iPhones scroll into phantom space past the footer. */
+    <div
+      aria-hidden={!open}
+      className={`fixed inset-0 z-[58] overflow-hidden md:hidden ${open ? "" : "pointer-events-none"}`}
+    >
       <div
         onClick={onClose}
         aria-hidden
-        className={`fixed inset-0 z-[58] bg-ink/30 transition-opacity duration-200 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`absolute inset-0 bg-ink/30 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Menu"
-        className={`pt-safe pb-safe fixed inset-y-0 right-0 z-[59] flex w-[302px] max-w-[86vw] transform flex-col border-l border-rule bg-[#FFFDF8] shadow-e3 transition-transform duration-200 ease-out ${
+        className={`pt-safe pb-safe absolute inset-y-0 right-0 flex w-[302px] max-w-[86vw] transform flex-col border-l border-rule bg-[#FFFDF8] shadow-e3 transition-transform duration-200 ease-out ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >

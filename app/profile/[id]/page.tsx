@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BadgeCheck, MapPin, ShieldCheck, Trophy, Ban, Pencil, Medal, Users, Swords, Clock, ChevronRight, Grid2x2 } from "lucide-react";
+import { RankHistoryChart, type HistoryPoint } from "@/components/rank-history-chart";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AvatarLightbox } from "@/components/avatar-lightbox";
@@ -97,6 +98,8 @@ const parseScore = (result: unknown): string | null => {
 const fmtMonYr = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase();
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const mono = "font-mono";
+
+const currentMs = () => Date.now();
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -319,6 +322,25 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     }
   }
 
+  const { data: provBadge } = await supabase.from("class_providers").select("roles, status").eq("user_id", id).maybeSingle();
+  const badgeRoles: string[] = provBadge?.status === "approved" && Array.isArray(provBadge.roles) ? provBadge.roles : [];
+  const hostBadges = [
+    badgeRoles.includes("tournament_director") ? "Tournament Director" : null,
+    badgeRoles.includes("organizer") ? "Event Organizer" : null,
+    badgeRoles.some((r) => r !== "organizer" && r !== "tournament_director") ? "Verified Pro" : null,
+  ].filter(Boolean) as string[];
+
+  const nowMs = currentMs();
+  const { data: histRows } = await supabase
+    .from("rank_history")
+    .select("sport_key, week, points, rank")
+    .eq("user_id", id)
+    .order("week", { ascending: true });
+  const historyBySport: Record<string, HistoryPoint[]> = {};
+  for (const r of histRows ?? []) {
+    (historyBySport[r.sport_key] ??= []).push({ week: r.week, points: r.points, rank: r.rank });
+  }
+
   let courts: { id: string; name: string; mi: number | null }[] = [];
   if (profile.show_courts && courtIdsRecent.length) {
     const { data: me } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
@@ -397,6 +419,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               <div className="min-w-0 pb-0.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="font-display text-[28px] font-bold leading-none tracking-[-0.02em] text-ink">{profile.display_name}</h1>
+                  {hostBadges.map((b) => (
+                    <span key={b} className="inline-flex items-center gap-1 rounded-full border border-[#E4D6BE] bg-[#FBF3E4] px-2.5 py-1 text-[11px] font-bold text-[#8A5A17]">
+                      <ShieldCheck size={11} strokeWidth={2.5} aria-hidden /> {b}
+                    </span>
+                  ))}
                   {mainSport ? (
                     <span className="rounded-full border px-2.5 py-1 text-[11px] font-bold" style={{ background: tint.bg, borderColor: tint.bd, color: tint.fg }}>
                       {sportMeta(mainSport).emoji} {sportMeta(mainSport).name}
@@ -461,6 +488,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             {statTile("On Klimr", fmtMonYr(profile.created_at), "MEMBER")}
           </div>
         </div>
+      </section>
+
+      {/* ── The climb — permanent ranking history ─────────────────────── */}
+      <section className="mt-5">
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-faint">The climb</p>
+        <h2 className="mt-0.5 text-xl font-bold text-ink">Ranking history</h2>
+        <p className="mb-3 mt-1 text-xs text-mute">Weekly points and ladder position since {profile.display_name}&rsquo;s first result — the record keeps climbing even when the ladder rests.</p>
+        <RankHistoryChart bySport={historyBySport} nowMs={nowMs} />
       </section>
 
       {/* ── main grid ──────────────────────────────────────────────── */}

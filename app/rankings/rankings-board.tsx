@@ -16,6 +16,15 @@ const SPORTS = [
 
 type ScopeKey = "zip" | "city" | "state" | "national" | "world";
 
+function agoShort(iso: string): string {
+  const days = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86400000));
+  if (days === 0) return "today";
+  if (days < 7) return `${days}d`;
+  if (days < 30) return `${Math.floor(days / 7)}w`;
+  return `${Math.floor(days / 30)}mo`;
+}
+
+
 export type ProfileLite = {
   name: string;
   hue: number;
@@ -35,6 +44,7 @@ type RankedRow = {
   matches_played: number;
   wins: number;
   rank: number;
+  last_result_at: string | null;
 };
 
 /* Medal ring colors: gold / silver / bronze for ranks 1 / 2 / 3. */
@@ -480,6 +490,9 @@ export function RankingsBoard({
                             <div className="flex items-center gap-1.5">
                               <span className="truncate text-sm font-bold text-ink">{you ? "You" : r.display_name}</span>
                               {r.verification_status === "verified" ? <BadgeCheck size={13} className="shrink-0 text-brand" aria-label="Verified" /> : null}
+                              {r.last_result_at ? (
+                                <span className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-wider text-faint">{agoShort(r.last_result_at)}</span>
+                              ) : null}
                             </div>
                             <div className="font-mono text-[11px] text-faint">{fmt(r.points)} pts</div>
                           </div>

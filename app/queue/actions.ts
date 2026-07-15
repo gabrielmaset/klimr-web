@@ -587,6 +587,7 @@ async function awardQueueMatchPoints(admin: Admin, match: MatchRow, winnerId: st
       { onConflict: "user_id,sport_key" },
     );
     await recomputePlayerPoints(admin, p.user_id, sport);
+    await admin.from("player_sports").update({ last_result_at: new Date().toISOString() }).eq("user_id", p.user_id).eq("sport_key", sport);
   }
 }
 

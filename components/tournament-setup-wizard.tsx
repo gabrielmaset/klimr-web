@@ -52,6 +52,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [agree, setAgree] = useState(false);
+  const [venueAttested, setVenueAttested] = useState(false);
 
   const [title, setTitle] = useState(init.title);
   const [summary, setSummary] = useState(init.summary);
@@ -144,13 +145,17 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
       setStep(0);
       return;
     }
+    if (!venueAttested) {
+      setErr("Confirm the venue attestation — you need permission or a confirmed booking for the courts and times listed.");
+      return;
+    }
     if (!agree) {
       setErr("Please accept the organizer terms to create your event.");
       return;
     }
     setSaving(true);
     try {
-      const res = await createTournamentFromWizard(buildPatch(), agree);
+      const res = await createTournamentFromWizard(buildPatch(), agree, venueAttested);
       if (res.ok) {
         router.push(`/tournament/${res.id}`);
       } else {
@@ -486,6 +491,13 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                       <p><strong className="text-ink">12. Removal &amp; enforcement.</strong> Klimr may remove, unpublish, or refuse any event or organizer, at its discretion, including for suspected illegality, safety risk, fraud, or violation of these terms or the Terms of Service.</p>
                       <p className="text-faint"><strong className="text-mute">Not legal advice.</strong> This summary is for convenience and does not constitute legal advice. Requirements vary by location and event type. We strongly recommend consulting a qualified attorney and your insurer before hosting. Your use of the hosting tools is also governed by the Klimr <Link href="/legal" className="font-semibold text-brand-deep hover:underline">Terms of Service</Link>.</p>
                     </div>
+                    <label className="flex items-start gap-2.5 rounded-xl border border-rule-soft bg-bg px-3.5 py-3">
+                      <input type="checkbox" checked={venueAttested} onChange={(e) => setVenueAttested(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#ff4e1b]" />
+                      <span className="text-xs leading-relaxed text-ink-soft">
+                        <span className="font-bold text-ink">Venue attestation.</span> I have the venue&rsquo;s permission or a confirmed booking for the
+                        courts and times listed in this tournament.
+                      </span>
+                    </label>
                     <label className="mt-3 flex items-start gap-2.5 text-sm text-ink">
                       <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#ff4e1b]" />
                       <span>I have read and accept the organizer terms, and I confirm I will comply with all applicable laws and hold any required insurance, permits, and licenses for my event.</span>
@@ -494,7 +506,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
 
                   <div className="rounded-2xl border border-rule bg-bg/40 p-5">
                     <p className="text-sm font-bold text-ink">Create your event</p>
-                    <p className="mt-0.5 text-xs text-mute">Saved as a private draft — hidden from the public until you publish it from the dashboard. <span className="text-brand-deep">Free during launch.</span></p>
+                    <p className="mt-0.5 text-xs text-mute">Saved as a private draft — hidden from the public until you publish it from the dashboard.</p>
                     <button
                       type="button"
                       onClick={onCreate}

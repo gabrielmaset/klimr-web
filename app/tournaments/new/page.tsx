@@ -16,6 +16,11 @@ export default async function NewTournamentPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/tournaments/new");
 
+  // Tournament Director status required (hosting ladder).
+  const { data: provRow } = await supabase.from("class_providers").select("roles, status").eq("user_id", user.id).maybeSingle();
+  const isTD = provRow?.status === "approved" && Array.isArray(provRow.roles) && provRow.roles.includes("tournament_director");
+  if (!isTD) redirect("/tournaments");
+
   const { data: prof } = await supabase.from("profiles").select("verification_status").eq("id", user.id).maybeSingle();
   const verified = prof?.verification_status === "verified";
 
