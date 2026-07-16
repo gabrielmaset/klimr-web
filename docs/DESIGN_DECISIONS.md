@@ -166,6 +166,12 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-15 — Wizard photo block: uploader owns the row
+- AvatarUploader renders its own complete row (avatar + camera badge + "Add a photo" +
+  trust copy), so wrapping it in a flex beside a duplicate title crushed the right column
+  (iPad screenshot). Fix: the uploader stands alone in the card; the hue dots move to a
+  hairline-separated row beneath ("No photo yet? Pick your color:"). No duplicate copy.
+
 ### 2026-07-15 — iPad round: six fixes (chrome, sport truth, seam, cropper)
 - **Onboarding is chrome-less** until finished: "onboarding" joined STANDALONE_SECTIONS
   (nav-chrome) — no rail/top bar during signup; /onboarding only serves incomplete

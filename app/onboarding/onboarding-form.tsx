@@ -467,12 +467,12 @@ export function OnboardingWizard({
             {/* ---- 1 · about you (+ photo + color) ---- */}
             {step === 0 ? (
               <div className="space-y-5">
-                <div className="flex flex-wrap items-center gap-5 rounded-2xl border border-rule bg-bg/50 p-4">
+                <div className="rounded-2xl border border-rule bg-bg/50 p-4">
+                  {/* The uploader owns its whole row (avatar, camera badge, copy, crop flow). */}
                   <AvatarUploader initialPhotoUrl={avatarUrl} hue={hue} name={`${firstName} ${lastName}`.trim() || "You"} size={76} onUploaded={setAvatarUrl} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[15px] font-bold text-ink">Profile photo</p>
-                    <p className="text-[13.5px] text-mute">A face gets more matches than a color — but the color works too.</p>
-                    <div className="mt-2.5 flex gap-1.5">
+                  <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-rule-soft pt-3.5">
+                    <p className="text-[13.5px] font-semibold text-ink-soft">No photo yet? Pick your color:</p>
+                    <div className="flex gap-1.5">
                       {HUES.map((h) => (
                         <button
                           key={h}
