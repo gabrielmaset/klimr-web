@@ -154,6 +154,15 @@ export default function LegalPage() {
           </p>
         </div>
 
+        <h3 className="mt-6 text-base font-bold text-ink">Identity verification data</h3>
+        <p className="mt-2 text-sm leading-relaxed text-mute">
+          Identity checks run directly with our verification partner over an encrypted session. Document images, selfies and biometric data, and license barcode
+          contents are collected and retained by the partner under their own policy — they are never stored on Klimr&rsquo;s servers. Klimr stores only your
+          verification status (unverified, in review, or verified), the time it changed, and a partner reference identifier for audit. A non-biometric path —
+          manual review by our team — is always available. You may request deletion of your identity data at any time through Klimr support, and we will relay
+          the request to the partner.
+        </p>
+
         <Block title="Information we collect">
           Account &amp; identity: your name, email, date of birth, and verification details. Profile: the sports you play, skill levels, bio, photo, gender (optional), and availability. Activity: matches, results, rankings, posts, reviews, teams, and messages. Location: your home ZIP and, where relevant, the courts you play at. Technical: device and usage information needed to run and secure the service.
         </Block>

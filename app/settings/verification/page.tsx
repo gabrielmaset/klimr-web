@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BadgeCheck, ShieldCheck } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
+import { VerificationDataPanel } from "@/components/verification-privacy";
 import { startVerification, approveVerification } from "@/app/account/actions";
 
 export const metadata: Metadata = { title: "Identity verification · Settings" };
@@ -52,6 +53,10 @@ export default async function VerificationSettingsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="mt-4">
+        <VerificationDataPanel />
       </div>
 
       <p className="mt-4 flex items-center gap-1.5 text-xs text-faint">

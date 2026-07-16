@@ -174,6 +174,12 @@ export interface Database {
         Update: { points?: number; rank?: number | null; };
         Relationships: [];
       };
+      verification_handoffs: {
+        Row: { token: string; user_id: string; created_at: string; expires_at: string; consumed_at: string | null; };
+        Insert: { token?: string; user_id: string; created_at?: string; expires_at?: string; consumed_at?: string | null; };
+        Update: { token?: string; user_id?: string; created_at?: string; expires_at?: string; consumed_at?: string | null; };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -216,7 +222,7 @@ export interface Database {
           connections_count: number;
           followers_count: number;
           following_count: number;
-         timezone: string | null; };
+         timezone: string | null;  onboarding_draft: Json | null; };
         Insert: {
           member_no?: number | null;
           id: string;
@@ -251,7 +257,7 @@ export interface Database {
           connections_count?: number;
           followers_count?: number;
           following_count?: number;
-         timezone?: string | null; };
+         timezone?: string | null;  onboarding_draft?: Json | null; };
         Update: {
           display_name?: string;
           first_name?: string | null;
@@ -283,7 +289,7 @@ export interface Database {
           connections_count?: number;
           followers_count?: number;
           following_count?: number;
-         gear?: Json; usual_times?: string | null; profile_gallery?: Json; show_courts?: boolean; show_teams?: boolean; show_tournaments?: boolean;  timezone?: string | null; };
+         gear?: Json; usual_times?: string | null; profile_gallery?: Json; show_courts?: boolean; show_teams?: boolean; show_tournaments?: boolean;  timezone?: string | null;  onboarding_draft?: Json | null; };
         Relationships: [];
       };
       gate_access_codes: {

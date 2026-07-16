@@ -1,6 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TournamentNav } from "@/components/tournament-nav";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { TopBar } from "@/components/top-bar";
 import { getTopBarData } from "@/lib/chrome-data";
 
@@ -44,6 +46,15 @@ export default async function TournamentLayout({
     <div className="md:flex md:min-h-dvh">
       <TournamentNav tournament={{ id: t.id, code: t.code, title: t.title, sport_key: t.sport_key, status: t.status }} role={role} personal={personal} />
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* The rail and TopBar are md+ — on phones the workspace had no chrome
+            at all (no way back to Klimr). This slim strip is the mobile chrome. */}
+        <div className="pt-safe sticky top-0 z-40 flex items-center gap-2 border-b border-rule bg-[#FFFDF8]/85 px-3 py-2 backdrop-blur-md md:hidden">
+          <Link href="/tournaments" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-surface px-2.5 py-1.5 text-[12.5px] font-bold text-ink">
+            <ArrowLeft size={13} strokeWidth={2.5} /> Klimr
+          </Link>
+          <p className="min-w-0 flex-1 truncate text-center text-[13px] font-bold text-ink">{t.title}</p>
+          <span className="w-[68px]" aria-hidden />
+        </div>
         <TopBar chatUnread={bar.chatUnread} unreadCount={bar.unread} presenceMode={bar.presenceMode} nextMatch={bar.nextMatch} teams={bar.teams} />
         {t.suspended_at ? (
           <div className="border-b border-brand/30 bg-tint-brand px-5 py-3">

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Megaphone, MessageSquare, TrendingUp, Newspaper, Trophy, Sparkles, ArrowUpRight, Swords, Users, CalendarDays, MapPin, Clock, Lock, ChevronRight, UserPlus, Medal, ShoppingBag, HeartPulse, Flag } from "lucide-react";
+import { Megaphone, MessageSquare, TrendingUp, Newspaper, Trophy, Sparkles, Swords, Users, CalendarDays, MapPin, Clock, ChevronRight, UserPlus, Medal, ShoppingBag, HeartPulse, Flag } from "lucide-react";
 import { lookupZip } from "@/lib/us-places";
 import { FeedLivePill } from "@/components/feed-live-pill";
 import { FeedComposer } from "@/components/feed-composer";
-import { FeedPostActions } from "@/components/feed-post-actions";
+import { FeedWire } from "@/components/feed-wire";
 import { createClient } from "@/lib/supabase/server";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { sportMeta } from "@/lib/sports";
@@ -33,17 +33,6 @@ type FeedRow = {
 
 const TZ = "America/Los_Angeles";
 
-function timeAgo(iso: string) {
-  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (sec < 60) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const d = Math.floor(hr / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ });
-}
 const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleString("en-US", { ...opts, timeZone: TZ });
 function nowIso() {
   return new Date().toISOString();
@@ -262,6 +251,42 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     entries.push({ type: "item", item: s });
   }
   const feed = entries;
+
+  // Flatten the ranked stream into wire rows (dense ledger — components/feed-wire).
+  const wireRows = feed.map((entry): import("@/components/feed-wire").WireRow => {
+    if (entry.type === "player_group") {
+      return {
+        id: `grp-${entry.city}-${entry.newest}`,
+        kind: "player_group",
+        label: "New players",
+        accent: "#1D4ED8",
+        when: entry.newest,
+        text: `${entry.names.length} new players joined in ${entry.city}`,
+        sub: `${entry.names.join(", ")}${entry.names.length >= 4 ? " and more" : ""}`,
+        href: "/discover",
+        sport: null,
+      };
+    }
+    const item = entry.item;
+    const s = KIND_STYLE[item.kind] ?? KIND_STYLE.news;
+    const isPost = item.kind === "member_post" && !!item.object_id;
+    return {
+      id: item.id,
+      kind: item.kind,
+      label: s.label,
+      accent: s.accent,
+      when: item.published_at,
+      text: isPost ? (item.actorName ?? "A Klimr member") : (item.title ?? s.label),
+      sub: isPost ? item.body : `${item.body}${item.city ? ` · ${item.city}` : ""}`,
+      href: item.link_url,
+      sport: item.sport_key,
+      inCircle: item.inCircle,
+      isPost,
+      postId: isPost ? item.object_id : null,
+      likeCount: isPost && item.object_id ? likeCount.get(item.object_id) ?? 0 : 0,
+      liked: isPost && item.object_id ? myLiked.has(item.object_id) : false,
+    };
+  });
   const upcomingCount = (upcomingMatches ?? []).length;
 
   return (
@@ -350,111 +375,9 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
           </div>
           <FeedLivePill />
           <FeedComposer />
-          <div className="mt-3 space-y-3.5">
-            {feed.length === 0 ? (
-              <div className="rounded-[18px] bg-bg px-5 py-8 text-center text-sm text-mute" style={{ border: "1px solid #EFE9DC" }}>
-                {lane === "circle" ? "Your circle is quiet — connect with more players and their wins, posts, and events will land here." : viewerPt ? "Quiet around here so far — results, events, and new players land the moment they happen." : "Set your home ZIP in Settings to unlock your regional wire — for now you're seeing Klimr-wide news."}
-              </div>
-            ) : (
-              feed.map((entry, i) => {
-                if (entry.type === "player_group") {
-                  return (
-                    <article key={`grp-${i}`} className="rounded-[18px] border border-rule bg-surface p-5 shadow-e1">
-                      <div className="flex items-baseline justify-between gap-4">
-                        <p className={monoKicker} style={{ color: "#1D4ED8" }}>New players · {entry.city}</p>
-                        <p className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[.14em] text-faint">{timeAgo(entry.newest)}</p>
-                      </div>
-                      <h2 className="mt-2 font-display text-[19px] font-bold leading-snug tracking-[-0.015em] text-ink">
-                        {entry.names.length} new players joined in {entry.city}
-                      </h2>
-                      <p className="mt-1.5 text-[13.5px] leading-relaxed text-mute">{entry.names.join(", ")}{entry.names.length >= 4 ? " and more" : ""} are ready to play.</p>
-                      <Link href="/discover" className="press mt-3.5 inline-flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-surface px-3 text-xs font-bold text-ink hover:border-rule-hover">
-                        Find players <ArrowUpRight size={13} />
-                      </Link>
-                    </article>
-                  );
-                }
-                const item = entry.item;
-                const s = KIND_STYLE[item.kind] ?? KIND_STYLE.news;
-                const meta = (item.meta ?? {}) as Record<string, unknown>;
-                if (item.kind === "member_post" && item.object_id) {
-                  return (
-                    <article key={item.id} className="rounded-[18px] border border-rule bg-surface p-5 shadow-e1">
-                      <div className="flex items-baseline justify-between gap-4">
-                        <p className={monoKicker} style={{ color: s.accent }}>
-                          Community{item.sport_key ? ` · ${sportMeta(item.sport_key).name}` : ""}{item.city ? ` · ${item.city}` : ""}
-                          {item.inCircle ? <span className="ml-2 rounded-full bg-tint-brand px-2 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-brand-deep">Your circle</span> : null}
-                        </p>
-                        <p className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[.14em] text-faint">{timeAgo(item.published_at)}</p>
-                      </div>
-                      <h2 className="mt-2 text-[14px] font-bold text-ink">{item.actorName}</h2>
-                      <p className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-ink-soft">{String((item.meta as Record<string, unknown>).body ?? "")}</p>
-                      <FeedPostActions postId={item.object_id} initialCount={likeCount.get(item.object_id) ?? 0} initialLiked={myLiked.has(item.object_id)} mine={item.actor_id === user.id} />
-                    </article>
-                  );
-                }
-                const isAuto = !!item.actor_id;
-                const price = typeof meta.price_cents === "number" ? `$${Math.round((meta.price_cents as number) / 100)}` : null;
-                const auto: { title: string; body: string; href: string | null; cta: string } | null = isAuto
-                  ? item.kind === "player_joined"
-                    ? { title: `${item.actorName} joined Klimr`, body: `${item.sport_key ? sportMeta(item.sport_key).name : "Ready to play"}${item.city ? ` · ${item.city}` : ""}`, href: "/discover", cta: "Find players" }
-                    : item.kind === "match_result"
-                      ? { title: `${item.actorName} won a ranked match`, body: `${typeof meta.points === "number" ? `+${meta.points} pts` : "Ranked win"}${item.sport_key ? ` · ${sportMeta(item.sport_key).name}` : ""}${item.city ? ` · ${item.city}` : ""}`, href: null, cta: "" }
-                      : item.kind === "event_published"
-                        ? { title: String(meta.title ?? "New event posted"), body: `${meta.starts_at ? fmt(String(meta.starts_at), { weekday: "short", month: "short", day: "numeric" }) : "Upcoming"}${meta.location ? ` · ${meta.location}` : ""}${item.city ? ` · ${item.city}` : ""}`, href: "/events", cta: "See events" }
-                        : item.kind === "tournament_published"
-                          ? { title: `${String(meta.title ?? "A tournament")} — entries open`, body: `Organized by ${item.actorName}${item.city ? ` · ${item.city}` : ""}`, href: meta.code ? `/e/${meta.code}` : null, cta: "View tournament" }
-                          : item.kind === "gear_listed"
-                            ? { title: String(meta.title ?? "New gear listed"), body: `${price ? `${price} · ` : ""}Second Serve${item.city ? ` · ${item.city}` : ""}`, href: item.object_id ? `/marketplace/${item.object_id}` : "/marketplace", cta: "View listing" }
-                            : item.kind === "pro_verified"
-                              ? { title: `${item.actorName} is now a verified pro`, body: `Credential checked${item.city ? ` · ${item.city}` : ""}`, href: `/health?pro=${item.actor_id}`, cta: "View profile" }
-                              : item.kind === "team_formed"
-                                ? { title: `${String(meta.name ?? "A new team")} formed`, body: `Started by ${item.actorName}${item.sport_key ? ` · ${sportMeta(item.sport_key).name}` : ""}${item.city ? ` · ${item.city}` : ""}`, href: "/teams", cta: "See teams" }
-                                : item.kind === "ranking_move"
-                                  ? { title: `${item.actorName} is climbing the ${item.sport_key ? sportMeta(item.sport_key).name : ""} rankings`, body: `#${meta.from} → #${meta.to}${typeof meta.climbed === "number" ? ` · up ${meta.climbed} places` : ""}${item.city ? ` · ${item.city}` : ""}`, href: "/discover", cta: "See players" }
-                                  : null
-                  : null;
-                return (
-                  <article key={item.id} className="rounded-[18px] border border-rule bg-surface p-5 shadow-e1 transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-rule-hover hover:shadow-e2">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className={monoKicker} style={{ color: s.accent }}>
-                        {s.label}{!isAuto && item.sport_key ? ` · ${sportMeta(item.sport_key).name}` : ""}
-                        {item.inCircle ? <span className="ml-2 rounded-full bg-tint-brand px-2 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-brand-deep">Your circle</span> : null}
-                      </p>
-                      <p className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[.14em] text-faint">{timeAgo(item.published_at)}</p>
-                    </div>
-                    {auto ? (
-                      <>
-                        <h2 className="mt-2 font-display text-[19px] font-bold leading-snug tracking-[-0.015em] text-ink">{auto.title}</h2>
-                        <p className="mt-1.5 text-[13.5px] leading-relaxed text-mute">{auto.body}</p>
-                        {auto.href ? (
-                          <Link href={auto.href} className="press mt-3.5 inline-flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-surface px-3 text-xs font-bold text-ink hover:border-rule-hover">
-                            {auto.cta} <ArrowUpRight size={13} />
-                          </Link>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        {item.title ? <h2 className="mt-2 font-display text-[19px] font-bold leading-snug tracking-[-0.015em] text-ink">{item.title}</h2> : null}
-                        <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] leading-relaxed text-mute">{item.body}</p>
-                        {item.link_url ? (
-                          <Link href={item.link_url} className="press mt-3.5 inline-flex h-[30px] items-center gap-1.5 rounded-full border border-rule bg-surface px-3 text-xs font-bold text-ink hover:border-rule-hover">
-                            {item.link_label ?? "Open"} <ArrowUpRight size={13} />
-                          </Link>
-                        ) : null}
-                      </>
-                    )}
-                  </article>
-                );
-              })
-            )}
-          </div>
-          <p className="mt-6 flex items-center gap-2 rounded-[14px] px-4 py-3 text-xs text-faint" style={{ border: "1px dashed #DCD2BE" }}>
-            <Lock size={13} className="shrink-0" /> Posting is Klimr-curated for now — member posts open up as the community grows.
-          </p>
+          <FeedWire rows={wireRows} />
         </div>
 
-        {/* ── Sidebar (§3.1.6) ─────────────────────────────────────────── */}
         <aside className="min-w-0 space-y-4">
           {/* Your altitude — real ZIP standing */}
           <div className="relative overflow-hidden rounded-[20px] p-5 text-white" style={{ background: "linear-gradient(150deg, #FF7A4D, #E23E0D)", boxShadow: "0 18px 38px -20px rgba(214,58,15,.55)" }}>

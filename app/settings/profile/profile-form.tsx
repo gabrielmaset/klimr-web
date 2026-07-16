@@ -2,7 +2,7 @@
 
 import { useMemo, useActionState, useState } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import {Check, ShieldCheck} from "lucide-react";
 import { saveProfileBasics, type EditState } from "../actions";
 
 export type ProfileInitial = {
@@ -10,6 +10,7 @@ export type ProfileInitial = {
   last_name: string;
   bio: string;
   timezone: string | null;
+  identityLocked: boolean;
   gender: string;
   dob: string;
   zip: string;
@@ -43,14 +44,25 @@ export function ProfileBasicsForm({ initial }: { initial: ProfileInitial }) {
 
   return (
     <form action={action} className="space-y-5">
+      {initial.identityLocked ? (
+        <>
+          <input type="hidden" name="first_name" value={initial.first_name} />
+          <input type="hidden" name="last_name" value={initial.last_name} />
+          <input type="hidden" name="dob" value={initial.dob} />
+          <p className="flex items-start gap-2 rounded-xl border border-[#CFE3D2] bg-[#EFF7F0] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#1F6B33]">
+            <ShieldCheck size={15} className="mt-0.5 shrink-0" aria-hidden />
+            <span><span className="font-bold">Verified identity.</span> Your name and date of birth are locked to keep rankings and matches trustworthy. Need a correction? Contact support.</span>
+          </p>
+        </>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls} htmlFor="first_name">First name</label>
-          <input id="first_name" name="first_name" defaultValue={initial.first_name} maxLength={40} required className={inputCls} />
+          <input id="first_name" name="first_name" disabled={initial.identityLocked} defaultValue={initial.first_name} maxLength={40} required className={inputCls} />
         </div>
         <div>
           <label className={labelCls} htmlFor="last_name">Last name</label>
-          <input id="last_name" name="last_name" defaultValue={initial.last_name} maxLength={40} required className={inputCls} />
+          <input id="last_name" name="last_name" disabled={initial.identityLocked} defaultValue={initial.last_name} maxLength={40} required className={inputCls} />
         </div>
       </div>
 
@@ -95,7 +107,7 @@ export function ProfileBasicsForm({ initial }: { initial: ProfileInitial }) {
         </div>
         <div>
           <label className={labelCls} htmlFor="dob">Date of birth</label>
-          <input id="dob" name="dob" type="date" defaultValue={initial.dob} required className={inputCls} />
+          <input id="dob" name="dob" disabled={initial.identityLocked} type="date" defaultValue={initial.dob} required className={inputCls} />
         </div>
       </div>
 

@@ -140,15 +140,30 @@ export async function saveProfileBasics(_prev: EditState, formData: FormData): P
     return { error: "Klimr is currently available only in the United States. The ZIP code you entered doesn\u2019t match a U.S. location \u2014 please double-check it or use a valid 5-digit U.S. ZIP. We\u2019re working hard to bring Klimr to more countries soon." };
   }
 
+  // Verified identity is immutable: once verification_status = 'verified',
+  // legal name and date of birth can only change through support review.
+  const { data: current } = await supabase
+    .from("profiles")
+    .select("verification_status, first_name, last_name, date_of_birth")
+    .eq("id", user.id)
+    .maybeSingle();
+  const identityLocked = current?.verification_status === "verified";
+  const lockedFirst = identityLocked ? (current?.first_name ?? firstName) : firstName;
+  const lockedLast = identityLocked ? (current?.last_name ?? lastName) : lastName;
+  const lockedDob = identityLocked ? (current?.date_of_birth ?? dobRaw) : dobRaw;
+  if (identityLocked && (firstName !== lockedFirst || lastName !== lockedLast || dobRaw !== lockedDob)) {
+    return { error: "Your identity is verified — name and date of birth are locked. Contact support to correct them." };
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({
-      display_name: firstName,
-      first_name: firstName,
-      last_name: lastName,
+      display_name: lockedFirst,
+      first_name: lockedFirst,
+      last_name: lockedLast,
       bio,
       gender,
-      date_of_birth: dobRaw,
+      date_of_birth: lockedDob,
       birth_year: birthYear,
       home_zip: zip,
       timezone,

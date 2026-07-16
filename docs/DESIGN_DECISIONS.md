@@ -166,6 +166,97 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-16 — Verification data promise: disclosed everywhere, true in the code
+- Research (cited in-thread): X discloses this exact model ("We use Persona, and Stripe
+  for ID verification… X does not directly retain this data"); Stripe's integration docs
+  bless status-only as the privacy-first default (choose the minimum PII; skip the
+  restricted key for sensitive data); Stripe's go-live checklist notes GDPR may require
+  a non-biometric alternative — Klimr's manual review IS that path; Stripe retains
+  documents as processor, deletion requests flow business+partner.
+- components/verification-privacy.tsx — <VerificationDataPanel>: "Your documents never
+  touch Klimr's servers" + WHAT WE STORE (status / changed-at / partner reference for
+  audit) vs WHAT WE NEVER STORE (document scans, selfie/biometric data, barcode
+  contents), non-biometric path note, deletion-relay note. Placed on: wizard step 5
+  (compact, above consent), /verify/continue (compact), Settings → Verification (full),
+  and a matching "Identity verification data" subsection in the Legal privacy section.
+- Architecture already true: no code path writes ID imagery anywhere; handoffs store
+  tokens only; profiles store status.
+
+### 2026-07-16 — Wizard step 5: identity verification (optional) + drafts + handoff (0123)
+- Research (cited in-thread): Persona's device handoff = QR + short copy link below it;
+  Stripe Identity desktop shows a QR to continue on mobile w/ "other options" (email/
+  text/copy/stay); platforms store STATUS ONLY, never documents. Matches our standing
+  vendor decision (Persona / Stripe Identity class for gov-ID + selfie; manual admin
+  review until go-live).
+- **Wizard is now 6 steps** — "Verify identity" (optional) before Review: benefits card,
+  legal-consent block (documents to partner; Klimr keeps status + audit metadata only),
+  method tiles: Request a review (LIVE → verification_status 'pending', the existing
+  admin manual queue), Continue on your phone (LIVE → QR via react-qr-code + copy link;
+  "Text me the link" greyed SOON until Twilio), Government ID + selfie match and
+  Driver's-license barcode both greyed SOON. Skip = Continue; rail summary reflects
+  queue/later. Requested state survives reloads (draft + status='pending').
+- **Autosave**: profiles.onboarding_draft jsonb — snapshotted on every step advance
+  (saveWizardDraft, ≤8kb), merged draft-first into the wizard's initial on load, cleared
+  by the final save. Never touches the completion gate.
+- **Handoff**: verification_handoffs table (single-use uuid token, 30-min expiry, RLS
+  service-only). /verify/continue (no login: the token is the credential for this one
+  low-risk action) validates → consent copy → confirm consumes token + files 'pending'
+  → /verify/continue/done. Becomes the IDV entry point when the partner goes live.
+
+### 2026-07-16 — Verified identity lock · tournament workspace mobile chrome
+- **Identity immutability**: once profiles.verification_status = 'verified', legal name
+  and date of birth are locked. Enforced SERVER-SIDE in saveProfileBasics (values
+  re-sourced from the DB; attempted changes return a support-directing error) and
+  surfaced in the UI (disabled inputs + hidden mirrors + green ShieldCheck notice on
+  Settings → Profile). Bio/ZIP/gender/timezone stay editable. Wizard unreachable when
+  verified (isEdit redirects), so Settings is the only surface.
+- **Phone back-button mystery solved**: tapping a tournament card routes owners/managers
+  to the /tournament/[id] WORKSPACE, whose rail and TopBar are both md+ — phones got
+  ZERO chrome. New mobile-only sticky strip (md:hidden): "← Klimr" chip → /tournaments,
+  truncated tournament title, glass blur. Public visitors on /e/[code] already had the
+  auth-aware "Go to Klimr" pill.
+
+### 2026-07-16 — Sport icons v2: redrawn from real equipment (verdict pending)
+- v1 rejected as rough/cartoonish (thick lines; tennis + racquetball shapes wrong; BV
+  ball unrecognizable). v2 drawn from researched references on a finer 48-grid with
+  0.5–1.6 linework and computed string chords: tennis = elongated strung oval, open-V
+  throat, wrapped grip, optic ball w/ true seam; pickleball = SOLID modern paddle
+  (v1's face holes were wrong — the BALL has holes) w/ edge guard + wiffle ball;
+  padel = diamond face w/ visible 38mm sidewall (double contour), carbon face,
+  perforation rows, wrist cord; racquetball (Gabriel plays) = Gearbox-style teardrop —
+  strings ~60% of length to the throat, top bumper, colored frame, wrist tether;
+  beach volleyball = Wilson AVP/OPTX swirl-panel geometry (yellow/blue swaths, sweeping
+  seams, sheen). Component in repo, still wired NOWHERE — preview regenerated.
+
+### 2026-07-15 — Klimr Sticker Icons (components/sport-icons.tsx) — AWAITING VERDICT
+- Hand-drawn SVG sport marks in one grammar (ink #201B12 outlines, warm flats, subtle
+  shade) on a 24-grid; THREE tiers per sport: mini (rows/chips), icon (cards/pickers),
+  crest (wizard config headers, empty states, marketing). Disambiguation is structural,
+  not stylistic: tennis = strung oval + optic ball; pickleball = SOLID holed paddle +
+  wiffle ball; padel = perforated teardrop (+ glass wall in crest); racquetball = long
+  strung teardrop with the wrist cord + blue ball (+ court corner); beach volleyball =
+  paneled flame/violet ball (+ net; palm/sun/sand crest). Component shipped but NOT yet
+  wired into any surface — preview sheet staged (klimr-sport-icons-preview.html);
+  rollout mapping proposed (emoji → SportIcon by tier) pending Gabriel's review.
+
+### 2026-07-15 — THE WIRE: the feed reinvented for volume (research-backed)
+- Research: Reddit's redesign backlash — "1/3 the info on-screen, no compact mode" —
+  proves users equate feed quality with DENSITY and control (they also rush to disable
+  forced recommendation inserts); Strava's scale answer is ONE grouped entry per shared
+  happening, and the most popular third-party Strava tool is a feed FILTER extension —
+  direct evidence platforms under-deliver type filtering. Synthesis: density + grouping
+  + user-controlled filters + bounded length + read-state.
+- components/feed-wire.tsx replaces the big cards (≈380px → ≈44px/row, ~9× denser):
+  ledger rows (kind dot + icon + bold headline — meta, sport emoji, mono age, chevron);
+  member posts get two-line previews + inline optimistic ♥ (togglePostLike). Day
+  sections read like newspaper editions (Today/Yesterday/date). Same-kind bursts ≥3
+  auto-roll into expandable rollups (count + first-two teaser). Filter strip: per-kind
+  toggle chips in each kind's accent, persisted (klimr.wire.hide). Unseen rows carry a
+  flame dot (klimr.wire.seen, stamped 2.5s after mount). HARD-CAPPED: 45 blocks + one
+  in-memory "Show earlier (N)" — no infinite scroll; footer states the retirement
+  policy. Server keeps ranking/lanes/enrichment; page maps entries → WireRow[]
+  (page 543→478 lines). Ticker, hero, composer, live pill, rail untouched.
+
 ### 2026-07-15 — Tablet round: scroll-hint rails · glass bar · invite lifecycle · time zones
 - **Accordion undone (both rails)** — tablet usability verdict: compact/openSection
   machinery removed from side-nav AND tournament-nav (sections always open); the rails

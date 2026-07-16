@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { lookupZip } from "@/lib/us-places";
 import { ageFromDob } from "@/lib/age";
 
@@ -170,6 +171,7 @@ export async function saveProfile(
       availability,
       avatar_hue: hue,
       timezone,
+      onboarding_draft: null,
       preferred_format: fmts.get(primary) ?? "both",
       play_style: style,
       handedness: hands.get(primary) ?? null,
@@ -201,4 +203,59 @@ export async function saveProfile(
   const params = new URLSearchParams({ welcome: "1" });
   if (!region) params.set("note", "area");
   redirect(`/account?${params.toString()}`);
+}
+
+
+/** Autosave: the wizard snapshots its state after every completed step so a
+ *  half-finished signup survives reloads and device switches. Cleared on
+ *  finish. Never touches the fields that gate profile completion. */
+export async function saveWizardDraft(draftJson: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+  if (draftJson.length > 8000) return { ok: false };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(draftJson);
+  } catch {
+    return { ok: false };
+  }
+  await supabase.from("profiles").update({ onboarding_draft: parsed as never }).eq("id", user.id);
+  return { ok: true };
+}
+
+/** Optional wizard step (and Settings): puts the member in the manual review
+ *  queue while automated ID checks (Persona / Stripe Identity class) are in
+ *  preview. Idempotent; never downgrades a verified account. */
+export async function requestVerification() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const };
+  const { data: me } = await supabase.from("profiles").select("verification_status").eq("id", user.id).maybeSingle();
+  if (me?.verification_status === "verified") return { ok: true as const, status: "verified" as const };
+  await supabase.from("profiles").update({ verification_status: "pending" }).eq("id", user.id);
+  return { ok: true as const, status: "pending" as const };
+}
+
+/** Desktop → phone handoff (the Persona/Stripe pattern): a single-use,
+ *  30-minute token behind a QR code and a copyable short link. The phone page
+ *  needs no login — it validates the token and files the same request. */
+export async function createVerificationHandoff() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const };
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("verification_handoffs")
+    .insert({ user_id: user.id })
+    .select("token")
+    .maybeSingle();
+  if (error || !data) return { ok: false as const };
+  return { ok: true as const, url: `https://klimr.com/verify/continue?token=${data.token}` };
 }

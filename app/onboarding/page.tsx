@@ -24,7 +24,7 @@ export default async function OnboardingPage() {
       supabase
         .from("profiles")
         .select(
-          "display_name, first_name, last_name, home_zip, primary_sport, bio, gender, birth_year, date_of_birth, availability, avatar_hue, play_style",
+          "display_name, first_name, last_name, home_zip, primary_sport, bio, gender, birth_year, date_of_birth, availability, avatar_hue, play_style, onboarding_draft, verification_status",
         )
         .eq("id", user.id)
         .single(),
@@ -60,24 +60,39 @@ export default async function OnboardingPage() {
         }))
     : [];
 
+  // A saved draft (autosnapshotted each step) beats the profile row — it is
+  // strictly newer for an unfinished signup.
+  type Draft = Partial<{
+    firstName: string; lastName: string; zip: string; dob: string; gender: string;
+    hue: number; bio: string; style: string;
+    availability: { day: string; start: string; end: string }[];
+    sports: { key: string; level: string; primary: boolean; rating: string; format: string; hand: string }[];
+    verifyRequested: boolean;
+  }>;
+  const draft = (profile?.onboarding_draft ?? null) as Draft | null;
+
   const initial: WizardInitial = {
-    firstName: profile?.first_name ?? "",
-    lastName: profile?.last_name ?? "",
-    zip: profile?.home_zip ?? "",
-    bio: profile?.bio ?? "",
-    gender: profile?.gender ?? "",
-    dob: profile?.date_of_birth ?? "",
-    hue: profile?.avatar_hue ?? 200,
-    availability,
-    playStyle: profile?.play_style ?? "both",
-    sports: (mySports ?? []).map((s) => ({
-      key: s.sport_key,
-      level: s.skill_level ?? "casual",
-      primary: s.sport_key === profile?.primary_sport,
-      rating: s.skill_rating != null ? String(s.skill_rating) : "",
-      format: s.preferred_format ?? "both",
-      hand: s.handedness ?? "",
-    })),
+    firstName: draft?.firstName ?? profile?.first_name ?? "",
+    lastName: draft?.lastName ?? profile?.last_name ?? "",
+    zip: draft?.zip ?? profile?.home_zip ?? "",
+    bio: draft?.bio ?? profile?.bio ?? "",
+    gender: draft?.gender ?? profile?.gender ?? "",
+    dob: draft?.dob ?? profile?.date_of_birth ?? "",
+    hue: draft?.hue ?? profile?.avatar_hue ?? 200,
+    availability: draft?.availability ?? availability,
+    playStyle: draft?.style ?? profile?.play_style ?? "both",
+    verifyRequested: draft?.verifyRequested || profile?.verification_status === "pending",
+    sports:
+      draft?.sports && draft.sports.length
+        ? draft.sports
+        : (mySports ?? []).map((s) => ({
+            key: s.sport_key,
+            level: s.skill_level ?? "casual",
+            primary: s.sport_key === profile?.primary_sport,
+            rating: s.skill_rating != null ? String(s.skill_rating) : "",
+            format: s.preferred_format ?? "both",
+            hand: s.handedness ?? "",
+          })),
   };
 
   return (

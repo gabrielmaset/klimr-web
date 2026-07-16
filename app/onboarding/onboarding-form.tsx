@@ -1,9 +1,11 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
-import { Check, Pencil, Plus, ShieldCheck, Star, X } from "lucide-react";
-import { saveProfile, type WizardState } from "./actions";
+import { Check, Copy, Loader2, Pencil, Plus, ShieldCheck, Smartphone, Star, X } from "lucide-react";
+import QRCode from "react-qr-code";
+import { VerificationDataPanel } from "@/components/verification-privacy";
+import { saveProfile, saveWizardDraft, requestVerification, createVerificationHandoff, type WizardState } from "./actions";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { ageFromDob } from "@/lib/age";
 import { sportFormats, sportFormatFixed, sportHandLabel, playFormatLabel, hasRatingSystem } from "@/lib/sport-play-options";
@@ -41,12 +43,13 @@ const HUES = [12, 35, 95, 150, 200, 235, 280, 330];
 // The device's IANA zone, captured once (client module scope — stable per load).
 const DEVICE_TZ = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "";
 
-const STEPS = ["About you", "Your sports", "When you play", "Finishing touches", "Review & confirm"];
+const STEPS = ["About you", "Your sports", "When you play", "Finishing touches", "Verify identity", "Review & confirm"];
 const HEADS: { h: string; sub: string }[] = [
   { h: "First, the basics", sub: "The name and face on your player card — and where home base is." },
   { h: "Build your lineup", sub: "Pick a sport, set how you show up on court, add it — one at a time." },
   { h: "When are you usually free?", sub: "Set your usual windows so matches can find you." },
   { h: "Make it yours", sub: "A line about your game — and anything else you want on the card." },
+  { h: "Prove it's really you", sub: "Optional right now — but verified players unlock the whole arena. You can also do this anytime from Settings." },
   { h: "Everything look right?", sub: "Your whole profile is in the rail on the left — tap Edit on any card." },
 ];
 const SPORT_TINT: Record<string, string> = {
@@ -102,6 +105,7 @@ export type WizardInitial = {
   hue: number;
   availability: Range[];
   playStyle: string;
+  verifyRequested?: boolean;
   sports: { key: string; level: string; primary: boolean; rating: string; format: string; hand: string }[];
 };
 
@@ -190,6 +194,15 @@ export function OnboardingWizard({
     setStepError(null);
     setStep(i);
   };
+  const snapshotDraft = () => {
+    const draft = {
+      firstName, lastName, zip, dob, gender, hue, bio, style,
+      availability: ranges,
+      sports: Object.entries(picked).map(([key, v]) => ({ key, ...v })),
+      verifyRequested: verify === "requested",
+    };
+    void saveWizardDraft(JSON.stringify(draft)).catch(() => {});
+  };
 
   const [firstName, setFirstName] = useState(initial.firstName);
   const [lastName, setLastName] = useState(initial.lastName);
@@ -200,6 +213,11 @@ export function OnboardingWizard({
   const [bio, setBio] = useState(initial.bio);
   const [style, setStyle] = useState(initial.playStyle || "both");
   const [ranges, setRanges] = useState<Range[]>(initial.availability);
+  const [verify, setVerify] = useState<"later" | "requested">(initial.verifyRequested ? "requested" : "later");
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [handoff, setHandoff] = useState<{ url: string } | null>(null);
+  const [handoffBusy, setHandoffBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [addingDay, setAddingDay] = useState<string | null>(null);
   const [draftStart, setDraftStart] = useState("18:00");
   const [draftEnd, setDraftEnd] = useState("21:00");
@@ -252,7 +270,7 @@ export function OnboardingWizard({
   const pickedKeys = Object.keys(picked);
   const sportName = (k: string) => sports.find((s) => s.key === k)?.name ?? k;
   const skillSys = (k: string) => sports.find((s) => s.key === k)?.skill_system ?? "Rating";
-  const initials = useMemo(() => `${(firstName.trim()[0] ?? "")}${(lastName.trim()[0] ?? "")}`.toUpperCase() || "Y", [firstName, lastName]);
+  const initials = `${(firstName.trim()[0] ?? "")}${(lastName.trim()[0] ?? "")}`.toUpperCase() || "Y";
 
   // ── profile photo (the shared cropper flow) ───────────────────────────
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -273,6 +291,23 @@ export function OnboardingWizard({
     setAddingDay(day);
   };
 
+  async function startManualReview() {
+    if (verifyBusy) return;
+    setVerifyBusy(true);
+    const res = await requestVerification();
+    if (res.ok) setVerify("requested");
+    else setStepError("Couldn't file the request — try again in a moment.");
+    setVerifyBusy(false);
+  }
+  async function startHandoff() {
+    if (handoffBusy) return;
+    setHandoffBusy(true);
+    const res = await createVerificationHandoff();
+    if (res.ok) setHandoff({ url: res.url });
+    else setStepError("Couldn't create the link — try again in a moment.");
+    setHandoffBusy(false);
+  }
+
   /* ---- navigation ---- */
   function next() {
     if (step === 0) {
@@ -290,6 +325,7 @@ export function OnboardingWizard({
       if (pickedKeys.length === 0) return setStepError("Add at least one sport to your lineup.");
     }
     setStepError(null);
+    snapshotDraft();
     setDone((d) => {
       const n = [...d];
       n[step] = true;
@@ -383,6 +419,12 @@ export function OnboardingWizard({
     if (i === 3)
       return (
         <p className="text-[14.5px] text-ink-soft">{bio.trim() ? bio.slice(0, 110) : <span className="text-mute">No bio yet — that&rsquo;s fine.</span>}</p>
+      );
+    if (i === 4)
+      return verify === "requested" ? (
+        <p className="flex items-center gap-1.5 text-[14.5px] font-semibold text-[#1F6B33]"><ShieldCheck size={15} aria-hidden /> In the review queue</p>
+      ) : (
+        <p className="text-[14.5px] text-mute">Saved for later — Settings → Verification.</p>
       );
     return null;
   };
@@ -727,8 +769,117 @@ export function OnboardingWizard({
               </div>
             ) : null}
 
-            {/* ---- 5 · review ---- */}
+            {/* ---- 5 · verify identity (optional) ---- */}
             {step === 4 ? (
+              <div className="space-y-5">
+                {verify === "requested" ? (
+                  <div className="rounded-2xl border border-[#CFE3D2] bg-[#EFF7F0] p-5">
+                    <p className="flex items-center gap-2 text-[16px] font-bold text-[#1F6B33]"><ShieldCheck size={18} aria-hidden /> You&rsquo;re in the review queue</p>
+                    <p className="mt-1.5 text-[14px] leading-relaxed text-[#2B5E3A]">
+                      Our team reviews new members while automated ID checks are in preview — most clear within a day, and you&rsquo;ll get an email the moment yours does.
+                      Once verified, your name and date of birth lock to keep the boards trustworthy.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-2xl border border-rule bg-bg/50 p-4">
+                      <p className="text-[15px] font-bold text-ink">Why verify?</p>
+                      <ul className="mt-2 space-y-1.5">
+                        {[
+                          "The Verified badge on your profile and player card",
+                          "Required for ranked tournaments — and for hosting",
+                          "One person, one account: it keeps every ranking and match real",
+                        ].map((b) => (
+                          <li key={b} className="flex items-start gap-2 text-[14px] text-ink-soft">
+                            <Check size={14} strokeWidth={3} className="mt-0.5 shrink-0 text-[#1F6B33]" aria-hidden /> {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => void startManualReview()}
+                        disabled={verifyBusy}
+                        className="press rounded-2xl border-2 border-rule bg-surface p-4 text-left transition-colors hover:border-brand/50 disabled:opacity-60"
+                      >
+                        <p className="flex items-center gap-2 text-[15px] font-bold text-ink">
+                          {verifyBusy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <ShieldCheck size={15} className="text-[#1F6B33]" aria-hidden />} Request a review
+                        </p>
+                        <p className="mt-1 text-[13px] leading-snug text-mute">Get in line now — our team verifies new members while automated checks are in preview.</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void startHandoff()}
+                        disabled={handoffBusy}
+                        className="press rounded-2xl border-2 border-rule bg-surface p-4 text-left transition-colors hover:border-brand/50 disabled:opacity-60"
+                      >
+                        <p className="flex items-center gap-2 text-[15px] font-bold text-ink">
+                          {handoffBusy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Smartphone size={15} className="text-brand-deep" aria-hidden />} Continue on your phone
+                        </p>
+                        <p className="mt-1 text-[13px] leading-snug text-mute">Verification is easiest with a phone camera — grab a link and pick this up over there.</p>
+                      </button>
+
+                      <div aria-disabled className="relative rounded-2xl border-2 border-dashed border-rule bg-bg/40 p-4 opacity-70">
+                        <span className="absolute -top-2.5 right-3 rounded-full bg-ink px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-pop">Soon</span>
+                        <p className="text-[15px] font-bold text-ink-soft">Government ID + selfie match</p>
+                        <p className="mt-1 text-[13px] leading-snug text-mute">Scan your ID and take a quick selfie — automated in about two minutes, powered by our verification partner.</p>
+                      </div>
+                      <div aria-disabled className="relative rounded-2xl border-2 border-dashed border-rule bg-bg/40 p-4 opacity-70">
+                        <span className="absolute -top-2.5 right-3 rounded-full bg-ink px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-pop">Soon</span>
+                        <p className="text-[15px] font-bold text-ink-soft">Driver&rsquo;s license barcode scan</p>
+                        <p className="mt-1 text-[13px] leading-snug text-mute">One flip of the card — we read the barcode and confirm it matches your profile.</p>
+                      </div>
+                    </div>
+
+                    {handoff ? (
+                      <div className="wiz-card flex flex-wrap items-center gap-5 rounded-2xl border border-rule bg-surface p-4 shadow-e1">
+                        <div className="rounded-xl border border-rule bg-white p-2.5">
+                          <QRCode value={handoff.url} size={116} fgColor="#201B12" bgColor="#FFFFFF" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[15px] font-bold text-ink">Scan with your phone camera</p>
+                          <p className="mt-0.5 text-[13px] text-mute">The link works for 30 minutes and once only. Or copy it into any app yourself:</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(handoff.url).then(() => {
+                                  setCopied(true);
+                                  setTimeout(() => setCopied(false), 1600);
+                                });
+                              }}
+                              className={`press inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-bold transition-colors ${copied ? "bg-[#217A34] text-white" : "bg-ink text-pop hover:bg-ink-soft"}`}
+                            >
+                              {copied ? <Check size={13} strokeWidth={3} /> : <Copy size={13} />} {copied ? "Copied" : "Copy link"}
+                            </button>
+                            <span className="relative inline-flex items-center gap-1.5 rounded-full border border-dashed border-rule px-3.5 py-2 text-[13px] font-bold text-faint">
+                              Text me the link
+                              <span className="rounded-full bg-ink px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.12em] text-pop">Soon</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <VerificationDataPanel compact />
+
+                    <p className="rounded-xl border border-rule-soft bg-bg px-3.5 py-2.5 text-[12.5px] leading-relaxed text-mute">
+                      By starting verification you consent to the processing of your identity information — and, when automated checks launch, images of your ID document and a selfie used
+                      solely for facial matching. Documents are handled by our verification partner; Klimr stores only your verification status and minimal audit metadata, never your
+                      document images. Full details in our{" "}
+                      <Link href="/legal#privacy" target="_blank" className="font-semibold text-ink underline decoration-rule-2 underline-offset-2 hover:text-brand-deep">Privacy Policy</Link>.
+                    </p>
+                    <p className="text-[13px] text-mute">Not now? Just hit Continue — you can verify anytime from <span className="font-semibold text-ink-soft">Settings → Verification</span>.</p>
+                  </>
+                )}
+              </div>
+            ) : null}
+
+            {/* ---- 6 · review ---- */}
+            {step === 5 ? (
               <div className="rounded-2xl border border-dashed border-rule-2 bg-bg px-5 py-7 text-center">
                 <p className="text-[16px] font-bold text-ink">Your whole profile is in the rail — every card, exactly as it will save.</p>
                 <p className="mt-1.5 text-[14px] text-mute">Tap <span className="font-bold">Edit</span> on any card to change it, then make it official below.</p>
