@@ -399,7 +399,7 @@ export function OnboardingWizard({
             : "Five quick steps and your spot on the board is reserved. It all stays editable later."}
         </p>
 
-        <ol className="mt-7 space-y-3">
+        <ol className="mt-7 space-y-6">
           {STEPS.map((title, i) => {
             const isReview = i === STEPS.length - 1;
             if (i === step) {
@@ -413,7 +413,7 @@ export function OnboardingWizard({
             }
             if (done[i] && !isReview) {
               return (
-                <li key={title} className="wiz-sum relative rounded-2xl border border-[#E4DAC2] bg-[#F7F2E4] px-4 pb-3.5 pt-4">
+                <li key={title} className="wiz-sum relative rounded-2xl border border-[#E4DAC2] bg-[#F7F2E4] px-4 pb-4 pt-[18px]">
                   <span className="absolute -top-[8px] left-3 inline-flex h-[16px] items-center px-1.5 font-mono text-[10px] font-bold uppercase tracking-[.16em] text-faint" style={summaryLabel}>
                     0{i + 1} · {title}
                   </span>

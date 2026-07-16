@@ -166,6 +166,13 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-15 — Journey rail rhythm: room for the straddling chrome
+- The Edit chips and on-border labels protrude ~12px above each parchment card, but the
+  rail's space-y-3 left only 12px between items — chips visually touched the card above
+  (iPad screenshot). Rail steps now breathe at space-y-6 (24px), and summary cards gain
+  a touch more internal headroom (pt-[18px], pb-4) so the label sits comfortably on a
+  taller top edge. Uniform spacing across done/active/ghost rows keeps the column's beat.
+
 ### 2026-07-15 — Rating field: hide when the sport has no system + spaced layout
 - Beach volleyball's sports.skill_system = 'NONE' leaked as a literal "NONE · optional"
   label (iPad screenshot). BV has no numeric self-rating (CBVA divisions are letters) →
