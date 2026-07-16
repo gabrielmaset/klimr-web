@@ -22,7 +22,7 @@ type LogRow = {
 };
 
 export default async function AdminDiagnostics({ searchParams }: { searchParams: Promise<{ q?: string; level?: string }> }) {
-  await requireAdmin("support");
+  const gate = await requireAdmin("support");
   const { q, level } = await searchParams;
   const admin = createAdminClient();
 
@@ -31,6 +31,9 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
     .select("id, user_id, level, message, detail, url, user_agent, created_at")
     .order("created_at", { ascending: false })
     .limit(200);
+
+  const { data: me } = await admin.from("profiles").select("timezone").eq("id", gate.userId).maybeSingle();
+  const viewerTz = me?.timezone ?? "America/Los_Angeles";
   const lvl = level === "error" || level === "warn" || level === "info" ? level : "";
   if (lvl) query = query.eq("level", lvl);
   const term = (q ?? "").trim().replace(/[%,()]/g, "");
@@ -98,7 +101,7 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
                   </span>
                   <span className={`text-xs font-bold uppercase tracking-wide ${meta.cls}`}>{e.level}</span>
                   <span className="text-xs text-mute">{e.user_id ? (names.get(e.user_id) ?? `Unknown · ${e.user_id.slice(0, 8)}`) : "Signed-out"}</span>
-                  <span className="ml-auto text-[11px] text-faint">{new Date(e.created_at).toLocaleString("en-US")}</span>
+                  <span className="ml-auto text-[11px] text-faint">{new Date(e.created_at).toLocaleString("en-US", { timeZone: viewerTz, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                 </div>
                 <p className="mt-1.5 break-words text-sm text-ink">{e.message}</p>
                 {e.url ? <p className="mt-0.5 text-[11px] text-faint">{e.url}</p> : null}

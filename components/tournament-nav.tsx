@@ -78,6 +78,21 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
   const [overlayOpen, setOverlayOpen] = useState(false);
   const collapsed = overlayMode ? !overlayOpen : (railStored ?? false);
   const asideRef = useRef<HTMLElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 6);
+    check();
+    el.addEventListener("scroll", check, { passive: true });
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", check);
+      ro.disconnect();
+    };
+  });
   useEffect(() => {
     const saved = window.localStorage.getItem("klimr.trail");
     const raf = requestAnimationFrame(() => {
@@ -94,28 +109,6 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       mq.removeEventListener("change", update);
     };
   }, []);
-  // On screens too short to show the whole menu at once, collapse the labeled
-  // sections into an accordion (one open at a time) so the menu never scrolls.
-  const [compact, setCompact] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-height: 960px)");
-    const update = () => setCompact(mq.matches);
-    const raf = requestAnimationFrame(update);
-    mq.addEventListener("change", update);
-    return () => {
-      cancelAnimationFrame(raf);
-      mq.removeEventListener("change", update);
-    };
-  }, []);
-  const sectionForPath = (p: string) =>
-    groups.find((g) => g.header && g.items.some((it) => p === it.href || p.startsWith(it.href + "/")))?.header ?? null;
-  const [openSection, setOpenSection] = useState<string | null>(null);
-  useEffect(() => {
-    const s = sectionForPath(pathname);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (s) setOpenSection(s);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
 
   const toggleRail = () => {
     if (overlayMode) {
@@ -195,10 +188,11 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
           {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
         </button>
         <div
-          className={`flex flex-col overflow-y-auto rounded-3xl border border-[#5a2c17] bg-[linear-gradient(180deg,#3a1608,#210c05)] py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
-            overlayMode && overlayOpen ? "absolute inset-y-3 left-3 z-10 w-[232px] px-3 shadow-e3" : collapsed ? "relative h-full w-auto px-1.5" : "relative h-full w-auto px-3"
+          className={`relative flex flex-col overflow-hidden rounded-3xl border border-[#5a2c17] bg-[linear-gradient(180deg,#3a1608,#210c05)] shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)] ${
+            overlayMode && overlayOpen ? "absolute inset-y-3 left-3 z-10 w-[232px] shadow-e3" : collapsed ? "h-full w-auto" : "h-full w-auto"
           }`}
         >
+        <div ref={scrollRef} className={`flex h-full flex-col overflow-y-auto py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${overlayMode && overlayOpen ? "px-3" : collapsed ? "px-1.5" : "px-3"}`}>
           <div className={`rounded-2xl border border-rail-border bg-white/[0.05] ${collapsed ? "p-1.5" : "p-3"}`}>
             <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
               <span className={`grid shrink-0 place-items-center rounded-2xl bg-white ${collapsed ? "h-10 w-10 text-xl" : "h-11 w-11 text-2xl"}`} title={collapsed ? tournament.title : undefined}>{meta.emoji}</span>
@@ -224,31 +218,16 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
                 </nav>
               );
             }
-            const open = collapsed || !compact || openSection === g.header;
             return (
               <div key={g.header} className="mt-5">
                 {collapsed ? (
                   <div aria-hidden className="mx-2 -mt-2.5 mb-2.5 border-t border-rail-border" />
-                ) : compact ? (
-                  <button
-                    type="button"
-                    onClick={() => setOpenSection((cur) => (cur === g.header ? null : g.header!))}
-                    aria-expanded={open}
-                    className="kicker mb-1 flex w-full items-center justify-between gap-2 rounded-[10px] px-3 text-rail-muted transition-colors hover:text-rail-fg"
-                  >
-                    <span>{g.header}</span>
-                    <ChevronDown size={13} className={`transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
-                  </button>
                 ) : (
                   <p className="kicker mb-1 px-3 text-rail-muted">{g.header}</p>
                 )}
-                <div className={`grid transition-[grid-template-rows] duration-200 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                  <div className="overflow-hidden">
-                    <nav className="flex flex-col gap-1" aria-label={g.header}>
-                      {g.items.map((it) => renderItem(it))}
-                    </nav>
-                  </div>
-                </div>
+                <nav className="flex flex-col gap-1" aria-label={g.header}>
+                  {g.items.map((it) => renderItem(it))}
+                </nav>
               </div>
             );
           })}
@@ -283,6 +262,14 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
               )}
             </Link>
           </div>
+        </div>
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-x-0 bottom-0 flex h-14 items-end justify-center rounded-b-3xl pb-1.5 transition-opacity duration-200 ${moreBelow ? "opacity-100" : "opacity-0"}`}
+          style={{ background: "linear-gradient(to bottom, transparent, #210c05 80%)" }}
+        >
+          <ChevronDown size={15} className="animate-bounce text-rail-muted" />
+        </div>
         </div>
       </aside>
 

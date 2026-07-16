@@ -50,26 +50,21 @@ export function AppChrome({
   if (isStandalonePath(pathname)) return <>{children}</>;
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      {/* Full-width bar row — the strip (and its hairline shadow-bar card)
-          spans the entire viewport, so there is no seam where the rail
-          column used to begin. The rail starts beneath it via --topbar-h. */}
-      <MobileTopBar unreadCount={unread} avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={adminRole} />
-      <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} teams={teams} />
-      <div className="flex min-h-0 flex-1">
-        <SideNav
-          avatarUrl={avatarUrl}
-          avatarHue={avatarHue}
-          avatarName={avatarName}
-          email={email}
-          adminRole={adminRole}
-          presenceMode={presenceMode}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <main className="flex-1">{children}</main>
-          <SiteFooter authed />
-          <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
-        </div>
+    <div className="flex min-h-dvh">
+      <SideNav
+        avatarUrl={avatarUrl}
+        avatarHue={avatarHue}
+        avatarName={avatarName}
+        email={email}
+        adminRole={adminRole}
+        presenceMode={presenceMode}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <MobileTopBar unreadCount={unread} avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={adminRole} />
+        <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} teams={teams} />
+        <main className="flex-1">{children}</main>
+        <SiteFooter authed />
+        <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
       </div>
       <CommandPalette />
     </div>

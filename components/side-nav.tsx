@@ -41,9 +41,6 @@ export function SideNav({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
-  // On screens too short to show the whole menu at once, collapse the labeled
-  // sections into an accordion (one open at a time) so the menu never scrolls.
-  const [compact, setCompact] = useState(false);
   // Rail collapse: icon-only under ~1180px (tablets) unless the user chose;
   // the chevron persists their choice.
   const [railStored, setRailStored] = useState<boolean | null>(null);
@@ -55,6 +52,23 @@ export function SideNav({
   const [overlayOpen, setOverlayOpen] = useState(false);
   const collapsed = overlayMode ? !overlayOpen : (railStored ?? false);
   const asideRef = useRef<HTMLElement>(null);
+  // Scroll affordance: when the menu has more below the fold, a soft fade +
+  // chevron sits at the bottom edge; both vanish at the end of the list.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 6);
+    check();
+    el.addEventListener("scroll", check, { passive: true });
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", check);
+      ro.disconnect();
+    };
+  });
   useEffect(() => {
     const saved = window.localStorage.getItem("klimr.rail");
     const raf = requestAnimationFrame(() => {
@@ -99,25 +113,7 @@ export function SideNav({
       document.removeEventListener("keydown", onKey);
     };
   }, [overlayMode, overlayOpen]);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-height: 960px)");
-    const update = () => setCompact(mq.matches);
-    const raf = requestAnimationFrame(update);
-    mq.addEventListener("change", update);
-    return () => {
-      cancelAnimationFrame(raf);
-      mq.removeEventListener("change", update);
-    };
-  }, []);
 
-  const sectionForPath = (p: string) =>
-    GROUPS.find((g) => g.header && g.items.some((it) => p === it.href || p.startsWith(it.href + "/")))?.header ?? null;
-  const [openSection, setOpenSection] = useState<string | null>(null);
-  useEffect(() => {
-    const s = sectionForPath(pathname);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (s) setOpenSection(s);
-  }, [pathname]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -172,7 +168,7 @@ export function SideNav({
   };
 
   return (
-    <aside ref={asideRef} className={`group/rail relative sticky top-[var(--topbar-h,0px)] z-[45] hidden h-[calc(100dvh-var(--topbar-h,0px))] shrink-0 self-start py-3.5 pl-3.5 transition-[width] duration-200 md:block ${overlayMode ? "w-[76px]" : collapsed ? "w-[76px]" : "w-[248px]"}`}>
+    <aside ref={asideRef} className={`group/rail relative sticky top-0 z-[45] hidden h-dvh shrink-0 self-start py-3.5 pl-3.5 transition-[width] duration-200 md:block ${overlayMode ? "w-[76px]" : collapsed ? "w-[76px]" : "w-[248px]"}`}>
       <div
         className={`flex flex-col rounded-[22px] border border-rule bg-white/[0.66] pb-3 pt-5 backdrop-blur-[14px] transition-[width,box-shadow] duration-200 ${collapsed ? "px-2" : "px-3"} ${
           overlayMode && overlayOpen ? "absolute inset-y-3.5 left-3.5 z-10 w-[234px] shadow-e3" : "relative h-full w-auto shadow-bar"
@@ -191,7 +187,8 @@ export function SideNav({
           <KlimrLogo textClassName={collapsed ? "hidden" : "text-[26px]"} />
         </Link>
 
-        <div className={`mt-3.5 min-h-0 flex-1 overflow-y-auto scrollbar-hidden ${compact ? "space-y-1" : "space-y-2"}`}>
+        <div className="relative mt-3.5 min-h-0 flex-1">
+        <div ref={scrollRef} className="h-full space-y-2 overflow-y-auto scrollbar-hidden">
           {GROUPS.map((g) => {
             if (!g.header) {
               return (
@@ -200,35 +197,28 @@ export function SideNav({
                 </nav>
               );
             }
-            const open = collapsed || !compact || openSection === g.header;
             return (
               <div key={g.header}>
                 {collapsed ? (
                   <div aria-hidden className="mx-2 my-2 border-t border-rule-soft" />
-                ) : compact ? (
-                  <button
-                    type="button"
-                    onClick={() => setOpenSection((cur) => (cur === g.header ? null : g.header!))}
-                    aria-expanded={open}
-                    className={`${kicker} flex w-full items-center justify-between gap-2 rounded-[10px] px-3 pb-[5px] pt-3 transition-colors hover:text-ink-soft`}
-                  >
-                    <span>{g.header}</span>
-                    <ChevronDown size={13} className={`transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
-                  </button>
                 ) : (
                   <p className={`${kicker} px-3 pb-[5px] pt-3`}>{g.header}</p>
                 )}
-                <div className={`grid transition-[grid-template-rows] duration-200 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                  <div className="overflow-hidden">
-                    <nav className="flex flex-col gap-0.5" aria-label={g.header}>
-                      {g.items.map(renderLink)}
-                    </nav>
-                  </div>
-                </div>
+                <nav className="flex flex-col gap-0.5" aria-label={g.header}>
+                  {g.items.map(renderLink)}
+                </nav>
               </div>
             );
           })}
         </div>
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-x-0 bottom-0 flex h-14 items-end justify-center rounded-b-[22px] pb-1 transition-opacity duration-200 ${moreBelow ? "opacity-100" : "opacity-0"}`}
+          style={{ background: "linear-gradient(to bottom, transparent, #FFFDF8 78%)" }}
+        >
+          <ChevronDown size={15} className="animate-bounce text-mute" />
+        </div>
+      </div>
 
         {adminRole ? (
           <div className="mt-2 shrink-0">

@@ -171,20 +171,6 @@ export function TopBar({
   nextMatch: NextMatch;
   teams: { id: string; name: string; sport_key: string; category: string }[];
 }) {
-  // Publish the bar's height so the rail below can start exactly beneath it.
-  const barRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = barRef.current;
-    if (!el) return;
-    const apply = () => document.documentElement.style.setProperty("--topbar-h", `${el.offsetHeight}px`);
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-      document.documentElement.style.removeProperty("--topbar-h");
-    };
-  }, []);
 
   const [mode, setMode] = useState<PresenceMode>(presenceMode);
   const [seenProp, setSeenProp] = useState<PresenceMode>(presenceMode);
@@ -233,8 +219,10 @@ export function TopBar({
   const proTeams = teams.filter((t) => t.category === "pro");
 
   return (
-    <div ref={barRef} className="print:hidden sticky top-0 z-40 hidden bg-bg px-[22px] pb-2.5 pt-3.5 md:block">
-    <header className="flex items-center gap-[9px] rounded-2xl border border-rule bg-[#FFFDF8] px-3 py-[9px] shadow-bar">
+    // No opaque strip — the bar is a floating glass card; the page scrolls
+    // beneath it and nothing collides with the rail's gutter.
+    <div className="print:hidden sticky top-0 z-40 hidden px-[22px] pb-2.5 pt-3.5 md:block">
+    <header className="flex items-center gap-[9px] rounded-2xl border border-white/50 bg-[#FFFDF8]/72 px-3 py-[9px] shadow-bar ring-1 ring-black/[0.04] backdrop-blur-xl backdrop-saturate-150 supports-[not(backdrop-filter:blur(0px))]:bg-[#FFFDF8]">
         {/* Inline search — type here, results drop down below (no modal) */}
         <TopSearch />
 

@@ -38,6 +38,8 @@ const DAYS = [
 ] as const;
 
 const HUES = [12, 35, 95, 150, 200, 235, 280, 330];
+// The device's IANA zone, captured once (client module scope — stable per load).
+const DEVICE_TZ = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "";
 
 const STEPS = ["About you", "Your sports", "When you play", "Finishing touches", "Review & confirm"];
 const HEADS: { h: string; sub: string }[] = [
@@ -784,6 +786,7 @@ export function OnboardingWizard({
         <input type="hidden" name="bio" value={bio} />
         <input type="hidden" name="dob" value={dob} />
         <input type="hidden" name="gender" value={gender} />
+        <input type="hidden" name="timezone" value={DEVICE_TZ} />
       </div>
     </form>
   );

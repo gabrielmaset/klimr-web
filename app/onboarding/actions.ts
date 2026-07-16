@@ -128,6 +128,7 @@ export async function saveProfile(
   const birthYear = new Date(dobRaw).getFullYear();
 
   const hue = Math.min(360, Math.max(0, Number(formData.get("avatar_hue")) || 200));
+  const timezone = String(formData.get("timezone") || "").slice(0, 64) || null;
 
   /* ---- region lookup ---- */
   const { data: region } = await supabase
@@ -168,6 +169,7 @@ export async function saveProfile(
       date_of_birth: dateOfBirth,
       availability,
       avatar_hue: hue,
+      timezone,
       preferred_format: fmts.get(primary) ?? "both",
       play_style: style,
       handedness: hands.get(primary) ?? null,

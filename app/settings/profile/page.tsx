@@ -18,7 +18,7 @@ export default async function EditProfilePage() {
 
   const { data: p } = await supabase
     .from("profiles")
-    .select("display_name, first_name, last_name, bio, gender, date_of_birth, home_zip, avatar_hue, avatar_path")
+    .select("display_name, first_name, last_name, bio, gender, date_of_birth, home_zip, avatar_hue, avatar_path, timezone")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -26,6 +26,7 @@ export default async function EditProfilePage() {
     first_name: p?.first_name ?? "",
     last_name: p?.last_name ?? "",
     bio: p?.bio ?? "",
+    timezone: p?.timezone ?? null,
     gender: p?.gender ?? "",
     dob: p?.date_of_birth ?? "",
     zip: p?.home_zip ?? "",

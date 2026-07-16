@@ -105,6 +105,7 @@ export async function saveProfileBasics(_prev: EditState, formData: FormData): P
 
   const firstName = String(formData.get("first_name") || "").trim();
   const lastName = String(formData.get("last_name") || "").trim();
+  const timezone = String(formData.get("timezone") || "").slice(0, 64) || null;
   if (firstName.length < 2 || firstName.length > 40) return { error: "Enter your first name." };
   if (lastName.length < 2 || lastName.length > 40) return { error: "Enter your last name." };
 
@@ -150,6 +151,7 @@ export async function saveProfileBasics(_prev: EditState, formData: FormData): P
       date_of_birth: dobRaw,
       birth_year: birthYear,
       home_zip: zip,
+      timezone,
       neighborhood: region?.neighborhood ?? null,
       city: region?.city ?? usFallback?.city ?? null,
       state: region?.state ?? usFallback?.state ?? null,

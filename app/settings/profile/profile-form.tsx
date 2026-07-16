@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useMemo, useActionState, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { saveProfileBasics, type EditState } from "../actions";
@@ -9,6 +9,7 @@ export type ProfileInitial = {
   first_name: string;
   last_name: string;
   bio: string;
+  timezone: string | null;
   gender: string;
   dob: string;
   zip: string;
@@ -28,6 +29,17 @@ const labelCls = "mb-1.5 block text-xs font-semibold text-mute";
 export function ProfileBasicsForm({ initial }: { initial: ProfileInitial }) {
   const [state, action, pending] = useActionState<EditState, FormData>(saveProfileBasics, undefined);
   const [bio, setBio] = useState(initial.bio);
+  const [timezone, setTimezone] = useState(
+    initial.timezone ?? (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : ""),
+  );
+  const zones = useMemo<string[]>(() => {
+    try {
+      return Intl.supportedValuesOf("timeZone");
+    } catch {
+      return [timezone].filter(Boolean) as string[];
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <form action={action} className="space-y-5">
@@ -55,6 +67,22 @@ export function ProfileBasicsForm({ initial }: { initial: ProfileInitial }) {
         />
         <p className="mt-1 text-right text-[11px] text-faint">{bio.length}/160</p>
       </div>
+      <div>
+        <label className={labelCls} htmlFor="timezone">Time zone</label>
+        <select
+          id="timezone"
+          name="timezone"
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          className="mt-1.5 w-full rounded-xl border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
+        >
+          {zones.map((z) => (
+            <option key={z} value={z}>{z.replace(/_/g, " ")}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-[12.5px] text-mute">Set automatically when you joined — times around Klimr show in this zone.</p>
+      </div>
+
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

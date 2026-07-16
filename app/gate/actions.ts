@@ -42,6 +42,8 @@ function accessCodeHtml(code: string): string {
  * the code so /signup can prefill it. Protected by per-IP rate limiting and
  * (once configured) a CAPTCHA so the portal can't be hammered.
  */
+const INVITE_CLAIM_SECONDS = 72 * 60 * 60; // 3 days to finish signing up
+
 export async function enterSite(formData: FormData) {
   const code = normalizeInviteCode(String(formData.get("code") ?? ""));
   if (!code) redirect("/gate?error=empty");
@@ -64,13 +66,29 @@ export async function enterSite(formData: FormData) {
     .eq("code", code)
     .maybeSingle();
 
-  // 1) A real, active, not-yet-exhausted invite — uses is NOT incremented here.
+  // 1) A real, active, not-yet-exhausted invite. The code is CONSUMED here —
+  //    entering it at the gate claims a use immediately (atomic, optimistic
+  //    guard on the read value so two racers can't share one use). The claim
+  //    lives in a 72-hour cookie: come back and sign up any time inside the
+  //    window; let it lapse and you need a fresh code (this one stays spent).
   if (data && data.active && data.uses < data.max_uses) {
+    const { data: consumed } = await admin
+      .from("invite_codes")
+      .update({ uses: data.uses + 1, last_used_at: new Date().toISOString() })
+      .eq("code", code)
+      .eq("uses", data.uses)
+      .select("code")
+      .maybeSingle();
+    if (!consumed) {
+      await noteCodeFailure(bucket);
+      redirect("/gate?error=invalid");
+    }
     await clearCodeAttempts(bucket);
     const jar = await cookies();
-    jar.set(gateCookieName("site"), gateToken("site"), { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: THIRTY_DAYS });
-    // Plain code, read back by /signup to prefill. Not security-sensitive.
-    jar.set("klimr_invite", code, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: THIRTY_DAYS });
+    jar.set(gateCookieName("site"), gateToken("site"), { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: INVITE_CLAIM_SECONDS });
+    // The claim itself — read back by /signup to prefill and to honor the
+    // already-consumed code for this visitor.
+    jar.set("klimr_invite", code, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: INVITE_CLAIM_SECONDS });
     redirect("/");
   }
 

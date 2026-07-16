@@ -166,6 +166,27 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-15 — Tablet round: scroll-hint rails · glass bar · invite lifecycle · time zones
+- **Accordion undone (both rails)** — tablet usability verdict: compact/openSection
+  machinery removed from side-nav AND tournament-nav (sections always open); the rails
+  scroll (scrollbar hidden) with the modern affordance instead: a soft bottom fade into
+  the card's own color (#FFFDF8 / #210c05) + a gently bouncing ChevronDown, driven by
+  scroll+ResizeObserver, vanishing at list end. Width-collapse (icon rail ≤1180) stays.
+- **Top bar reverted + glass**: the full-width restructure is undone (bar back inside the
+  content column; --topbar-h publisher and rail offset removed). The seam is solved by
+  subtraction: the opaque bg-bg strip is GONE — the bar is a floating glass card
+  (bg-[#FFFDF8]/72 + backdrop-blur-xl + saturate-150, white/50 border, black/4 ring,
+  solid fallback when backdrop-filter unsupported). Nothing left to collide with the
+  rail gutter; content scrolls under the glass.
+- **Invite codes consume at the gate** (they never consumed anywhere — root cause of the
+  "still unused" report): atomic uses+1 with optimistic guard at enterSite; the claim
+  lives in a 72-hour cookie (gate + klimr_invite both 72h); signup precheck honors the
+  claim-holder (cookie match ⇒ valid even at max uses); lapse ⇒ new code (spent one
+  stays spent). Admin Codes reflects uses + last_used_at immediately.
+- **Time zones (0122)**: profiles.timezone — auto-captured at signup (device IANA zone,
+  hidden input → saveProfile), editable in Settings → Profile (Intl.supportedValuesOf
+  select); Admin Diagnostics timestamps render in the VIEWER's zone (fallback LA).
+
 ### 2026-07-15 — Journey rail rhythm: room for the straddling chrome
 - The Edit chips and on-border labels protrude ~12px above each parchment card, but the
   rail's space-y-3 left only 12px between items — chips visually touched the card above
