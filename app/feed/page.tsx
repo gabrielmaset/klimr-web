@@ -9,6 +9,7 @@ import { FeedWire } from "@/components/feed-wire";
 import { createClient } from "@/lib/supabase/server";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { PageHeader, StatusPill } from "@/components/page-header";
 import { Countdown } from "@/components/countdown";
 
@@ -310,7 +311,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
                       {t.state === "UP NEXT" ? <span className="live-dot h-1.5 w-1.5 rounded-full bg-sun" aria-hidden /> : null}
                       {t.state}
                     </span>
-                    <span aria-hidden>{sportMeta(t.sport).emoji}</span>
+                    <SportIcon sport={t.sport} variant="badge" size={15} />
                     <span className="whitespace-nowrap text-[12.5px] font-semibold text-ink">{t.label}</span>
                     {t.score ? <span className="font-mono text-xs font-bold" style={{ color: "#B45309" }}>{t.score}</span> : null}
                     {t.venue ? <span className="whitespace-nowrap text-[11.5px] text-faint">{t.venue}</span> : null}

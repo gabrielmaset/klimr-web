@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { SportIcon } from "@/components/sport-icons";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -10,7 +11,6 @@ import {
   ChevronRight, Users, Award,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
-import { sportMeta } from "@/lib/sports";
 
 type Tournament = { id: string; code: string; title: string; sport_key: string; status: string };
 type Personal = { url: string | null; hue: number; name: string };
@@ -30,7 +30,6 @@ const STATUS_LABEL: Record<string, string> = {
 export function TournamentNav({ tournament, role, personal }: { tournament: Tournament; role: string; personal: Personal }) {
   const pathname = usePathname();
   const base = `/tournament/${tournament.id}`;
-  const meta = sportMeta(tournament.sport_key);
   const roleLabel = role === "owner" ? "Owner" : "Manager";
 
   // Grouped by what each tool is for, in event-lifecycle order: an overview,
@@ -195,7 +194,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
         <div ref={scrollRef} className={`flex h-full flex-col overflow-y-auto py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${overlayMode && overlayOpen ? "px-3" : collapsed ? "px-1.5" : "px-3"}`}>
           <div className={`rounded-2xl border border-rail-border bg-white/[0.05] ${collapsed ? "p-1.5" : "p-3"}`}>
             <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
-              <span className={`grid shrink-0 place-items-center rounded-2xl bg-white ${collapsed ? "h-10 w-10 text-xl" : "h-11 w-11 text-2xl"}`} title={collapsed ? tournament.title : undefined}>{meta.emoji}</span>
+              <span className={`grid shrink-0 place-items-center rounded-2xl bg-white ${collapsed ? "h-10 w-10" : "h-11 w-11"}`} title={collapsed ? tournament.title : undefined}><SportIcon sport={tournament.sport_key} variant="glyph" size={collapsed ? 26 : 30} /></span>
               {collapsed ? null : (
                 <div className="min-w-0">
                   <p className="kicker text-rail-muted">Organizer</p>
@@ -276,7 +275,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       {/* mobile top bar */}
       <header className="print:hidden pt-safe px-safe sticky top-0 z-40 border-b border-rule bg-surface md:hidden">
         <div className="flex items-center gap-3 px-4 py-2.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-tint-brand text-lg">{meta.emoji}</span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-tint-brand"><SportIcon sport={tournament.sport_key} variant="glyph" size={24} /></span>
           <div className="min-w-0 flex-1">
             <p className="kicker leading-tight text-brand-deep">Organizer</p>
             <p className="truncate text-sm font-bold leading-tight text-ink">{tournament.title}</p>

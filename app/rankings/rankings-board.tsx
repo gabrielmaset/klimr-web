@@ -6,6 +6,8 @@ import { Crown, Zap, BadgeCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, StatusPill } from "@/components/page-header";
 
+import { SportIcon } from "@/components/sport-icons";
+
 /* The four sports. Keys match the DB; the emoji is presentation-only. */
 const SPORTS = [
   { key: "tennis", name: "Tennis", emoji: "🎾" },
@@ -342,7 +344,7 @@ export function RankingsBoard({
                   boxShadow: on ? "var(--shadow-flame)" : "none",
                 }}
               >
-                <span aria-hidden>{s.emoji}</span>
+                <SportIcon sport={s.key} variant="badge" size={15} />
                 {s.name}
               </button>
             );
@@ -417,7 +419,7 @@ export function RankingsBoard({
       ) : field === 0 ? (
         <div className={`${CARD} mt-7 text-center`}>
           <div className="mx-auto max-w-md py-8">
-            <div className="text-3xl" aria-hidden>{sport.emoji}</div>
+            <SportIcon sport={sport.key} variant="hero" size={76} className="mx-auto" title={sport.name} />
             <h2 className="mt-3 font-display text-2xl text-ink">No {sport.name.toLowerCase()} players in {scope.place} yet</h2>
             <p className="mt-2 text-sm leading-relaxed text-mute">
               {scope.key !== "world" && !scope.region

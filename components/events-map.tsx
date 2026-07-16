@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { Map as MapboxMap, Marker } from "mapbox-gl";
-import { sportMeta } from "@/lib/sports";
+import { sportIconSrc } from "@/components/sport-icons";
 import { reportClientError } from "@/lib/client-diagnostics";
 import type { CardEvent } from "@/components/events-browser";
 
@@ -104,7 +104,7 @@ export function EventsMap({
       el.appendChild(dot);
       const when = new Date(e.whenIso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
       const popup = new mapboxgl.Popup({ offset: 18, closeButton: false }).setHTML(
-        `<div style="font:700 13.5px var(--font-sans),system-ui,sans-serif;color:#201B12">${sportMeta(e.sportKey).emoji} ${escapeHtml(e.title)}</div>` +
+        `<div style="font:700 13.5px var(--font-sans),system-ui,sans-serif;color:#201B12"><img src="${sportIconSrc(e.sportKey, "badge")}" width="14" height="14" alt="" style="vertical-align:-2px;margin-right:3px"/>${escapeHtml(e.title)}</div>` +
           `<div style="font:500 11.5px var(--font-sans),system-ui,sans-serif;color:#6E6555;margin-top:2px">${escapeHtml(e.venue ?? "Location TBA")} · ${when}</div>` +
           `<a href="/events/${e.id}" style="font:700 12px var(--font-sans),system-ui,sans-serif;color:#C2410C;margin-top:6px;display:inline-block;text-decoration:none">Open event →</a>`,
       );

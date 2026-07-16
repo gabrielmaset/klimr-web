@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Sparkles, MapPin, ChevronRight, Trophy, Eye, Shield, Target, ArrowRight } from "lucide-react";
@@ -189,9 +190,11 @@ export default async function SponsorshipsPage() {
             <span className={`${monoKicker} text-faint`}>Get on the radar</span>
           </div>
           <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-            {primaryMeta
-              ? `Keep climbing your ${primaryMeta.emoji} ${primaryMeta.name} ladder. The higher your local rank, the more visible you are to nearby sponsors.`
-              : "Pick up your sport and start climbing your local ladder — the higher your rank, the more visible you are to nearby sponsors."}
+            {primaryMeta ? (
+              <>Keep climbing your <SportIcon sport={primaryMeta.key} variant="badge" size={14} /> {primaryMeta.name} ladder. The higher your local rank, the more visible you are to nearby sponsors.</>
+            ) : (
+              "Pick up your sport and start climbing your local ladder — the higher your rank, the more visible you are to nearby sponsors."
+            )}
           </p>
           <Link href="/rankings" className="press mt-3 inline-flex items-center gap-1 text-sm font-semibold text-flame-text">
             View your rankings <ChevronRight size={15} />

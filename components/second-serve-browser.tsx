@@ -4,7 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Heart, ShieldCheck, Binoculars, LayoutGrid, BadgeCheck, Plus } from "lucide-react";
-import { sportMeta, sportSlug, SPORTS } from "@/lib/sports";
+import { sportSlug, SPORTS } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { SPORT_TONES } from "@/components/sport-chip";
 import { PageHeader } from "@/components/page-header";
 import { CATEGORIES, RADII_MI, TRADE_TONE, FREE_TONE, PENDING_TONE, MULTI_TONE, priceLabel } from "@/lib/marketplace";
@@ -36,8 +37,10 @@ const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]"
 function sportTone(key: string) {
   return key === "multi" ? MULTI_TONE : (SPORT_TONES[sportSlug(key)] ?? MULTI_TONE);
 }
-function sportEmoji(key: string) {
-  return key === "multi" ? "🏅" : sportMeta(key).emoji;
+function SportMark({ k, size, className }: { k: string; size: number; className?: string }) {
+  if (k === "multi")
+    return <span aria-hidden className={className} style={{ fontSize: size * 0.82, lineHeight: 1 }}>🏅</span>;
+  return <SportIcon sport={k} variant={size >= 24 ? "glyph" : "badge"} size={size} className={className} />;
 }
 
 export function SecondServeBrowser({ listings, viewerZip }: { listings: BrowseListing[]; viewerZip: string | null }) {
@@ -194,7 +197,7 @@ export function SecondServeBrowser({ listings, viewerZip }: { listings: BrowseLi
                     style={on ? { background: tone?.bg ?? "var(--color-tint-brand)", color: tone?.fg ?? "var(--color-flame-text)" } : undefined}
                   >
                     <span className="grid w-[18px] shrink-0 place-items-center text-sm leading-none">
-                      {s.key === "all" ? <LayoutGrid size={13} className={on ? "" : "text-faint"} /> : s.emoji}
+                      {s.key === "all" ? <LayoutGrid size={13} className={on ? "" : "text-faint"} /> : <SportMark k={s.key} size={15} />}
                     </span>
                     <span className="flex-1 truncate text-[12.5px] font-semibold">{s.name}</span>
                     <span className={`font-mono text-[10px] font-bold ${on ? "" : "text-faint"}`}>{n}</span>
@@ -301,7 +304,7 @@ function ListingCard({ l, saved, onHeart }: { l: BrowseListing; saved: boolean; 
           // eslint-disable-next-line @next/next/no-img-element
           <img src={l.cover} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
-          <span className="grid h-full w-full place-items-center text-4xl" aria-hidden>{sportEmoji(l.sport)}</span>
+          <span className="grid h-full w-full place-items-center" aria-hidden><SportMark k={l.sport} size={44} /></span>
         )}
         {badge ? (
           <span className="absolute left-2 top-2 rounded-[6px] px-[7px] py-[3px] font-mono text-[8px] font-bold uppercase tracking-[.12em]" style={{ background: badge.bg, color: badge.fg, boxShadow: `inset 0 0 0 1px ${badge.bd}` }}>
@@ -338,7 +341,7 @@ function ListingCard({ l, saved, onHeart }: { l: BrowseListing; saved: boolean; 
           {l.mode === "trade" && l.tradeWants ? <span className="text-mute"> — wants: {l.tradeWants}</span> : null}
         </p>
         <p className="mt-0.5 text-[11.5px] text-faint">
-          {sportEmoji(l.sport)} {l.distanceMi !== null ? `${l.distanceMi} mi` : "distance —"} · {l.postedDaysAgo}d ago
+          <SportMark k={l.sport} size={13} className="mr-0.5" /> {l.distanceMi !== null ? `${l.distanceMi} mi` : "distance —"} · {l.postedDaysAgo}d ago
         </p>
         <div className="mt-2 flex items-center gap-1.5 border-t border-rule-soft pt-2">
           <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px] font-bold text-white" style={{ background: `linear-gradient(140deg, hsl(${l.sellerHue} 82% 52%), hsl(${l.sellerHue} 85% 38%))` }}>

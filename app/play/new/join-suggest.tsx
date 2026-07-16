@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Users, MapPin, CalendarClock, ArrowRight, Loader2 } from "lucide-react";
 import { findOpenMatches } from "./actions";
 import { joinMatch } from "@/app/play/[id]/actions";
-import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 
 type Suggestion = Awaited<ReturnType<typeof findOpenMatches>>;
 
@@ -49,7 +49,7 @@ export function JoinSuggest({ sport, zip }: { sport: string; zip: string }) {
       <div className="mt-2.5 divide-y divide-[#F6DECD]">
         {rows.map((m) => (
           <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-            <span className="text-lg" aria-hidden>{sportMeta(sport).emoji}</span>
+            <SportIcon sport={sport} variant="glyph" size={24} />
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-x-2 text-[13px] font-semibold text-ink">
                 <span className="inline-flex items-center gap-1"><CalendarClock size={12} className="text-ink-soft" />{m.scheduledAt ? new Date(m.scheduledAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Anytime"}</span>

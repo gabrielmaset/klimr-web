@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { ArrowLeft, MapPin, Users, Check, X, CalendarDays, ShieldCheck } from "lucide-react";
@@ -106,7 +107,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       {/* Header */}
       <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-6">
         <div className="flex items-start gap-4">
-          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-3xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sport_key)}) 16%, transparent)` }}>{m.emoji}</span>
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sport_key)}) 16%, transparent)` }}><SportIcon sport={c.sport_key} variant="glyph" size={36} /></span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="kicker text-brand-deep">{m.name}</span>

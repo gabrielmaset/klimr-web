@@ -41,7 +41,7 @@ export default async function PastTournamentsPage() {
       return {
         id: t.id,
         href: `/e/${t.code}`,
-        emoji: meta.emoji,
+        sportKey: t.sport_key,
         title: t.title,
         sub: `${t.starts_at ? fmtDate(t.starts_at) : ""} · ${meta.name}${t.location_name ? ` · ${t.location_name}` : ""}`,
         role: t.owner_id === uid ? "Organizer" : mgrIds.has(t.id) ? "Admin" : "Registered",

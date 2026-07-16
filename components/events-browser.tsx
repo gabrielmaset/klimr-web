@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { SportIcon } from "@/components/sport-icons";
 import { FilterGroup, FacetRow } from "@/components/filter-chips";
 import { EventsMap } from "@/components/events-map";
 import { resolveEventArea } from "@/app/events/area-actions";
@@ -44,7 +45,7 @@ const gradientFor = (sportKey: string) => {
   return `linear-gradient(140deg, hsl(${h} 72% 90%), hsl(${(h + 30) % 360} 74% 80%))`;
 };
 
-type Chip = { value: string; label: string };
+type Chip = { value: string; label: ReactNode };
 function toggleIn(set: Set<string>, v: string): Set<string> {
   const next = new Set(set);
   if (next.has(v)) next.delete(v);
@@ -182,7 +183,14 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
     });
   }, [base, q, sports, kinds, price, minP, maxP, when, nowMs, nearMi, geo]);
 
-  const sportChips: Chip[] = allSports.map((s) => ({ value: s, label: `${sportMeta(s).emoji} ${sportMeta(s).name}` }));
+  const sportChips: Chip[] = allSports.map((s) => ({
+    value: s,
+    label: (
+      <span className="inline-flex items-center gap-1.5">
+        <SportIcon sport={s} variant="badge" size={14} /> {sportMeta(s).name}
+      </span>
+    ),
+  }));
   const kindChips: Chip[] = allKinds.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }));
 
   return (
@@ -367,7 +375,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
                     <img src={e.coverUrl} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center" style={{ background: gradientFor(e.sportKey) }}>
-                      <span className="text-6xl drop-shadow-sm">{m.emoji}</span>
+                      <SportIcon sport={e.sportKey} variant="glyph" size={92} className="drop-shadow-sm" />
                     </div>
                   )}
                   <span className="absolute left-2.5 top-2.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-ink backdrop-blur">{KIND_LABEL[e.kind] ?? "Event"}</span>
@@ -385,7 +393,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-4">
                   <h3 className="line-clamp-2 text-sm font-bold leading-snug text-ink">{e.title}</h3>
                   <p className="flex items-center gap-1.5 text-xs text-mute">
-                    <span>{m.emoji}</span> {m.name}
+                    <SportIcon sport={e.sportKey} variant="badge" size={14} /> {m.name}
                   </p>
                   <p className="flex items-center gap-1.5 text-xs text-faint">
                     <CalendarDays size={12} className="shrink-0" /> {fmt(e.whenIso, { weekday: "short", month: "short", day: "numeric" })} · {fmt(e.whenIso, { hour: "numeric", minute: "2-digit" })}

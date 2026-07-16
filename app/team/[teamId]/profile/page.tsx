@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { SportIcon } from "@/components/sport-icons";
 import { Users, MapPin, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta, teamSizeFor } from "@/lib/sports";
@@ -49,7 +50,7 @@ export default async function TeamProfile({ params }: { params: Promise<{ teamId
     <div className="mx-auto max-w-page px-5 py-6 sm:py-8">
       {/* crest banner */}
       <div className="relative overflow-hidden rounded-[1.75rem] p-6 sm:p-8" style={{ background: `linear-gradient(125deg, ${kit.deep} 0%, ${kit.primary} 58%, ${kit.primary} 100%)` }}>
-        <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none text-[9rem] leading-none opacity-[0.13] sm:text-[13rem]">{meta.emoji}</span>
+        <span aria-hidden className="pointer-events-none absolute -right-8 -top-12 select-none opacity-[0.13]"><SportIcon sport={team.sport_key} variant="hero" size={210} className="h-auto w-36 sm:w-52" /></span>
         <span aria-hidden className="pointer-events-none absolute inset-y-0 right-[16%] w-16 -skew-x-12 sm:w-32" style={{ background: kit.bright, opacity: 0.2 }} />
         <span aria-hidden className="pointer-events-none absolute inset-y-0 right-[10%] w-5 -skew-x-12 sm:w-9" style={{ background: kit.bright, opacity: 0.32 }} />
         <span aria-hidden className="pointer-events-none absolute -left-12 -top-12 h-52 w-52 rounded-full blur-3xl" style={{ background: kit.glow }} />

@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Inbox, BadgeCheck, Check, X, Clock, Swords } from "lucide-react";
 import { Avatar } from "@/components/avatar";
-import { SportDot } from "@/components/sport-chip";
+import { SportIcon } from "@/components/sport-icons";
 import { acceptFriendRequest, removeFriend } from "@/app/network/actions";
 import { respondTeamInvite } from "@/app/teams/actions";
 import { acceptMatchInvite, declineMatchInvite, cancelMatchInvite } from "@/app/play/[id]/actions";
@@ -249,8 +249,8 @@ function InviteCard({ item, perform }: { item: InviteItem; perform: (i: InviteIt
 
       <Link href={item.href} className="mt-2.5 flex items-center gap-3">
         {item.emoji ? (
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface text-xl" style={{ boxShadow: `inset 0 0 0 1px ${s.ring}` }}>
-            {item.emoji}
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface" style={{ boxShadow: `inset 0 0 0 1px ${s.ring}` }}>
+            {item.sportKey ? <SportIcon sport={item.sportKey} variant="glyph" size={30} /> : <span className="text-xl">{item.emoji}</span>}
           </span>
         ) : (
           <Avatar url={item.avatarUrl} hue={item.hue} name={item.title} size={48} />
@@ -262,7 +262,7 @@ function InviteCard({ item, perform }: { item: InviteItem; perform: (i: InviteIt
           </div>
           {item.sub ? (
             <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-mute">
-              {item.sportKey ? <SportDot sport={item.sportKey} size={7} /> : null}
+              {item.sportKey ? <SportIcon sport={item.sportKey} variant="badge" size={12} /> : null}
               <span className="truncate">{item.sub}</span>
             </span>
           ) : null}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { SPORTS, sportSlug } from "@/lib/sports";
@@ -32,8 +33,8 @@ export default function ResourcesPage() {
               style={{ border: `1px solid ${tone?.bd ?? "var(--color-rule)"}`, background: `linear-gradient(150deg, ${tone?.bg ?? "var(--color-bg)"}, #FFFFFF 62%)` }}
             >
               <div className="flex items-center gap-3.5">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[14px] text-2xl" style={{ background: tone?.bg ?? "var(--color-bg)", border: `1px solid ${tone?.bd ?? "var(--color-rule)"}` }}>
-                  {s.emoji}
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[14px]" style={{ background: tone?.bg ?? "var(--color-bg)", border: `1px solid ${tone?.bd ?? "var(--color-rule)"}` }}>
+                  <SportIcon sport={s.key} variant="glyph" size={32} />
                 </span>
                 <span className="min-w-0">
                   <span className="block font-display text-[17px] font-bold leading-tight tracking-[-0.015em] text-ink">{s.name}</span>

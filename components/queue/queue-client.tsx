@@ -5,6 +5,7 @@ import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, UserCheck, P
 import type { QSessionState, QCourtState, QTeam } from "@/lib/queue";
 import { LEVELS, levelLabel, formationLabel, FORMATIONS } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { useQueueState } from "@/components/queue/use-queue-state";
 import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings } from "@/app/queue/actions";
 
@@ -181,7 +182,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
           <div className="min-w-0">
             <p className="kicker mb-1.5 text-brand-deep">Player queue</p>
             <div className="flex items-center gap-2">
-              <span className="text-2xl" aria-hidden>{meta.emoji}</span>
+              <SportIcon sport={session.sportKey} variant="glyph" size={30} />
               <h1 className="truncate font-display text-2xl text-ink sm:text-3xl">{session.title}</h1>
             </div>
             <p className="mt-1 text-sm text-mute">
@@ -385,7 +386,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
           myTeam && me ? (
             <div className="mt-4 rounded-2xl bg-tint-brand px-4 py-3">
               {me.status === "playing" ? (
-                <p className="text-sm font-semibold text-brand-deep">You&apos;re playing now on {myTeam.court.label} 🏐</p>
+                <p className="text-sm font-semibold text-brand-deep">You&apos;re playing now on {myTeam.court.label} <SportIcon sport={session.sportKey} variant="badge" size={14} className="ml-0.5" /></p>
               ) : me.status === "queued" ? (
                 <p className="text-sm font-semibold text-brand-deep">
                   You&apos;re #{me.place} in line on {myTeam.court.label} · {formationLabel(myTeam.court.teamSize)}

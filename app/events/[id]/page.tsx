@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign, Pencil, Ban, Repeat, ArrowRight, MessageCircle, UserCheck, X, Crown, Shield, Wrench, ExternalLink, RotateCcw } from "lucide-react";
@@ -163,10 +164,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       <BackButton fallback="/events" label="Events" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       {/* hero */}
-      <EventHeroCover eventId={e.id} initialUrl={coverUrl} canEdit={isAdmin} emoji={meta.emoji}>
+      <EventHeroCover eventId={e.id} initialUrl={coverUrl} canEdit={isAdmin} sportKey={e.sport_key}>
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
-            {meta.emoji} {meta.name} · {eventKindLabel(e.kind)}
+            <SportIcon sport={e.sport_key} variant="badge" size={14} /> {meta.name} · {eventKindLabel(e.kind)}
           </span>
           {recurText ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BadgeCheck, MapPin, ShieldCheck, Trophy, Ban, Pencil, Medal, Users, Swords, Clock, ChevronRight, Grid2x2 } from "lucide-react";
@@ -426,7 +427,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   ))}
                   {mainSport ? (
                     <span className="rounded-full border px-2.5 py-1 text-[11px] font-bold" style={{ background: tint.bg, borderColor: tint.bd, color: tint.fg }}>
-                      {sportMeta(mainSport).emoji} {sportMeta(mainSport).name}
+                      <SportIcon sport={mainSport} variant="badge" size={13} className="mr-1" />{sportMeta(mainSport).name}
                     </span>
                   ) : null}
                 </div>
@@ -515,7 +516,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <div key={ps.sport_key} className="rounded-3xl border border-rule bg-surface shadow-e1 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="grid h-10 w-10 place-items-center rounded-xl border text-lg" style={{ background: st.bg, borderColor: st.bd }}>{sportMeta(ps.sport_key).emoji}</span>
+                      <span className="grid h-10 w-10 place-items-center rounded-xl border" style={{ background: st.bg, borderColor: st.bd }}><SportIcon sport={ps.sport_key} variant="glyph" size={26} /></span>
                       <div>
                         <p className="flex items-center gap-2 font-display text-lg font-bold text-ink">
                           {sportMeta(ps.sport_key).name}
@@ -588,7 +589,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 {recentQp.map((m) => (
                   <div key={m.match_id as string} className="flex items-center gap-3 py-2.5">
                     <span className={`${mono} grid h-[26px] w-[26px] shrink-0 place-items-center rounded-lg text-[11px] font-bold ${m.won ? "bg-[#EFF8F0] text-[#217A34]" : "bg-[#FDECEA] text-[#D92D20]"}`}>{m.won ? "W" : "L"}</span>
-                    <span className="text-base">{sportMeta(m.sport_key).emoji}</span>
+                    <SportIcon sport={m.sport_key} variant="badge" size={16} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] font-semibold text-ink">{m.won ? "df." : "lost to"} {oppByMatch.get(m.match_id as string) ?? "an opponent"}</span>
                       {scoreByMatch.get(m.match_id as string) ? <span className={`${mono} block text-[10px] text-faint`}>{scoreByMatch.get(m.match_id as string)}</span> : null}
@@ -639,7 +640,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   const st = tintOf(t.sport_key);
                   return (
                     <Link key={t.id} href={`/teams/${t.id}`} className="press -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
-                      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-lg border text-base" style={{ background: st.bg, borderColor: st.bd }}>{sportMeta(t.sport_key).emoji}</span>
+                      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-lg border" style={{ background: st.bg, borderColor: st.bd }}><SportIcon sport={t.sport_key} variant="glyph" size={22} /></span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="truncate text-[13px] font-bold text-ink">{t.name}</span>

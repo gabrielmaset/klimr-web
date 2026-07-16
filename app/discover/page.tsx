@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Radar, ArrowRight, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { Avatar } from "@/components/avatar";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { suggestedOpponents } from "@/lib/match-intel";
@@ -172,7 +173,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
               const m = sportMeta(k);
               return (
                 <FacetLink key={k} href={`/discover?sport=${k}`} active={k === selected}>
-                  {m.emoji} {m.name}
+                  <SportIcon sport={k} variant="badge" size={14} /> {m.name}
                 </FacetLink>
               );
             })}
@@ -281,9 +282,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
               return (
                 <Link key={m.id} href={`/play/${m.id}`} className="lift w-64 shrink-0 snap-start rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xl" aria-hidden>
-                      {m2.emoji}
-                    </span>
+                    <SportIcon sport={m.sport_key} variant="glyph" size={26} />
                     <span className="rounded-full bg-tint-brand px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">
                       {left} spot{left === 1 ? "" : "s"} open
                     </span>

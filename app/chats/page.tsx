@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Lock, MessageCircle, ChevronRight } from "lucide-react";
@@ -193,7 +194,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
           className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] text-lg ${dim ? "opacity-55" : ""}`}
           style={{ background: tone?.bg ?? "var(--color-bg)", border: `1px solid ${tone?.bd ?? "var(--color-rule)"}` }}
         >
-          {meta.emoji}
+          <SportIcon sport={m.sport_key} variant="glyph" size={26} />
         </span>
         <span className={`min-w-0 flex-1 ${dim ? "opacity-55" : ""}`}>
           <span className="flex items-center gap-2">

@@ -166,6 +166,31 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-16 — Sport icons v3: Gabriel's Claude Design set, wired site-wide
+- VERDICT: v1 (sticker) and v2 (equipment redraw) are superseded. Gabriel produced the
+  final set himself in Claude Design — 5 sports × 3 tiers, hand-inked outlines on the
+  warm palette. `components/sport-icons.tsx` fully replaced: icons are now static
+  assets in `public/sport-icons/` rendered via `<img>` (a 40-row feed references one
+  cached file instead of 40 inline SVG subtrees; the PNG sport shares the code path).
+  `sportIconSrc(sport, variant)` serves non-React sinks (Mapbox popup HTML strings).
+- Tiers renamed to match the assets: **badge** (circular ball emblem — chips, list
+  rows, nav, inline mentions like "Completed a 🏸→[badge] Tennis match"), **glyph**
+  (equipment — tinted medallions, pickers, tiles, card covers), **hero** (rotated
+  action composition — wizard lineup/config watermarks, team & tournament page
+  watermarks, event hero cover, guest-join, rankings empty state).
+- Beach volleyball shipped as 768px PNG (others SVG): quantized to 256-color palette
+  at 256/512/768 px per tier → 6/12/16 KB. Component API is identical across formats.
+- `SportChip` leading dot upgraded to the badge icon; `SportDot` still exported but
+  retired from all call sites (invites, network, teams rows now render badges).
+- Unknown sport key renders a neutral ink dot — never a broken-image glyph.
+- Deliberate emoji retentions (text-only contexts where an <img> cannot exist or
+  meaning demands it): native `<option>` labels in all create/edit selects,
+  EventShareKit promo payloads (WhatsApp/SMS plain text), `lib/calendar.ts` ICS,
+  marketplace "multi" 🏅 (no asset for the pseudo-sport), invites-browser `emoji`
+  field (kept as medallion-vs-avatar discriminator + fallback), network-browser
+  `sportEmoji` (load-bearing in its sports-map guard). Everything else site-wide —
+  ~40 files — now renders the illustrated set.
+
 ### 2026-07-16 — Verification data promise: disclosed everywhere, true in the code
 - Research (cited in-thread): X discloses this exact model ("We use Persona, and Stripe
   for ID verification… X does not directly retain this data"); Stripe's integration docs

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } f
 import Link from "next/link";
 import { Search, BadgeCheck, Users, UserPlus, UserCheck, ArrowUpDown, X, Rss, Check, Clock, ChevronDown, Zap } from "lucide-react";
 import { Avatar } from "@/components/avatar";
-import { SportDot } from "@/components/sport-chip";
+import { SportIcon } from "@/components/sport-icons";
 import { followUser, unfollowUser, sendFriendRequest, acceptFriendRequest, removeFriend } from "@/app/network/actions";
 
 export type Tab = "friends" | "following" | "followers";
@@ -264,7 +264,7 @@ export function NetworkBrowser({
               </Chip>
               {sports.map((s) => (
                 <Chip key={s.key} on={sport === s.key} onClick={() => setSport(s.key)}>
-                  {s.emoji} {s.name}
+                  <SportIcon sport={s.key} variant="badge" size={14} /> {s.name}
                 </Chip>
               ))}
             </>
@@ -323,7 +323,7 @@ function PersonRow({ p, tab, onFollow, onFriend }: { p: Person; tab: Tab; onFoll
             {p.verified ? <BadgeCheck size={14} className="shrink-0 text-brand" aria-label="Verified" /> : null}
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-mute">
-            {p.sportKey ? <SportDot sport={p.sportKey} /> : null}
+            {p.sportKey ? <SportIcon sport={p.sportKey} variant="badge" size={12} /> : null}
             <span className="truncate">{sub || "—"}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">

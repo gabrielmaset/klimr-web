@@ -6,7 +6,7 @@ import {
   CalendarDays, ChevronDown, ChevronRight, Flag, Heart, HeartPulse, Medal,
   Megaphone, MessageSquare, Newspaper, ShoppingBag, Sparkles, TrendingUp, Trophy, UserPlus, Users,
 } from "lucide-react";
-import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { togglePostLike } from "@/app/feed/actions";
 
 export type WireRow = {
@@ -264,7 +264,7 @@ function WireLine({ row, nowMs, unseen, indent }: { row: WireRow; nowMs: number;
           </span>
         ) : null}
       </span>
-      {row.sport ? <span aria-hidden className="shrink-0 text-[13px] opacity-80">{sportMeta(row.sport).emoji}</span> : null}
+      {row.sport ? <SportIcon sport={row.sport} variant="badge" size={14} className="opacity-90" /> : null}
       {row.inCircle ? <span className="shrink-0 rounded-full bg-tint-brand px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.12em] text-brand-deep">Circle</span> : null}
       {row.isPost && row.postId ? (
         <button

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarClock, MapPin, Users, Plus } from "lucide-react";
@@ -155,7 +156,7 @@ export default async function PlayPage({
         >
           {SPORTS.map((s) => (
             <FacetLink key={s.key} href={`/play${qs(s.key, activeCourt)}`} active={activeSport === s.key} count={sportCounts.get(s.key) ?? 0}>
-              {s.emoji} {s.name}
+              <SportIcon sport={s.key} variant="badge" size={14} /> {s.name}
             </FacetLink>
           ))}
         </FilterGroup>
@@ -202,7 +203,7 @@ export default async function PlayPage({
             return (
               <Link key={m.id} href={`/play/${m.id}`} className="lift block rounded-2xl border border-rule bg-surface shadow-e1 p-5">
                 <div className="flex items-center justify-between">
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl text-xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(m.sport_key)}) 16%, transparent)` }} aria-hidden>{meta.emoji}</span>
+                  <span className="grid h-11 w-11 place-items-center rounded-2xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(m.sport_key)}) 16%, transparent)` }} aria-hidden><SportIcon sport={m.sport_key} variant="glyph" size={28} /></span>
                   <span
                     className="kicker rounded-full px-2 py-1 text-[9px]"
                     style={{ background: full ? "var(--color-bg)" : "var(--color-tint-brand)", color: full ? "var(--color-mute)" : "var(--color-brand-deep)" }}

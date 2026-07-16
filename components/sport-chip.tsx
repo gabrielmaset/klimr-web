@@ -1,3 +1,4 @@
+import { SportIcon } from "@/components/sport-icons";
 import { sportMeta, sportSlug } from "@/lib/sports";
 import { cn } from "@/lib/utils";
 
@@ -72,11 +73,7 @@ export function SportChip({
       }}
     >
       {showDot && (
-        <span
-          aria-hidden
-          className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{ background: v }}
-        />
+        <SportIcon sport={sport} variant="badge" size={size === "sm" ? 13 : 15} className="-ml-0.5" />
       )}
       {meta.name}
     </span>

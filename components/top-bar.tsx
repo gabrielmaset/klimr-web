@@ -6,7 +6,7 @@ import { CalendarRange, Plus, MessageCircle, Bell, ChevronDown, Check, Settings,
 import { setPresenceMode } from "@/app/account/presence-actions";
 import type { PresenceMode } from "@/app/account/presence";
 import { TopSearch } from "@/components/top-search";
-import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { CountBadge } from "@/components/count-badge";
 import { NotificationBadge } from "@/components/notification-badge";
 
@@ -95,7 +95,7 @@ function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key:
         aria-label={`Switch to ${t.name}`}
         className="press ml-0.5 flex h-[34px] items-center gap-2 rounded-[10px] border border-rule-2 bg-surface pl-2 pr-3 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
       >
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-bg text-[12px]">{sportMeta(t.sport_key).emoji}</span>
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-bg"><SportIcon sport={t.sport_key} variant="badge" size={16} /></span>
         <span className="hidden max-w-[7rem] truncate lg:inline">{t.name}</span>
       </Link>
     );
@@ -133,7 +133,7 @@ function TeamSwitcher({ teams }: { teams: { id: string; name: string; sport_key:
                 onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-bg"
               >
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-bg text-sm">{sportMeta(t.sport_key).emoji}</span>
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-bg"><SportIcon sport={t.sport_key} variant="badge" size={18} /></span>
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{t.name}</span>
               </Link>
             ))}

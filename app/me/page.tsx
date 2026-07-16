@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck, MapPin, Pencil, Trophy, CalendarClock, CalendarRange, Swords, ArrowUpRight, Users, Crown, Plus } from "lucide-react";
@@ -229,8 +230,8 @@ export default async function MyProfilePage() {
                 <div key={s.sport_key} className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-e1">
                   <div className="flex items-center justify-between px-4 py-3" style={{ background: sportTint(s.sport_key, 8) }}>
                     <div className="flex items-center gap-2.5">
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg" style={{ background: sportTint(s.sport_key, 15) }} aria-hidden>
-                        {meta.emoji}
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: sportTint(s.sport_key, 15) }} aria-hidden>
+                        <SportIcon sport={s.sport_key} variant="glyph" size={24} />
                       </span>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-bold text-ink">{meta.name}</div>
@@ -285,7 +286,7 @@ export default async function MyProfilePage() {
                 const meta = sportMeta(t.sport_key);
                 return (
                   <Link key={t.id} href={`/teams/${t.id}`} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-bg">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: sportTint(t.sport_key, 12) }} aria-hidden>{meta.emoji}</span>
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl" style={{ background: sportTint(t.sport_key, 12) }} aria-hidden><SportIcon sport={t.sport_key} variant="glyph" size={26} /></span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-sm font-bold text-ink">{t.name}</span>
@@ -326,7 +327,7 @@ export default async function MyProfilePage() {
                 const meta = sportMeta(m.sport_key);
                 return (
                   <Link key={m.id} href={`/play/${m.id}`} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-bg">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-lg" style={{ background: sportTint(m.sport_key, 12) }} aria-hidden>{meta.emoji}</span>
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl" style={{ background: sportTint(m.sport_key, 12) }} aria-hidden><SportIcon sport={m.sport_key} variant="glyph" size={26} /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold text-ink">{meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}</span>
                       <span className="flex items-center gap-1.5 text-xs text-mute">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CalendarClock, MapPin, Users, Repeat, BadgeCheck, Check, Lock, MessageCircle } from "lucide-react";
@@ -147,7 +148,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       <div className="mt-4 flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-3xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(match.sport_key)}) 16%, transparent)` }} aria-hidden>{meta.emoji}</span>
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(match.sport_key)}) 16%, transparent)` }} aria-hidden><SportIcon sport={match.sport_key} variant="glyph" size={36} /></span>
             <div>
               <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">
                 {meta.name} · {match.format === "doubles" ? "Doubles" : "Singles"}

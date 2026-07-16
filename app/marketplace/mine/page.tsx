@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { TRADE_TONE, FREE_TONE, PENDING_TONE, MULTI_TONE, priceLabel, isExpired } from "@/lib/marketplace";
-import { sportMeta, sportSlug } from "@/lib/sports";
+import { sportSlug } from "@/lib/sports";
 import { SPORT_TONES } from "@/components/sport-chip";
 import { setListingStatus } from "../actions";
 import { removeListing } from "../listing-actions";
@@ -94,7 +95,7 @@ export default async function MyListingsPage({ searchParams }: { searchParams: P
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={cover} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="grid h-full w-full place-items-center text-xl" aria-hidden>{sport === "multi" ? "🏅" : sportMeta(sport).emoji}</span>
+                    <span className="grid h-full w-full place-items-center" aria-hidden>{sport === "multi" ? <span className="text-xl">🏅</span> : <SportIcon sport={sport} variant="glyph" size={26} />}</span>
                   )}
                 </Link>
                 <div className="min-w-0 flex-1">

@@ -7,18 +7,11 @@ import QRCode from "react-qr-code";
 import { VerificationDataPanel } from "@/components/verification-privacy";
 import { saveProfile, saveWizardDraft, requestVerification, createVerificationHandoff, type WizardState } from "./actions";
 import { AvatarUploader } from "@/components/avatar-uploader";
+import { SportIcon } from "@/components/sport-icons";
 import { ageFromDob } from "@/lib/age";
 import { sportFormats, sportFormatFixed, sportHandLabel, playFormatLabel, hasRatingSystem } from "@/lib/sport-play-options";
 
 /* ---------- vocabulary ---------- */
-
-const SPORT_EMOJI: Record<string, string> = {
-  tennis: "🎾",
-  pickleball: "🏓",
-  padel: "🟡",
-  racquetball: "🟦",
-  beach_volleyball: "🏐",
-};
 
 const LEVELS = [
   { key: "new", label: "New", blurb: "Just getting started." },
@@ -158,10 +151,10 @@ function SportSplash({ sportKey, name, size = 56 }: { sportKey: string; name: st
     <div className="flex items-center gap-3">
       <div
         className="grid shrink-0 place-items-center rounded-2xl shadow-e1"
-        style={{ height: size, width: size, fontSize: size * 0.52, background: `linear-gradient(145deg, ${SPORT_TINT[sportKey] ?? "#F4EFE3"}, #FFFDF8)` }}
+        style={{ height: size, width: size, background: `linear-gradient(145deg, ${SPORT_TINT[sportKey] ?? "#F4EFE3"}, #FFFDF8)` }}
         aria-hidden
       >
-        {SPORT_EMOJI[sportKey] ?? "•"}
+        <SportIcon sport={sportKey} variant="glyph" size={Math.round(size * 0.62)} />
       </div>
       <div className="min-w-0 text-[17px] font-bold text-ink">{name}</div>
     </div>
@@ -393,7 +386,7 @@ export function OnboardingWizard({
         <div className="space-y-1.5">
           {pickedKeys.map((k) => (
             <p key={k} className="flex items-center gap-2 text-[14.5px] text-ink">
-              <span aria-hidden className="text-[17px]">{SPORT_EMOJI[k] ?? "•"}</span>
+              <SportIcon sport={k} variant="badge" size={16} />
               <span className="font-bold">{sportName(k)}</span>
               <span className="min-w-0 truncate text-[13px] text-mute">
                 {LEVELS.find((l) => l.key === picked[k].level)?.label} · {playFormatLabel(k, picked[k].format)}
@@ -564,8 +557,8 @@ export function OnboardingWizard({
                     <div className="grid gap-3 sm:grid-cols-2">
                       {pickedKeys.map((k) => (
                         <div key={k} className="relative overflow-hidden rounded-[20px] border-2 border-brand/50 p-4 shadow-e1" style={{ background: `linear-gradient(135deg, ${SPORT_TINT[k] ?? "#F6F1E4"}, #FFFDF8 72%)` }}>
-                          <span aria-hidden className="pointer-events-none absolute -bottom-4 -right-2 select-none text-[84px] opacity-10" style={{ transform: "rotate(-12deg)" }}>
-                            {SPORT_EMOJI[k] ?? "•"}
+                          <span aria-hidden className="pointer-events-none absolute -bottom-7 -right-4 select-none opacity-10" style={{ transform: "rotate(-12deg)" }}>
+                            <SportIcon sport={k} variant="hero" size={130} />
                           </span>
                           <SportSplash sportKey={k} name={sportName(k)} size={48} />
                           <p className="mt-2 text-[13.5px] font-semibold text-ink-soft">
@@ -591,8 +584,8 @@ export function OnboardingWizard({
 
                 {configuring && configMeta ? (
                   <div className="wiz-card relative overflow-hidden rounded-[22px] border-2 border-rule-2 p-5" style={{ background: `linear-gradient(150deg, ${SPORT_TINT[configuring] ?? "#F6F1E4"}, #FFFDF8 60%)` }}>
-                    <span aria-hidden className="pointer-events-none absolute -bottom-8 -right-4 select-none text-[150px] opacity-[0.08]" style={{ transform: "rotate(-12deg)" }}>
-                      {SPORT_EMOJI[configuring] ?? "•"}
+                    <span aria-hidden className="pointer-events-none absolute -bottom-12 -right-6 select-none opacity-[0.09]" style={{ transform: "rotate(-12deg)" }}>
+                      <SportIcon sport={configuring} variant="hero" size={210} />
                     </span>
                     <div className="relative">
                       <SportSplash sportKey={configuring} name={configMeta.name} size={56} />
@@ -607,7 +600,7 @@ export function OnboardingWizard({
                             <div>
                               <p className="mb-1.5 text-[13px] font-bold uppercase tracking-[.08em] text-faint">Format</p>
                               <p className="rounded-2xl border border-rule bg-surface px-3.5 py-3 text-[15px] font-semibold text-ink-soft">
-                                Doubles — padel is a doubles game, so this one&rsquo;s locked in. 🎾
+                                Doubles — padel is a doubles game, so this one&rsquo;s locked in.
                               </p>
                             </div>
                           ) : (
@@ -661,11 +654,11 @@ export function OnboardingWizard({
                           onClick={() => openConfig(s.key)}
                           className="lift relative overflow-hidden rounded-[20px] border-2 border-rule bg-surface p-4 text-left transition-all hover:border-brand/50"
                         >
-                          <span aria-hidden className="pointer-events-none absolute -bottom-4 -right-2 select-none text-[76px] opacity-10 transition-transform duration-300 group-hover:scale-110" style={{ transform: "rotate(-12deg)" }}>
-                            {SPORT_EMOJI[s.key] ?? "•"}
+                          <span aria-hidden className="pointer-events-none absolute -bottom-6 -right-3 select-none opacity-10 transition-transform duration-300 group-hover:scale-110" style={{ transform: "rotate(-12deg)" }}>
+                            <SportIcon sport={s.key} variant="hero" size={120} />
                           </span>
-                          <div className="grid h-14 w-14 place-items-center rounded-2xl text-[30px] shadow-e1" style={{ background: `linear-gradient(145deg, ${SPORT_TINT[s.key] ?? "#F4EFE3"}, #FFFDF8)` }} aria-hidden>
-                            {SPORT_EMOJI[s.key] ?? "•"}
+                          <div className="grid h-14 w-14 place-items-center rounded-2xl shadow-e1" style={{ background: `linear-gradient(145deg, ${SPORT_TINT[s.key] ?? "#F4EFE3"}, #FFFDF8)` }} aria-hidden>
+                            <SportIcon sport={s.key} variant="glyph" size={34} />
                           </div>
                           <p className="mt-2.5 text-[16px] font-bold text-ink">{s.name}</p>
                           <p className="mt-0.5 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-deep"><Plus size={13} strokeWidth={3} /> Add</p>

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { CalendarDays, MapPin, Search, Users, GraduationCap } from "lucide-react";
 import { FilterGroup, FacetRow } from "@/components/filter-chips";
 import { sportMeta, sportSlug } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { formatClassPrice } from "@/lib/classes";
 import { LocalTime } from "@/components/local-time";
 
@@ -58,8 +59,8 @@ function Card({ c }: { c: BrowseClass }) {
   return (
     <Link href={`/classes/${c.id}`} className="lift block rounded-2xl border border-rule bg-surface p-4 shadow-e1">
       <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sportKey)}) 16%, transparent)` }} aria-hidden>
-          {m.emoji}
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sportKey)}) 16%, transparent)` }} aria-hidden>
+          <SportIcon sport={c.sportKey} variant="glyph" size={28} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -165,7 +166,7 @@ export function ClassesBrowser({ items, nowMs }: { items: BrowseClass[]; nowMs: 
           <FilterGroup label="Sport" className="min-w-[200px] flex-[1.1]" trailing={<ClearLink n={sports.size} onClear={() => setSports(new Set())} />}>
             {allSports.map((k) => (
               <FacetRow key={k} mode="check" active={sports.has(k)} onClick={() => setSports((s) => toggleIn(s, k))}>
-                {sportMeta(k).emoji} {sportMeta(k).name}
+                <SportIcon sport={k} variant="badge" size={14} /> {sportMeta(k).name}
               </FacetRow>
             ))}
           </FilterGroup>

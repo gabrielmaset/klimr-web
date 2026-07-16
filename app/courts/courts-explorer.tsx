@@ -1,6 +1,7 @@
 "use client";
 
 import { FilterGroup, FacetRow } from "@/components/filter-chips";
+import { SportIcon } from "@/components/sport-icons";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, CalendarPlus, Check, Globe } from "lucide-react";
@@ -276,7 +277,7 @@ export function CourtsExplorer({
           <FilterGroup label="Sport" className="min-w-[190px] flex-1">
             {SPORTS.map((s) => (
               <FacetRow key={s.key} mode="radio" active={sport === s.key} onClick={() => setSport(s.key)}>
-                {s.emoji} {s.name}
+                <SportIcon sport={s.key} variant="badge" size={14} /> {s.name}
               </FacetRow>
             ))}
           </FilterGroup>
@@ -306,7 +307,7 @@ export function CourtsExplorer({
               ) : null}
               <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
                 <span className="text-xs font-medium text-faint">
-                  {allCourts.length} {allCourts.length === 1 ? "court" : "courts"} · {sportMeta(sport).emoji} {sportMeta(sport).name}
+                  {allCourts.length} {allCourts.length === 1 ? "court" : "courts"} · <SportIcon sport={sport} variant="badge" size={13} /> {sportMeta(sport).name}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[11px] text-faint">
                   <ShieldCheck size={12} /> AI-screened{resp.source === "cache" ? " · recent" : ""}

@@ -65,7 +65,7 @@ export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
           ? zip.length === 5 && !!resolved
           : true;
 
-  const sportLabel = sport ? `${sportMeta(sport).emoji} ${sportMeta(sport).name}` : "—";
+  const sportLabel = sport ? sportMeta(sport).name : "—";
   const typeLabel = TYPES.find((t) => t.value === category)?.title ?? "";
 
   return (

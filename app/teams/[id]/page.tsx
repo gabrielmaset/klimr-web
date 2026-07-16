@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { Crown, Users, MapPin } from "lucide-react";
@@ -116,7 +117,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
 
       {/* ===== crest banner — the club's billboard ===== */}
       <div className="relative overflow-hidden rounded-[1.75rem] p-6 sm:p-9" style={{ background: `linear-gradient(125deg, ${kit.deep} 0%, ${kit.primary} 58%, ${kit.primary} 100%)` }}>
-        <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none text-[10rem] leading-none opacity-[0.13] sm:text-[15rem]">{meta.emoji}</span>
+        <span aria-hidden className="pointer-events-none absolute -right-8 -top-12 select-none opacity-[0.13]"><SportIcon sport={team.sport_key} variant="hero" size={240} className="h-auto w-40 sm:w-60" /></span>
         <span aria-hidden className="pointer-events-none absolute inset-y-0 right-[16%] w-20 -skew-x-12 sm:w-36" style={{ background: kit.bright, opacity: 0.2 }} />
         <span aria-hidden className="pointer-events-none absolute inset-y-0 right-[10%] w-6 -skew-x-12 sm:w-10" style={{ background: kit.bright, opacity: 0.32 }} />
         <span aria-hidden className="pointer-events-none absolute -left-12 -top-12 h-56 w-56 rounded-full blur-3xl" style={{ background: kit.glow }} />

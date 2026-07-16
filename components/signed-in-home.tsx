@@ -16,6 +16,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
 import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 
 type Prof = { id: string; display_name: string; avatar_hue: number; verification_status: string };
 type MatchRow = {
@@ -157,7 +158,7 @@ export async function SignedInHome() {
           {standing && bestMeta ? (
             <>
               <div className="mt-2 flex items-center gap-2">
-                <span className="text-2xl" aria-hidden>{bestMeta.emoji}</span>
+                <SportIcon sport={bestSportKey!} variant="glyph" size={30} />
                 <span className="text-sm font-semibold text-ink">{bestMeta.name} · {profile?.home_zip}</span>
               </div>
               <div className="mt-3 flex items-end gap-2">
@@ -205,7 +206,7 @@ export async function SignedInHome() {
               return (
                 <Link key={m.id} href={`/play/${m.id}`} className="lift rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-xl" aria-hidden>{meta.emoji}</span>
+                    <SportIcon sport={m.sport_key} variant="glyph" size={26} />
                     <span className="font-display text-lg text-ink">{meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-mute">
@@ -254,9 +255,9 @@ export async function SignedInHome() {
                     </div>
                     <p className="mt-0.5 text-sm text-mute">
                       {completed ? (
-                        <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={13} className="text-success" /> Completed a {meta.emoji} {meta.name} match</span>
+                        <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={13} className="text-success" /> Completed a <SportIcon sport={m.sport_key} variant="badge" size={13} /> {meta.name} match</span>
                       ) : (
-                        <>Organized a {meta.emoji} {meta.name} {m.format === "doubles" ? "doubles" : "singles"} match</>
+                        <>Organized a <SportIcon sport={m.sport_key} variant="badge" size={13} /> {meta.name} {m.format === "doubles" ? "doubles" : "singles"} match</>
                       )}
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">

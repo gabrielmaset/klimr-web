@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Users, Crown, ChevronRight, Plus, Trophy, Building2, CalendarPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { SportDot } from "@/components/sport-chip";
+import { SportIcon } from "@/components/sport-icons";
 import { TeamCrest } from "@/components/team-crest";
 import { respondTeamInvite, searchTeams } from "./actions";
 import { TeamDiscovery } from "./team-discovery";
@@ -152,7 +152,7 @@ export default async function TeamsPage() {
                   {/* sport badge + role */}
                   <div className="flex items-center justify-between gap-2 px-4 pt-3.5">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/[0.04] px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
-                      <SportDot sport={t.sport_key} />
+                      <SportIcon sport={t.sport_key} variant="badge" size={13} />
                       {meta.name}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-mute">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SportIcon } from "@/components/sport-icons";
 import { Lock, Send, ShieldCheck } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/client";
@@ -322,7 +323,7 @@ export function ChatRoom({
       <div className="flex items-center gap-3 border-b border-rule-soft bg-surface px-4 py-3">
         <BackButton fallback="/chats" label="" ariaLabel="Back to chats" className="press text-mute hover:text-ink" size={20} />
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] text-base" style={{ background: SPORT_TONES[sportSlug(match.sport_key)]?.bg ?? "var(--color-bg)", border: `1px solid ${SPORT_TONES[sportSlug(match.sport_key)]?.bd ?? "var(--color-rule)"}` }} aria-hidden>
-          {meta.emoji}
+          <SportIcon sport={match.sport_key} variant="glyph" size={22} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold text-ink">

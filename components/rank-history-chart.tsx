@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { SportIcon } from "@/components/sport-icons";
 import { TrendingUp } from "lucide-react";
 import { sportMeta, sportSlug } from "@/lib/sports";
 
@@ -171,7 +172,7 @@ export function RankHistoryChart({ bySport, nowMs }: Props) {
               className={`press rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors ${on ? "border-transparent text-ink" : "border-rule-2 bg-surface text-mute"}`}
               style={on ? { background: `color-mix(in oklab, var(--color-sport-${sportSlug(k)}) 20%, transparent)` } : undefined}
             >
-              {m.emoji} {m.name}
+              <SportIcon sport={k} variant="badge" size={13} className="mr-1" />{m.name}
             </button>
           );
         })}

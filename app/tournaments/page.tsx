@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Trophy, Plus, MapPin, CalendarClock, Sparkles, Search, Navigation, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { lookupZip, suggestCities, milesBetween } from "@/lib/us-places";
 import { WithdrawEntryButton } from "@/components/withdraw-entry-button";
 import { normalizeGallery, type GalleryItem } from "@/lib/tournament";
@@ -77,7 +78,6 @@ function CardMedia({
   cover,
   logo,
   sportKey,
-  emoji,
   statusKey,
   promoted,
   miles,
@@ -88,7 +88,6 @@ function CardMedia({
   cover: string | null;
   logo: string | null;
   sportKey: string;
-  emoji: string;
   statusKey: string | null;
   promoted?: boolean;
   miles?: number | null;
@@ -105,7 +104,7 @@ function CardMedia({
     : { background: sportGrad(sportKey) };
   return (
     <div className={`relative w-full overflow-hidden bg-cover bg-center ${className}`} style={coverStyle}>
-      {!cover ? <span className="pointer-events-none absolute inset-0 grid place-items-center text-[88px] opacity-25">{emoji}</span> : null}
+      {!cover ? <span className="pointer-events-none absolute inset-0 grid place-items-center opacity-25"><SportIcon sport={sportKey} variant="glyph" size={150} /></span> : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-black/10" />
 
       <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
@@ -125,7 +124,7 @@ function CardMedia({
 
       <div className="absolute inset-x-3 bottom-3 flex items-center gap-2">
         <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-ink backdrop-blur-sm">
-          <span>{emoji}</span> {sportMeta(sportKey).name}
+          <SportIcon sport={sportKey} variant="badge" size={14} /> {sportMeta(sportKey).name}
         </span>
         {date ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
@@ -140,13 +139,12 @@ function CardMedia({
 
 /** Public tournament card (links to the public page). */
 function PhotoCard({ t, miles }: { t: PubRow; miles: number | null }) {
-  const meta = sportMeta(t.sport_key);
   const place = t.location_name || t.location_address;
   const lead = leadPhoto(t.format_config);
   const cover = lead?.url ?? coverUrl(t.cover_path);
   return (
     <Link href={`/e/${t.code}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
-      <CardMedia cover={cover} crop={lead} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} promoted={t.promoted} miles={miles} date={fmtDate(t.starts_at)} />
+      <CardMedia cover={cover} crop={lead} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} statusKey={t.status} promoted={t.promoted} miles={miles} date={fmtDate(t.starts_at)} />
       <div className="flex flex-1 flex-col p-4">
         <h3 className="truncate text-base font-bold text-ink">{t.title}</h3>
         {place ? (
@@ -269,14 +267,14 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
         <section className="mb-9">
           <Link href={`/e/${hero.code}`} className="group relative block overflow-hidden rounded-3xl border border-rule">
             <div className="relative h-64 w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.02] sm:h-80" style={coverUrl(hero.cover_path) ? { backgroundImage: `url("${coverUrl(hero.cover_path)}")` } : { background: sportGrad(hero.sport_key) }}>
-              {!coverUrl(hero.cover_path) ? <span className="pointer-events-none absolute inset-0 grid place-items-center text-[160px] opacity-20">{sportMeta(hero.sport_key).emoji}</span> : null}
+              {!coverUrl(hero.cover_path) ? <span className="pointer-events-none absolute inset-0 grid place-items-center opacity-20"><SportIcon sport={hero.sport_key} variant="hero" size={235} /></span> : null}
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
               <span className="absolute left-5 top-5 inline-flex items-center gap-1 rounded-full bg-brand px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow">
                 <Sparkles size={12} /> Featured
               </span>
               <div className="absolute inset-x-5 bottom-5 text-white sm:inset-x-7 sm:bottom-7">
                 <p className="kicker text-white/80">
-                  {sportMeta(hero.sport_key).emoji} {sportMeta(hero.sport_key).name}
+                  <SportIcon sport={hero.sport_key} variant="badge" size={15} /> {sportMeta(hero.sport_key).name}
                 </p>
                 <h2 className="mt-1 font-display text-2xl leading-tight sm:text-4xl">{hero.title}</h2>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/90">
@@ -367,12 +365,11 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           <h2 className="kicker mb-4 text-faint">Your entries</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {myEntries.map((e) => {
-              const meta = sportMeta(e.sport_key);
               const wl = e.status === "waitlisted";
               return (
                 <div key={e.regId} className="flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
                   <Link href={`/e/${e.code}`} className="group block">
-                    <CardMedia cover={leadPhoto(e.format_config)?.url ?? coverUrl(e.cover_path)} crop={leadPhoto(e.format_config)} logo={null} sportKey={e.sport_key} emoji={meta.emoji} statusKey={null} date={fmtDate(e.starts_at)} className="aspect-[16/9]" />
+                    <CardMedia cover={leadPhoto(e.format_config)?.url ?? coverUrl(e.cover_path)} crop={leadPhoto(e.format_config)} logo={null} sportKey={e.sport_key} statusKey={null} date={fmtDate(e.starts_at)} className="aspect-[16/9]" />
                   </Link>
                   <div className="flex flex-1 flex-col p-4">
                     <Link href={`/e/${e.code}`} className="truncate text-sm font-bold text-ink hover:underline">
@@ -399,10 +396,9 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           <h2 className="kicker mb-4 text-faint">Organizing</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {organizing.map((t) => {
-              const meta = sportMeta(t.sport_key);
               return (
                 <Link key={t.id} href={`/tournament/${t.id}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
-                  <CardMedia cover={leadPhoto(t.format_config)?.url ?? coverUrl(t.cover_path)} crop={leadPhoto(t.format_config)} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} emoji={meta.emoji} statusKey={t.status} date={fmtDate(t.starts_at)} className="aspect-[16/9]" />
+                  <CardMedia cover={leadPhoto(t.format_config)?.url ?? coverUrl(t.cover_path)} crop={leadPhoto(t.format_config)} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} statusKey={t.status} date={fmtDate(t.starts_at)} className="aspect-[16/9]" />
                   <div className="flex flex-1 flex-col p-4">
                     <h3 className="truncate text-sm font-bold text-ink">{t.title}</h3>
                     <p className="mt-0.5 truncate text-xs text-mute">/e/{t.code}</p>

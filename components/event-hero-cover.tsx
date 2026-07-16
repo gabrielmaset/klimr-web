@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { SportIcon } from "@/components/sport-icons";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { MediaCropper, type MediaCropResult } from "@/components/media-cropper";
@@ -12,13 +13,13 @@ export function EventHeroCover({
   eventId,
   initialUrl,
   canEdit,
-  emoji,
+  sportKey,
   children,
 }: {
   eventId: string;
   initialUrl: string | null;
   canEdit: boolean;
-  emoji: string;
+  sportKey: string;
   children: React.ReactNode;
 }) {
   const [url, setUrl] = useState(initialUrl);
@@ -72,7 +73,7 @@ export function EventHeroCover({
         </div>
       ) : (
         <div className="absolute inset-0 bg-[linear-gradient(135deg,#0e2c3a,#0a212c)]">
-          <span aria-hidden className="pointer-events-none absolute -right-8 -top-12 select-none text-[190px] leading-none opacity-[0.08]">{emoji}</span>
+          <span aria-hidden className="pointer-events-none absolute -right-10 -top-14 select-none opacity-[0.09]"><SportIcon sport={sportKey} variant="hero" size={265} /></span>
           <span aria-hidden className="pointer-events-none absolute -left-16 bottom-0 h-64 w-64 rounded-full bg-brand/25 blur-3xl" />
           <span aria-hidden className="pointer-events-none absolute right-10 top-1/3 h-40 w-40 rounded-full bg-[#16a34a]/15 blur-3xl" />
         </div>

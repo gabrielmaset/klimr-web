@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Heart, ShieldCheck, BadgeCheck, Flag } from "lucide-react";
@@ -46,7 +47,6 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
 
   const sport = l.sport_key ?? "multi";
   const tone = sport === "multi" ? MULTI_TONE : (SPORT_TONES[sportSlug(sport)] ?? MULTI_TONE);
-  const emoji = sport === "multi" ? "🏅" : sportMeta(sport).emoji;
   const photos = (l.photos ?? []).map((p) => supabase.storage.from("listing-photos").getPublicUrl(p).data.publicUrl);
   // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now();
@@ -96,7 +96,7 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
 
       <div className="mt-4 grid items-start gap-7 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         {/* gallery */}
-        <ListingGallery photos={photos} alt={l.title} fallbackEmoji={emoji} fallbackBg={tone.bg} />
+        <ListingGallery photos={photos} alt={l.title} fallback={sport === "multi" ? <span className="text-6xl">🏅</span> : <SportIcon sport={sport} variant="glyph" size={76} />} fallbackBg={tone.bg} />
 
         {/* facts column */}
         <div className="min-w-0">

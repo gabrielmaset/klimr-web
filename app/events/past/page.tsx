@@ -44,7 +44,7 @@ export default async function PastEventsPage() {
       return {
         id: e.id,
         href: `/events/${e.id}`,
-        emoji: meta.emoji,
+        sportKey: e.sport_key,
         title: e.title,
         sub: `${fmtDate(e.starts_at)} · ${meta.name}${e.location_text ? ` · ${e.location_text}` : ""}`,
         role: e.created_by === uid ? "Organizer" : adminIds.has(e.id) ? "Admin" : "Attended",

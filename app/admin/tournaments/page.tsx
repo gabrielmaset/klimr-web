@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SportIcon } from "@/components/sport-icons";
 import { requireAdmin, atLeast } from "@/lib/admin";
 import { sportMeta } from "@/lib/sports";
 import { suspendTournament, restoreTournament } from "../actions";
@@ -70,7 +71,7 @@ export default async function AdminTournaments() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-lg">{meta.emoji}</span>
+                      <SportIcon sport={t.sport_key} variant="glyph" size={22} />
                       <span className="font-display text-lg text-ink">{t.title}</span>
                       <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[t.status] ?? "var(--color-mute)" }}>
                         {t.status}

@@ -54,7 +54,7 @@ export default async function PastClassesPage() {
       return {
         id: c.id,
         href: `/classes/${c.id}`,
-        emoji: meta.emoji,
+        sportKey: c.sport_key,
         title: c.title,
         sub: `${last ? fmtDate(last) : "No sessions"} · ${meta.name}`,
         role: c.provider_id === uid ? "Host" : "Attended",

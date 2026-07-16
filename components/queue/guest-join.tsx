@@ -5,6 +5,7 @@ import { Crown, Plus, MapPin, Check, Loader2, Radio, Clock, Users } from "lucide
 import type { QSessionState, QTeam, QCourtState } from "@/lib/queue";
 import { formationLabel, levelLabel } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { useQueueState } from "@/components/queue/use-queue-state";
 import { joinCourtGuest, joinCourtFullTeam } from "@/app/queue/actions";
 
@@ -138,7 +139,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         {/* header */}
         <div className="relative overflow-hidden rounded-[1.75rem] border border-rail-border bg-[linear-gradient(135deg,#1c1147,#0a0f1f)] px-6 py-8 text-white shadow-lg sm:px-8">
-          <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none text-[150px] leading-none opacity-[0.08]">{meta.emoji}</span>
+          <span aria-hidden className="pointer-events-none absolute -right-8 -top-12 select-none opacity-[0.1]"><SportIcon sport={session.sportKey} variant="hero" size={210} /></span>
           <span aria-hidden className="pointer-events-none absolute -left-12 bottom-0 h-44 w-44 rounded-full bg-brand/25 blur-3xl" />
           {open ? (
             <span className="absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-bold uppercase tracking-wide shadow">
@@ -150,7 +151,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
             </span>
           ) : null}
           <div className="relative flex items-center gap-4">
-            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/12 text-4xl backdrop-blur">{meta.emoji}</div>
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/12 backdrop-blur"><SportIcon sport={session.sportKey} variant="glyph" size={42} /></div>
             <div className="min-w-0">
               <h1 className="font-display text-3xl leading-tight sm:text-4xl">{session.title}</h1>
               <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-white/55">{meta.name} · walk-up sign-up</p>

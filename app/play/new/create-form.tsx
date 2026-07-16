@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { createMatch } from "./actions";
 import { SPORTS } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { CourtPicker } from "./court-picker";
 import { DateTimePicker } from "./datetime-picker";
 import { JoinSuggest } from "./join-suggest";
@@ -60,7 +61,9 @@ export function CreateMatchForm({
                     aria-pressed={on}
                     className={`press rounded-2xl border px-2 py-3 text-center transition-all ${on ? "-translate-y-0.5 border-[#FFD4BC] bg-tint-brand shadow-[0_10px_28px_-18px_rgba(90,68,35,.45)] ring-2 ring-brand/25" : "border-rule bg-surface hover:-translate-y-0.5 hover:border-rule-2 hover:shadow-e1"}`}
                   >
-                    <span className={`block text-[22px] leading-none transition-transform ${on ? "scale-110" : ""}`} aria-hidden>{s.emoji}</span>
+                    <span className={`grid place-items-center transition-transform ${on ? "scale-110" : ""}`} aria-hidden>
+                      <SportIcon sport={s.key} variant="glyph" size={34} />
+                    </span>
                     <span className={`mt-1.5 block text-xs font-bold ${on ? "text-brand-deep" : "text-ink-soft"}`}>{s.name}</span>
                   </button>
                 );

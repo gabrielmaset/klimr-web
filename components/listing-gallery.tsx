@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function ListingGallery({ photos, alt, fallbackEmoji, fallbackBg }: { photos: string[]; alt: string; fallbackEmoji: string; fallbackBg: string }) {
+export function ListingGallery({ photos, alt, fallback, fallbackBg }: { photos: string[]; alt: string; fallback: React.ReactNode; fallbackBg: string }) {
   const [idx, setIdx] = useState(0);
 
   return (
@@ -12,7 +12,7 @@ export function ListingGallery({ photos, alt, fallbackEmoji, fallbackBg }: { pho
           // eslint-disable-next-line @next/next/no-img-element
           <img src={photos[Math.min(idx, photos.length - 1)]} alt={alt} className="h-full w-full object-cover" />
         ) : (
-          <span className="grid h-full w-full place-items-center text-6xl" aria-hidden>{fallbackEmoji}</span>
+          <span className="grid h-full w-full place-items-center" aria-hidden>{fallback}</span>
         )}
       </div>
       {photos.length > 1 ? (

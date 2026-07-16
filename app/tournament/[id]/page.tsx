@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SportIcon } from "@/components/sport-icons";
 import { redirect, notFound } from "next/navigation";
 import {
   CalendarClock, MapPin, Globe, ArrowRight, Users, UserCheck, CreditCard,
@@ -221,7 +222,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {/* compact header */}
       <div className="relative overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(135deg,#0e2c3a,#0a212c)] p-5 sm:p-6">
-        <span aria-hidden className="pointer-events-none absolute -right-4 -top-8 select-none text-[130px] leading-none opacity-[0.06]">{meta.emoji}</span>
+        <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none opacity-[0.07]"><SportIcon sport={t.sport_key} variant="hero" size={190} /></span>
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -164,7 +165,7 @@ export default async function AccountPage({
                 <div id="email" className="scroll-mt-24 font-mono text-[12px] text-mute">{user.email}</div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
                   <span className="inline-flex items-center gap-1">
-                    <span aria-hidden>{primary.emoji}</span>
+                    <SportIcon sport={primary.key} variant="badge" size={15} />
                     {primary.name}
                   </span>
                   <span className="inline-flex items-center gap-1">

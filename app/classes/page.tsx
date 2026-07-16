@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GraduationCap, MapPin, Plus, CalendarDays } from "lucide-react";
@@ -45,7 +46,7 @@ function ClassCard({ c, nextStart }: { c: Cls; nextStart?: string }) {
   return (
     <Link href={`/classes/${c.id}`} className="lift block rounded-2xl border border-rule bg-surface shadow-e1 p-4">
       <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sport_key)}) 16%, transparent)` }}>{m.emoji}</span>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(c.sport_key)}) 16%, transparent)` }}><SportIcon sport={c.sport_key} variant="glyph" size={28} /></span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="kicker text-brand-deep">{m.name}</span>
@@ -299,10 +300,9 @@ export default async function ClassesPage() {
           <h2 className="mb-3 text-sm font-semibold text-mute">Your upcoming classes</h2>
           <div className="space-y-2.5">
             {upcoming.map((u) => {
-              const m = sportMeta(u.sportKey);
               return (
                 <Link key={u.enrollmentId} href={`/classes/${u.classId}`} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(u.sportKey)}) 16%, transparent)` }}>{m.emoji}</span>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(u.sportKey)}) 16%, transparent)` }}><SportIcon sport={u.sportKey} variant="glyph" size={26} /></span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-bold text-ink">{u.title}</div>
                     <div className="text-xs text-mute">

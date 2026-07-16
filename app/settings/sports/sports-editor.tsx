@@ -16,6 +16,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { sportMeta } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
 import { saveSports, type EditState } from "../actions";
 
 const SPORT_KEYS = ["tennis", "pickleball", "padel", "racquetball"];
@@ -67,7 +68,7 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
                   onChange={(e) => set(k, { on: e.target.checked })}
                   className="h-4 w-4 accent-brand"
                 />
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-lg" aria-hidden>{meta.emoji}</span>
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg" aria-hidden><SportIcon sport={k} variant="glyph" size={24} /></span>
                 <span className="flex-1 text-sm font-bold text-ink">{meta.name}</span>
                 {on && k === effPrimary ? (
                   <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Default</span>

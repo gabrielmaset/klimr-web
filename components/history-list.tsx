@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { SportIcon } from "@/components/sport-icons";
 
-export type HistoryRow = { id: string; href: string; emoji: string; title: string; sub: string; role: string; cancelled: boolean };
+export type HistoryRow = { id: string; href: string; sportKey: string; title: string; sub: string; role: string; cancelled: boolean };
 
 /** The shared past-items list used by /events/past, /classes/past, and /tournaments/past. */
 export function HistoryList({ rows, emptyText }: { rows: HistoryRow[]; emptyText: string }) {
@@ -11,7 +12,7 @@ export function HistoryList({ rows, emptyText }: { rows: HistoryRow[]; emptyText
     <div className="grid gap-3">
       {rows.map((r) => (
         <Link key={r.id} href={r.href} className="lift flex items-center gap-3 rounded-2xl border border-rule bg-surface shadow-e1 p-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bg text-lg">{r.emoji}</span>
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bg"><SportIcon sport={r.sportKey} variant="glyph" size={28} /></span>
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
               <span className="truncate text-sm font-bold text-ink">{r.title}</span>

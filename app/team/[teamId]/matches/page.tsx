@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { SportIcon } from "@/components/sport-icons";
 import { CalendarClock, Trophy, MapPin, Swords, Inbox, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
@@ -90,7 +91,7 @@ export default async function TeamMatches({ params }: { params: Promise<{ teamId
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-lg" aria-hidden>{meta.emoji}</span>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg" aria-hidden><SportIcon sport={meta.key} variant="glyph" size={24} /></span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-ink">
                   {m.home_team_id === teamId ? "vs " : "at "}{nameOf(opponentId)}

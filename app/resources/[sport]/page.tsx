@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Users, Maximize, Backpack } from "lucide-react";
@@ -50,8 +51,8 @@ export default async function SportGuidePage({ params }: { params: Promise<{ spo
         <div className="min-w-0">
           <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Playbook — {meta.name}</p>
           <h1 className="mt-1.5 flex items-center gap-3 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">
-            <span className="grid h-12 w-12 place-items-center rounded-[14px] text-2xl" style={{ background: tone?.bg, border: `1px solid ${tone?.bd}` }} aria-hidden>
-              {meta.emoji}
+            <span className="grid h-12 w-12 place-items-center rounded-[14px]" style={{ background: tone?.bg, border: `1px solid ${tone?.bd}` }} aria-hidden>
+              <SportIcon sport={sport} variant="glyph" size={32} />
             </span>
             {meta.name}
           </h1>

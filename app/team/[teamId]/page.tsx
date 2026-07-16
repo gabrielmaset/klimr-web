@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SportIcon } from "@/components/sport-icons";
 import { redirect } from "next/navigation";
 import { Users, MapPin, IdCard, CalendarClock, MessageCircle, UserPlus, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -62,10 +63,10 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       {/* cover hero */}
       <div className="relative overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(135deg,#0e2c3a,#0a212c)] p-5 sm:p-7">
-        <span aria-hidden className="pointer-events-none absolute -right-4 -top-8 select-none text-[150px] leading-none opacity-[0.07]">{meta.emoji}</span>
+        <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none opacity-[0.08]"><SportIcon sport={team.sport_key} variant="hero" size={210} /></span>
         <span aria-hidden className="pointer-events-none absolute -left-10 bottom-0 h-44 w-44 rounded-full bg-brand/20 blur-3xl" />
         <div className="relative flex items-center gap-4">
-          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl bg-white text-3xl shadow-[0_8px_20px_-8px_rgba(0,0,0,0.5)]">{meta.emoji}</span>
+          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl bg-white shadow-[0_8px_20px_-8px_rgba(0,0,0,0.5)]"><SportIcon sport={team.sport_key} variant="glyph" size={42} /></span>
           <div className="min-w-0">
             <p className="kicker text-rail-active">Team workspace</p>
             <h1 className="truncate font-display text-3xl leading-tight text-white sm:text-4xl">{team.name}</h1>

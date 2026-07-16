@@ -1,10 +1,10 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { LayoutDashboard, IdCard, Users, CalendarClock, MessageCircle, ChevronLeft } from "lucide-react";
 import { Avatar } from "@/components/avatar";
-import { sportMeta } from "@/lib/sports";
 
 type Team = { id: string; name: string; sport_key: string; category?: string };
 type Personal = { url: string | null; hue: number; name: string };
@@ -22,7 +22,6 @@ export function TeamNav({
 }) {
   const pathname = usePathname();
   const base = `/team/${team.id}`;
-  const meta = sportMeta(team.sport_key);
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
   const others = teams.filter((t) => t.id !== team.id);
 
@@ -41,7 +40,7 @@ export function TeamNav({
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
         <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
           <div className="flex items-center gap-3 rounded-2xl border border-rail-border bg-white/[0.05] p-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-2xl">{meta.emoji}</span>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white"><SportIcon sport={team.sport_key} variant="glyph" size={30} /></span>
             <div className="min-w-0">
               <p className="kicker text-rail-muted">Team workspace</p>
               <p className="truncate text-sm font-bold text-rail-fg">{team.name}</p>
@@ -73,7 +72,7 @@ export function TeamNav({
                 <p className="kicker mb-1 px-3 text-rail-muted">Switch team</p>
                 {others.map((t) => (
                   <Link key={t.id} href={t.category === "pro" ? `/team/${t.id}` : `/teams/${t.id}`} className="flex h-9 items-center gap-2.5 rounded-xl px-3 text-sm font-medium text-rail-fg transition-colors hover:bg-rail-hover hover:text-white">
-                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-white/10 text-[11px]">{sportMeta(t.sport_key).emoji}</span>
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-white/10"><SportIcon sport={t.sport_key} variant="badge" size={14} /></span>
                     <span className="truncate">{t.name}</span>
                   </Link>
                 ))}
@@ -95,7 +94,7 @@ export function TeamNav({
       {/* mobile top bar */}
       <header className="pt-safe px-safe sticky top-0 z-40 border-b border-rule bg-surface md:hidden">
         <div className="flex items-center gap-3 px-4 py-2.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-tint-brand text-lg">{meta.emoji}</span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-tint-brand"><SportIcon sport={team.sport_key} variant="glyph" size={24} /></span>
           <div className="min-w-0 flex-1">
             <p className="kicker leading-tight text-brand-deep">Team</p>
             <p className="truncate text-sm font-bold leading-tight text-ink">{team.name}</p>

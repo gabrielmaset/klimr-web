@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SportIcon } from "@/components/sport-icons";
 import { notFound } from "next/navigation";
 import { CalendarClock, Users, Trophy, Check, Dices, Megaphone, Pin, RotateCcw, Hourglass, MapPin, CloudSun, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Droplets, Wind, Clock, Crown, Ticket, ArrowUpRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -375,7 +376,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
         <div className="absolute inset-0" style={{ background: "linear-gradient(180deg,rgba(20,23,14,.35) 0%,rgba(20,23,14,.88) 100%)" }} />
         <div className="relative mx-auto max-w-[1200px] px-5 pb-14 pt-16 sm:px-8 sm:pb-16 sm:pt-24">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm"><span aria-hidden>{meta.emoji}</span> {meta.name}</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm"><SportIcon sport={meta.key} variant="badge" size={14} /> {meta.name}</span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm"><Users size={13} /> {t.entry_type === "team" ? "Team event" : "Individual event"}</span>
             {canSignUp ? (
               <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: toneSolid, boxShadow: `0 2px 10px ${toneShadow}` }}>
