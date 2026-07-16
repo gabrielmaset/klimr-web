@@ -166,6 +166,17 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-15 — Rating field: hide when the sport has no system + spaced layout
+- Beach volleyball's sports.skill_system = 'NONE' leaked as a literal "NONE · optional"
+  label (iPad screenshot). BV has no numeric self-rating (CBVA divisions are letters) →
+  new hasRatingSystem() in sport-play-options hides the input entirely for null/'NONE';
+  tennis NTRP / pickleball DUPR / padel Level / racquetball USAR keep theirs, now labeled
+  "<SYSTEM> rating" with a helper line. Settings sports editor mirrors via a local
+  SKILL_SYSTEM map (client-only surface) — hidden for BV there too.
+- Layout: the rating field left the cramped inline actions row — it's its own block
+  (OptionGroup-style label, "· optional" properly spaced, w-32 input, helper text);
+  Add/Cancel sit on their own row beneath.
+
 ### 2026-07-15 — Wizard photo block: uploader owns the row
 - AvatarUploader renders its own complete row (avatar + camera badge + "Add a photo" +
   trust copy), so wrapping it in a flex beside a duplicate title crushed the right column

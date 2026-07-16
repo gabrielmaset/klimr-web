@@ -1,6 +1,16 @@
 "use client";
 
-import { sportFormats } from "@/lib/sport-play-options";
+import { sportFormats, hasRatingSystem } from "@/lib/sport-play-options";
+
+// Mirrors sports.skill_system in the DB (the wizard reads it live; this
+// editor is client-only, so the map keeps the two surfaces consistent).
+const SKILL_SYSTEM: Record<string, string | null> = {
+  tennis: "NTRP",
+  pickleball: "DUPR",
+  padel: "Level",
+  racquetball: "USAR",
+  beach_volleyball: null,
+};
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
@@ -77,14 +87,16 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
                     ))}
                     {sportFormats(k).some((f) => f.value === s.format) ? null : <option value={s.format}>{s.format}</option>}
                   </select>
-                  <input
-                    value={s.rating}
-                    onChange={(e) => set(k, { rating: e.target.value })}
-                    placeholder="Rating (e.g. 4.0)"
-                    inputMode="decimal"
-                    className={`${selCls} w-32 placeholder:text-faint`}
-                    aria-label="Self rating"
-                  />
+                  {hasRatingSystem(SKILL_SYSTEM[k]) ? (
+                    <input
+                      value={s.rating}
+                      onChange={(e) => set(k, { rating: e.target.value })}
+                      placeholder={`${SKILL_SYSTEM[k]} (e.g. 4.0)`}
+                      inputMode="decimal"
+                      className={`${selCls} w-36 placeholder:text-faint`}
+                      aria-label={`${SKILL_SYSTEM[k]} rating`}
+                    />
+                  ) : null}
                   {k !== effPrimary ? (
                     <button type="button" onClick={() => setPrimary(k)} className="press ml-auto text-xs font-semibold text-brand-deep hover:underline">
                       Make default

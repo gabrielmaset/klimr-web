@@ -43,3 +43,11 @@ export function playFormatLabel(sportKey: string, value: string): string {
   if (value === "both") return sportKey === "beach_volleyball" ? "Any size" : "Both";
   return value;
 }
+
+/** Some sports have no numeric self-rating system (beach volleyball's CBVA
+ *  divisions are letters, not numbers) — their DB rows carry 'NONE' or null.
+ *  Hide the rating input entirely for those. */
+export function hasRatingSystem(skillSystem: string | null | undefined): boolean {
+  if (!skillSystem) return false;
+  return skillSystem.trim().toLowerCase() !== "none";
+}

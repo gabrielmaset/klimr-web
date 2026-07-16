@@ -6,7 +6,7 @@ import { Check, Pencil, Plus, ShieldCheck, Star, X } from "lucide-react";
 import { saveProfile, type WizardState } from "./actions";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { ageFromDob } from "@/lib/age";
-import { sportFormats, sportFormatFixed, sportHandLabel, playFormatLabel } from "@/lib/sport-play-options";
+import { sportFormats, sportFormatFixed, sportHandLabel, playFormatLabel, hasRatingSystem } from "@/lib/sport-play-options";
 
 /* ---------- vocabulary ---------- */
 
@@ -580,17 +580,23 @@ export function OnboardingWizard({
                           </OptionGroup>
                         </div>
                       </div>
-                      <div className="mt-5 flex flex-wrap items-end gap-4">
-                        <label className="block">
-                          <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">{configMeta.skill_system ?? "Rating"} <span className="font-semibold normal-case tracking-normal text-faint/80">· optional</span></span>
+                      {hasRatingSystem(configMeta.skill_system) ? (
+                        <div className="mt-5">
+                          <p className="mb-1.5 text-[13px] font-bold uppercase tracking-[.08em] text-faint">
+                            {configMeta.skill_system} rating
+                            <span className="ml-1.5 font-semibold normal-case tracking-normal text-faint/80">· optional</span>
+                          </p>
                           <input
                             value={draft.rating}
                             onChange={(e) => setDraft((d) => ({ ...d, rating: e.target.value.replace(/[^\d.]/g, "").slice(0, 4) }))}
                             inputMode="decimal"
                             placeholder={RATING_HINT[configMeta.skill_system ?? ""] ?? "e.g. 4.0"}
-                            className="mt-1.5 w-28 rounded-xl border border-rule-2 bg-surface px-3 py-2.5 font-mono text-[16px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
+                            className="w-32 rounded-xl border border-rule-2 bg-surface px-3.5 py-2.5 font-mono text-[16px] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
                           />
-                        </label>
+                          <p className="mt-1 text-[12.5px] text-mute">Know your {configMeta.skill_system}? Add it — leave it blank if not.</p>
+                        </div>
+                      ) : null}
+                      <div className="mt-5 flex flex-wrap items-center gap-4">
                         <button type="button" onClick={commitConfig} className="press inline-flex items-center gap-1.5 rounded-xl px-5 py-3 text-[15px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
                           <Check size={16} strokeWidth={3} /> {picked[configuring] ? `Save ${configMeta.name}` : `Add ${configMeta.name} to my lineup`}
                         </button>
