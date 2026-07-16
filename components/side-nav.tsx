@@ -172,7 +172,7 @@ export function SideNav({
   };
 
   return (
-    <aside ref={asideRef} className={`group/rail relative sticky top-0 z-[45] hidden h-dvh shrink-0 self-start py-3.5 pl-3.5 transition-[width] duration-200 md:block ${overlayMode ? "w-[76px]" : collapsed ? "w-[76px]" : "w-[248px]"}`}>
+    <aside ref={asideRef} className={`group/rail relative sticky top-[var(--topbar-h,0px)] z-[45] hidden h-[calc(100dvh-var(--topbar-h,0px))] shrink-0 self-start py-3.5 pl-3.5 transition-[width] duration-200 md:block ${overlayMode ? "w-[76px]" : collapsed ? "w-[76px]" : "w-[248px]"}`}>
       <div
         className={`flex flex-col rounded-[22px] border border-rule bg-white/[0.66] pb-3 pt-5 backdrop-blur-[14px] transition-[width,box-shadow] duration-200 ${collapsed ? "px-2" : "px-3"} ${
           overlayMode && overlayOpen ? "absolute inset-y-3.5 left-3.5 z-10 w-[234px] shadow-e3" : "relative h-full w-auto shadow-bar"

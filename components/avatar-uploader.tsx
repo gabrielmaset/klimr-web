@@ -14,11 +14,13 @@ export function AvatarUploader({
   hue,
   name,
   size = 80,
+  onUploaded,
 }: {
   initialPhotoUrl: string | null;
   hue: number;
   name: string;
   size?: number;
+  onUploaded?: (url: string) => void;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -60,6 +62,7 @@ export function AvatarUploader({
       const { url } = await commitAvatar(path);
       // Cache-bust so the freshly committed object renders immediately.
       setPhotoUrl(`${url}?v=${Date.now()}`);
+      onUploaded?.(url);
       setStatus("idle");
       router.refresh();
     } catch {

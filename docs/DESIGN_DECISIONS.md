@@ -166,6 +166,26 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-15 — iPad round: six fixes (chrome, sport truth, seam, cropper)
+- **Onboarding is chrome-less** until finished: "onboarding" joined STANDALONE_SECTIONS
+  (nav-chrome) — no rail/top bar during signup; /onboarding only serves incomplete
+  profiles (edit mode redirects to settings), so the rule is unconditional.
+- **Per-sport play truth** — new lib/sport-play-options.ts, one source for wizard AND
+  settings/sports editor: beach volleyball = Team size 2s/3s/4s/Any + "Dominant hand"
+  (no racquets, no singles); padel = doubles-only (locked, playful note); pickleball =
+  "Paddle hand"; tennis/racquetball keep Singles/Doubles/Both + "Racquet hand".
+  playFormatLabel maps legacy 'both' for BV to "Any size". DB vocab unchanged.
+- **Summary chips**: step-1 rail card shows ZIP / Born <formatted> / gender as separated
+  bordered chips (no more run-on meta line).
+- **Width rebalance**: journey rail minmax(280,336) · gap-10 — work card wider.
+- **THE SEAM (long-standing)**: TopBar physically lived inside the right column, so its
+  bg-bg strip stopped at the rail gutter. Restructured app-chrome: MobileTopBar + TopBar
+  are now full-width rows ABOVE the [SideNav | content] row; TopBar self-measures into
+  --topbar-h (ResizeObserver → documentElement), SideNav sticks at
+  top-[var(--topbar-h)] with h-[calc(100dvh-var(--topbar-h))]. No hardcoded px.
+- **Wizard uses the real AvatarUploader** (crop dialog, optimistic preview, remove) —
+  gained an optional onUploaded callback so the journey rail's summary shows the photo.
+
 ### 2026-07-15 — Events: no capacity cap, ever (host-optional only)
 - Superseding the 12→40 change same-day: the community-bounds capacity clamp is REMOVED
   entirely. Capacity defaults to unlimited (null); the host may set a number in event

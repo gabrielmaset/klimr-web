@@ -171,6 +171,21 @@ export function TopBar({
   nextMatch: NextMatch;
   teams: { id: string; name: string; sport_key: string; category: string }[];
 }) {
+  // Publish the bar's height so the rail below can start exactly beneath it.
+  const barRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const apply = () => document.documentElement.style.setProperty("--topbar-h", `${el.offsetHeight}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--topbar-h");
+    };
+  }, []);
+
   const [mode, setMode] = useState<PresenceMode>(presenceMode);
   const [seenProp, setSeenProp] = useState<PresenceMode>(presenceMode);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -218,7 +233,7 @@ export function TopBar({
   const proTeams = teams.filter((t) => t.category === "pro");
 
   return (
-    <div className="print:hidden sticky top-0 z-40 hidden bg-bg px-[22px] pb-2.5 pt-3.5 md:block">
+    <div ref={barRef} className="print:hidden sticky top-0 z-40 hidden bg-bg px-[22px] pb-2.5 pt-3.5 md:block">
     <header className="flex items-center gap-[9px] rounded-2xl border border-rule bg-[#FFFDF8] px-3 py-[9px] shadow-bar">
         {/* Inline search — type here, results drop down below (no modal) */}
         <TopSearch />

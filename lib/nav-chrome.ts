@@ -15,7 +15,7 @@
  * failure mode where the shell stayed hidden after navigating out of /e/... into
  * the app.
  */
-export const STANDALONE_SECTIONS: readonly string[] = ["e", "team", "tournament", "q"];
+export const STANDALONE_SECTIONS: readonly string[] = ["onboarding", "e", "team", "tournament", "q"];
 
 /** True when `pathname`'s first segment is a standalone surface. */
 export function isStandalonePath(pathname: string): boolean {

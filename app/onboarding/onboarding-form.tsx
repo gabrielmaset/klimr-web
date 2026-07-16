@@ -2,11 +2,11 @@
 import { useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
-import { Camera, Check, Loader2, Pencil, Plus, ShieldCheck, Star, X } from "lucide-react";
+import { Check, Pencil, Plus, ShieldCheck, Star, X } from "lucide-react";
 import { saveProfile, type WizardState } from "./actions";
-import { createAvatarUploadUrl, commitAvatar } from "@/app/account/avatar-actions";
-import { createClient } from "@/lib/supabase/client";
+import { AvatarUploader } from "@/components/avatar-uploader";
 import { ageFromDob } from "@/lib/age";
+import { sportFormats, sportFormatFixed, sportHandLabel, playFormatLabel } from "@/lib/sport-play-options";
 
 /* ---------- vocabulary ---------- */
 
@@ -55,11 +55,6 @@ const SPORT_TINT: Record<string, string> = {
   beach_volleyball: "#F3ECFC",
 };
 
-const FORMATS = [
-  { value: "singles", label: "Singles", blurb: "One on one — your game, your board." },
-  { value: "doubles", label: "Doubles", blurb: "Team chemistry and net play." },
-  { value: "both", label: "Both", blurb: "Whatever the court calls for." },
-];
 const STYLES = [
   { value: "social", label: "Mostly social", blurb: "It's about the game and the people." },
   { value: "competitive", label: "Mostly competitive", blurb: "It's about the board." },
@@ -218,7 +213,10 @@ export function OnboardingWizard({
   const [draft, setDraft] = useState<SportConfig>({ level: "casual", primary: false, rating: "", format: "both", hand: "" });
   const openConfig = (key: string) => {
     setStepError(null);
-    setDraft(picked[key] ? { ...picked[key] } : { level: "casual", primary: false, rating: "", format: "both", hand: "" });
+    const fixed = sportFormatFixed(key);
+    const base = picked[key] ? { ...picked[key] } : { level: "casual", primary: false, rating: "", format: fixed ?? (key === "beach_volleyball" ? "any" : "both"), hand: "" };
+    if (fixed) base.format = fixed;
+    setDraft(base);
     setConfiguring(key);
   };
   const commitConfig = () => {
@@ -254,29 +252,8 @@ export function OnboardingWizard({
   const skillSys = (k: string) => sports.find((s) => s.key === k)?.skill_system ?? "Rating";
   const initials = useMemo(() => `${(firstName.trim()[0] ?? "")}${(lastName.trim()[0] ?? "")}`.toUpperCase() || "Y", [firstName, lastName]);
 
-  // ── profile photo ─────────────────────────────────────────────────────
+  // ── profile photo (the shared cropper flow) ───────────────────────────
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  async function onPhoto(file: File | null) {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) return setStepError("Choose an image file.");
-    if (file.size > 5 * 1024 * 1024) return setStepError("Photos need to be under 5 MB.");
-    setStepError(null);
-    setUploading(true);
-    try {
-      const { path, token } = await createAvatarUploadUrl(file.type);
-      const supabase = createClient();
-      const { error } = await supabase.storage.from("avatars").uploadToSignedUrl(path, token, file);
-      if (error) throw error;
-      await commitAvatar(path);
-      setAvatarUrl(supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl);
-    } catch {
-      setStepError("That upload didn't take — try another photo.");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   /* ---- schedule helpers ---- */
   function addRange(day: string) {
@@ -359,10 +336,18 @@ export function OnboardingWizard({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initials}
           </span>
-          <p className="min-w-0 text-[15px] text-ink">
-            <span className="font-bold">{firstName} {lastName}</span>
-            <span className="block truncate text-[13.5px] text-mute">ZIP {zip}{dob ? ` · ${dob}` : ""}{gender ? ` · ${gender.replace(/_/g, " ")}` : ""}</span>
-          </p>
+          <div className="min-w-0">
+            <p className="text-[15px] font-bold text-ink">{firstName} {lastName}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              <span className="rounded-lg border border-[#E0D5BB] bg-surface/70 px-2 py-0.5 font-mono text-[11.5px] font-bold text-ink-soft">ZIP {zip}</span>
+              {dob ? (
+                <span className="rounded-lg border border-[#E0D5BB] bg-surface/70 px-2 py-0.5 text-[11.5px] font-semibold text-ink-soft">
+                  Born {new Date(dob + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+              ) : null}
+              {gender ? <span className="rounded-lg border border-[#E0D5BB] bg-surface/70 px-2 py-0.5 text-[11.5px] font-semibold capitalize text-ink-soft">{gender.replace(/_/g, " ")}</span> : null}
+            </div>
+          </div>
         </div>
       );
     if (i === 1)
@@ -373,7 +358,7 @@ export function OnboardingWizard({
               <span aria-hidden className="text-[17px]">{SPORT_EMOJI[k] ?? "•"}</span>
               <span className="font-bold">{sportName(k)}</span>
               <span className="min-w-0 truncate text-[13px] text-mute">
-                {LEVELS.find((l) => l.key === picked[k].level)?.label} · {FORMATS.find((f) => f.value === picked[k].format)?.label}
+                {LEVELS.find((l) => l.key === picked[k].level)?.label} · {playFormatLabel(k, picked[k].format)}
                 {picked[k].rating ? ` · ${skillSys(k)} ${picked[k].rating}` : ""}
               </span>
               {picked[k].primary ? <Star size={12} fill="currentColor" className="shrink-0 text-brand-deep" aria-hidden /> : null}
@@ -401,7 +386,7 @@ export function OnboardingWizard({
   };
 
   return (
-    <form action={formAction} onSubmit={onSubmit} className="grid gap-10 lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] lg:items-start lg:gap-14">
+    <form action={formAction} onSubmit={onSubmit} className="grid gap-10 lg:grid-cols-[minmax(280px,336px)_minmax(0,1fr)] lg:items-start lg:gap-10">
       {/* ════ the journey rail ════ */}
       <aside className="lg:sticky lg:top-24">
         <p className="kicker text-brand-deep">{isEdit ? "Your profile" : "Almost in"}</p>
@@ -483,46 +468,21 @@ export function OnboardingWizard({
             {step === 0 ? (
               <div className="space-y-5">
                 <div className="flex flex-wrap items-center gap-5 rounded-2xl border border-rule bg-bg/50 p-4">
-                  <div className="relative">
-                    <div
-                      aria-hidden
-                      className="grid h-[76px] w-[76px] place-items-center overflow-hidden rounded-full font-display text-2xl text-surface shadow-e1"
-                      style={avatarUrl ? undefined : { background: `linear-gradient(145deg, hsl(${hue},85%,62%) 0%, hsl(${(hue + 22) % 360},80%,48%) 100%)` }}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      {avatarUrl ? <img src={avatarUrl} alt="Your profile photo" className="h-full w-full object-cover" /> : initials}
-                    </div>
-                    {uploading ? (
-                      <span className="absolute inset-0 grid place-items-center rounded-full bg-ink/40">
-                        <Loader2 size={20} className="animate-spin text-white" />
-                      </span>
-                    ) : null}
-                  </div>
+                  <AvatarUploader initialPhotoUrl={avatarUrl} hue={hue} name={`${firstName} ${lastName}`.trim() || "You"} size={76} onUploaded={setAvatarUrl} />
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] font-bold text-ink">Profile photo</p>
                     <p className="text-[13.5px] text-mute">A face gets more matches than a color — but the color works too.</p>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => fileRef.current?.click()}
-                        disabled={uploading}
-                        className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-3.5 py-2 text-[14px] font-bold text-ink shadow-e1 transition-colors hover:border-ink disabled:opacity-50"
-                      >
-                        <Camera size={15} /> {avatarUrl ? "Change photo" : "Upload photo"}
-                      </button>
-                      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => void onPhoto(e.target.files?.[0] ?? null)} />
-                      <div className="flex gap-1.5">
-                        {HUES.map((h) => (
-                          <button
-                            key={h}
-                            type="button"
-                            aria-label={`Color ${h}`}
-                            onClick={() => setHue(h)}
-                            className={"h-6 w-6 rounded-full transition-transform " + (hue === h ? "scale-110 ring-2 ring-ink ring-offset-2 ring-offset-surface" : "hover:scale-105")}
-                            style={{ background: `linear-gradient(145deg, hsl(${h},85%,62%) 0%, hsl(${(h + 22) % 360},80%,48%) 100%)` }}
-                          />
-                        ))}
-                      </div>
+                    <div className="mt-2.5 flex gap-1.5">
+                      {HUES.map((h) => (
+                        <button
+                          key={h}
+                          type="button"
+                          aria-label={`Color ${h}`}
+                          onClick={() => setHue(h)}
+                          className={"h-6 w-6 rounded-full transition-transform " + (hue === h ? "scale-110 ring-2 ring-ink ring-offset-2 ring-offset-surface" : "hover:scale-105")}
+                          style={{ background: `linear-gradient(145deg, hsl(${h},85%,62%) 0%, hsl(${(h + 22) % 360},80%,48%) 100%)` }}
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -565,7 +525,7 @@ export function OnboardingWizard({
                           </span>
                           <SportSplash sportKey={k} name={sportName(k)} size={48} />
                           <p className="mt-2 text-[13.5px] font-semibold text-ink-soft">
-                            {LEVELS.find((l) => l.key === picked[k].level)?.label} · {FORMATS.find((f) => f.value === picked[k].format)?.label}
+                            {LEVELS.find((l) => l.key === picked[k].level)?.label} · {playFormatLabel(k, picked[k].format)}
                             {picked[k].hand ? ` · ${HANDS.find((h) => h.value === picked[k].hand)?.label}` : ""}
                             {picked[k].rating ? ` · ${skillSys(k)} ${picked[k].rating}` : ""}
                           </p>
@@ -599,12 +559,21 @@ export function OnboardingWizard({
                           ))}
                         </OptionGroup>
                         <div className="space-y-5">
-                          <OptionGroup label="Format">
-                            {FORMATS.map((f) => (
-                              <OptionRow key={f.value} active={draft.format === f.value} label={f.label} blurb={f.blurb} onPick={() => setDraft((d) => ({ ...d, format: f.value }))} />
-                            ))}
-                          </OptionGroup>
-                          <OptionGroup label="Racquet hand" optional>
+                          {sportFormatFixed(configuring) ? (
+                            <div>
+                              <p className="mb-1.5 text-[13px] font-bold uppercase tracking-[.08em] text-faint">Format</p>
+                              <p className="rounded-2xl border border-rule bg-surface px-3.5 py-3 text-[15px] font-semibold text-ink-soft">
+                                Doubles — padel is a doubles game, so this one&rsquo;s locked in. 🎾
+                              </p>
+                            </div>
+                          ) : (
+                            <OptionGroup label={configuring === "beach_volleyball" ? "Team size" : "Format"}>
+                              {sportFormats(configuring).map((f) => (
+                                <OptionRow key={f.value} active={draft.format === f.value} label={f.label} blurb={f.blurb} onPick={() => setDraft((d) => ({ ...d, format: f.value }))} />
+                              ))}
+                            </OptionGroup>
+                          )}
+                          <OptionGroup label={sportHandLabel(configuring)} optional>
                             {HANDS.map((h) => (
                               <OptionRow key={h.value || "none"} active={draft.hand === h.value} label={h.label} blurb={h.blurb || undefined} onPick={() => setDraft((d) => ({ ...d, hand: h.value }))} />
                             ))}

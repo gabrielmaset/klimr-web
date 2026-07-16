@@ -1,5 +1,7 @@
 "use client";
 
+import { sportFormats } from "@/lib/sport-play-options";
+
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
@@ -12,11 +14,6 @@ const LEVELS = [
   { value: "casual", label: "Casual" },
   { value: "competitive", label: "Competitive" },
   { value: "advanced", label: "Advanced" },
-];
-const FORMATS = [
-  { value: "both", label: "Both" },
-  { value: "singles", label: "Singles" },
-  { value: "doubles", label: "Doubles" },
 ];
 
 export type SportState = { on: boolean; level: string; rating: string; format: string };
@@ -74,10 +71,11 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
                       <option key={l.value} value={l.value}>{l.label}</option>
                     ))}
                   </select>
-                  <select value={s.format} onChange={(e) => set(k, { format: e.target.value })} className={selCls} aria-label="Format">
-                    {FORMATS.map((f) => (
+                  <select value={s.format} onChange={(e) => set(k, { format: e.target.value })} className={selCls} aria-label="Format" disabled={sportFormats(k).length === 1}>
+                    {sportFormats(k).map((f) => (
                       <option key={f.value} value={f.value}>{f.label}</option>
                     ))}
+                    {sportFormats(k).some((f) => f.value === s.format) ? null : <option value={s.format}>{s.format}</option>}
                   </select>
                   <input
                     value={s.rating}
