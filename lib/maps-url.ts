@@ -123,3 +123,46 @@ function parseLatLngFromHtml(body: string): LatLng | null {
   }
   return null;
 }
+
+
+// Find the first Google Maps link inside free text (event descriptions often
+// carry the organizer's real pin — "Ponto de encontro: https://goo.gl/maps/…" —
+// while the structured location field only says the city). Trailing punctuation
+// that prose likes to glue onto URLs is stripped.
+const MAPS_URL_RE =
+  /https?:\/\/(?:www\.)?(?:google\.[a-z.]+\/maps[^\s<>"')\]]*|maps\.google\.[a-z.]+[^\s<>"')\]]*|maps\.app\.goo\.gl\/[^\s<>"')\]]+|goo\.gl\/maps\/[^\s<>"')\]]+|g\.co\/[^\s<>"')\]]+)/i;
+
+export function firstMapsUrlInText(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const m = text.match(MAPS_URL_RE);
+  if (!m) return null;
+  return m[0].replace(/[.,;:!?]+$/, "");
+}
+
+// Server-only: geocode free address text through the Geocoding API (same
+// GOOGLE_MAPS_API_KEY as court search). The keyless embed's own text geocoding
+// is unreliable — "Santa Monica, CA" has landed on a lane in Hampshire — so when
+// we have no link-derived pin we resolve the text ourselves and hand the embed
+// exact coordinates. Cached a month per address; always fails soft to null.
+export async function geocodeAddress(address: string | null | undefined): Promise<LatLng | null> {
+  const q = (address ?? "").trim();
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!q || !key) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&key=${key}`,
+      { signal: controller.signal, next: { revalidate: 2_592_000 } },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { results?: { geometry?: { location?: { lat: number; lng: number } } }[] };
+    const loc = data.results?.[0]?.geometry?.location;
+    if (loc && validLatLng(loc.lat, loc.lng)) return { lat: loc.lat, lng: loc.lng };
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}

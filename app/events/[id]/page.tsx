@@ -16,7 +16,9 @@ import { Avatar } from "@/components/avatar";
 import { rsvp, cancelRsvp, approveMember, denyMember } from "../actions";
 import { rsvpCycleStartMs } from "@/lib/event-schedule";
 import { eventKindLabel } from "@/lib/event-kinds";
-import { mapsPointFromUrl } from "@/lib/maps-url";
+import { mapsPointFromUrl, firstMapsUrlInText, geocodeAddress } from "@/lib/maps-url";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { retireSessionIfStale } from "@/lib/queue-state";
 import { DangerConfirm } from "@/components/danger-confirm";
 import { cancelEventById, reopenEvent } from "../actions";
 import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
@@ -78,7 +80,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const [{ data: rsvps }, { data: managerRows }, court] = await Promise.all([
     supabase.from("event_rsvps").select("user_id, status, created_at").eq("event_id", id),
     supabase.from("event_managers").select("user_id").eq("event_id", id),
-    e.court_id ? supabase.from("courts").select("id, name, neighborhood, city").eq("id", e.court_id).maybeSingle() : Promise.resolve({ data: null }),
+    e.court_id ? supabase.from("courts").select("id, name, neighborhood, city, lat, lng").eq("id", e.court_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
 
   const adminIds = new Set<string>([e.created_by ?? "", ...((managerRows ?? []).map((m) => m.user_id))].filter(Boolean));
@@ -119,14 +121,17 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   let session: { id: string; code: string; status: string; firstCourtId: string | null } | null = null;
   if (e.queue_enabled) {
-    const { data: qs } = await supabase.from("court_sessions").select("id, code, status").eq("event_id", id).neq("status", "ended").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    // Latest session in ANY state — an ended one still matters (the panel offers
+    // "Start today's queue" on the SAME session so the printed code survives).
+    const { data: qs } = await supabase.from("court_sessions").select("id, code, status, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (qs && (await retireSessionIfStale(createAdminClient(), qs))) qs.status = "ended";
     if (qs) {
       const { data: firstCourt } = await supabase.from("queue_courts").select("id").eq("session_id", qs.id).order("sort").limit(1).maybeSingle();
       session = { id: qs.id, code: qs.code, status: qs.status, firstCourtId: firstCourt?.id ?? null };
     }
   }
 
-  const courtData = court.data as { id: string; name: string; neighborhood: string | null; city: string | null } | null;
+  const courtData = court.data as { id: string; name: string; neighborhood: string | null; city: string | null; lat: number | null; lng: number | null } | null;
   const where = courtData ? courtData.name : e.location_text;
   const locationLocked = e.location_reveal === "rsvp" && !isAdmin && myStatus !== "going";
   const whereShown = locationLocked ? (courtData?.neighborhood ?? courtData?.city ?? "Location shared after RSVP") : where;
@@ -139,12 +144,24 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const queueLiveForMembers = e.queue_enabled && session?.status === "live";
   const showWhatsApp = !!e.whatsapp_url && (myStatus === "going" || isAdmin);
 
-  // clickable location → the organizer's exact pasted pin, else a Maps search for the venue text
+  // One source of truth for "where": the organizer's pasted Maps link wins
+  // (location_url, else the first Maps link inside the description — organizers
+  // often put the real meeting-point pin there), else a Maps search for the
+  // venue text. The embed pin is resolved from the SAME link so the map can
+  // never show a different place than the link opens.
   const mapsQuery = [courtData?.name ?? e.location_text, courtData?.city].filter(Boolean).join(", ");
-  const mapsHref = e.location_url || (mapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}` : null);
-  // If the organizer pasted a Google Maps link, pull the exact coordinate out of
-  // it so the embedded map pin lands on the real spot rather than the city.
-  const mapPoint = courtData ? null : await mapsPointFromUrl(e.location_url);
+  const pinUrl = e.location_url || firstMapsUrlInText((e.description ?? "").replace(/<[^>]+>/g, " "));
+  const mapsHref = pinUrl || (mapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}` : null);
+  // Embed pin, most precise first: the court's stored coordinate → the
+  // coordinate dug out of the organizer's link → server-side geocode of the
+  // venue text (the keyless embed's own text geocoding is unreliable).
+  let mapPoint =
+    courtData?.lat != null && courtData?.lng != null
+      ? { lat: courtData.lat, lng: courtData.lng }
+      : await mapsPointFromUrl(pinUrl);
+  if (!mapPoint && !locationLocked && (mapsQuery || e.location_text)) {
+    mapPoint = await geocodeAddress(mapsQuery || e.location_text);
+  }
 
   const descHtml = e.description ? (looksLikeHtml(e.description) ? sanitizeRichText(e.description) : null) : null;
   const plainDesc = (e.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -345,7 +362,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         )}
         {!locationLocked && where ? <EventLocationMap name={courtData?.name ?? e.location_text} address={e.location_text} zip={null} lat={null} lng={null} point={mapPoint} href={mapsHref ?? undefined} /> : null}
 
-        <EventShareKit
+        {/* Promo copy is an organizer tool — members already have RSVP + calendar. */}
+        {isAdmin ? <EventShareKit
           title={e.title}
           sportName={sportMeta(e.sport_key).name}
           sportEmoji={sportMeta(e.sport_key).emoji}
@@ -358,7 +376,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           capacity={e.capacity}
           description={e.description}
           url={`https://klimr.com/events/${e.id}`}
-        />
+        /> : null}
       </div>
 
       {/* ORGANIZER TOOLS — everything admin-only lives here, clearly separated */}

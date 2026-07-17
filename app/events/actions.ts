@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createNotification } from "@/lib/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clearSessionPlay } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS, type SportKey } from "@/lib/sports";
 import { sanitizeRichText } from "@/lib/rich-text";
@@ -532,6 +533,28 @@ export async function unsetEventAdmin(eventId: string, userId: string): Promise<
   return { ok: true };
 }
 
+/** Latest queue session for an event, newest first, any status. */
+async function latestEventSession(admin: ReturnType<typeof createAdminClient>, eventId: string) {
+  const { data } = await admin
+    .from("court_sessions")
+    .select("id, status")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data as { id: string; status: string } | null;
+}
+
+/** Make the event's existing session ready for play right now: clear any stale
+ *  play state (an ended day's teams/matches) and go live. Courts, settings and
+ *  the public code survive, so printed QR posters keep working week to week. */
+async function activateEventSession(admin: ReturnType<typeof createAdminClient>, s: { id: string; status: string }) {
+  if (s.status === "live") return;
+  if (s.status === "ended") await clearSessionPlay(admin, s.id);
+  await admin.from("court_sessions").update({ status: "live", paused: false, ended_at: null }).eq("id", s.id);
+  revalidatePath(`/queue/${s.id}`);
+}
+
 export async function setQueueEnabled(formData: FormData) {
   const eventId = String(formData.get("eventId") ?? "");
   const enabled = formData.get("enabled") != null;
@@ -540,5 +563,32 @@ export async function setQueueEnabled(formData: FormData) {
   if (!guard.ok) return;
   const admin = createAdminClient();
   await admin.from("events").update({ queue_enabled: enabled }).eq("id", eventId);
+  const s = await latestEventSession(admin, eventId);
+  if (s) {
+    if (enabled) {
+      // Turning the feature ON means "players can queue" — the session goes live
+      // in the same tap instead of demanding a second switch inside the queue.
+      await activateEventSession(admin, s);
+    } else if (s.status !== "ended") {
+      // Turning it OFF is the documented reset (0094): wipe teams/matches/requests,
+      // back to setup, unpaused — courts and code stay for next time.
+      await clearSessionPlay(admin, s.id);
+      await admin.from("court_sessions").update({ status: "setup", paused: false, ended_at: null }).eq("id", s.id);
+      revalidatePath(`/queue/${s.id}`);
+    }
+  }
+  revalidatePath(`/events/${eventId}`);
+}
+
+/** "Start today's queue" from the event panel when the last session has ended. */
+export async function startEventQueue(formData: FormData) {
+  const eventId = String(formData.get("eventId") ?? "");
+  if (!eventId) return;
+  const guard = await eventAdminGuard(eventId);
+  if (!guard.ok) return;
+  const admin = createAdminClient();
+  const s = await latestEventSession(admin, eventId);
+  if (!s) return;
+  await activateEventSession(admin, s);
   revalidatePath(`/events/${eventId}`);
 }

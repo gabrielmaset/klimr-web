@@ -45,7 +45,12 @@ function waited(iso: string | null, now: number): string {
   return `${Math.floor(m / 60)}h ${m % 60}m waiting`;
 }
 
-/** Press-and-hold to confirm: a left-to-right fill acts as a 3-second countdown so a stray tap can't end a match. */
+/** Press-and-hold to confirm: a left-to-right fill acts as a 3-second countdown so a stray tap can't end a match.
+ *  Hard-won iOS rules — do not "clean up": (1) NO onPointerLeave cancel — with pointer
+ *  capture a drifting sweaty finger keeps the hold; releasing early is the only user
+ *  cancel. (2) touch-action:none AND -webkit-touch-callout:none are both required — a
+ *  3s press sits deep in Safari's long-press territory, and without the callout kill
+ *  Safari fires pointercancel mid-hold even when the finger never moves. */
 function HoldButton({ label, color, onConfirm, disabled }: { label: string; color: string; onConfirm: () => void; disabled?: boolean }) {
   const [progress, setProgress] = useState(0);
   const raf = useRef<number | null>(null);
@@ -97,9 +102,9 @@ function HoldButton({ label, color, onConfirm, disabled }: { label: string; colo
       onPointerDown={down}
       onPointerUp={cancel}
       onPointerCancel={cancel}
-      onPointerLeave={cancel}
+      onContextMenu={(e) => e.preventDefault()}
       className="press relative w-full select-none overflow-hidden rounded-[1.4vw] font-display font-bold text-[#0a0f1f] transition disabled:opacity-60"
-      style={{ background: color, touchAction: "none", fontSize: "clamp(1.1rem,2vw,2rem)" }}
+      style={{ background: color, touchAction: "none", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", fontSize: "clamp(1.1rem,2vw,2rem)" }}
     >
       <span className="absolute inset-y-0 left-0 bg-black/25" style={{ width: `${progress * 100}%` }} aria-hidden />
       <span className="relative flex flex-col items-center justify-center gap-0.5 py-[2.1vh] leading-none">
@@ -197,6 +202,9 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
     act(code ? stepDownByCode : stepDownTeam, code ? { code, teamId } : { teamId });
   };
 
+  const sessionLive = state.session.status === "live";
+  const sessionOver = state.session.status === "ended";
+  const sPaused = sessionLive && !!state.session.paused;
   const court = state.courts.find((c) => c.id === courtId);
   const heldTeam = court ? court.queue.find((t) => t.hold && t.wins > 0) ?? null : null;
   const upNext = court ? court.queue.filter((t) => !t.hold).slice(0, 3) : [];
@@ -205,15 +213,18 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
 
   return (
     <div className="fixed inset-0 z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0c0e16, #050609 58%)" }}>
-      {/* top bar — event + exit, then a bigger court/format/level row beneath it */}
-      <div className="px-[max(0.9rem,3vw)] pt-[2vh]">
-        <div className="flex items-center justify-between gap-4">
-          <p className="min-w-0 truncate text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
-          <button type="button" onClick={toggleFullscreen} className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
+      {/* top bar. Centered on purpose: in fullscreen, iPadOS floats its own ✕
+          dismiss control at the top-left and the status bar stays over the top
+          edge — so the safe-area padding clears the clock/battery, and centring
+          the title + court row keeps both out from under the system chrome. */}
+      <div className="px-[max(0.9rem,3vw)] pt-[max(1.4vh,env(safe-area-inset-top))]">
+        <div className="relative flex min-h-9 items-center justify-center">
+          <p className="max-w-[62%] truncate text-center text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
+          <button type="button" onClick={toggleFullscreen} className="press absolute right-0 top-1/2 inline-flex shrink-0 -translate-y-1/2 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
             {isFs ? <Minimize size={15} /> : <Maximize size={15} />} {isFs ? "Exit full screen" : "Full screen"}
           </button>
         </div>
-        <div className="mt-[1.6vh] flex flex-wrap items-center gap-x-[1.4vw] gap-y-2">
+        <div className="mt-[1.2vh] flex flex-wrap items-center justify-center gap-x-[1.4vw] gap-y-2">
           <h1 className="font-display leading-none text-[clamp(2.2rem,5.4vw,5rem)]">{court?.label ?? "Court"}</h1>
           {court ? (
             <span className="rounded-full bg-white/12 px-[1.3vw] py-[0.9vh] font-display font-bold leading-none text-[clamp(1.1rem,2.2vw,2.1rem)]">{formationLabel(court.teamSize)}</span>
@@ -221,21 +232,31 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
           {court && court.levels.length ? (
             <span className="rounded-full border border-white/15 px-[1.3vw] py-[0.9vh] font-semibold leading-none text-white/70 text-[clamp(0.9rem,1.7vw,1.6rem)]">{court.levels.map(levelLabel).join(" · ")}</span>
           ) : null}
+          {sPaused ? (
+            <span className="rounded-full px-[1.3vw] py-[0.9vh] font-display font-bold leading-none text-[#0a0f1f] text-[clamp(0.9rem,1.7vw,1.6rem)]" style={{ background: "#f5c518" }}>Paused</span>
+          ) : null}
         </div>
       </div>
 
-      {!court ? (
+      {!sessionLive ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-[1.5vh] px-6 text-center">
+          <p className="font-display font-bold text-[clamp(1.8rem,4.5vw,3.6rem)]">{sessionOver ? "Session ended" : "The queue hasn\u2019t opened yet"}</p>
+          <p className="max-w-[46ch] text-[clamp(0.95rem,1.6vw,1.5rem)] text-white/55">
+            {sessionOver ? "Thanks for playing — the organizer can start a new session from the queue page." : "Hang tight — this screen wakes up the moment the organizer turns the queue on."}
+          </p>
+        </div>
+      ) : !court ? (
         <div className="grid flex-1 place-items-center text-white/60">This court was removed.</div>
       ) : court.current ? (
         <>
           {/* clock */}
           <div className="relative flex flex-col items-center justify-center pt-[1vh]">
-            <div className="flex items-center gap-[1.4vw]">
-              <span className="relative flex h-[1.4vw] min-h-4 w-[1.4vw] min-w-4">
+            <div className="relative">
+              <span className="absolute -left-[max(2rem,3vw)] top-1/2 flex h-[2.2vh] min-h-3.5 w-[2.2vh] min-w-3.5 -translate-y-1/2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff5b3d] opacity-70" />
                 <span className="relative inline-flex h-full w-full rounded-full bg-[#ff5b3d]" />
               </span>
-              <span className="font-mono font-bold leading-none tabular" style={{ fontVariantNumeric: "tabular-nums", fontSize: "clamp(5rem, 16vw, 20rem)" }}>
+              <span className="font-mono font-bold tabular" style={{ fontVariantNumeric: "tabular-nums", fontSize: "clamp(3.6rem, 17vh, 13rem)", lineHeight: 0.95 }}>
                 {clock(now - Date.parse(court.current.startedAt))}
               </span>
             </div>
@@ -264,8 +285,10 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
                       </span>
                     ) : null}
                   </div>
-                  <div className="flex min-h-0 flex-1 items-center overflow-y-auto px-[max(0.9rem,2.2vw)] py-[1.5vh]">
-                    <StackedNames team={t} className="font-display font-semibold text-[clamp(1.1rem,2.3vw,2.2rem)]" />
+                  <div className="flex min-h-0 flex-1 overflow-y-auto px-[max(0.9rem,2.2vw)] py-[1vh]">
+                    <div className="my-auto">
+                      <StackedNames team={t} className="font-display font-semibold text-[clamp(1.1rem,2.3vw,2.2rem)]" />
+                    </div>
                   </div>
                   {canOperate ? (
                     <div className="px-[1.6vw] pb-[1.6vh]">
@@ -293,7 +316,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
                 <div className="flex flex-col items-center gap-[1.6vh]">
                   <button
                     type="button"
-                    disabled={pending || !canStart}
+                    disabled={pending || !canStart || sPaused}
                     onClick={() => startNext(court.id)}
                     className="press inline-flex items-center gap-[1vw] rounded-[1.4vw] bg-[#ff4e1b] px-[4vw] py-[2.4vh] font-display font-bold text-white transition hover:bg-[#d63a0f] disabled:opacity-40"
                     style={{ fontSize: "clamp(1.3rem,2.5vw,2.5rem)" }}
@@ -321,7 +344,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
               {canOperate ? (
                 <button
                   type="button"
-                  disabled={pending || !canStart}
+                  disabled={pending || !canStart || sPaused}
                   onClick={() => startNext(court.id)}
                   className="press inline-flex items-center gap-[1vw] rounded-[1.4vw] bg-[#ff4e1b] px-[4vw] py-[2.6vh] font-display font-bold text-white transition hover:bg-[#d63a0f] disabled:opacity-40"
                   style={{ fontSize: "clamp(1.4rem,2.6vw,2.6rem)" }}
@@ -335,8 +358,9 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
       )}
 
       {/* up next (place in line only, no A/B) + the walk-up link so newcomers can join */}
-      <div className="border-t border-white/10 px-[max(0.9rem,3vw)] py-[2vh]">
-        <div className="flex flex-col gap-[1.6vh] xl:flex-row xl:items-stretch xl:gap-[2vw]">
+      {sessionLive ? (
+      <div className="shrink-0 border-t border-white/10 px-[max(0.9rem,3vw)] pt-[1.6vh] pb-[max(1.6vh,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-[1.4vh] landscape:flex-row landscape:items-stretch landscape:gap-[2vw] lg:flex-row lg:items-stretch lg:gap-[2vw]">
           <div className="min-w-0 flex-1">
             <p className="mb-[1vh] text-[clamp(0.65rem,1vw,0.95rem)] font-bold uppercase tracking-[0.22em] text-white/50">Next up in line</p>
             {upNext.length === 0 ? (
@@ -363,11 +387,11 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
           </div>
 
           {walkUrl ? (
-            <div className="flex shrink-0 items-center gap-[1.4vw] self-start rounded-[1.2vw] border border-white/15 bg-white/[0.07] px-[1.6vw] py-[1.4vh] xl:self-stretch">
+            <div className="flex shrink-0 items-center gap-[1.4vw] self-start rounded-[1.2vw] border border-white/15 bg-white/[0.07] px-[1.6vw] py-[1.2vh] landscape:self-stretch lg:self-stretch">
               {qr ? (
                 <span
                   className="block shrink-0 rounded-[0.7vw] bg-white p-[0.7vh] [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
-                  style={{ width: "clamp(5.5rem,9vw,9rem)", height: "clamp(5.5rem,9vw,9rem)" }}
+                  style={{ width: "clamp(4.5rem,13vh,8.5rem)", height: "clamp(4.5rem,13vh,8.5rem)" }}
                   dangerouslySetInnerHTML={{ __html: qr }}
                 />
               ) : null}
@@ -379,6 +403,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
           ) : null}
         </div>
       </div>
+      ) : null}
     </div>
   );
 }

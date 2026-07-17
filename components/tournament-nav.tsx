@@ -191,6 +191,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
             overlayMode && overlayOpen ? "absolute inset-y-3 left-3 z-10 w-[232px] shadow-e3" : collapsed ? "h-full w-auto" : "h-full w-auto"
           }`}
         >
+        <div className="relative min-h-0 flex-1">
         <div ref={scrollRef} className={`flex h-full flex-col overflow-y-auto py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${overlayMode && overlayOpen ? "px-3" : collapsed ? "px-1.5" : "px-3"}`}>
           <div className={`rounded-2xl border border-rail-border bg-white/[0.05] ${collapsed ? "p-1.5" : "p-3"}`}>
             <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
@@ -231,9 +232,16 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
             );
           })}
 
-          <div className="flex-1" />
-
-          <div className="mt-6 border-t border-rail-border pt-3">
+        </div>
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-x-0 bottom-0 flex h-12 items-end justify-center pb-1 transition-opacity duration-200 ${moreBelow ? "opacity-100" : "opacity-0"}`}
+          style={{ background: "linear-gradient(to bottom, transparent, #2a1006 85%)" }}
+        >
+          <ChevronDown size={15} className="animate-bounce text-rail-muted" />
+        </div>
+        </div>
+        <div className={`shrink-0 border-t border-rail-border pb-4 pt-3 ${overlayMode && overlayOpen ? "px-3" : collapsed ? "px-1.5" : "px-3"}`}>
             <a
               href={`/e/${tournament.code}`}
               target="_blank"
@@ -260,14 +268,6 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
                 </>
               )}
             </Link>
-          </div>
-        </div>
-        <div
-          aria-hidden
-          className={`pointer-events-none absolute inset-x-0 bottom-0 flex h-14 items-end justify-center rounded-b-3xl pb-1.5 transition-opacity duration-200 ${moreBelow ? "opacity-100" : "opacity-0"}`}
-          style={{ background: "linear-gradient(to bottom, transparent, #210c05 80%)" }}
-        >
-          <ChevronDown size={15} className="animate-bounce text-rail-muted" />
         </div>
         </div>
       </aside>

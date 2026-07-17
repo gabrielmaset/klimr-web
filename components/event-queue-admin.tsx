@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { Copy, Check, Tv, ListOrdered, Settings2, Power } from "lucide-react";
-import { setQueueEnabled } from "@/app/events/actions";
+import { setQueueEnabled, startEventQueue } from "@/app/events/actions";
 
 type Session = { id: string; code: string; status: string; firstCourtId: string | null };
 
@@ -39,7 +39,17 @@ export function EventQueueAdmin({ eventId, queueEnabled, session }: { eventId: s
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="kicker text-white/55">Live queue · admin</p>
-          <p className="text-sm font-semibold">{queueEnabled ? "Live queue is on for this event" : "Live queue is off"}</p>
+          <p className="text-sm font-semibold">
+            {!queueEnabled
+              ? "Live queue is off"
+              : session?.status === "live"
+                ? "Live queue is running"
+                : session?.status === "ended"
+                  ? "Queue ended — ready for the next session"
+                  : session
+                    ? "Queue is set up — not started"
+                    : "Live queue is on for this event"}
+          </p>
         </div>
         <button type="button" onClick={toggle} disabled={pending} className="press inline-flex items-center gap-1.5 rounded-full border border-white/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:opacity-60">
           <Power size={13} /> {queueEnabled ? "Turn off" : "Turn on"}
@@ -55,7 +65,23 @@ export function EventQueueAdmin({ eventId, queueEnabled, session }: { eventId: s
           ) : (
             <>
               <div className="flex flex-wrap gap-2">
-                <Link href={`/queue/${session.id}`} className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep">
+                {session.status === "ended" ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      start(async () => {
+                        const fd = new FormData();
+                        fd.append("eventId", eventId);
+                        await startEventQueue(fd);
+                      })
+                    }
+                    className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-60"
+                  >
+                    <Power size={15} /> Start today&apos;s queue
+                  </button>
+                ) : null}
+                <Link href={`/queue/${session.id}`} className={`press inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${session.status === "ended" ? "border border-white/20 text-white hover:bg-white/10" : "bg-brand text-white hover:bg-brand-deep"}`}>
                   <ListOrdered size={15} /> {session.status === "live" ? "Manage the live queue" : "Open queue setup"}
                 </Link>
                 {courtsideUrl ? (

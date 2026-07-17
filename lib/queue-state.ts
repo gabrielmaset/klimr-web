@@ -7,6 +7,49 @@ type Admin = ReturnType<typeof createAdminClient>;
 type TeamRow = { id: string; court_id: string; status: string; wins: number; hold_court: boolean; queued_at: string | null; created_at: string };
 type MemberRow = { team_id: string; user_id: string | null; guest_name: string | null };
 
+
+/** Wipe a session's play state (teams, matches, join requests) while keeping its
+ *  courts, settings, geofence centre and — critically — its public code, so any
+ *  printed QR / courtside link keeps working across days. The one shared reset
+ *  used by the organizer reset, the event-level off switch, and restarts. */
+export async function clearSessionPlay(admin: Admin, sessionId: string): Promise<void> {
+  // Members cascade when their team is deleted.
+  await admin.from("queue_matches").delete().eq("session_id", sessionId);
+  await admin.from("queue_teams").delete().eq("session_id", sessionId);
+  await admin.from("queue_join_requests").delete().eq("session_id", sessionId);
+}
+
+const IDLE_RETIRE_MS = 6 * 60 * 60 * 1000;
+
+/** Lazy auto-retire: a live session idle for 6+ hours ends itself the next time
+ *  anyone reads it ("activity" = session created, a team formed, a match started
+ *  or finished). Any in-flight match is finalised (no winner) so an ended session
+ *  can never carry a zombie "live" match into a restart. Runs on every read path —
+ *  the polling API, SSR queue pages, AND the event page — so a stale session can
+ *  never look "on" anywhere. Returns true if it retired the session just now. */
+export async function retireSessionIfStale(
+  admin: Admin,
+  s: { id: string; status: string; created_at: string },
+): Promise<boolean> {
+  if (s.status !== "live") return false;
+  const [{ data: lastMatchRows }, { data: lastTeamRows }] = await Promise.all([
+    admin.from("queue_matches").select("started_at, ended_at").eq("session_id", s.id).order("started_at", { ascending: false }).limit(1),
+    admin.from("queue_teams").select("created_at").eq("session_id", s.id).order("created_at", { ascending: false }).limit(1),
+  ]);
+  const times: number[] = [new Date(s.created_at).getTime()];
+  const lm = (lastMatchRows ?? [])[0] as { started_at: string | null; ended_at: string | null } | undefined;
+  if (lm?.started_at) times.push(new Date(lm.started_at).getTime());
+  if (lm?.ended_at) times.push(new Date(lm.ended_at).getTime());
+  const lt = (lastTeamRows ?? [])[0] as { created_at: string | null } | undefined;
+  if (lt?.created_at) times.push(new Date(lt.created_at).getTime());
+  if (Date.now() - Math.max(...times) <= IDLE_RETIRE_MS) return false;
+  const now = new Date().toISOString();
+  await admin.from("court_sessions").update({ status: "ended", ended_at: now }).eq("id", s.id).eq("status", "live");
+  await admin.from("queue_matches").update({ status: "final", ended_at: now }).eq("session_id", s.id).eq("status", "live");
+  await admin.from("queue_teams").update({ status: "done" }).eq("session_id", s.id).neq("status", "done");
+  return true;
+}
+
 /**
  * Assemble the full live state for a session: every court with its current match,
  * ordered queue, and forming (open) teams — plus the requesting user's place in line.
@@ -20,25 +63,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
     .maybeSingle();
   if (!s) return null;
 
-  // Lazy auto-retire: a live session idle for 6+ hours turns off and clears its queue.
-  // "Activity" = the session being created, a team forming/joining, or a match starting/ending.
-  if (s.status === "live") {
-    const [{ data: lastMatchRows }, { data: lastTeamRows }] = await Promise.all([
-      admin.from("queue_matches").select("started_at, ended_at").eq("session_id", sessionId).order("started_at", { ascending: false }).limit(1),
-      admin.from("queue_teams").select("created_at").eq("session_id", sessionId).order("created_at", { ascending: false }).limit(1),
-    ]);
-    const times: number[] = [new Date(s.created_at).getTime()];
-    const lm = (lastMatchRows ?? [])[0] as { started_at: string | null; ended_at: string | null } | undefined;
-    if (lm?.started_at) times.push(new Date(lm.started_at).getTime());
-    if (lm?.ended_at) times.push(new Date(lm.ended_at).getTime());
-    const lt = (lastTeamRows ?? [])[0] as { created_at: string | null } | undefined;
-    if (lt?.created_at) times.push(new Date(lt.created_at).getTime());
-    if (Date.now() - Math.max(...times) > 6 * 60 * 60 * 1000) {
-      await admin.from("court_sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", sessionId).eq("status", "live");
-      await admin.from("queue_teams").update({ status: "done" }).eq("session_id", sessionId).neq("status", "done");
-      s.status = "ended";
-    }
-  }
+  if (await retireSessionIfStale(admin, s)) s.status = "ended";
 
   const [{ data: courts }, { data: teams }, { data: matches }, { data: requests }] = await Promise.all([
     admin.from("queue_courts").select("id, label, team_size, levels, sort, created_at, closed_at").eq("session_id", sessionId).order("sort").order("created_at"),

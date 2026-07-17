@@ -166,6 +166,46 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-16 — Field-test fixes: rails, event map, courtside safe-areas, queue lifecycle
+- **Workspace rails (tournament + team):** the account/View-public-page footer was
+  inside the scroll container, so it scrolled away. Now: scrollable middle
+  (min-h-0 flex-1), pinned footer with border-t, scroll-fade + chevron moved to
+  the bottom of the SCROLL AREA (above the footer), not the rail.
+- **Event map = event link, always.** One pin source: court's stored lat/lng →
+  the organizer's Maps link (location_url, else the FIRST Maps link harvested
+  from the description — `firstMapsUrlInText`) → server-side `geocodeAddress`
+  (Geocoding API, same GOOGLE_MAPS_API_KEY, 30-day cache). The keyless embed's
+  own text geocoding is banned as a source — it once sent "Santa Monica, CA" to
+  a lane in Hampshire. The Where link uses the same resolved URL.
+- **Courtside display:** header is safe-area padded and CENTERED (iPadOS floats
+  its own ✕ dismiss top-left in fullscreen; the status bar owns the top edge —
+  centring keeps our content out from under both). Clock scales with HEIGHT
+  (clamp 17vh; 16vw exploded on wide-short iPads). Bottom strip goes side-by-side
+  from `landscape:`/lg (xl never fired on iPad, stacking the QR below the fold);
+  safe-area bottom padding; names centre via my-auto (items-center +
+  overflow-y-auto top-pins in Safari). Status-aware: ended/setup takeover screens,
+  Paused pill, start disabled while paused, queue/QR strip only while live.
+- **Queue lifecycle contract (the big one):**
+  - `retireSessionIfStale` (lib/queue-state): a live session idle 6h+ ends itself
+    on ANY read — polling API, SSR queue pages, and now the EVENT PAGE (which
+    previously bypassed it with a raw query, so the panel said "on" for days).
+    Retiring also finalises any zombie live match.
+  - Event "Turn off" now performs the 0094-documented reset via shared
+    `clearSessionPlay`: teams/matches/requests wiped, status→setup, unpaused —
+    courts, settings, geofence centre and the PUBLIC CODE survive.
+  - Event "Turn on" auto-activates the existing session (ended→clear+live,
+    setup→live) — one tap, no second switch inside the queue.
+  - New `restartSession` backs "Start a new session" (plain startSession used to
+    resurrect stale play state). New `startEventQueue` backs the panel's
+    "Start today's queue" when the last session ended.
+  - One session per event: createSession redirects to the existing session
+    instead of minting a duplicate (which would fork the printed QR code).
+  - Server guards on the public by-code engine: start-next and step-down verify
+    session status server-side (the courtside code is the only credential).
+  - Queue page hides the courts grid once ended; the event admin panel is
+    status-aware (running / set up—not started / ended—Start today's queue).
+- **Promo copy is organizer-only:** EventShareKit renders behind isAdmin.
+
 ### 2026-07-16 — Sport icons v3: Gabriel's Claude Design set, wired site-wide
 - VERDICT: v1 (sticker) and v2 (equipment redraw) are superseded. Gabriel produced the
   final set himself in Claude Design — 5 sports × 3 tiers, hand-inked outlines on the

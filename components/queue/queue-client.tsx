@@ -7,7 +7,7 @@ import { LEVELS, levelLabel, formationLabel, FORMATIONS } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { useQueueState } from "@/components/queue/use-queue-state";
-import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings } from "@/app/queue/actions";
+import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, restartSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings } from "@/app/queue/actions";
 
 type Action = (fd: FormData) => Promise<{ ok?: true; error?: string }>;
 
@@ -283,7 +283,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                 <button
                   type="button"
                   disabled={pending}
-                  onClick={() => run(startSession, fd({ sessionId: sid }), true)}
+                  onClick={() => run(restartSession, fd({ sessionId: sid }), true)}
                   className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-white px-3.5 py-1.5 text-xs font-semibold text-ink hover:bg-bg"
                 >
                   <RotateCcw size={13} /> Start a new session
@@ -442,7 +442,11 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
 
       {err ? <div className="rounded-2xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm font-medium text-[#b91c1c]">{err}</div> : null}
 
-      {/* courts */}
+      {/* courts — hidden once the session has ended; an ended day has no line,
+          no matches to run, and "Start a new session" above brings the same
+          courts back fresh. Rendering them operable here is what made an ended
+          session look like it had "kept the Court 1 instance". */}
+      {session.status === "ended" ? null : (
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {courts.map((c, ci) => {
           const meHere = myTeam && myTeam.court.id === c.id;
@@ -630,6 +634,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
           );
         })}
       </div>
+      )}
 
       {/* organizer: add court */}
       {isOrganizer && session.status !== "ended" ? <AddCourt sid={sid} pending={pending} run={run} /> : null}

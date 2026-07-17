@@ -38,7 +38,8 @@ export function TeamNav({
     <>
       {/* desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 self-start p-3 md:block">
-        <div className="flex h-full flex-col overflow-y-auto rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] px-3 py-5 shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
+        <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(180deg,#0e2c3a,#0a212c)] shadow-[0_10px_40px_-15px_rgba(10,10,11,0.5)]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex items-center gap-3 rounded-2xl border border-rail-border bg-white/[0.05] p-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white"><SportIcon sport={team.sport_key} variant="glyph" size={30} /></span>
             <div className="min-w-0">
@@ -64,9 +65,8 @@ export function TeamNav({
             })}
           </nav>
 
-          <div className="flex-1" />
-
-          <div className="mt-6 border-t border-rail-border pt-3">
+        </div>
+          <div className="shrink-0 border-t border-rail-border px-3 pb-4 pt-3">
             {others.length > 0 ? (
               <>
                 <p className="kicker mb-1 px-3 text-rail-muted">Switch team</p>

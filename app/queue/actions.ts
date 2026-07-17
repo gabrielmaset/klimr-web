@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clearSessionPlay } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS } from "@/lib/sports";
 import { LEVELS, metersBetween } from "@/lib/queue";
@@ -86,6 +87,14 @@ export async function createSession(formData: FormData): Promise<void> {
   const centerLat = parseFloat(String(formData.get("centerLat") || ""));
   const centerLng = parseFloat(String(formData.get("centerLng") || ""));
   const hasCenter = requireLocation && Number.isFinite(centerLat) && Number.isFinite(centerLng);
+
+  // One queue per event: if this event already has a session (any status), send
+  // the organizer there instead of minting a second one — a duplicate would fork
+  // the public code and quietly kill any printed QR posters from earlier weeks.
+  if (eventId) {
+    const { data: existing } = await admin.from("court_sessions").select("id").eq("event_id", eventId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (existing) redirect(`/queue/${existing.id}`);
+  }
 
   // unique code with a few retries
   let sessionId = "";
@@ -404,11 +413,25 @@ export async function resetSession(formData: FormData): Promise<Result> {
   const sessionId = String(formData.get("sessionId") || "");
   const s = await sessionRow(admin, sessionId);
   if (!s || s.organizer_id !== userId) return { error: "Only the organizer can do that." };
-  // Members cascade when their team is deleted.
-  await admin.from("queue_matches").delete().eq("session_id", sessionId);
-  await admin.from("queue_teams").delete().eq("session_id", sessionId);
-  await admin.from("queue_join_requests").delete().eq("session_id", sessionId);
+  await clearSessionPlay(admin, sessionId);
   await admin.from("court_sessions").update({ status: "setup", paused: false, ended_at: null }).eq("id", sessionId);
+  revalidatePath(`/queue/${sessionId}`);
+  return { ok: true };
+}
+
+/** Bring an ended (or reset) session back for a fresh day of play: same courts,
+ *  same settings, same public code — just a clean slate of teams and matches.
+ *  This is what "Start a new session" means; plain startSession would resurrect
+ *  whatever stale play state the old day left behind. */
+export async function restartSession(formData: FormData): Promise<Result> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const sessionId = String(formData.get("sessionId") || "");
+  const s = await sessionRow(admin, sessionId);
+  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can do that." };
+  await clearSessionPlay(admin, sessionId);
+  await admin.from("court_sessions").update({ status: "live", paused: false, ended_at: null }).eq("id", sessionId);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }
@@ -593,8 +616,13 @@ async function awardQueueMatchPoints(admin: Admin, match: MatchRow, winnerId: st
 
 /** Core next-match logic (holder first, then earliest queued). No auth here. */
 async function applyStartNext(admin: Admin, courtId: string, sessionId: string): Promise<Result> {
-  const { data: sess } = await admin.from("court_sessions").select("paused").eq("id", sessionId).maybeSingle();
-  if (sess?.paused) return { error: "The queue is paused — resume it to start the next match." };
+  const { data: sess } = await admin.from("court_sessions").select("paused, status").eq("id", sessionId).maybeSingle();
+  // The courtside screen operates by public code — the session state is the only
+  // real gate, so it must be enforced here, not just hidden in the UI.
+  if (!sess) return { error: "Session not found." };
+  if (sess.status === "ended") return { error: "This session has ended." };
+  if (sess.status !== "live") return { error: "The queue hasn't started yet." };
+  if (sess.paused) return { error: "The queue is paused — resume it to start the next match." };
 
   const { data: liveExisting } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
   if (liveExisting) return { error: "A match is already live on this court." };
@@ -667,6 +695,13 @@ export async function startNextByCode(formData: FormData): Promise<Result> {
 
 /** A staying winner bows out: mark them done, then call the next two in line on. No auth here. */
 async function applyWinnerStepDown(admin: Admin, teamId: string): Promise<Result> {
+  {
+    const { data: t } = await admin.from("queue_teams").select("session_id").eq("id", teamId).maybeSingle();
+    if (t) {
+      const { data: sess } = await admin.from("court_sessions").select("status").eq("id", t.session_id).maybeSingle();
+      if (sess && sess.status !== "live") return { error: "This session isn't live." };
+    }
+  }
   const { data: t } = await admin.from("queue_teams").select("id, session_id, court_id, status").eq("id", teamId).maybeSingle();
   if (!t) return { error: "Team not found." };
   if (t.status === "playing") return { error: "That team is currently playing." };
