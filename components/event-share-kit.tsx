@@ -28,9 +28,14 @@ const PLATFORMS: { key: Platform; label: string }[] = [
 
 function fmtWhen(startsAt: string, endsAt?: string | null): { day: string; time: string } {
   const s = new Date(startsAt);
-  const day = s.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  let time = s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  if (endsAt) time += `–${new Date(endsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+  // Explicit timeZone: the server renders in UTC and the browser in the
+  // visitor's zone — without pinning, the two produce different text and the
+  // hydration mismatch (React #418) kills every button on the event page.
+  // Klimr is LA-first and the site labels times "PT", so PT it is.
+  const TZ = "America/Los_Angeles";
+  const day = s.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: TZ });
+  let time = s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: TZ });
+  if (endsAt) time += `–${new Date(endsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: TZ })}`;
   return { day, time };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { CalendarRange, Plus, MessageCircle, Bell, ChevronDown, Check, Settings, Users } from "lucide-react";
 import { setPresenceMode } from "@/app/account/presence-actions";
@@ -58,6 +58,10 @@ function whenShort(iso: string | null): string {
   if (d.getTime() - now.getTime() < 7 * 86400000) return `${d.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
   return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${time}`;
 }
+
+const subscribeNever = () => () => {};
+const snapshotTrue = () => true;
+const snapshotFalse = () => false;
 
 export type NextMatch = { id: string; sportKey: string; scheduledAt: string | null; place: string | null } | null;
 
@@ -171,6 +175,13 @@ export function TopBar({
   nextMatch: NextMatch;
   teams: { id: string; name: string; sport_key: string; category: string }[];
 }) {
+  // Hydration gate: the next-match time uses the viewer's locale/zone, which
+  // the server can't know — SSR (and the hydration pass that must match it)
+  // render WITHOUT it; the store's client snapshot flips it on right after.
+  // useSyncExternalStore is the setState-free way to ask "am I hydrated?",
+  // and keeps React #418 dead. (repo rule: no setState-in-effect.)
+  const mounted = useSyncExternalStore(subscribeNever, snapshotTrue, snapshotFalse);
+
 
   const [mode, setMode] = useState<PresenceMode>(presenceMode);
   const [seenProp, setSeenProp] = useState<PresenceMode>(presenceMode);
@@ -230,13 +241,13 @@ export function TopBar({
         {nextMatch ? (
           <Link
             href={`/play/${nextMatch.id}`}
-            aria-label={`Next match: ${SPORT_LABEL[nextMatch.sportKey] ?? "match"} ${whenShort(nextMatch.scheduledAt)}`}
+            aria-label={`Next match: ${SPORT_LABEL[nextMatch.sportKey] ?? "match"} ${mounted ? whenShort(nextMatch.scheduledAt) : ""}`}
             className="inline-flex h-[34px] min-w-0 flex-[0_1_auto] items-center gap-2 overflow-hidden rounded-[10px] border border-tint-brand-bd bg-tint-brand px-2.5"
           >
             <span className="live-dot h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
             <span className="shrink-0 font-mono text-[9.5px] font-bold uppercase tracking-[.16em] text-flame-text">Next</span>
             <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
-              {SPORT_LABEL[nextMatch.sportKey] ?? "Match"} · {whenShort(nextMatch.scheduledAt)}
+              {SPORT_LABEL[nextMatch.sportKey] ?? "Match"} · {mounted ? whenShort(nextMatch.scheduledAt) : "\u2026"}
               {nextMatch.place ? ` · ${nextMatch.place}` : ""}
             </span>
           </Link>

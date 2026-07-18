@@ -166,6 +166,24 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-18 — The dead button was a hydration crash (React #418)
+- Diagnostics showed repeated #418 with args[]=text on /events/[id]: the SERVER-
+  rendered TEXT differed from the client's. When hydration throws, the server
+  HTML stays visible but NO handler is attached — "Turn on" (and every other
+  button on the page) was dead regardless of its own correctness.
+- Offender 1 — EventShareKit formatted event times with NO timeZone: Vercel
+  (UTC) rendered "4:00 PM", the browser (PT) "9:00 AM". Pinned to
+  America/Los_Angeles (the site already labels times "PT"). Admin-gated, which
+  is exactly why the organizer hit it.
+- Offender 2 — top-bar's next-match chip: Date.now() + undefined-locale
+  formatting IN SSR'd render. Fixed with a hydration gate via
+  useSyncExternalStore (server snapshot false / client true) — the sanctioned,
+  setState-free "am I hydrated?" — so SSR and the hydration pass render without
+  the viewer-local time, and it fills in immediately after.
+- Standing rule extended: any viewer-locale/zone-dependent text in a client
+  component must be timeZone-pinned or hydration-gated; Date.now()/toLocale*
+  with undefined locale in SSR'd render paths are hydration bombs.
+
 ### 2026-07-17 — Turn-on works with or without 0124; failures are visible
 - `sessionPatch` (lib/queue-state): every session write that touches `paused_by`
   retries once without it if Postgres rejects the column — the queue functions
