@@ -46,7 +46,7 @@ export function EventQueueAdmin({
       </div>
 
       {!live ? (
-        <div className="mt-4">
+        <div className="flex flex-1 flex-col items-start justify-center py-2">
           <button
             type="button"
             disabled={pending}

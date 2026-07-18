@@ -92,7 +92,7 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
         redirect: "manual",
         signal: controller.signal,
         headers: { "user-agent": "Mozilla/5.0 (compatible; KlimrBot/1.0; +https://klimr.com)" },
-        next: { revalidate: 86400 },
+        cache: "no-store",
       });
       const loc = res.headers.get("location");
       if (res.status >= 300 && res.status < 400 && loc) {
@@ -113,7 +113,11 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
       const g = await geocodeAddress(place);
       if (g) return g;
     }
-    if (finalRes && isGoogleMapsHost(current)) {
+    // HTML is consulted ONLY for a concrete /maps/place page. An expired short
+    // link redirects to the bare Maps homepage, whose embedded viewport is the
+    // SERVER's IP geolocation — scraping that is how every event pin ended up
+    // on a lane in Hampshire. A homepage landing is a failure, full stop.
+    if (finalRes && isGoogleMapsPlacePage(current)) {
       const body = (await finalRes.text()).slice(0, 400_000);
       return parseLatLngFromHtml(body);
     }
@@ -125,10 +129,10 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
   }
 }
 
-function isGoogleMapsHost(u: string): boolean {
+function isGoogleMapsPlacePage(u: string): boolean {
   try {
     const url = new URL(u);
-    return /(^|\.)google\.[a-z.]+$/.test(url.hostname) && url.pathname.startsWith("/maps");
+    return /(^|\.)google\.[a-z.]+$/.test(url.hostname) && url.pathname.startsWith("/maps/place/");
   } catch {
     return false;
   }
@@ -177,12 +181,9 @@ export async function mapsPointFromUrl(raw: string | null | undefined): Promise<
 // [[[zoom, LNG, LAT], …]] and sometimes expose "latitude"/"longitude" JSON.
 // Last-resort extraction when the redirect URL itself carried no coordinate.
 function parseLatLngFromHtml(body: string): LatLng | null {
-  const app = body.match(/\[\[\[\d+(?:\.\d+)?,(-?\d+\.\d+),(-?\d+\.\d+)\]/);
-  if (app) {
-    const lng = parseFloat(app[1]);
-    const lat = parseFloat(app[2]);
-    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0)) return { lat, lng };
-  }
+  // Deliberately NO viewport/APP_INITIALIZATION_STATE pattern here: a map
+  // page's viewport is wherever Google geolocated the requesting IP. Only the
+  // place's own latitude/longitude JSON is trustworthy.
   const kv = body.match(/"latitude"\s*:\s*(-?\d+\.\d+)[\s\S]{0,120}?"longitude"\s*:\s*(-?\d+\.\d+)/);
   if (kv) {
     const lat = parseFloat(kv[1]);

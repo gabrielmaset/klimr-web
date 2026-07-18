@@ -70,10 +70,14 @@ export async function ensureEventQueueLive(
     if (!sessionId) return null;
   } else {
     if (existing!.status === "ended") await clearSessionPlay(admin, sessionId);
-    await admin
+    const { error } = await admin
       .from("court_sessions")
       .update({ status: "live", paused: false, paused_by: null, ended_at: null })
       .eq("id", sessionId);
+    if (error) {
+      console.error("[queue] revive failed — is migration 0124 applied?", error.message);
+      return null;
+    }
   }
 
   // No auto-seeded court: after Turn on the organizer sets up as many courts

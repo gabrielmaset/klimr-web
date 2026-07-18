@@ -543,7 +543,8 @@ export async function setQueueEnabled(formData: FormData) {
   if (enabled) {
     // ON means PLAYING: create-or-revive the session, seed Court 1 if bare,
     // go live unpaused — one tap, nothing else to press.
-    await ensureEventQueueLive(admin, eventId, guard.user.id);
+    const sid = await ensureEventQueueLive(admin, eventId, guard.user.id);
+    if (!sid) console.error("[queue] turn-on could not go live for event", eventId);
   } else {
     // OFF means BLANK SLATE: play state, courts and tuned settings all clear;
     // only the session row + its public code survive for printed QR posters.

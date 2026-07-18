@@ -166,6 +166,36 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-17 — CI caught what a piped exit code hid
+- Run #32's red X was real: the map-preview effect added two sessions ago called
+  setState synchronously in its body — the exact pattern the repo's own ESLint
+  rules ban. It slipped every "green" check since because the verification
+  piped eslint through tail, so `$?` reported tail's exit, not eslint's.
+  **Discipline fix: gates are never piped before capturing exit.**
+- Resolution was a revert, not a patch: the form already had complete resolve
+  machinery (`resolveMapsPoint` → maps-actions → mapsPointFromUrl) that earlier
+  greps missed by name; the duplicate effect + duplicate action are deleted and
+  the preview inherits the hardened resolver automatically.
+- CI workflow bumped to checkout@v5 / setup-node@v5 (silences the Node-20
+  runtime deprecation warning on every run).
+
+### 2026-07-17 — Root causes closed: 0124 dependency surfaced · Hampshire autopsy
+- **Turn-on "doing nothing" = migration 0124 missing in prod.** The event page's
+  session select and the revive update both touch `paused_by`; without the
+  column, the select errors → session null → panel renders OFF regardless, and
+  the revive fails silently → never live. All three code paths now log loudly
+  ("is migration 0124 applied?") instead of failing mute; ensure returns null on
+  a failed revive so the flag can't drift ahead of reality.
+- **The Hampshire pin, final autopsy.** Expired goo.gl links redirect to the
+  bare Google Maps homepage, whose embedded viewport is the REQUESTING SERVER'S
+  IP geolocation — the resolver was scraping that default viewport as a "pin"
+  (old code and first rewrite alike). Rules now: hop fetches are no-store; HTML
+  is consulted ONLY on a concrete /maps/place/ page; the viewport /
+  APP_INITIALIZATION_STATE pattern is deleted outright (only a place's own
+  latitude/longitude JSON is trustworthy). A homepage landing = failure → null →
+  server geocode of the venue text → correct pin, or the honest no-iframe card.
+- Panel OFF state vertically centres its content (no dead void under the button).
+
 ### 2026-07-17 — Queue v3 (Gabriel's final spec) · per-court codes · honest map
 - **No auto court.** Turn on = live, then the organizer sets up courts — as many
   as needed, named freely (Court 1 / Court A / Green Court). Auto-seeding
