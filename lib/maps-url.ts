@@ -97,7 +97,7 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
       const loc = res.headers.get("location");
       if (res.status >= 300 && res.status < 400 && loc) {
         current = new URL(loc, current).toString();
-        const unwrapped = unwrapGoogleRedirect(current);
+        const unwrapped = unwrapGoogleRedirect(current) ?? embeddedUrlParam(current);
         if (unwrapped) current = unwrapped;
         const p = parseLatLngFromMapsUrl(current);
         if (p) return p;
@@ -119,7 +119,23 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
     // on a lane in Hampshire. A homepage landing is a failure, full stop.
     if (finalRes && isGoogleMapsPlacePage(current)) {
       const body = (await finalRes.text()).slice(0, 400_000);
-      return parseLatLngFromHtml(body);
+      const fromBody = parseLatLngFromHtml(body);
+      if (fromBody) return fromBody;
+    }
+    // Last resort: let the platform follow the whole chain and read ONLY the
+    // final URL (never a body) — catches redirect shapes the manual walk missed.
+    try {
+      const followed = await fetch(raw, { redirect: "follow", signal: controller.signal, cache: "no-store", headers: { "user-agent": "Mozilla/5.0 (compatible; KlimrBot/1.0; +https://klimr.com)" } });
+      const p2 = parseLatLngFromMapsUrl(followed.url);
+      if (p2) return p2;
+      const place2 = placeTextFromMapsUrl(followed.url);
+      if (place2) {
+        const g2 = await geocodeAddress(place2);
+        if (g2) return g2;
+      }
+      console.error("[maps] short-link unresolved", { raw, walked: current, followed: followed.url, status: followed.status });
+    } catch {
+      console.error("[maps] short-link unresolved", { raw, walked: current });
     }
     return null;
   } catch {
@@ -135,6 +151,21 @@ function isGoogleMapsPlacePage(u: string): boolean {
     return /(^|\.)google\.[a-z.]+$/.test(url.hostname) && url.pathname.startsWith("/maps/place/");
   } catch {
     return false;
+  }
+}
+
+// Google loves nesting the real destination in a query param (?continue=,
+// ?link=, ?url=, ?q=<full url>) — unwrap generically when the value is a URL.
+function embeddedUrlParam(u: string): string | null {
+  try {
+    const url = new URL(u);
+    for (const k of ["continue", "link", "url", "q"]) {
+      const v = url.searchParams.get(k);
+      if (v && /^https?:\/\//i.test(v)) return v;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 

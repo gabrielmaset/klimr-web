@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Copy, ExternalLink, Pause, Play, Power, SlidersHorizontal } from "lucide-react";
 import { setQueueEnabled, setEventQueuePaused, setEventCourtClosed } from "@/app/events/actions";
@@ -27,6 +28,19 @@ export function EventQueueAdmin({
 }) {
   const [pending, start] = useTransition();
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const router = useRouter();
+  const runToggle = (extra: Record<string, string>) =>
+    start(async () => {
+      try {
+        const r = await setQueueEnabled(fd(extra));
+        setErrMsg(r?.error ?? null);
+        if (!r?.error) router.refresh();
+      } catch (e) {
+        // A rejected server-action round-trip (stale client bundle, network,
+        // framework) must be VISIBLE, never a swallowed promise.
+        setErrMsg(e instanceof Error ? e.message : String(e));
+      }
+    });
   const live = queueEnabled && session?.status === "live";
   const paused = !!(live && session?.paused);
   const courts = session?.courts ?? [];
@@ -60,7 +74,7 @@ export function EventQueueAdmin({
           <button
             type="button"
             disabled={pending}
-            onClick={() => start(async () => { const r = await setQueueEnabled(fd({ enabled: "1" })); setErrMsg(r?.error ?? null); })}
+            onClick={() => runToggle({ enabled: "1" })}
             className="press inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3 text-base font-bold text-white transition hover:bg-brand-deep disabled:opacity-60"
           >
             <Power size={17} /> Turn on the queue
@@ -91,7 +105,7 @@ export function EventQueueAdmin({
             <button
               type="button"
               disabled={pending}
-              onClick={() => start(async () => { const r = await setQueueEnabled(fd({})); setErrMsg(r?.error ?? null); })}
+              onClick={() => runToggle({})}
               className="press ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
               title="Clears courts, players, and settings — the code survives for printed posters"
             >

@@ -103,7 +103,11 @@ export async function ensureEventQueueLive(
 
   // No auto-seeded court: after Turn on the organizer sets up as many courts
   // as needed, named their way (Court 1, Court A, Green Court…).
-  await admin.from("events").update({ queue_enabled: true }).eq("id", eventId);
+  const { error: flagErr } = await admin.from("events").update({ queue_enabled: true }).eq("id", eventId);
+  if (flagErr) {
+    console.error("[queue] flag write failed:", flagErr.message);
+    return { id: sessionId, error: `Queue is live but the event flag failed: ${flagErr.message}` };
+  }
   return { id: sessionId, error: null };
 }
 

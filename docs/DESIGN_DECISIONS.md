@@ -166,6 +166,20 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-18 — Every link in the turn-on chain now speaks; resolver follow-fallback
+- Post-hydration-fix evidence: the click fires and the round-trip completes with
+  no returned error, no thrown rejection (the reporter does hook
+  unhandledrejection), yet the flag reads false. The only write in the chain
+  that was never error-checked was the events.queue_enabled flag update — it is
+  now checked and its failure message travels to the panel's red line. The whole
+  action is additionally try/caught (thrown ≠ returned), and the panel wraps the
+  round-trip in try/catch + explicit router.refresh() on success.
+- Maps: hop-walk gains a generic nested-URL unwrap (?continue/link/url/q=<url>)
+  and a last-resort redirect:"follow" that reads ONLY the final URL (never a
+  body) — plus telemetry: "[maps] short-link unresolved { raw, walked, followed }"
+  in Vercel logs whenever a link still defeats resolution, so the next fix is
+  one pasted log line away, not another guess.
+
 ### 2026-07-18 — The dead button was a hydration crash (React #418)
 - Diagnostics showed repeated #418 with args[]=text on /events/[id]: the SERVER-
   rendered TEXT differed from the client's. When hydration throws, the server

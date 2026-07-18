@@ -534,6 +534,16 @@ export async function unsetEventAdmin(eventId: string, userId: string): Promise<
 }
 
 export async function setQueueEnabled(formData: FormData): Promise<{ error: string | null }> {
+  try {
+    return await setQueueEnabledInner(formData);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[queue] setQueueEnabled threw:", msg);
+    return { error: msg };
+  }
+}
+
+async function setQueueEnabledInner(formData: FormData): Promise<{ error: string | null }> {
   const eventId = String(formData.get("eventId") ?? "");
   const enabled = formData.get("enabled") != null;
   if (!eventId) return { error: "Missing event." };
