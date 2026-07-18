@@ -166,6 +166,32 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-17 — Queue = play switch · panel redesign · maps resolver hardened
+- **Queue model, final form (Gabriel's spec):** ON = playing (create-or-revive
+  the session, seed Court 1 if bare, live unpaused — one tap; `ensureEventQueueLive`).
+  OFF = blank slate (`wipeSession`: play state, courts, AND tuned settings clear;
+  only the session row + public code survive for printed QR). PAUSE = named
+  intermission: `court_sessions.paused_by` (migration 0124) records who; the
+  courtside pill, queue chip, join gate, and start-next error all say
+  "<name> has paused the games — the match on court can finish, the next one
+  waits." Manual End on the queue page = the same OFF. "Start today's queue"
+  action deleted — the state no longer exists.
+- **Organizer panel redesigned (event-queue-admin):** status pill (Off / Running
+  / Paused-amber); OFF shows one big "Turn on the queue"; RUNNING leads with the
+  SESSION CODE in huge mono (organizers read it into the Courtside iPad far more
+  than they click it) + copy, then Pause/Resume · Courtside display · Queue
+  settings · quiet Turn off, then both public links as labeled copy chips.
+  "Spread the word" (ShareKit) rehomed inside Organizer tools; "Edit event
+  details" upgraded to a solid ink button.
+- **Maps resolver rebuilt:** Google sunset consumer goo.gl; scraping URL
+  patterns out of interstitial HTML produced one deterministic junk pin
+  (Hampshire) for every link. Rules now: URL patterns run on URLs only (each
+  redirect hop, with consent.google unwrapping); /maps/place/<name> geocodes the
+  name; HTML is consulted only on real google.*/maps pages with page-specific
+  patterns. Edit-form preview resolves short links through the same server
+  resolver (`app/events/map-actions.ts`, debounced) — the form's `resolvedPoint`
+  was previously never set.
+
 ### 2026-07-17 — Queue is ONE switch: session state mirrors the event toggle
 - Field feedback: auto-retire worked ("Queue ended — ready for the next session")
   but the panel still LOOKED on — dark, with a Turn off button. The two-state

@@ -67,32 +67,100 @@ export function isMapsShortLink(raw: string | null | undefined): boolean {
   }
 }
 
-// Server-only: follow a short link and dig the precise coordinate out of the
-// resolved URL or the returned HTML. Cached for a day; always fails soft to null
-// (the map then falls back to the address text) and never throws. This runs at
-// request time on the server — it needs outbound access to google, so it is a
-// no-op anywhere that can't reach the network.
+// Server-only: resolve a short link by WALKING the redirect chain ourselves and
+// parsing coordinates from each hop URL — never from arbitrary HTML. Google
+// sunset consumer goo.gl links in 2025; whatever interstitial they serve now,
+// running the @lat,lng pattern over its markup produced one deterministic junk
+// coordinate for every link (the pin in Hampshire). Rules now:
+//   1. URL patterns run on URLs only (every redirect hop, incl. consent
+//      unwrapping) — that's where they mean something.
+//   2. If the chain lands on /maps/place/<name> with no inline coordinate,
+//      geocode the place name through the Geocoding API.
+//   3. HTML is consulted only when the final page is a real google.*/maps
+//      document, and only with page-specific patterns.
+// Cached a day; always fails soft to null (callers fall back to geocoding the
+// venue text).
 export async function resolveMapsShortLink(raw: string | null | undefined): Promise<LatLng | null> {
   if (!raw || !isMapsShortLink(raw)) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3000);
+  const timer = setTimeout(() => controller.abort(), 4000);
   try {
-    const res = await fetch(raw, {
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { "user-agent": "Mozilla/5.0 (compatible; KlimrBot/1.0; +https://klimr.com)" },
-      next: { revalidate: 86400 },
-    });
-    // The final URL after redirects usually carries the coordinates.
-    const fromUrl = parseLatLngFromMapsUrl(res.url);
-    if (fromUrl) return fromUrl;
-    // Otherwise scan the returned HTML for an embedded maps URL / coordinate.
-    const body = (await res.text()).slice(0, 400_000);
-    return parseLatLngFromMapsUrl(body) ?? parseLatLngFromHtml(body);
+    let current = raw;
+    let finalRes: Response | null = null;
+    for (let hop = 0; hop < 6; hop++) {
+      const res = await fetch(current, {
+        redirect: "manual",
+        signal: controller.signal,
+        headers: { "user-agent": "Mozilla/5.0 (compatible; KlimrBot/1.0; +https://klimr.com)" },
+        next: { revalidate: 86400 },
+      });
+      const loc = res.headers.get("location");
+      if (res.status >= 300 && res.status < 400 && loc) {
+        current = new URL(loc, current).toString();
+        const unwrapped = unwrapGoogleRedirect(current);
+        if (unwrapped) current = unwrapped;
+        const p = parseLatLngFromMapsUrl(current);
+        if (p) return p;
+        continue;
+      }
+      finalRes = res;
+      break;
+    }
+    const fromFinalUrl = parseLatLngFromMapsUrl(current);
+    if (fromFinalUrl) return fromFinalUrl;
+    const place = placeTextFromMapsUrl(current);
+    if (place) {
+      const g = await geocodeAddress(place);
+      if (g) return g;
+    }
+    if (finalRes && isGoogleMapsHost(current)) {
+      const body = (await finalRes.text()).slice(0, 400_000);
+      return parseLatLngFromHtml(body);
+    }
+    return null;
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+function isGoogleMapsHost(u: string): boolean {
+  try {
+    const url = new URL(u);
+    return /(^|\.)google\.[a-z.]+$/.test(url.hostname) && url.pathname.startsWith("/maps");
+  } catch {
+    return false;
+  }
+}
+
+// consent.google.com wraps the real destination in ?continue=…
+function unwrapGoogleRedirect(u: string): string | null {
+  try {
+    const url = new URL(u);
+    if (!/(^|\.)consent\.google\./.test(url.hostname) && !/\/sorry\//.test(url.pathname)) return null;
+    const cont = url.searchParams.get("continue");
+    return cont ? decodeURIComponent(cont) : null;
+  } catch {
+    return null;
+  }
+}
+
+// "/maps/place/Lot+8+North+Beach/…" → "Lot 8 North Beach"; also non-numeric ?q=.
+export function placeTextFromMapsUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    const m = url.pathname.match(/\/maps\/place\/([^/@]+)/);
+    if (m) {
+      const name = decodeURIComponent(m[1].replace(/\+/g, " ")).trim();
+      if (name && !/^-?\d+\.\d+,/.test(name)) return name;
+    }
+    const q = url.searchParams.get("q") || url.searchParams.get("query");
+    if (q && !/^-?\d+\.\d+\s*,/.test(q)) return q.trim();
+    return null;
+  } catch {
+    return null;
   }
 }
 

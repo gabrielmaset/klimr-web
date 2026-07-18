@@ -209,7 +209,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
             ) : session.status === "live" && session.paused ? (
               <Pause size={12} fill="currentColor" />
             ) : null}
-            {session.status === "live" ? (session.paused ? "Paused" : "Live") : session.status === "ended" ? "Ended" : "Setup"}
+            {session.status === "live" ? (session.paused ? `Paused${session.pausedByName ? ` · ${session.pausedByName}` : ""}` : "Live") : session.status === "ended" ? "Ended" : "Setup"}
           </span>
         </div>
 

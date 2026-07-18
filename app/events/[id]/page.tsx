@@ -119,15 +119,18 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     })
     .sort((a, b) => (a.isOwner === b.isOwner ? 0 : a.isOwner ? -1 : 1));
 
-  let session: { id: string; code: string; status: string; firstCourtId: string | null } | null = null;
+  let session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; firstCourtId: string | null } | null = null;
   if (e.queue_enabled) {
-    // Latest session in ANY state — an ended one still matters (the panel offers
-    // "Start today's queue" on the SAME session so the printed code survives).
-    const { data: qs } = await supabase.from("court_sessions").select("id, code, status, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const { data: qs } = await supabase.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (qs && (await retireSessionIfStale(createAdminClient(), qs))) qs.status = "ended";
     if (qs) {
       const { data: firstCourt } = await supabase.from("queue_courts").select("id").eq("session_id", qs.id).order("sort").limit(1).maybeSingle();
-      session = { id: qs.id, code: qs.code, status: qs.status, firstCourtId: firstCourt?.id ?? null };
+      let pausedByName: string | null = null;
+      if (qs.paused && qs.paused_by) {
+        const { data: pauser } = await supabase.from("profiles").select("display_name").eq("id", qs.paused_by).maybeSingle();
+        pausedByName = pauser?.display_name ?? null;
+      }
+      session = { id: qs.id, code: qs.code, status: qs.status, paused: !!qs.paused, pausedByName, firstCourtId: firstCourt?.id ?? null };
     }
   }
 
@@ -362,21 +365,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         )}
         {!locationLocked && where ? <EventLocationMap name={courtData?.name ?? e.location_text} address={e.location_text} zip={null} lat={null} lng={null} point={mapPoint} href={mapsHref ?? undefined} /> : null}
 
-        {/* Promo copy is an organizer tool — members already have RSVP + calendar. */}
-        {isAdmin ? <EventShareKit
-          title={e.title}
-          sportName={sportMeta(e.sport_key).name}
-          sportEmoji={sportMeta(e.sport_key).emoji}
-          kindLabel={eventKindLabel(e.kind)}
-          startsAt={e.starts_at}
-          endsAt={e.ends_at}
-          where={locationLocked ? null : (where ?? null)}
-          whereLocked={locationLocked}
-          costText={e.cost_text}
-          capacity={e.capacity}
-          description={e.description}
-          url={`https://klimr.com/events/${e.id}`}
-        /> : null}
       </div>
 
       {/* ORGANIZER TOOLS — everything admin-only lives here, clearly separated */}
@@ -390,7 +378,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link href={`/events/${e.id}/edit`} className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-brand">
+            <Link href={`/events/${e.id}/edit`} className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-ink-soft">
               <Pencil size={14} /> Edit event details
             </Link>
             {isOwner ? (
@@ -445,6 +433,24 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
             <EventQueueAdmin eventId={e.id} queueEnabled={e.queue_enabled} session={session} />
             <EventAdmins eventId={e.id} isOwner={isOwner} meId={user.id} initialAdmins={initialAdmins} />
+          </div>
+
+          {/* Promo copy is an organizer tool — it lives with the other organizer tools. */}
+          <div className="mt-4">
+            <EventShareKit
+          title={e.title}
+          sportName={sportMeta(e.sport_key).name}
+          sportEmoji={sportMeta(e.sport_key).emoji}
+          kindLabel={eventKindLabel(e.kind)}
+          startsAt={e.starts_at}
+          endsAt={e.ends_at}
+          where={locationLocked ? null : (where ?? null)}
+          whereLocked={locationLocked}
+          costText={e.cost_text}
+          capacity={e.capacity}
+          description={e.description}
+          url={`https://klimr.com/events/${e.id}`}
+        />
           </div>
         </section>
       ) : null}

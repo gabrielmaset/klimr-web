@@ -11,6 +11,7 @@ import { RichTextEditor, linkifyHtml } from "@/components/rich-text-editor";
 import { DateTimeField } from "@/components/date-time-field";
 import { EventLocationMap } from "@/components/event-location-map";
 import { parseLatLngFromMapsUrl, isMapsShortLink, type LatLng } from "@/lib/maps-url";
+import { resolveEventMapPoint } from "@/app/events/map-actions";
 import { resolveMapsPoint } from "@/app/events/maps-actions";
 import {
   createEvent,
@@ -91,6 +92,17 @@ export function EventForm({ initial }: { initial?: Initial }) {
   const [locationUrl, setLocationUrl] = useState(initial?.location_url ?? "");
   const [revealRsvp, setRevealRsvp] = useState(initial?.location_reveal === "rsvp");
   const [resolvedPoint, setResolvedPoint] = useState<LatLng | null>(null);
+  // Short links carry no inline coordinate — resolve them server-side
+  // (debounced) so the preview pin is the real spot, not a text guess.
+  useEffect(() => {
+    const url = locationUrl.trim();
+    setResolvedPoint(null);
+    if (!url || !isMapsShortLink(url) || parseLatLngFromMapsUrl(url)) return;
+    const t = setTimeout(() => {
+      resolveEventMapPoint(url).then((p) => setResolvedPoint(p)).catch(() => {});
+    }, 600);
+    return () => clearTimeout(t);
+  }, [locationUrl]);
   const [resolveState, setResolveState] = useState<"idle" | "resolving" | "failed">("idle");
 
   // Short links carry no coordinates in the URL itself — resolve them on the

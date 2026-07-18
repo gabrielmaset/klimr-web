@@ -233,7 +233,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
             <span className="rounded-full border border-white/15 px-[1.3vw] py-[0.9vh] font-semibold leading-none text-white/70 text-[clamp(0.9rem,1.7vw,1.6rem)]">{court.levels.map(levelLabel).join(" · ")}</span>
           ) : null}
           {sPaused ? (
-            <span className="rounded-full px-[1.3vw] py-[0.9vh] font-display font-bold leading-none text-[#0a0f1f] text-[clamp(0.9rem,1.7vw,1.6rem)]" style={{ background: "#f5c518" }}>Paused</span>
+            <span className="rounded-full px-[1.3vw] py-[0.9vh] font-display font-bold leading-none text-[#0a0f1f] text-[clamp(0.9rem,1.7vw,1.6rem)]" style={{ background: "#f5c518" }}>{`Paused${state.session.pausedByName ? ` · ${state.session.pausedByName}` : ""}`}</span>
           ) : null}
         </div>
       </div>

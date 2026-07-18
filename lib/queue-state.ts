@@ -19,6 +19,71 @@ export async function clearSessionPlay(admin: Admin, sessionId: string): Promise
   await admin.from("queue_join_requests").delete().eq("session_id", sessionId);
 }
 
+const SESSION_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function sessionCode(len = 6): string {
+  let out = "";
+  for (let i = 0; i < len; i++) out += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+  return out;
+}
+
+/** Full wipe — Gabriel's OFF semantics: play state, courts, and tuned settings
+ *  all go; the queue "must be set up again" (Turn on re-seeds Court 1 and the
+ *  organizer tunes from defaults). Only the session row, its public code, and
+ *  the event link survive so printed QR posters keep working week to week. */
+export async function wipeSession(admin: Admin, sessionId: string): Promise<void> {
+  await clearSessionPlay(admin, sessionId);
+  await admin.from("queue_courts").delete().eq("session_id", sessionId);
+  await admin
+    .from("court_sessions")
+    .update({ status: "ended", ended_at: new Date().toISOString(), paused: false, paused_by: null, win_cap: 1, allow_guests: true, require_location: true, require_approval: false, allow_full_teams: false })
+    .eq("id", sessionId);
+}
+
+/** ON semantics: one tap → playing. Creates the session on first use (seeding
+ *  Court 1), re-seeds Court 1 after a wipe, clears any stale play state, and
+ *  goes live unpaused. Returns the session id. */
+export async function ensureEventQueueLive(
+  admin: Admin,
+  eventId: string,
+  organizerId: string,
+): Promise<string | null> {
+  const { data: existing } = await admin
+    .from("court_sessions")
+    .select("id, status")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let sessionId = existing?.id ?? null;
+  if (!sessionId) {
+    const { data: ev } = await admin.from("events").select("title, sport_key").eq("id", eventId).maybeSingle();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data, error } = await admin
+        .from("court_sessions")
+        .insert({ code: sessionCode(), event_id: eventId, organizer_id: organizerId, title: ev?.title ?? "Live queue", sport_key: ev?.sport_key ?? "tennis", status: "live" })
+        .select("id")
+        .maybeSingle();
+      if (data?.id) { sessionId = data.id; break; }
+      if (error && error.code !== "23505") break;
+    }
+    if (!sessionId) return null;
+  } else {
+    if (existing!.status === "ended") await clearSessionPlay(admin, sessionId);
+    await admin
+      .from("court_sessions")
+      .update({ status: "live", paused: false, paused_by: null, ended_at: null })
+      .eq("id", sessionId);
+  }
+
+  const { count } = await admin.from("queue_courts").select("id", { count: "exact", head: true }).eq("session_id", sessionId);
+  if (!count) {
+    await admin.from("queue_courts").insert({ session_id: sessionId, label: "Court 1", team_size: 2, levels: [], sort: 0 });
+  }
+  await admin.from("events").update({ queue_enabled: true }).eq("id", eventId);
+  return sessionId;
+}
+
 const IDLE_RETIRE_MS = 6 * 60 * 60 * 1000;
 
 /** Lazy auto-retire: a live session idle for 6+ hours ends itself the next time
@@ -65,7 +130,7 @@ export async function retireSessionIfStale(
 export async function loadSessionState(admin: Admin, sessionId: string, meId?: string | null): Promise<QSessionState | null> {
   const { data: s } = await admin
     .from("court_sessions")
-    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, paused, center_lat, center_lng, radius_m, organizer_id, created_at")
+    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, paused, paused_by, center_lat, center_lng, radius_m, organizer_id, created_at")
     .eq("id", sessionId)
     .maybeSingle();
   if (!s) return null;
@@ -91,6 +156,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
   }
   const userIds = [...new Set([...members.map((m) => m.user_id), ...reqRows.map((r) => r.user_id)].filter(Boolean) as string[])];
   let profById = new Map<string, string>();
+  if (s.paused_by && !userIds.includes(s.paused_by)) userIds.push(s.paused_by);
   if (userIds.length) {
     const { data: profs } = await admin.from("profiles").select("id, display_name").in("id", userIds);
     profById = new Map((profs ?? []).map((p) => [p.id, p.display_name || "Player"]));
@@ -192,6 +258,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       requireApproval: s.require_approval,
       allowFullTeams: s.allow_full_teams,
       paused: s.paused,
+      pausedByName: s.paused && s.paused_by ? (profById.get(s.paused_by) ?? null) : null,
       centerLat: s.center_lat,
       centerLng: s.center_lng,
       radiusM: s.radius_m,

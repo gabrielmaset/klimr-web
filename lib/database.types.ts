@@ -45,9 +45,12 @@ export interface Database {
   public: {
     Tables: {
       court_sessions: {
-        Row: { id: string; code: string; event_id: string | null; organizer_id: string; title: string; sport_key: string; status: string; win_cap: number; center_lat: number | null; center_lng: number | null; radius_m: number; allow_guests: boolean; require_location: boolean; event_only: boolean; require_approval: boolean; allow_full_teams: boolean; paused: boolean; created_at: string; ended_at: string | null };
-        Insert: { id?: string; code: string; event_id?: string | null; organizer_id: string; title?: string; sport_key: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean; created_at?: string; ended_at?: string | null };
-        Update: { id?: string; code?: string; event_id?: string | null; organizer_id?: string; title?: string; sport_key?: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean; created_at?: string; ended_at?: string | null };
+        Row: { id: string; code: string; event_id: string | null; organizer_id: string; title: string; sport_key: string; status: string; win_cap: number; center_lat: number | null; center_lng: number | null; radius_m: number; allow_guests: boolean; require_location: boolean; event_only: boolean; require_approval: boolean; allow_full_teams: boolean; paused: boolean;
+          paused_by: string | null; created_at: string; ended_at: string | null };
+        Insert: { id?: string; code: string; event_id?: string | null; organizer_id: string; title?: string; sport_key: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean;
+          paused_by?: string | null; created_at?: string; ended_at?: string | null };
+        Update: { id?: string; code?: string; event_id?: string | null; organizer_id?: string; title?: string; sport_key?: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean;
+          paused_by?: string | null; created_at?: string; ended_at?: string | null };
         Relationships: [];
       };
       queue_courts: {

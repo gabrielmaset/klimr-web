@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { clearSessionPlay } from "@/lib/queue-state";
+import { clearSessionPlay, wipeSession, ensureEventQueueLive } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS } from "@/lib/sports";
 import { LEVELS, metersBetween } from "@/lib/queue";
@@ -33,7 +33,7 @@ async function currentUserId(): Promise<string | null> {
 async function sessionRow(admin: Admin, id: string) {
   const { data } = await admin
     .from("court_sessions")
-    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams, paused")
+    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams, paused, paused_by")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -193,7 +193,9 @@ export async function endSession(formData: FormData): Promise<Result> {
   const s = await sessionRow(admin, sessionId);
   if (!s) return { error: "Session not found." };
   if (s.organizer_id !== userId) return { error: "Only the organizer can end the session." };
-  await admin.from("court_sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", sessionId);
+  // OFF is a full reset by design: play state, courts, and tuned settings clear;
+  // the code survives for the printed QR. Turn on re-seeds Court 1.
+  await wipeSession(admin, sessionId);
   if (s.event_id) await admin.from("events").update({ queue_enabled: false }).eq("id", s.event_id);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
@@ -224,7 +226,14 @@ type Session = NonNullable<Awaited<ReturnType<typeof sessionRow>>>;
 /** Every gate that must pass before a person may join or request to join. */
 async function validateJoin(admin: Admin, court: CourtLite, s: Session, member: Member, coords: { lat?: number; lng?: number }): Promise<Result> {
   if (s.status !== "live") return { error: "This session hasn't opened the queue yet." };
-  if (s.paused) return { error: "The queue is paused — hang tight until the organizer resumes it." };
+  if (s.paused) {
+    let who = "The organizer";
+    if (s.paused_by) {
+      const { data: prof } = await admin.from("profiles").select("display_name").eq("id", s.paused_by).maybeSingle();
+      if (prof?.display_name) who = prof.display_name;
+    }
+    return { error: `${who} has paused the games — joining reopens when play resumes.` };
+  }
   if (!member.user_id && !s.allow_guests) return { error: "Walk-up sign-ups are turned off for this session." };
 
   if (s.require_location && s.center_lat != null && s.center_lng != null) {
@@ -400,7 +409,7 @@ export async function setPaused(formData: FormData): Promise<Result> {
   const on = formData.get("on") === "1";
   const s = await sessionRow(admin, sessionId);
   if (!s || s.organizer_id !== userId) return { error: "Only the organizer can change this." };
-  await admin.from("court_sessions").update({ paused: on }).eq("id", sessionId);
+  await admin.from("court_sessions").update({ paused: on, paused_by: on ? userId : null }).eq("id", sessionId);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }
@@ -432,9 +441,14 @@ export async function restartSession(formData: FormData): Promise<Result> {
   const sessionId = String(formData.get("sessionId") || "");
   const s = await sessionRow(admin, sessionId);
   if (!s || s.organizer_id !== userId) return { error: "Only the organizer can do that." };
-  await clearSessionPlay(admin, sessionId);
-  await admin.from("court_sessions").update({ status: "live", paused: false, ended_at: null }).eq("id", sessionId);
-  if (s.event_id) await admin.from("events").update({ queue_enabled: true }).eq("id", s.event_id);
+  if (s.event_id) {
+    await ensureEventQueueLive(admin, s.event_id, s.organizer_id);
+  } else {
+    await clearSessionPlay(admin, sessionId);
+    await admin.from("court_sessions").update({ status: "live", paused: false, paused_by: null, ended_at: null }).eq("id", sessionId);
+    const { count } = await admin.from("queue_courts").select("id", { count: "exact", head: true }).eq("session_id", sessionId);
+    if (!count) await admin.from("queue_courts").insert({ session_id: sessionId, label: "Court 1", team_size: 2, levels: [], sort: 0 });
+  }
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }
@@ -625,7 +639,15 @@ async function applyStartNext(admin: Admin, courtId: string, sessionId: string):
   if (!sess) return { error: "Session not found." };
   if (sess.status === "ended") return { error: "This session has ended." };
   if (sess.status !== "live") return { error: "The queue hasn't started yet." };
-  if (sess.paused) return { error: "The queue is paused — resume it to start the next match." };
+  if (sess.paused) {
+    let who = "The organizer";
+    const { data: full } = await admin.from("court_sessions").select("paused_by").eq("id", sessionId).maybeSingle();
+    if (full?.paused_by) {
+      const { data: prof } = await admin.from("profiles").select("display_name").eq("id", full.paused_by).maybeSingle();
+      if (prof?.display_name) who = prof.display_name;
+    }
+    return { error: `${who} has paused the games — the current match can finish, but the next one waits.` };
+  }
 
   const { data: liveExisting } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
   if (liveExisting) return { error: "A match is already live on this court." };
