@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createNotification } from "@/lib/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { wipeSession, ensureEventQueueLive } from "@/lib/queue-state";
+import { wipeSession, ensureEventQueueLive, sessionPatch } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS, type SportKey } from "@/lib/sports";
 import { sanitizeRichText } from "@/lib/rich-text";
@@ -533,18 +533,20 @@ export async function unsetEventAdmin(eventId: string, userId: string): Promise<
   return { ok: true };
 }
 
-export async function setQueueEnabled(formData: FormData) {
+export async function setQueueEnabled(formData: FormData): Promise<{ error: string | null }> {
   const eventId = String(formData.get("eventId") ?? "");
   const enabled = formData.get("enabled") != null;
-  if (!eventId) return;
+  if (!eventId) return { error: "Missing event." };
   const guard = await eventAdminGuard(eventId);
-  if (!guard.ok) return;
+  if (!guard.ok) return { error: guard.error ?? "Not allowed." };
   const admin = createAdminClient();
   if (enabled) {
-    // ON means PLAYING: create-or-revive the session, seed Court 1 if bare,
-    // go live unpaused — one tap, nothing else to press.
-    const sid = await ensureEventQueueLive(admin, eventId, guard.user.id);
-    if (!sid) console.error("[queue] turn-on could not go live for event", eventId);
+    // ON means PLAYING: create-or-revive the session, go live unpaused.
+    const res = await ensureEventQueueLive(admin, eventId, guard.user.id);
+    if (res.error) {
+      console.error("[queue] turn-on failed for event", eventId, res.error);
+      return { error: res.error };
+    }
   } else {
     // OFF means BLANK SLATE: play state, courts and tuned settings all clear;
     // only the session row + its public code survive for printed QR posters.
@@ -556,6 +558,7 @@ export async function setQueueEnabled(formData: FormData) {
     await admin.from("events").update({ queue_enabled: false }).eq("id", eventId);
   }
   revalidatePath(`/events/${eventId}`);
+  return { error: null };
 }
 
 /** Pause / resume from the event panel: the match on court can finish, the
@@ -593,7 +596,7 @@ export async function setEventQueuePaused(formData: FormData) {
   const admin = createAdminClient();
   const { data: s } = await admin.from("court_sessions").select("id, status").eq("event_id", eventId).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (!s || s.status !== "live") return;
-  await admin.from("court_sessions").update({ paused: on, paused_by: on ? guard.user.id : null }).eq("id", s.id);
+  await sessionPatch(admin, s.id, { paused: on, paused_by: on ? guard.user.id : null });
   revalidatePath(`/events/${eventId}`);
   revalidatePath(`/queue/${s.id}`);
 }

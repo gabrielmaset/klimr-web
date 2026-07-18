@@ -120,9 +120,21 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     .sort((a, b) => (a.isOwner === b.isOwner ? 0 : a.isOwner ? -1 : 1));
 
   let session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null = null;
+  let queueWarning: string | null = null;
   if (e.queue_enabled) {
-    const { data: qs, error: qsError } = await supabase.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (qsError) console.error("[queue] session select failed — is migration 0124 applied?", qsError.message);
+    // Tolerate a not-yet-applied 0124: if the full select fails on paused_by,
+    // fall back to the pre-0124 columns so the panel still reflects reality,
+    // and surface a visible nudge instead of silently rendering "Off".
+    let qs: { id: string; code: string; status: string; paused: boolean; paused_by: string | null; created_at: string } | null = null;
+    const full = await supabase.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (full.error) {
+      console.error("[queue] session select failed — is migration 0124 applied?", full.error.message);
+      queueWarning = "Run migration 0124 to finish this update — pause names are off until then.";
+      const lite = await supabase.from("court_sessions").select("id, code, status, paused, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      qs = lite.data ? { ...lite.data, paused_by: null } : null;
+    } else {
+      qs = full.data;
+    }
     if (qs && (await retireSessionIfStale(createAdminClient(), qs))) qs.status = "ended";
     if (qs) {
       const { data: courtRows } = await supabase.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
@@ -442,7 +454,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
           {/* Live queue + admins are compact panels — pair them side by side on wider screens */}
           <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-2">
-            <EventQueueAdmin eventId={e.id} queueEnabled={e.queue_enabled} session={session} />
+            <EventQueueAdmin eventId={e.id} queueEnabled={e.queue_enabled} session={session} warning={queueWarning} />
             <EventAdmins eventId={e.id} isOwner={isOwner} meId={user.id} initialAdmins={initialAdmins} />
           </div>
 

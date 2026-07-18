@@ -1,6 +1,7 @@
 import "server-only";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { QSessionState, QTeam, QCourtState } from "@/lib/queue";
+import type { Database } from "@/lib/database.types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -19,6 +20,29 @@ export async function clearSessionPlay(admin: Admin, sessionId: string): Promise
   await admin.from("queue_join_requests").delete().eq("session_id", sessionId);
 }
 
+/** Update a session, tolerating a not-yet-applied 0124: if Postgres rejects
+ *  the unknown `paused_by` column, retry once without it. The queue keeps
+ *  working; only "paused by <name>" waits for the migration. Returns the final
+ *  error message, or null on success. */
+type SessionUpdate = Database["public"]["Tables"]["court_sessions"]["Update"];
+
+export async function sessionPatch(
+  admin: Admin,
+  sessionId: string,
+  patch: SessionUpdate,
+): Promise<string | null> {
+  const { error } = await admin.from("court_sessions").update(patch).eq("id", sessionId);
+  if (!error) return null;
+  if ("paused_by" in patch && /paused_by/.test(error.message)) {
+    console.error("[queue] paused_by missing — apply migration 0124. Retrying without it.");
+    const { paused_by: _omit, ...rest } = patch;
+    void _omit;
+    const { error: e2 } = await admin.from("court_sessions").update(rest).eq("id", sessionId);
+    return e2 ? e2.message : null;
+  }
+  return error.message;
+}
+
 const SESSION_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 function sessionCode(len = 6): string {
   let out = "";
@@ -33,10 +57,7 @@ function sessionCode(len = 6): string {
 export async function wipeSession(admin: Admin, sessionId: string): Promise<void> {
   await clearSessionPlay(admin, sessionId);
   await admin.from("queue_courts").delete().eq("session_id", sessionId);
-  await admin
-    .from("court_sessions")
-    .update({ status: "ended", ended_at: new Date().toISOString(), paused: false, paused_by: null, win_cap: 1, allow_guests: true, require_location: true, require_approval: false, allow_full_teams: false })
-    .eq("id", sessionId);
+  await sessionPatch(admin, sessionId, { status: "ended", ended_at: new Date().toISOString(), paused: false, paused_by: null, win_cap: 1, allow_guests: true, require_location: true, require_approval: false, allow_full_teams: false });
 }
 
 /** ON semantics: one tap → playing. Creates the session on first use (seeding
@@ -46,7 +67,7 @@ export async function ensureEventQueueLive(
   admin: Admin,
   eventId: string,
   organizerId: string,
-): Promise<string | null> {
+): Promise<{ id: string | null; error: string | null }> {
   const { data: existing } = await admin
     .from("court_sessions")
     .select("id, status")
@@ -65,25 +86,25 @@ export async function ensureEventQueueLive(
         .select("id")
         .maybeSingle();
       if (data?.id) { sessionId = data.id; break; }
-      if (error && error.code !== "23505") break;
+      if (error && error.code !== "23505") {
+        console.error("[queue] session insert failed:", error.message);
+        return { id: null, error: error.message };
+      }
     }
-    if (!sessionId) return null;
+    if (!sessionId) return { id: null, error: "Couldn't allocate a session code." };
   } else {
     if (existing!.status === "ended") await clearSessionPlay(admin, sessionId);
-    const { error } = await admin
-      .from("court_sessions")
-      .update({ status: "live", paused: false, paused_by: null, ended_at: null })
-      .eq("id", sessionId);
-    if (error) {
-      console.error("[queue] revive failed — is migration 0124 applied?", error.message);
-      return null;
+    const err = await sessionPatch(admin, sessionId, { status: "live", paused: false, paused_by: null, ended_at: null });
+    if (err) {
+      console.error("[queue] revive failed:", err);
+      return { id: null, error: err };
     }
   }
 
   // No auto-seeded court: after Turn on the organizer sets up as many courts
   // as needed, named their way (Court 1, Court A, Green Court…).
   await admin.from("events").update({ queue_enabled: true }).eq("id", eventId);
-  return sessionId;
+  return { id: sessionId, error: null };
 }
 
 const IDLE_RETIRE_MS = 12 * 60 * 60 * 1000;

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { clearSessionPlay, wipeSession, ensureEventQueueLive } from "@/lib/queue-state";
+import { clearSessionPlay, wipeSession, ensureEventQueueLive, sessionPatch } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS } from "@/lib/sports";
 import { LEVELS, metersBetween } from "@/lib/queue";
@@ -409,7 +409,7 @@ export async function setPaused(formData: FormData): Promise<Result> {
   const on = formData.get("on") === "1";
   const s = await sessionRow(admin, sessionId);
   if (!s || s.organizer_id !== userId) return { error: "Only the organizer can change this." };
-  await admin.from("court_sessions").update({ paused: on, paused_by: on ? userId : null }).eq("id", sessionId);
+  await sessionPatch(admin, sessionId, { paused: on, paused_by: on ? userId : null });
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }
@@ -442,10 +442,11 @@ export async function restartSession(formData: FormData): Promise<Result> {
   const s = await sessionRow(admin, sessionId);
   if (!s || s.organizer_id !== userId) return { error: "Only the organizer can do that." };
   if (s.event_id) {
-    await ensureEventQueueLive(admin, s.event_id, s.organizer_id);
+    const revived = await ensureEventQueueLive(admin, s.event_id, s.organizer_id);
+    if (revived.error) return { error: revived.error };
   } else {
     await clearSessionPlay(admin, sessionId);
-    await admin.from("court_sessions").update({ status: "live", paused: false, paused_by: null, ended_at: null }).eq("id", sessionId);
+    await sessionPatch(admin, sessionId, { status: "live", paused: false, paused_by: null, ended_at: null });
   }
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };

@@ -166,6 +166,18 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-17 — Turn-on works with or without 0124; failures are visible
+- `sessionPatch` (lib/queue-state): every session write that touches `paused_by`
+  retries once without it if Postgres rejects the column — the queue functions
+  fully pre-0124; only "paused by <name>" waits for the migration. Used by
+  ensure/revive, wipe, both pause actions.
+- `ensureEventQueueLive` returns `{ id, error }`; `setQueueEnabled` returns
+  `{ error }`; the panel renders any returned error as an inline red line —
+  the button can no longer dim-and-do-nothing silently.
+- The event page's session select falls back to pre-0124 columns on error and
+  passes an amber "Run migration 0124…" chip into the panel, so the missing
+  migration is announced on the page itself, not just in Vercel logs.
+
 ### 2026-07-17 — CI caught what a piped exit code hid
 - Run #32's red X was real: the map-preview effect added two sessions ago called
   setState synchronously in its body — the exact pattern the repo's own ESLint

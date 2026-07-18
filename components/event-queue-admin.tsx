@@ -18,12 +18,15 @@ export function EventQueueAdmin({
   eventId,
   queueEnabled,
   session,
+  warning,
 }: {
   eventId: string;
   queueEnabled: boolean;
   session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null;
+  warning?: string | null;
 }) {
   const [pending, start] = useTransition();
+  const [errMsg, setErrMsg] = useState<string | null>(null);
   const live = queueEnabled && session?.status === "live";
   const paused = !!(live && session?.paused);
   const courts = session?.courts ?? [];
@@ -45,12 +48,19 @@ export function EventQueueAdmin({
         </span>
       </div>
 
+      {warning ? (
+        <p className="mt-3 rounded-2xl bg-[#f5c518]/10 px-3.5 py-2 text-xs font-semibold text-[#f5c518]">{warning}</p>
+      ) : null}
+      {errMsg ? (
+        <p className="mt-3 rounded-2xl bg-red-400/10 px-3.5 py-2 text-xs font-semibold text-red-300">{errMsg}</p>
+      ) : null}
+
       {!live ? (
         <div className="flex flex-1 flex-col items-start justify-center py-2">
           <button
             type="button"
             disabled={pending}
-            onClick={() => start(async () => { await setQueueEnabled(fd({ enabled: "1" })); })}
+            onClick={() => start(async () => { const r = await setQueueEnabled(fd({ enabled: "1" })); setErrMsg(r?.error ?? null); })}
             className="press inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3 text-base font-bold text-white transition hover:bg-brand-deep disabled:opacity-60"
           >
             <Power size={17} /> Turn on the queue
@@ -81,7 +91,7 @@ export function EventQueueAdmin({
             <button
               type="button"
               disabled={pending}
-              onClick={() => start(async () => { await setQueueEnabled(fd({})); })}
+              onClick={() => start(async () => { const r = await setQueueEnabled(fd({})); setErrMsg(r?.error ?? null); })}
               className="press ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
               title="Clears courts, players, and settings — the code survives for printed posters"
             >
