@@ -65,7 +65,7 @@ export function EventAdmins({ eventId, isOwner, meId, initialAdmins }: { eventId
   };
 
   return (
-    <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
+    <div className="h-full rounded-3xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
       <div className="mb-3 flex items-center gap-2">
         <Shield size={15} className="text-[#0e7490]" />
         <h3 className="text-sm font-bold text-ink">Event admins</h3>

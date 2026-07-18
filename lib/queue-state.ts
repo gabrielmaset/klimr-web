@@ -76,15 +76,13 @@ export async function ensureEventQueueLive(
       .eq("id", sessionId);
   }
 
-  const { count } = await admin.from("queue_courts").select("id", { count: "exact", head: true }).eq("session_id", sessionId);
-  if (!count) {
-    await admin.from("queue_courts").insert({ session_id: sessionId, label: "Court 1", team_size: 2, levels: [], sort: 0 });
-  }
+  // No auto-seeded court: after Turn on the organizer sets up as many courts
+  // as needed, named their way (Court 1, Court A, Green Court…).
   await admin.from("events").update({ queue_enabled: true }).eq("id", eventId);
   return sessionId;
 }
 
-const IDLE_RETIRE_MS = 6 * 60 * 60 * 1000;
+const IDLE_RETIRE_MS = 12 * 60 * 60 * 1000;
 
 /** Lazy auto-retire: a live session idle for 6+ hours ends itself the next time
  *  anyone reads it ("activity" = session created, a team formed, a match started
@@ -108,10 +106,9 @@ export async function retireSessionIfStale(
   const lt = (lastTeamRows ?? [])[0] as { created_at: string | null } | undefined;
   if (lt?.created_at) times.push(new Date(lt.created_at).getTime());
   if (Date.now() - Math.max(...times) <= IDLE_RETIRE_MS) return false;
-  const now = new Date().toISOString();
-  await admin.from("court_sessions").update({ status: "ended", ended_at: now }).eq("id", s.id).eq("status", "live");
-  await admin.from("queue_matches").update({ status: "final", ended_at: now }).eq("session_id", s.id).eq("status", "live");
-  await admin.from("queue_teams").update({ status: "done" }).eq("session_id", s.id).neq("status", "done");
+  // 12h idle = the automatic OFF: identical to the organizer's own Turn off —
+  // full wipe (play state, courts, tuned settings), code survives.
+  await wipeSession(admin, s.id);
   // One-switch rule: for event-linked sessions the event's queue toggle mirrors
   // the session. The day ending — by idle retire or by hand — reads as OFF on
   // the event page; "Turn on" next week goes straight back to live.

@@ -446,8 +446,6 @@ export async function restartSession(formData: FormData): Promise<Result> {
   } else {
     await clearSessionPlay(admin, sessionId);
     await admin.from("court_sessions").update({ status: "live", paused: false, paused_by: null, ended_at: null }).eq("id", sessionId);
-    const { count } = await admin.from("queue_courts").select("id", { count: "exact", head: true }).eq("session_id", sessionId);
-    if (!count) await admin.from("queue_courts").insert({ session_id: sessionId, label: "Court 1", team_size: 2, levels: [], sort: 0 });
   }
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };

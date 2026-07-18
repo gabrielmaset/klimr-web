@@ -36,25 +36,21 @@ export function EventLocationMap({
   // Precise coordinate first (exact pin), then the street address the organizer
   // entered plus ZIP, then the venue name, then any stored (centroid) lat/lng.
   const base = addr || label;
-  const query = precise
-    ? `${precise.lat},${precise.lng}`
-    : base
-      ? zipCode
-        ? `${base}, ${zipCode}`
-        : base
-      : lat != null && lng != null
-        ? `${lat},${lng}`
-        : "";
+  // The keyless embed's TEXT geocoding is banned — it has dropped "Santa
+  // Monica, CA" on a lane in Hampshire. The iframe renders only with a real
+  // coordinate (resolved link, geocoded server-side, or stored court lat/lng);
+  // otherwise the card stays a clean, honest "open in Google Maps" link.
+  const coord = precise ?? (lat != null && lng != null ? { lat, lng } : null);
+  const query = coord ? `${coord.lat},${coord.lng}` : base ? (zipCode ? `${base}, ${zipCode}` : base) : "";
   if (!query) return null;
 
-  const zoom = precise ? 16 : 14;
-  const embedSrc = `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&output=embed`;
+  const embedSrc = coord ? `https://www.google.com/maps?q=${encodeURIComponent(`${coord.lat},${coord.lng}`)}&z=16&output=embed` : null;
   const mapsHref = href || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}${placeId ? `&query_place_id=${encodeURIComponent(placeId)}` : ""}`;
   const caption = label || addr || "Venue";
 
   return (
     <div className={`relative h-full min-h-[170px] overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1 ${className ?? ""}`}>
-      <iframe
+      {embedSrc ? <iframe
         src={embedSrc}
         title={`Map showing ${caption}`}
         loading="lazy"
@@ -62,7 +58,11 @@ export function EventLocationMap({
         aria-hidden="true"
         tabIndex={-1}
         className="absolute inset-0 h-full w-full border-0"
-      />
+      /> : (
+        <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-bg to-surface">
+          <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink-soft"><MapPin size={16} className="text-brand-deep" /> Open in Google Maps</span>
+        </div>
+      )}
       <a
         href={mapsHref}
         target="_blank"

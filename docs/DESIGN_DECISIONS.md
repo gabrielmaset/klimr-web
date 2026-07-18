@@ -166,6 +166,29 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-17 — Queue v3 (Gabriel's final spec) · per-court codes · honest map
+- **No auto court.** Turn on = live, then the organizer sets up courts — as many
+  as needed, named freely (Court 1 / Court A / Green Court). Auto-seeding
+  removed from ensure + restart.
+- **Auto-off = the same OFF.** Idle retire moved to 12 hours and now performs
+  the identical full wipe (courts, players, settings; code survives) and flips
+  the event toggle — a queue left on Sunday reads plainly OFF Monday morning.
+- **Per-court display codes.** A court's code = session code + court number
+  ("3ZGARK2" = court 2; six chars alone = court 1). The panel prints each
+  court's code in big mono with copy, a display link, and Close/Reopen
+  (new event-admin action setEventCourtClosed → queue_courts.closed_at; closing
+  waits for the live match). The Courtside iPad app parses the 7th character.
+  Pause all / Resume all sits above the court list; walk-up link at the bottom.
+- **Panel copy cut to the bone** ("Turning it off clears courts, players, and
+  settings." is the entire OFF explainer). Organizer grid `items-start` →
+  `items-stretch` + h-full cards so the queue and admins panels match heights.
+- **Map can no longer lie.** EventLocationMap renders its iframe ONLY with a
+  real coordinate; with none it shows a clean "Open in Google Maps" card (the
+  keyless embed's text geocoding — the Hampshire pin — is unreachable). If both
+  the link resolver and server geocode fail, the event page logs
+  `[maps] unresolved event pin { hasKey }` — in prod that flag exposes a missing
+  GOOGLE_MAPS_API_KEY instantly.
+
 ### 2026-07-17 — Queue = play switch · panel redesign · maps resolver hardened
 - **Queue model, final form (Gabriel's spec):** ON = playing (create-or-revive
   the session, seed Court 1 if bare, live unpaused — one tap; `ensureEventQueueLive`).

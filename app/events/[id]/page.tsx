@@ -119,18 +119,25 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     })
     .sort((a, b) => (a.isOwner === b.isOwner ? 0 : a.isOwner ? -1 : 1));
 
-  let session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; firstCourtId: string | null } | null = null;
+  let session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null = null;
   if (e.queue_enabled) {
     const { data: qs } = await supabase.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (qs && (await retireSessionIfStale(createAdminClient(), qs))) qs.status = "ended";
     if (qs) {
-      const { data: firstCourt } = await supabase.from("queue_courts").select("id").eq("session_id", qs.id).order("sort").limit(1).maybeSingle();
+      const { data: courtRows } = await supabase.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
       let pausedByName: string | null = null;
       if (qs.paused && qs.paused_by) {
         const { data: pauser } = await supabase.from("profiles").select("display_name").eq("id", qs.paused_by).maybeSingle();
         pausedByName = pauser?.display_name ?? null;
       }
-      session = { id: qs.id, code: qs.code, status: qs.status, paused: !!qs.paused, pausedByName, firstCourtId: firstCourt?.id ?? null };
+      session = {
+        id: qs.id,
+        code: qs.code,
+        status: qs.status,
+        paused: !!qs.paused,
+        pausedByName,
+        courts: (courtRows ?? []).map((c, i) => ({ id: c.id, label: c.label, index: i + 1, closed: !!c.closed_at })),
+      };
     }
   }
 
@@ -164,6 +171,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       : await mapsPointFromUrl(pinUrl);
   if (!mapPoint && !locationLocked && (mapsQuery || e.location_text)) {
     mapPoint = await geocodeAddress(mapsQuery || e.location_text);
+    if (!mapPoint) {
+      console.error("[maps] unresolved event pin", { eventId: e.id, hasKey: !!process.env.GOOGLE_MAPS_API_KEY, pinUrl });
+    }
   }
 
   const descHtml = e.description ? (looksLikeHtml(e.description) ? sanitizeRichText(e.description) : null) : null;
@@ -430,7 +440,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           ) : null}
 
           {/* Live queue + admins are compact panels — pair them side by side on wider screens */}
-          <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+          <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-2">
             <EventQueueAdmin eventId={e.id} queueEnabled={e.queue_enabled} session={session} />
             <EventAdmins eventId={e.id} isOwner={isOwner} meId={user.id} initialAdmins={initialAdmins} />
           </div>

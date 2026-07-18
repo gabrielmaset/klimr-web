@@ -559,6 +559,30 @@ export async function setQueueEnabled(formData: FormData) {
 
 /** Pause / resume from the event panel: the match on court can finish, the
  *  next one waits, and every surface names who paused. */
+/** Close or reopen a single court from the event panel (event-admin scoped;
+ *  the queue page's own controls remain organizer-scoped). Closing waits for
+ *  the match on that court to finish. */
+export async function setEventCourtClosed(formData: FormData) {
+  const eventId = String(formData.get("eventId") ?? "");
+  const courtId = String(formData.get("courtId") ?? "");
+  const closed = formData.get("closed") === "1";
+  if (!eventId || !courtId) return;
+  const guard = await eventAdminGuard(eventId);
+  if (!guard.ok) return;
+  const admin = createAdminClient();
+  const { data: court } = await admin.from("queue_courts").select("id, session_id").eq("id", courtId).maybeSingle();
+  if (!court) return;
+  const { data: s } = await admin.from("court_sessions").select("event_id").eq("id", court.session_id).maybeSingle();
+  if (s?.event_id !== eventId) return;
+  if (closed) {
+    const { data: live } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
+    if (live) return;
+  }
+  await admin.from("queue_courts").update({ closed_at: closed ? new Date().toISOString() : null }).eq("id", courtId);
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath(`/queue/${court.session_id}`);
+}
+
 export async function setEventQueuePaused(formData: FormData) {
   const eventId = String(formData.get("eventId") ?? "");
   const on = formData.get("on") === "1";
