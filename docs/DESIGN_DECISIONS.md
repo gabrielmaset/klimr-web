@@ -166,6 +166,20 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-17 — Queue is ONE switch: session state mirrors the event toggle
+- Field feedback: auto-retire worked ("Queue ended — ready for the next session")
+  but the panel still LOOKED on — dark, with a Turn off button. The two-state
+  model (feature enabled vs session status) read as a contradiction. Collapsed:
+  for event-linked sessions, `events.queue_enabled` now mirrors session liveness.
+- The day ending — idle retire (lib/queue-state) OR the organizer's manual End —
+  also flips the event toggle OFF: panel shows the plain off state, walk-up /
+  courtside links hidden until next time. Going live — Turn on (auto-activate),
+  startSession, or restartSession — flips it back ON. Standalone (non-event)
+  sessions are untouched; every flip is gated on `event_id`.
+- The organizer's weekly loop is now: arrive → Turn on (one tap, straight to
+  live) → play → walk away → it turns itself off. The "ended but enabled"
+  panel copy remains only as a transient fallback.
+
 ### 2026-07-16 — Field-test fixes: rails, event map, courtside safe-areas, queue lifecycle
 - **Workspace rails (tournament + team):** the account/View-public-page footer was
   inside the scroll container, so it scrolled away. Now: scrollable middle

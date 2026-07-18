@@ -180,6 +180,7 @@ export async function startSession(formData: FormData): Promise<Result> {
     patch.center_lng = lng;
   }
   await admin.from("court_sessions").update(patch).eq("id", sessionId);
+  if (s.event_id) await admin.from("events").update({ queue_enabled: true }).eq("id", s.event_id);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }
@@ -193,6 +194,7 @@ export async function endSession(formData: FormData): Promise<Result> {
   if (!s) return { error: "Session not found." };
   if (s.organizer_id !== userId) return { error: "Only the organizer can end the session." };
   await admin.from("court_sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", sessionId);
+  if (s.event_id) await admin.from("events").update({ queue_enabled: false }).eq("id", s.event_id);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }
@@ -432,6 +434,7 @@ export async function restartSession(formData: FormData): Promise<Result> {
   if (!s || s.organizer_id !== userId) return { error: "Only the organizer can do that." };
   await clearSessionPlay(admin, sessionId);
   await admin.from("court_sessions").update({ status: "live", paused: false, ended_at: null }).eq("id", sessionId);
+  if (s.event_id) await admin.from("events").update({ queue_enabled: true }).eq("id", s.event_id);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }

@@ -47,6 +47,13 @@ export async function retireSessionIfStale(
   await admin.from("court_sessions").update({ status: "ended", ended_at: now }).eq("id", s.id).eq("status", "live");
   await admin.from("queue_matches").update({ status: "final", ended_at: now }).eq("session_id", s.id).eq("status", "live");
   await admin.from("queue_teams").update({ status: "done" }).eq("session_id", s.id).neq("status", "done");
+  // One-switch rule: for event-linked sessions the event's queue toggle mirrors
+  // the session. The day ending — by idle retire or by hand — reads as OFF on
+  // the event page; "Turn on" next week goes straight back to live.
+  const { data: sess } = await admin.from("court_sessions").select("event_id").eq("id", s.id).maybeSingle();
+  if (sess?.event_id) {
+    await admin.from("events").update({ queue_enabled: false }).eq("id", sess.event_id);
+  }
   return true;
 }
 
