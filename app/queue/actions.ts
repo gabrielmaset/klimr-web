@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomInt } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -17,8 +18,9 @@ type Result = { ok?: true; error?: string };
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function genCode(len = 6): string {
+  // Codes are credentials — crypto-grade randomness, not Math.random.
   let out = "";
-  for (let i = 0; i < len; i++) out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  for (let i = 0; i < len; i++) out += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   return out;
 }
 
@@ -469,6 +471,35 @@ export async function restartSession(formData: FormData): Promise<Result> {
 
 /** Update session-level settings post-creation. Only the fields present in the
  *  form are touched, so each control can save just its own slice. */
+/** Rotate BOTH credentials — the public join code and the courtside display
+ *  code. Printed QRs die, and every open courtside screen self-ejects to its
+ *  setup screen on the next poll (the display compares the code it was entered
+ *  with against the session's current one). For when a code leaks. */
+export async function resetSessionCodes(formData: FormData): Promise<{ ok?: true; error?: string }> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Sign in first." };
+  const admin = createAdminClient();
+  const sessionId = String(formData.get("sessionId") || "");
+  const s = await sessionRow(admin, sessionId);
+  if (!s) return { error: "Session not found." };
+  if (s.organizer_id !== userId) return { error: "Only the organizer can reset codes." };
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    let { error } = await admin.from("court_sessions").update({ code: genCode(), display_code: genCode() }).eq("id", sessionId);
+    if (error && error.code !== "23505" && /display_code/.test(error.message)) {
+      ({ error } = await admin.from("court_sessions").update({ code: genCode() }).eq("id", sessionId));
+    }
+    if (!error) {
+      revalidatePath(`/queue/${sessionId}`);
+      if (s.event_id) revalidatePath(`/events/${s.event_id}`);
+      if (s.tournament_id) revalidatePath(`/tournament/${s.tournament_id}`);
+      return { ok: true };
+    }
+    if (error.code !== "23505") return { error: error.message };
+  }
+  return { error: "Couldn't allocate fresh codes — try again." };
+}
+
 export async function updateSessionSettings(formData: FormData): Promise<Result> {
   const userId = await currentUserId();
   if (!userId) return { error: "Sign in first." };
@@ -488,6 +519,10 @@ export async function updateSessionSettings(formData: FormData): Promise<Result>
   if (formData.has("winCap")) {
     const wc = parseInt(String(formData.get("winCap") || "1"), 10);
     patch.win_cap = Math.max(1, Math.min(10, Number.isFinite(wc) ? wc : 1));
+  }
+  if (formData.has("teamNameMode")) {
+    const v = String(formData.get("teamNameMode"));
+    if (v === "letters" || v === "first_player" || v === "initials") patch.team_name_mode = v;
   }
   if (formData.has("allowGuests")) patch.allow_guests = formData.get("allowGuests") === "1";
   if (formData.has("requireApproval")) patch.require_approval = formData.get("requireApproval") === "1";
@@ -509,13 +544,6 @@ export async function updateSessionSettings(formData: FormData): Promise<Result>
 
   if (Object.keys(patch).length === 0) return { ok: true };
   await admin.from("court_sessions").update(patch).eq("id", sessionId);
-  const tnm = formData.get("teamNameMode");
-  if (tnm != null) {
-    const v = String(tnm);
-    if (v === "letters" || v === "first_player" || v === "initials") {
-      await admin.from("court_sessions").update({ team_name_mode: v }).eq("id", sessionId);
-    }
-  }
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }

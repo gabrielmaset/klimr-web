@@ -7,7 +7,7 @@ import { LEVELS, levelLabel, formationLabel, formationsFor } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { useQueueState } from "@/components/queue/use-queue-state";
-import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, restartSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings, updateCourt } from "@/app/queue/actions";
+import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, restartSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings, updateCourt, resetSessionCodes } from "@/app/queue/actions";
 
 type Action = (fd: FormData) => Promise<{ ok?: true; error?: string }>;
 
@@ -149,6 +149,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
   // join code so poster-scanners can never drive the match controls.
   const dCode = session.displayCode ?? session.code;
   const [editCourtId, setEditCourtId] = useState<string | null>(null);
+  const [resetArm, setResetArm] = useState(false);
   const winRule = session.winCap <= 1 ? "Teams play once, then re-form" : `Winners stay until ${session.winCap} wins, then re-form`;
   const myTeam = me ? findTeam(state, me.teamId) : null;
   const myPending = state.myPending;
@@ -348,8 +349,8 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                         className="w-full rounded-xl border border-rule bg-white px-3 py-2 text-sm"
                       >
                         <option value="letters">Team A / Team B</option>
-                        <option value="first_player">First player&rsquo;s name</option>
-                        <option value="initials">Player initials</option>
+                        <option value="first_player">First joined player&rsquo;s name</option>
+                        <option value="initials">Each player&rsquo;s initials</option>
                       </select>
                     </div>
                     <SettingRow
@@ -389,6 +390,21 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                         onToggle={() => settingsPatch("eventOnly", session.eventOnly ? "0" : "1")}
                       />
                     ) : null}
+
+                    <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-bg/60 px-3.5 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-ink">Reset codes</p>
+                        <p className="text-xs text-mute">Issues a fresh join code AND display code. Printed QRs stop working, and every open courtside screen returns to its start screen within seconds.</p>
+                      </div>
+                      {resetArm ? (
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button type="button" onClick={() => setResetArm(false)} className="press rounded-full border border-rule bg-white px-3 py-1.5 text-xs font-semibold text-mute hover:text-ink">Cancel</button>
+                          <button type="button" disabled={pending} onClick={() => { setResetArm(false); run(resetSessionCodes, fd({ sessionId: sid })); }} className="press rounded-full bg-red-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50">Yes, reset both</button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => setResetArm(true)} className="press shrink-0 rounded-full border border-rule bg-white px-3.5 py-1.5 text-xs font-semibold text-ink hover:border-brand">Reset codes</button>
+                      )}
+                    </div>
                   </div>
                 ) : null}
               </div>

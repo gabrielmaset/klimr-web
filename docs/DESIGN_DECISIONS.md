@@ -166,6 +166,26 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-20 — Codes are credentials: crypto RNG, generic samples, Reset codes
+- The iPad placeholder (and hub copy) showed a REAL historical code — replaced
+  with generic ABC123/ABC1234 everywhere. Generation upgraded from Math.random
+  to node:crypto randomInt (31-char alphabet, ~8.9e8 space, unique-indexed with
+  retry) — password-grade, non-repeating in practice.
+- Organizer "Reset codes" (Session settings, two-step confirm): rotates BOTH
+  the join code and the display code in one guarded action. Printed QRs die
+  instantly; every open courtside screen self-ejects — the display compares
+  the code it was ENTERED with against the session's current display code on
+  each poll, and on mismatch shows "Codes were reset" and (in the app) bridges
+  back to the setup screen. Leak response is one button.
+
+### 2026-07-20 — Team-name mode: the empty-patch early return was eating it
+- updateSessionSettings early-returns when its known-field patch is empty — and
+  the teamNameMode handler was bolted on BELOW that return, so a mode-only
+  change answered ok while writing nothing (the select snapped back on the next
+  poll). The mode is now a first-class patch field beside the others; bolt-on
+  removed. Labels refined: "First joined player's name" / "Each player's
+  initials".
+
 ### 2026-07-20 — Courts are live-editable; the display freezes by derivation
 - Add-a-court prefills the real name (Court N, editable; remounts per add so
   numbering stays fresh). Every existing court gains an inline editor (name,

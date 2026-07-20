@@ -126,8 +126,8 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
         <label className="mb-1 block text-sm font-semibold text-ink">Team names</label>
         <select value={teamNameMode} onChange={(e) => setTeamNameMode(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
           <option value="letters">Team A / Team B</option>
-          <option value="first_player">First player&rsquo;s name</option>
-          <option value="initials">Player initials (M&middot;G&middot;K)</option>
+          <option value="first_player">First joined player&rsquo;s name</option>
+          <option value="initials">Each player&rsquo;s initials (M&middot;G&middot;K)</option>
         </select>
         <p className="mt-1 text-xs text-faint">How teams appear on the courtside display and boards. You can change it anytime.</p>
       </div>

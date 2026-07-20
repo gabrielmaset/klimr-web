@@ -120,7 +120,7 @@ const subscribeNever = () => () => {};
 const originSnapshot = () => window.location.origin;
 const emptySnapshot = () => "";
 
-export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false }: { initial: QSessionState; courtId: string; canOperate: boolean; code?: string; isApp?: boolean }) {
+export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, isApp = false }: { initial: QSessionState; courtId: string; canOperate: boolean; code?: string; enteredCode?: string; isApp?: boolean }) {
   const sid = initial.session.id;
   const { state, refetch } = useQueueState(sid, initial, 3000);
   const [now, setNow] = useState(() => Date.now());
@@ -208,6 +208,11 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
 
   const sessionLive = state.session.status === "live";
   const sessionOver = state.session.status === "ended";
+  // Reset-codes kick: this screen was opened with a display code; if the
+  // session's current display code no longer matches, the organizer rotated
+  // credentials — eject to the takeover (and, in the app, back to setup).
+  const codesRotated = !!enteredCode && !!state.session.displayCode && enteredCode !== state.session.displayCode;
+  const displayDead = sessionOver || codesRotated;
 
   // Native app bridge (KlimrCourtside iPad shell). The page announces the
   // session phase so the app can auto-return to its setup screen ~30s after a
@@ -216,8 +221,8 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
     if (!isApp) return;
     type BridgeWindow = Window & { webkit?: { messageHandlers?: { klimrCourtside?: { postMessage: (m: unknown) => void } } } };
     const bridge = (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside;
-    bridge?.postMessage({ type: sessionOver ? "ended" : "active" });
-  }, [isApp, sessionOver]);
+    bridge?.postMessage({ type: displayDead ? "ended" : "active" });
+  }, [isApp, displayDead]);
   const exitToSetup = () => {
     type BridgeWindow = Window & { webkit?: { messageHandlers?: { klimrCourtside?: { postMessage: (m: unknown) => void } } } };
     (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside?.postMessage({ type: "exit" });
@@ -271,13 +276,13 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
         </div>
       </div>
 
-      {!sessionLive ? (
+      {!sessionLive || codesRotated ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-[1.5vh] px-6 text-center">
-          <p className="font-display font-bold text-[clamp(1.8rem,4.5vw,3.6rem)]">{sessionOver ? "Session ended" : "The queue hasn\u2019t opened yet"}</p>
+          <p className="font-display font-bold text-[clamp(1.8rem,4.5vw,3.6rem)]">{codesRotated ? "Codes were reset" : sessionOver ? "Session ended" : "The queue hasn\u2019t opened yet"}</p>
           <p className="max-w-[46ch] text-[clamp(0.95rem,1.6vw,1.5rem)] text-white/55">
-            {sessionOver ? "Thanks for playing — the organizer can start a new session from the queue page." : "Hang tight — this screen wakes up the moment the organizer turns the queue on."}
+            {codesRotated ? "The organizer issued fresh codes — grab the new display code from Organizer tools and start over." : sessionOver ? "Thanks for playing — the organizer can start a new session from the queue page." : "Hang tight — this screen wakes up the moment the organizer turns the queue on."}
           </p>
-          {isApp && sessionOver ? (
+          {isApp && displayDead ? (
             <button type="button" onClick={exitToSetup} className="press mt-[1vh] rounded-full bg-white px-8 py-3.5 font-display text-[clamp(1rem,1.7vw,1.5rem)] font-bold text-[#0a0f1f]">
               Start over
             </button>

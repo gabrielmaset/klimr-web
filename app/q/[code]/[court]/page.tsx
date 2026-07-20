@@ -29,5 +29,5 @@ export default async function PublicCourtDisplayPage({ params }: { params: Promi
   const ua = (await headers()).get("user-agent") ?? "";
   const isApp = ua.includes("KlimrCourtside");
 
-  return <CourtDisplay initial={state} courtId={target?.id ?? ""} canOperate code={state.session.code} isApp={isApp} />;
+  return <CourtDisplay initial={state} courtId={target?.id ?? ""} canOperate code={state.session.code} enteredCode={code.toUpperCase()} isApp={isApp} />;
 }

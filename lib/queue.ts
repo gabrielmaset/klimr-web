@@ -121,7 +121,7 @@ export type QSessionState = {
 };
 
 /** Uppercase, alphanumeric, max 7 — a 6-char session code, optionally plus a
- *  court digit ("3ZGARK2" = code 3ZGARK, court 2). */
+ *  court digit ("ABC1234" = code ABC123, court 4). */
 export function cleanQueueCode(v: string): string {
   return v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
 }

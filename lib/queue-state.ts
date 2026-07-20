@@ -1,4 +1,5 @@
 import "server-only";
+import { randomInt } from "node:crypto";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { QSessionState, QTeam, QCourtState } from "@/lib/queue";
 import type { Database } from "@/lib/database.types";
@@ -48,8 +49,9 @@ export async function sessionPatch(
 
 const SESSION_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 function sessionCode(len = 6): string {
+  // Codes are credentials — crypto-grade randomness, not Math.random.
   let out = "";
-  for (let i = 0; i < len; i++) out += SESSION_CODE_CHARS[Math.floor(Math.random() * SESSION_CODE_CHARS.length)];
+  for (let n = 0; n < len; n++) out += SESSION_CODE_CHARS[randomInt(SESSION_CODE_CHARS.length)];
   return out;
 }
 

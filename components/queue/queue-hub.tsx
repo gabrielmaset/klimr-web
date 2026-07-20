@@ -21,7 +21,7 @@ export function QueueHub() {
       <p className="kicker text-brand-deep">Live Queue</p>
       <h1 className="mt-1 font-display text-3xl font-bold text-ink">Get on a court</h1>
       <p className="mt-2 max-w-[52ch] text-sm text-mute">
-        Type the code from the courtside screen, a poster, or the organizer — session codes are six characters, and court codes (like <span className="font-mono font-semibold">3ZGARK2</span>) work too.
+        Type the code from the courtside screen, a poster, or the organizer — session codes are six characters, and court codes (like <span className="font-mono font-semibold">ABC1234</span>) work too.
       </p>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
