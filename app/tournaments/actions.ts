@@ -2275,6 +2275,14 @@ export async function setTournamentQueueEnabled(formData: FormData): Promise<{ e
         console.error("[queue] tournament turn-on failed", tournamentId, res.error);
         return { error: res.error };
       }
+      const { data: flagRow } = await admin.from("tournaments").select("queue_enabled").eq("id", tournamentId).maybeSingle();
+      const { data: verifySession } = await admin.from("court_sessions").select("id, status").eq("tournament_id", tournamentId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (flagRow?.queue_enabled !== true || verifySession?.status !== "live") {
+        const readback = `flag=${String(flagRow?.queue_enabled)} session=${verifySession ? verifySession.status : "none"}`;
+        console.error("[queue] tournament turn-on readback mismatch", { tournamentId, readback });
+        return { error: `Turn-on wrote but the database read back wrong (${readback}). Send this message to support.` };
+      }
+      console.log("[queue] turn-on verified", { tournamentId, sessionId: res.id });
     } else {
       const { data: s } = await admin.from("court_sessions").select("id").eq("tournament_id", tournamentId).order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (s) {

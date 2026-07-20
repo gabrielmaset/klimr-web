@@ -166,6 +166,16 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-19 — Read-back verification closes the last silent shape
+- Field evidence narrowed everything: "Turning on…" renders and settles ⇒
+  hydration alive, form fired, action completed returning success past EVERY
+  existing check. In a fully-checked chain the one remaining silent failure is
+  an UPDATE matching zero rows (PostgREST: no error). Turn-on (event and
+  tournament) now RE-READS the flag + latest session after writing; unless
+  reality says flag=true + session=live it returns a loud error carrying the
+  exact read-back, and logs "[queue] turn-on verified {ids}" on the happy path
+  — the impossible-silent outcome is now impossible.
+
 ### 2026-07-19 — ONE navigation system: BackButton deleted outright
 - Gabriel's architectural call, and the right one: after trail-aware
   suppression, every BackButton on the site rendered null — pure dead weight

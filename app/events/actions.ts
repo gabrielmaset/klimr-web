@@ -557,6 +557,18 @@ async function setQueueEnabledInner(formData: FormData): Promise<{ error: string
       console.error("[queue] turn-on failed for event", eventId, res.error);
       return { error: res.error };
     }
+    // READ-BACK VERIFY — the last silent failure shape in a fully-checked
+    // chain is an UPDATE that matched zero rows (PostgREST reports no error).
+    // Re-read reality; if it doesn't say flag=true + session=live, return a
+    // loud error carrying exactly what the database read back.
+    const { data: flagRow } = await admin.from("events").select("queue_enabled").eq("id", eventId).maybeSingle();
+    const { data: verifySession } = await admin.from("court_sessions").select("id, status, event_id").eq("event_id", eventId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (flagRow?.queue_enabled !== true || verifySession?.status !== "live") {
+      const readback = `flag=${String(flagRow?.queue_enabled)} session=${verifySession ? `${verifySession.status}` : "none"}`;
+      console.error("[queue] turn-on readback mismatch", { eventId, readback, sessionId: res.id });
+      return { error: `Turn-on wrote but the database read back wrong (${readback}). Send this message to support.` };
+    }
+    console.log("[queue] turn-on verified", { eventId, sessionId: res.id });
   } else {
     // OFF means BLANK SLATE: play state, courts and tuned settings all clear;
     // only the session row + its public code survive for printed QR posters.
