@@ -166,6 +166,16 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-20 — Kiosk exit done right: top-right, tap teaches, hold shows progress
+- Field report: the bottom-right hold-3s ✕ had zero affordance — users tapped
+  repeatedly and assumed it was broken (it also crowded the QR panel). Rebuilt
+  to the kiosk-industry pattern: chip moves TOP-RIGHT (the universal close
+  position); a TAP shows a glass hint capsule ("Hold for 3 seconds to exit",
+  auto-dismisses); a HOLD fills an accent progress ring around the chip over
+  the full 3 s (onPressingChanged), so the gesture visibly registers and
+  releases reset it. Display brand lockup enlarged ~35% (mark 27, logotype to
+  clamp 1.35–2.25 rem) for recognition at courtside distance.
+
 ### 2026-07-20 — Codes are credentials: crypto RNG, generic samples, Reset codes
 - The iPad placeholder (and hub copy) showed a REAL historical code — replaced
   with generic ABC123/ABC1234 everywhere. Generation upgraded from Math.random

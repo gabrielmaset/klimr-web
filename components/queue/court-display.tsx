@@ -254,8 +254,8 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
       <div className="px-[max(0.9rem,3vw)] pt-[max(1.4vh,env(safe-area-inset-top))]">
         <div className="relative flex min-h-9 items-center justify-center">
           <span className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-[0.5vw] text-white">
-            <KlimrMark size={20} dot="brand" />
-            <span className="logotype text-[clamp(1.05rem,1.8vw,1.7rem)] leading-none">klimr</span>
+            <KlimrMark size={27} dot="brand" />
+            <span className="logotype text-[clamp(1.35rem,2.35vw,2.25rem)] leading-none">klimr</span>
           </span>
           <p className="max-w-[52%] truncate text-center text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
           {isApp ? null : <button type="button" onClick={toggleFullscreen} className="press absolute right-0 top-1/2 inline-flex shrink-0 -translate-y-1/2 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
