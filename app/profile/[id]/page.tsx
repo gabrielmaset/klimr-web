@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -248,6 +249,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   if (blockedMe) {
     return (
       <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Players", href: "/discover" }, { label: profile.display_name }]} />
         <div className="rounded-2xl border border-dashed border-rule bg-surface p-10 text-center">
           <p className="text-lg font-bold text-ink">This profile isn&rsquo;t available.</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-mute">The player may have changed their settings or is no longer active.</p>

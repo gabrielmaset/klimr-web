@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createNotification } from "@/lib/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { wipeSession, ensureEventQueueLive, sessionPatch } from "@/lib/queue-state";
+import { wipeSession, ensureQueueLive, sessionPatch } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS, type SportKey } from "@/lib/sports";
 import { sanitizeRichText } from "@/lib/rich-text";
@@ -552,7 +552,7 @@ async function setQueueEnabledInner(formData: FormData): Promise<{ error: string
   const admin = createAdminClient();
   if (enabled) {
     // ON means PLAYING: create-or-revive the session, go live unpaused.
-    const res = await ensureEventQueueLive(admin, eventId, guard.user.id);
+    const res = await ensureQueueLive(admin, { eventId, tournamentId: null }, guard.user.id);
     if (res.error) {
       console.error("[queue] turn-on failed for event", eventId, res.error);
       return { error: res.error };

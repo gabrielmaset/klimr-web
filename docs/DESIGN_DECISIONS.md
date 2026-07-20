@@ -166,6 +166,71 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-18 — Live Queue standalone (create from /q) · team-name modes (0126)
+- Live Queue graduates to a feature of its own: the /q front door now offers
+  "Create" (→ /queue/new) for people just meeting to play — no event or
+  tournament required. Standalone sessions already lived at /queue/[id] with
+  full settings; the same 12-hour wipe applies. Creation asks everything up
+  front, including a NAMED first court (Court A, Green Court…), and courts
+  added later keep custom names as before.
+- Team naming is now an organizer choice (migration 0126:
+  court_sessions.team_name_mode — letters | first_player | initials), offered
+  at creation and switchable live in queue settings. Presentation-only by
+  design: lib/queue.ts#teamDisplayName computes the shown name from members at
+  read time (courtside hold buttons + toasts already wired), stored identity
+  stays letter-based, so mode changes mid-session are instant and safe.
+
+### 2026-07-18 — Tournament open-court queues (0125): same system, optional
+- Per Gabriel's spec: tournaments get the SAME live-queue concept as an OPTIONAL
+  open-court line for players outside the groups/brackets (which remain Match
+  schedule's domain). Mostly for events; the capability now exists everywhere.
+- Migration 0125: court_sessions.tournament_id (nullable FK, indexed, CHECK one
+  owner) + tournaments.queue_enabled. Ownership generalized end-to-end:
+  ensureQueueLive({eventId|tournamentId}), retire/end/start flag mirrors flip
+  whichever owner, sessionRow/loadSessionState carry tournament_id, and the
+  queue page's breadcrumb resolves Tournaments > {title} > Live queue.
+- New tournament-staff actions (setTournamentQueueEnabled/Paused/CourtClosed)
+  mirror the event trio behind the owner/manager guard. The queue admin panel
+  is now scope-aware (one component, both owners) and embeds on the tournament
+  dashboard as "Open-court queue" with the bracket disclaimer; codes, courtside
+  app, and the /q front door work unchanged.
+
+### 2026-07-18 — Site breadcrumbs (location-based) · Live Queue front door
+- **Breadcrumbs** (components/breadcrumbs.tsx): LOCATION, not click-history —
+  the NN/g / Google / big-product consensus (path crumbs break on refresh, deep
+  links, sharing; Back owns history). Multi-parent pages resolve parents from
+  DATA: a queue belongs to its event → Events > {Event} > Live queue however
+  you arrived. Depth ≥ 2 only (no lonely self-labels on roots). Chevron style
+  on Daylight tokens, truncating, aria-labelled, schema.org BreadcrumbList.
+  Wired (21): events detail/edit/past, queue session, tournament detail/past,
+  team public, classes detail/past, marketplace deferred, profile, playbook
+  sport, play match, challenge, and eight /settings/* subpages. Deliberate
+  exclusions: tournament/team WORKSPACE pages (their dark rails ARE the
+  locator), public microsites (/e, /q/*, courtside — chromeless by design),
+  top-level listing pages.
+- **Live Queue front door**: nav item "/q · Live Queue" (named for the
+  destination; "Join" is just one verb) added to NAV_GROUPS right after Play —
+  desktop rail + mobile drawer inherit from the one source. /q's code entry now
+  accepts 7-char COURT codes everywhere ("3ZGARK2" → join normalizes to the
+  session; the courtside opener auto-derives the court and pins the stepper).
+  This is the phone app's future deep-link target: open /q, type any code seen
+  at a venue, land correctly.
+- Open design note: sessions attach to EVENTS today; extending the same system
+  to tournaments = a nullable court_sessions.tournament_id in a future
+  migration, front door unchanged.
+
+### 2026-07-18 — Self-healing turn-on: legacy sessions can't block an event
+- Field evidence: identical click works on a freshly created event, fails on the
+  long-suffering original — same code, same user, same deploy. The difference is
+  DATA: the old event's session row survived a week of schema/lifecycle churn
+  and fails revival in a way no individual write reports.
+- ensureEventQueueLive now VERIFIES: after the revive patch it reads status back;
+  unless the row verifiably says "live", the legacy session is retired and a
+  fresh one is minted on the spot (same path new events use). Turn on works on
+  every event, clean or scarred. The retired session's walk-up code dies with
+  it — nothing playable was ever attached. The failure log records
+  { sessionId, err, readBack } for the postmortem.
+
 ### 2026-07-18 — Every link in the turn-on chain now speaks; resolver follow-fallback
 - Post-hydration-fix evidence: the click fires and the round-trip completes with
   no returned error, no thrown rejection (the reporter does hook

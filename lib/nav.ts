@@ -1,5 +1,5 @@
 import {
-  Newspaper, Swords, Trophy, Flag, Medal, CalendarDays, Contact, Users, Inbox,
+  Newspaper, Swords, Trophy, Flag, Medal, CalendarDays, Contact, Users, Inbox, ListOrdered,
   Radar, MapPin, ShoppingBag, GraduationCap, HeartPulse, Sparkles, BookOpen,
   type LucideIcon,
 } from "lucide-react";
@@ -13,6 +13,7 @@ export const NAV_GROUPS: { header?: string; items: NavItem[] }[] = [
     items: [
       { href: "/feed", label: "Home", Icon: Newspaper },
       { href: "/play", label: "Play", Icon: Swords },
+      { href: "/q", label: "Live Queue", Icon: ListOrdered },
       { href: "/rankings", label: "Rankings", Icon: Trophy },
     ],
   },

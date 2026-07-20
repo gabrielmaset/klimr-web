@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -64,6 +65,7 @@ export default async function PastClassesPage() {
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Classes & Coaching", href: "/classes" }, { label: "Past classes" }]} />
       <Link href="/classes" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
         <ArrowLeft size={15} /> Classes &amp; Coaching
       </Link>

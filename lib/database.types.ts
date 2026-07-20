@@ -46,11 +46,17 @@ export interface Database {
     Tables: {
       court_sessions: {
         Row: { id: string; code: string; event_id: string | null; organizer_id: string; title: string; sport_key: string; status: string; win_cap: number; center_lat: number | null; center_lng: number | null; radius_m: number; allow_guests: boolean; require_location: boolean; event_only: boolean; require_approval: boolean; allow_full_teams: boolean; paused: boolean;
-          paused_by: string | null; created_at: string; ended_at: string | null };
+          paused_by: string | null;
+          tournament_id: string | null;
+          team_name_mode: string; created_at: string; ended_at: string | null };
         Insert: { id?: string; code: string; event_id?: string | null; organizer_id: string; title?: string; sport_key: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean;
-          paused_by?: string | null; created_at?: string; ended_at?: string | null };
+          paused_by?: string | null;
+          tournament_id?: string | null;
+          team_name_mode?: string; created_at?: string; ended_at?: string | null };
         Update: { id?: string; code?: string; event_id?: string | null; organizer_id?: string; title?: string; sport_key?: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean;
-          paused_by?: string | null; created_at?: string; ended_at?: string | null };
+          paused_by?: string | null;
+          tournament_id?: string | null;
+          team_name_mode?: string; created_at?: string; ended_at?: string | null };
         Relationships: [];
       };
       queue_courts: {
@@ -1018,6 +1024,7 @@ export interface Database {
           code: string;
           title: string;
           sport_key: string;
+          queue_enabled: boolean;
           status: string;
           cancelled_at: string | null;
           entry_type: string;
@@ -1093,6 +1100,7 @@ export interface Database {
         Update: {
           title?: string;
           sport_key?: string;
+          queue_enabled?: boolean;
           status?: string;
           cancelled_at?: string | null;
           entry_type?: string;

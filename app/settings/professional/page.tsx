@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, BadgeCheck, Clock, CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
@@ -52,6 +53,7 @@ export default async function ProfessionalSettingsPage({ searchParams }: { searc
 
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Professional status" }]} />
       <Link href="/settings" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
         <ArrowLeft size={16} /> Settings
       </Link>

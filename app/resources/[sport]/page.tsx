@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -43,6 +44,7 @@ export default async function SportGuidePage({ params }: { params: Promise<{ spo
 
   return (
     <div className="mx-auto max-w-page px-[30px] pb-16 pt-[22px]">
+      <Breadcrumbs items={[{ label: "Playbook", href: "/resources" }, { label: meta.name }]} />
       <Link href="/resources" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
         <ArrowLeft size={15} /> The playbook
       </Link>

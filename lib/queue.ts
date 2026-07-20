@@ -58,6 +58,22 @@ export function clock(ms: number): string {
 export type QMember = { name: string; isGuest: boolean; you: boolean };
 export type QTeam = { id: string; members: QMember[]; wins: number; hold: boolean; size: number; count: number; queuedAt: string | null };
 
+/** Organizer-chosen team display name. Pure + client-safe; falls back to the
+ *  letter whenever members can't produce a name (empty team, blank names). */
+export function teamDisplayName(
+  mode: "letters" | "first_player" | "initials",
+  side: string,
+  team: QTeam | null | undefined,
+): string {
+  const fallback = `Team ${side}`;
+  if (!team || mode === "letters") return fallback;
+  const names = team.members.map((m) => m.name.trim()).filter(Boolean);
+  if (!names.length) return fallback;
+  if (mode === "first_player") return names[0].split(/\s+/)[0] || fallback;
+  const initials = names.map((n) => n[0].toUpperCase()).join("\u00b7");
+  return initials || fallback;
+}
+
 export type QCourtState = {
   id: string;
   label: string;
@@ -75,6 +91,8 @@ export type QSessionState = {
   session: {
     id: string;
     eventId: string | null;
+    tournamentId: string | null;
+    teamNameMode: "letters" | "first_player" | "initials";
     code: string;
     title: string;
     sportKey: string;

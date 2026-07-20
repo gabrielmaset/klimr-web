@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import QRCode from "qrcode";
 import { Crown, Play, Clock, Maximize, Minimize } from "lucide-react";
 import type { QSessionState, QTeam } from "@/lib/queue";
+import { teamDisplayName } from "@/lib/queue";
 import { clock, formationLabel, levelLabel } from "@/lib/queue";
 import { useQueueState } from "@/components/queue/use-queue-state";
 import { gameOver, startNextMatch, gameOverByCode, startNextByCode, stepDownTeam, stepDownByCode } from "@/app/queue/actions";
@@ -189,11 +190,12 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
   };
 
   const recordWin = (matchId: string, side: "A" | "B", team: QTeam) => {
+    const teamName = teamDisplayName(state.session.teamNameMode, side, team);
     const cap = state.session.winCap;
     const newWins = team.wins + 1;
-    if (cap > 1 && newWins >= cap) showNote(`Team ${side} hit ${cap} wins 🏆 — two fresh teams are up`);
-    else if (cap > 1) showNote(`Team ${side} stays on — win ${newWins} of ${cap}`);
-    else showNote(`Team ${side} won — next teams up`);
+    if (cap > 1 && newWins >= cap) showNote(`${teamName} hit ${cap} wins 🏆 — two fresh teams are up`);
+    else if (cap > 1) showNote(`${teamName} stays on — win ${newWins} of ${cap}`);
+    else showNote(`${teamName} won — next teams up`);
     act(code ? gameOverByCode : gameOver, code ? { code, matchId, winnerTeamId: team.id } : { matchId, winnerTeamId: team.id });
   };
   const startNext = (cid: string) => act(code ? startNextByCode : startNextMatch, code ? { code, courtId: cid } : { courtId: cid });
@@ -292,7 +294,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
                   </div>
                   {canOperate ? (
                     <div className="px-[1.6vw] pb-[1.6vh]">
-                      <HoldButton label={`Team ${s.key} won`} color={s.color} disabled={pending} onConfirm={() => recordWin(court.current!.matchId, s.key, t)} />
+                      <HoldButton label={`${teamDisplayName(state.session.teamNameMode, s.key, t)} won`} color={s.color} disabled={pending} onConfirm={() => recordWin(court.current!.matchId, s.key, t)} />
                     </div>
                   ) : null}
                 </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -142,6 +143,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Play", href: "/play" }, { label: "Match" }]} />
       <BackButton fallback="/play" label="All matches" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink" icon="arrow" size={15} />
 
       {/* header */}

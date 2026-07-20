@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { wipeSession, ensureQueueLive, sessionPatch } from "@/lib/queue-state";
 import { createClient } from "@/lib/supabase/server";
 import { lookupZip, tzFromStateLng } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
@@ -2237,4 +2238,91 @@ export async function saveDivisionStructures(
   // tournament-level capacity, so the two pages can't fight over it.
   revalidatePath(`/tournament/${tournamentId}/brackets`);
   return { ok: true as const };
+}
+
+/* ------------------------- Open-court live queue ------------------------- */
+/* Same session system as events — an OPTIONAL queue for open courts beside
+   the bracket. Groups & brackets stay in Match schedule. */
+
+async function queueStaffGuard(tournamentId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+  const { data: to } = await supabase.from("tournaments").select("owner_id").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+  return { ok: true as const, userId: user.id };
+}
+
+export async function setTournamentQueueEnabled(formData: FormData): Promise<{ error: string | null }> {
+  try {
+    const tournamentId = String(formData.get("tournamentId") ?? "");
+    const enabled = formData.get("enabled") != null;
+    if (!tournamentId) return { error: "Missing tournament." };
+    const guard = await queueStaffGuard(tournamentId);
+    if (!guard.ok) return { error: guard.error };
+    const admin = createAdminClient();
+    if (enabled) {
+      const res = await ensureQueueLive(admin, { eventId: null, tournamentId }, guard.userId);
+      if (res.error) {
+        console.error("[queue] tournament turn-on failed", tournamentId, res.error);
+        return { error: res.error };
+      }
+    } else {
+      const { data: s } = await admin.from("court_sessions").select("id").eq("tournament_id", tournamentId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (s) {
+        await wipeSession(admin, s.id);
+        revalidatePath(`/queue/${s.id}`);
+      }
+      await admin.from("tournaments").update({ queue_enabled: false }).eq("id", tournamentId);
+    }
+    revalidatePath(`/tournament/${tournamentId}`);
+    return { error: null };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[queue] setTournamentQueueEnabled threw:", msg);
+    return { error: msg };
+  }
+}
+
+export async function setTournamentQueuePaused(formData: FormData) {
+  const tournamentId = String(formData.get("tournamentId") ?? "");
+  const on = formData.get("on") === "1";
+  if (!tournamentId) return;
+  const guard = await queueStaffGuard(tournamentId);
+  if (!guard.ok) return;
+  const admin = createAdminClient();
+  const { data: s } = await admin.from("court_sessions").select("id, status").eq("tournament_id", tournamentId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!s || s.status !== "live") return;
+  await sessionPatch(admin, s.id, { paused: on, paused_by: on ? guard.userId : null });
+  revalidatePath(`/tournament/${tournamentId}`);
+  revalidatePath(`/queue/${s.id}`);
+}
+
+export async function setTournamentCourtClosed(formData: FormData) {
+  const tournamentId = String(formData.get("tournamentId") ?? "");
+  const courtId = String(formData.get("courtId") ?? "");
+  const closed = formData.get("closed") === "1";
+  if (!tournamentId || !courtId) return;
+  const guard = await queueStaffGuard(tournamentId);
+  if (!guard.ok) return;
+  const admin = createAdminClient();
+  const { data: court } = await admin.from("queue_courts").select("id, session_id").eq("id", courtId).maybeSingle();
+  if (!court) return;
+  const { data: s } = await admin.from("court_sessions").select("tournament_id").eq("id", court.session_id).maybeSingle();
+  if (s?.tournament_id !== tournamentId) return;
+  if (closed) {
+    const { data: live } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
+    if (live) return;
+  }
+  await admin.from("queue_courts").update({ closed_at: closed ? new Date().toISOString() : null }).eq("id", courtId);
+  revalidatePath(`/tournament/${tournamentId}`);
+  revalidatePath(`/queue/${court.session_id}`);
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { redirect } from "next/navigation";
 import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
@@ -39,6 +40,7 @@ export default async function SportsPage() {
 
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Sports" }]} />
       <BackButton fallback="/settings" label="Settings" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink" />
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Sports &amp; skill levels</h1>
       <p className="mt-2 text-sm text-mute">Pick the sports you play, set your level in each, and choose your default sport.</p>

@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { retireSessionIfStale } from "@/lib/queue-state";
+import { EventQueueAdmin } from "@/components/event-queue-admin";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
 import { redirect, notFound } from "next/navigation";
 import {
@@ -64,10 +68,28 @@ export default async function TournamentDashboard({ params }: { params: Promise<
 
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, status, entry_type, starts_at, location_name, location_lat, location_lng, timezone, registration_opens_at, registration_deadline, capacity, format_config")
+    .select("id, code, title, sport_key, status, entry_type, starts_at, location_name, location_lat, location_lng, timezone, registration_opens_at, registration_deadline, capacity, format_config, queue_enabled")
     .eq("id", id)
     .maybeSingle();
   if (!t) notFound();
+
+  // Open-court live queue (optional; beside the bracket). Same assembly as the
+  // event page: latest session, lazy retire, courts, pauser name.
+  let queueSession: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null = null;
+  if (t.queue_enabled) {
+    const qadmin = createAdminClient();
+    const { data: qs } = await supabase.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("tournament_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (qs && (await retireSessionIfStale(qadmin, qs))) qs.status = "ended";
+    if (qs) {
+      const { data: courtRows } = await supabase.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
+      let pausedByName: string | null = null;
+      if (qs.paused && qs.paused_by) {
+        const { data: pauser } = await supabase.from("profiles").select("display_name").eq("id", qs.paused_by).maybeSingle();
+        pausedByName = pauser?.display_name ?? null;
+      }
+      queueSession = { id: qs.id, code: qs.code, status: qs.status, paused: !!qs.paused, pausedByName, courts: (courtRows ?? []).map((c, i) => ({ id: c.id, label: c.label, index: i + 1, closed: !!c.closed_at })) };
+    }
+  }
 
   const base = `/tournament/${id}`;
   const meta = sportMeta(t.sport_key);
@@ -220,6 +242,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Tournaments", href: "/tournaments" }, { label: t.title }]} />
       {/* compact header */}
       <div className="relative overflow-hidden rounded-3xl border border-rail-border bg-[linear-gradient(135deg,#0e2c3a,#0a212c)] p-5 sm:p-6">
         <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 select-none opacity-[0.07]"><SportIcon sport={t.sport_key} variant="hero" size={190} /></span>
@@ -412,6 +435,12 @@ export default async function TournamentDashboard({ params }: { params: Promise<
             </div>
           </section>
         ) : null}
+
+        <section className="mt-7">
+          <p className="kicker text-brand-deep">Open-court queue</p>
+          <p className="mt-1 mb-3 text-sm text-mute">An optional live line for open courts beside the bracket — groups and brackets stay in Match schedule.</p>
+          <EventQueueAdmin eventId={t.id} scope="tournament" queueEnabled={t.queue_enabled} session={queueSession} />
+        </section>
       </div>
     </div>
   );

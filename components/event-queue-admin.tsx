@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Copy, ExternalLink, Pause, Play, Power, SlidersHorizontal } from "lucide-react";
 import { setQueueEnabled, setEventQueuePaused, setEventCourtClosed } from "@/app/events/actions";
+import { setTournamentQueueEnabled, setTournamentQueuePaused, setTournamentCourtClosed } from "@/app/tournaments/actions";
 
 /**
  * The live-queue card in Organizer tools. One switch, three states:
@@ -17,11 +18,14 @@ import { setQueueEnabled, setEventQueuePaused, setEventCourtClosed } from "@/app
  */
 export function EventQueueAdmin({
   eventId,
+  scope = "event",
   queueEnabled,
   session,
   warning,
 }: {
+  /** Owner id — an event id or a tournament id, per `scope`. */
   eventId: string;
+  scope?: "event" | "tournament";
   queueEnabled: boolean;
   session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null;
   warning?: string | null;
@@ -32,7 +36,7 @@ export function EventQueueAdmin({
   const runToggle = (extra: Record<string, string>) =>
     start(async () => {
       try {
-        const r = await setQueueEnabled(fd(extra));
+        const r = await toggleAction(fd(extra));
         setErrMsg(r?.error ?? null);
         if (!r?.error) router.refresh();
       } catch (e) {
@@ -47,10 +51,13 @@ export function EventQueueAdmin({
 
   const fd = (extra: Record<string, string>) => {
     const f = new FormData();
-    f.append("eventId", eventId);
+    f.append(scope === "event" ? "eventId" : "tournamentId", eventId);
     for (const [k, v] of Object.entries(extra)) f.append(k, v);
     return f;
   };
+  const toggleAction = scope === "event" ? setQueueEnabled : setTournamentQueueEnabled;
+  const pauseAction = scope === "event" ? setEventQueuePaused : setTournamentQueuePaused;
+  const courtAction = scope === "event" ? setEventCourtClosed : setTournamentCourtClosed;
 
   return (
     <div className="flex h-full flex-col rounded-3xl bg-[#0f2233] p-5 text-white shadow-e1">
@@ -91,11 +98,11 @@ export function EventQueueAdmin({
 
           <div className="flex flex-wrap items-center gap-2">
             {paused ? (
-              <button type="button" disabled={pending} onClick={() => start(async () => { await setEventQueuePaused(fd({ on: "0" })); })} className="press inline-flex items-center gap-1.5 rounded-full bg-[#f5c518] px-4 py-2 text-sm font-bold text-[#0a0f1f] transition hover:brightness-105 disabled:opacity-60">
+              <button type="button" disabled={pending} onClick={() => start(async () => { await pauseAction(fd({ on: "0" })); })} className="press inline-flex items-center gap-1.5 rounded-full bg-[#f5c518] px-4 py-2 text-sm font-bold text-[#0a0f1f] transition hover:brightness-105 disabled:opacity-60">
                 <Play size={15} /> Resume all
               </button>
             ) : (
-              <button type="button" disabled={pending} onClick={() => start(async () => { await setEventQueuePaused(fd({ on: "1" })); })} className="press inline-flex items-center gap-1.5 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-60">
+              <button type="button" disabled={pending} onClick={() => start(async () => { await pauseAction(fd({ on: "1" })); })} className="press inline-flex items-center gap-1.5 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-60">
                 <Pause size={15} /> Pause all
               </button>
             )}
@@ -135,7 +142,7 @@ export function EventQueueAdmin({
                     <button
                       type="button"
                       disabled={pending}
-                      onClick={() => start(async () => { await setEventCourtClosed(fd({ courtId: c.id, closed: c.closed ? "0" : "1" })); })}
+                      onClick={() => start(async () => { await courtAction(fd({ courtId: c.id, closed: c.closed ? "0" : "1" })); })}
                       className="press rounded-full border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-white/10 disabled:opacity-60"
                     >
                       {c.closed ? "Reopen" : "Close"}

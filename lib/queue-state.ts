@@ -63,47 +63,70 @@ export async function wipeSession(admin: Admin, sessionId: string): Promise<void
 /** ON semantics: one tap → playing. Creates the session on first use (seeding
  *  Court 1), re-seeds Court 1 after a wipe, clears any stale play state, and
  *  goes live unpaused. Returns the session id. */
-export async function ensureEventQueueLive(
+export type QueueOwner = { eventId: string | null; tournamentId: string | null };
+
+export async function ensureQueueLive(
   admin: Admin,
-  eventId: string,
+  owner: QueueOwner,
   organizerId: string,
 ): Promise<{ id: string | null; error: string | null }> {
+  const ownerCol = owner.eventId ? "event_id" : "tournament_id";
+  const ownerId = owner.eventId ?? owner.tournamentId;
+  if (!ownerId) return { id: null, error: "Missing owner." };
+  const mintFresh = async (): Promise<{ id: string | null; error: string | null }> => {
+    const { data: ev } = await admin.from(owner.eventId ? "events" : "tournaments").select("title, sport_key").eq("id", ownerId).maybeSingle();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data, error } = await admin
+        .from("court_sessions")
+        .insert({ code: sessionCode(), event_id: owner.eventId, tournament_id: owner.tournamentId, organizer_id: organizerId, title: ev?.title ?? "Live queue", sport_key: ev?.sport_key ?? "tennis", status: "live" })
+        .select("id")
+        .maybeSingle();
+      if (data?.id) return { id: data.id, error: null };
+      if (error && error.code !== "23505") {
+        console.error("[queue] session insert failed:", error.message);
+        return { id: null, error: error.message };
+      }
+    }
+    return { id: null, error: "Couldn't allocate a session code." };
+  };
+
   const { data: existing } = await admin
     .from("court_sessions")
     .select("id, status")
-    .eq("event_id", eventId)
+    .eq(ownerCol, ownerId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   let sessionId = existing?.id ?? null;
   if (!sessionId) {
-    const { data: ev } = await admin.from("events").select("title, sport_key").eq("id", eventId).maybeSingle();
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data, error } = await admin
-        .from("court_sessions")
-        .insert({ code: sessionCode(), event_id: eventId, organizer_id: organizerId, title: ev?.title ?? "Live queue", sport_key: ev?.sport_key ?? "tennis", status: "live" })
-        .select("id")
-        .maybeSingle();
-      if (data?.id) { sessionId = data.id; break; }
-      if (error && error.code !== "23505") {
-        console.error("[queue] session insert failed:", error.message);
-        return { id: null, error: error.message };
-      }
-    }
-    if (!sessionId) return { id: null, error: "Couldn't allocate a session code." };
+    const minted = await mintFresh();
+    if (!minted.id) return minted;
+    sessionId = minted.id;
   } else {
+    // Revive the existing session — then VERIFY the revival actually took.
+    // Legacy sessions from earlier lifecycles can be unrevivable in ways no
+    // single write reports (triggers, constraint drift, half-applied schema).
+    // If the row won't verifiably read back as live, retire it and mint fresh:
+    // Turn on must work on every event, not just clean ones. (The old walk-up
+    // code retires with it — nothing playable was attached to it anyway.)
     if (existing!.status === "ended") await clearSessionPlay(admin, sessionId);
     const err = await sessionPatch(admin, sessionId, { status: "live", paused: false, paused_by: null, ended_at: null });
-    if (err) {
-      console.error("[queue] revive failed:", err);
-      return { id: null, error: err };
+    const { data: check } = await admin.from("court_sessions").select("status").eq("id", sessionId).maybeSingle();
+    if (err || check?.status !== "live") {
+      console.error("[queue] legacy session unrevivable — minting fresh", { sessionId, err, readBack: check?.status ?? null });
+      await sessionPatch(admin, sessionId, { status: "ended", ended_at: new Date().toISOString() });
+      const minted = await mintFresh();
+      if (!minted.id) return { id: null, error: minted.error ?? err ?? "Couldn't revive or replace the session." };
+      sessionId = minted.id;
     }
   }
 
   // No auto-seeded court: after Turn on the organizer sets up as many courts
   // as needed, named their way (Court 1, Court A, Green Court…).
-  const { error: flagErr } = await admin.from("events").update({ queue_enabled: true }).eq("id", eventId);
+  const { error: flagErr } = owner.eventId
+    ? await admin.from("events").update({ queue_enabled: true }).eq("id", ownerId)
+    : await admin.from("tournaments").update({ queue_enabled: true }).eq("id", ownerId);
   if (flagErr) {
     console.error("[queue] flag write failed:", flagErr.message);
     return { id: sessionId, error: `Queue is live but the event flag failed: ${flagErr.message}` };
@@ -141,9 +164,11 @@ export async function retireSessionIfStale(
   // One-switch rule: for event-linked sessions the event's queue toggle mirrors
   // the session. The day ending — by idle retire or by hand — reads as OFF on
   // the event page; "Turn on" next week goes straight back to live.
-  const { data: sess } = await admin.from("court_sessions").select("event_id").eq("id", s.id).maybeSingle();
+  const { data: sess } = await admin.from("court_sessions").select("event_id, tournament_id").eq("id", s.id).maybeSingle();
   if (sess?.event_id) {
     await admin.from("events").update({ queue_enabled: false }).eq("id", sess.event_id);
+  } else if (sess?.tournament_id) {
+    await admin.from("tournaments").update({ queue_enabled: false }).eq("id", sess.tournament_id);
   }
   return true;
 }
@@ -156,7 +181,7 @@ export async function retireSessionIfStale(
 export async function loadSessionState(admin: Admin, sessionId: string, meId?: string | null): Promise<QSessionState | null> {
   const { data: s } = await admin
     .from("court_sessions")
-    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, paused, paused_by, center_lat, center_lng, radius_m, organizer_id, created_at")
+    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, paused, paused_by, tournament_id, team_name_mode, center_lat, center_lng, radius_m, organizer_id, created_at")
     .eq("id", sessionId)
     .maybeSingle();
   if (!s) return null;
@@ -273,6 +298,8 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
     session: {
       id: s.id,
       eventId: s.event_id,
+      tournamentId: s.tournament_id,
+      teamNameMode: (s.team_name_mode === "first_player" || s.team_name_mode === "initials" ? s.team_name_mode : "letters") as "letters" | "first_player" | "initials",
       code: s.code,
       title: s.title,
       sportKey: s.sport_key,

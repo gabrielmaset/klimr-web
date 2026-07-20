@@ -337,6 +337,19 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                         <option value="5">Winners stay until 5 wins, then re-form</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-mute">Team names</label>
+                      <select
+                        value={session.teamNameMode}
+                        disabled={pending}
+                        onChange={(e) => settingsPatch("teamNameMode", e.target.value)}
+                        className="w-full rounded-xl border border-rule bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="letters">Team A / Team B</option>
+                        <option value="first_player">First player&rsquo;s name</option>
+                        <option value="initials">Player initials</option>
+                      </select>
+                    </div>
                     <SettingRow
                       title="Walk-up sign-ups"
                       desc="Let people without a Klimr account join by name."

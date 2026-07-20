@@ -1,11 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Monitor, Minus, Plus } from "lucide-react";
 
+// Codes are 6 chars; a COURT code is the same 6 plus the court number
+// ("3ZGARK2" = code 3ZGARK, court 2) — as printed beside each court in
+// Organizer tools and typed into the Courtside iPad. Accept both here.
 function cleanCode(v: string): string {
-  return v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  return v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+function splitCode(v: string): { code: string; court: number | null } {
+  if (v.length === 7) {
+    const n = Number(v[6]);
+    if (n >= 1 && n <= 9) return { code: v.slice(0, 6), court: n };
+  }
+  return { code: v.slice(0, 6), court: null };
 }
 
 export function QLanding() {
@@ -15,14 +26,15 @@ export function QLanding() {
   const [csCode, setCsCode] = useState("");
   const [court, setCourt] = useState(1);
 
-  const joinReady = code.length === 6;
-  const csReady = csCode.length === 6 && court >= 1;
+  const joinReady = code.length >= 6;
+  const cs = splitCode(csCode);
+  const csReady = csCode.length >= 6;
 
   const join = () => {
-    if (joinReady) router.push(`/q/${code}`);
+    if (joinReady) router.push(`/q/${splitCode(code).code}`);
   };
   const openDisplay = () => {
-    if (csReady) router.push(`/q/${csCode}/${court}`);
+    if (csReady) router.push(`/q/${cs.code}/${cs.court ?? court}`);
   };
 
   return (
@@ -51,7 +63,7 @@ export function QLanding() {
             autoComplete="off"
             spellCheck={false}
             placeholder="ABC123"
-            aria-label="Queue code"
+            aria-label="Queue or court code"
             className="mt-4 w-full rounded-[10px] border-2 border-rule-2 bg-white py-4 text-center font-mono text-3xl font-bold uppercase tracking-[0.35em] text-ink outline-none transition-colors placeholder:tracking-[0.35em] placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
 
@@ -63,6 +75,17 @@ export function QLanding() {
           >
             Join the queue <ArrowRight size={16} />
           </button>
+        </div>
+
+        {/* Standalone: no event needed — just meet and play */}
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-3xl border border-rule bg-surface p-4 shadow-e1/60">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink">Meeting up to play?</p>
+            <p className="text-xs text-mute">Start your own live queue &mdash; pick the sport, name your court, share the code.</p>
+          </div>
+          <Link href="/queue/new" className="press shrink-0 rounded-full border border-ink px-4 py-2 text-xs font-bold text-ink transition-colors hover:bg-ink hover:text-white">
+            Create
+          </Link>
         </div>
 
         {/* Courtside — discreet */}
@@ -101,6 +124,9 @@ export function QLanding() {
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-faint">Court</label>
+                  {cs.court ? (
+                    <div className="grid h-11 min-w-11 place-items-center rounded-xl border border-rule bg-bg px-3 font-mono text-lg font-bold text-ink" title="Court number from the code">{cs.court}</div>
+                  ) : (
                   <div className="flex items-center gap-1 rounded-xl border border-rule bg-white p-1">
                     <button type="button" onClick={() => setCourt((c) => Math.max(1, c - 1))} aria-label="Fewer" className="press grid h-9 w-9 place-items-center rounded-lg text-mute hover:bg-bg">
                       <Minus size={15} />
@@ -110,6 +136,7 @@ export function QLanding() {
                       <Plus size={15} />
                     </button>
                   </div>
+                  )}
                 </div>
               </div>
 

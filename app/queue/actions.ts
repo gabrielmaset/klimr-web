@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { clearSessionPlay, wipeSession, ensureEventQueueLive, sessionPatch } from "@/lib/queue-state";
+import { clearSessionPlay, wipeSession, ensureQueueLive, sessionPatch } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS } from "@/lib/sports";
 import { LEVELS, metersBetween } from "@/lib/queue";
@@ -33,7 +33,7 @@ async function currentUserId(): Promise<string | null> {
 async function sessionRow(admin: Admin, id: string) {
   const { data } = await admin
     .from("court_sessions")
-    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams, paused, paused_by")
+    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams, paused, paused_by, tournament_id")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -77,6 +77,9 @@ export async function createSession(formData: FormData): Promise<void> {
   if (!title) title = "Pickup session";
 
   const winCap = Math.min(10, Math.max(1, parseInt(String(formData.get("winCap") || "1"), 10) || 1));
+  const teamNameModeRaw = String(formData.get("teamNameMode") || "letters");
+  const teamNameMode = teamNameModeRaw === "first_player" || teamNameModeRaw === "initials" ? teamNameModeRaw : "letters";
+  const firstCourtLabel = String(formData.get("courtLabel") || "").trim().slice(0, 40) || "Court 1";
   const teamSize = Math.min(8, Math.max(1, parseInt(String(formData.get("courtSize") || "4"), 10) || 4));
   const levels = cleanLevels(formData.getAll("levels").map(String));
   const allowGuests = formData.get("allowGuests") != null;
@@ -102,7 +105,7 @@ export async function createSession(formData: FormData): Promise<void> {
     const code = genCode();
     const { data, error } = await admin
       .from("court_sessions")
-      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null })
+      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, team_name_mode: teamNameMode, allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null })
       .select("id")
       .single();
     if (!error && data) sessionId = data.id;
@@ -110,7 +113,7 @@ export async function createSession(formData: FormData): Promise<void> {
   }
   if (!sessionId) redirect("/queue/new?error=1");
 
-  await admin.from("queue_courts").insert({ session_id: sessionId, label: "Court 1", team_size: teamSize, levels, sort: 0 });
+  await admin.from("queue_courts").insert({ session_id: sessionId, label: firstCourtLabel, team_size: teamSize, levels, sort: 0 });
   redirect(`/queue/${sessionId}`);
 }
 
@@ -181,6 +184,7 @@ export async function startSession(formData: FormData): Promise<Result> {
   }
   await admin.from("court_sessions").update(patch).eq("id", sessionId);
   if (s.event_id) await admin.from("events").update({ queue_enabled: true }).eq("id", s.event_id);
+  else if (s.tournament_id) await admin.from("tournaments").update({ queue_enabled: true }).eq("id", s.tournament_id);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }
@@ -197,6 +201,7 @@ export async function endSession(formData: FormData): Promise<Result> {
   // the code survives for the printed QR. Turn on re-seeds Court 1.
   await wipeSession(admin, sessionId);
   if (s.event_id) await admin.from("events").update({ queue_enabled: false }).eq("id", s.event_id);
+  else if (s.tournament_id) await admin.from("tournaments").update({ queue_enabled: false }).eq("id", s.tournament_id);
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }
@@ -441,8 +446,8 @@ export async function restartSession(formData: FormData): Promise<Result> {
   const sessionId = String(formData.get("sessionId") || "");
   const s = await sessionRow(admin, sessionId);
   if (!s || s.organizer_id !== userId) return { error: "Only the organizer can do that." };
-  if (s.event_id) {
-    const revived = await ensureEventQueueLive(admin, s.event_id, s.organizer_id);
+  if (s.event_id || s.tournament_id) {
+    const revived = await ensureQueueLive(admin, { eventId: s.event_id, tournamentId: s.tournament_id }, s.organizer_id);
     if (revived.error) return { error: revived.error };
   } else {
     await clearSessionPlay(admin, sessionId);
@@ -494,6 +499,13 @@ export async function updateSessionSettings(formData: FormData): Promise<Result>
 
   if (Object.keys(patch).length === 0) return { ok: true };
   await admin.from("court_sessions").update(patch).eq("id", sessionId);
+  const tnm = formData.get("teamNameMode");
+  if (tnm != null) {
+    const v = String(tnm);
+    if (v === "letters" || v === "first_player" || v === "initials") {
+      await admin.from("court_sessions").update({ team_name_mode: v }).eq("id", sessionId);
+    }
+  }
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }

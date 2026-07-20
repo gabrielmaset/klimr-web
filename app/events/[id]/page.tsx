@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
@@ -204,6 +205,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: e.title }]} />
       <BackButton fallback="/events" label="Events" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       {/* hero */}

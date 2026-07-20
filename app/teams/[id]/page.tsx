@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
@@ -113,6 +114,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
   const placeStr = [team.city, team.state].filter(Boolean).join(", ");
   return (
     <div className="mx-auto max-w-page px-5 py-6 sm:py-8">
+      <Breadcrumbs items={[{ label: "Teams", href: "/teams" }, { label: team.name }]} />
       <BackButton fallback="/teams" label="Teams" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       {/* ===== crest banner — the club's billboard ===== */}

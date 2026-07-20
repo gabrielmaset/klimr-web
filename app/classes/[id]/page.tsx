@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
@@ -100,6 +101,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Classes & Coaching", href: "/classes" }, { label: c.title }]} />
       <Link href="/classes" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
         <ArrowLeft size={16} /> Back to classes
       </Link>

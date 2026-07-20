@@ -41,6 +41,8 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
   const forms = formationsFor(sport);
   const [size, setSize] = useState<number>(forms.includes(2) ? 2 : forms[0]);
   const [winCap, setWinCap] = useState("1");
+  const [teamNameMode, setTeamNameMode] = useState("letters");
+  const [courtLabel, setCourtLabel] = useState("");
   const [levels, setLevels] = useState<string[]>([]);
   const [allowGuests, setAllowGuests] = useState(true);
   const [requireLocation, setRequireLocation] = useState(false);
@@ -65,6 +67,8 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
       f.append("title", title.trim());
       f.append("sport", sport);
       f.append("winCap", winCap);
+      f.append("teamNameMode", teamNameMode);
+      f.append("courtLabel", courtLabel);
       f.append("courtSize", String(size));
       levels.forEach((l) => f.append("levels", l));
       if (allowGuests) f.append("allowGuests", "on");
@@ -118,9 +122,24 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
         <p className="mt-1 text-xs text-faint">King of the court: the losing team always re-forms; the winner keeps playing until it hits this many wins.</p>
       </div>
 
+      <div>
+        <label className="mb-1 block text-sm font-semibold text-ink">Team names</label>
+        <select value={teamNameMode} onChange={(e) => setTeamNameMode(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
+          <option value="letters">Team A / Team B</option>
+          <option value="first_player">First player&rsquo;s name</option>
+          <option value="initials">Player initials (M&middot;G&middot;K)</option>
+        </select>
+        <p className="mt-1 text-xs text-faint">How teams appear on the courtside display and boards. You can change it anytime.</p>
+      </div>
+
       <div className="border-t border-rule pt-5">
         <p className="text-sm font-semibold text-ink">First court</p>
         <p className="mb-3 text-xs text-faint">You can add more courts after you create the session.</p>
+        <div className="mb-3">
+          <label className="mb-1.5 block text-xs font-semibold text-mute">Court name</label>
+          <input value={courtLabel} onChange={(e) => setCourtLabel(e.target.value.slice(0, 40))} placeholder="Court 1" className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm" />
+          <p className="mt-1 text-xs text-faint">Name it your way &mdash; Court A, Green Court, North&hellip; Blank keeps &ldquo;Court 1&rdquo;.</p>
+        </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold text-mute">Formation</label>
           <div className="flex flex-wrap gap-2">
