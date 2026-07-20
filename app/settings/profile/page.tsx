@@ -3,7 +3,6 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ImageIcon, ChevronRight } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { ProfileBasicsForm, type ProfileInitial } from "./profile-form";
@@ -40,7 +39,6 @@ export default async function EditProfilePage() {
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Profile" }]} />
-      <BackButton fallback="/settings" label="Settings" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink" />
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Profile &amp; bio</h1>
       <p className="mt-2 text-sm text-mute">Your photo, name, bio, date of birth, and home area — everything on your public profile.</p>
 

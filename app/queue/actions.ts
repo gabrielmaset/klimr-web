@@ -105,7 +105,7 @@ export async function createSession(formData: FormData): Promise<void> {
     const code = genCode();
     const { data, error } = await admin
       .from("court_sessions")
-      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, team_name_mode: teamNameMode, allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null })
+      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, ...(teamNameMode !== "letters" ? { team_name_mode: teamNameMode } : {}), allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null })
       .select("id")
       .single();
     if (!error && data) sessionId = data.id;

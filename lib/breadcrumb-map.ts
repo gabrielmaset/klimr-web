@@ -78,6 +78,8 @@ export const DYNAMIC_LEAF: Record<string, string> = {
   read: "Article",
   queue: "Live queue",
   support: "Ticket",
+  sponsorships: "Sponsorship",
+  chats: "Conversation",
   users: "User",
   providers: "Provider",
 };

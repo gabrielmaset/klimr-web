@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, Copy, ExternalLink, Pause, Play, Power, SlidersHorizontal } from "lucide-react";
 import { setQueueEnabled, setEventQueuePaused, setEventCourtClosed } from "@/app/events/actions";
@@ -30,21 +29,26 @@ export function EventQueueAdmin({
   session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null;
   warning?: string | null;
 }) {
+  const toggleAction = scope === "event" ? setQueueEnabled : setTournamentQueueEnabled;
+  const pauseAction = scope === "event" ? setEventQueuePaused : setTournamentQueuePaused;
+  const courtAction = scope === "event" ? setEventCourtClosed : setTournamentCourtClosed;
   const [pending, start] = useTransition();
-  const [errMsg, setErrMsg] = useState<string | null>(null);
-  const router = useRouter();
-  const runToggle = (extra: Record<string, string>) =>
-    start(async () => {
+  // AVIONICS RULE: the on/off switch is a NATIVE FORM bound to the server
+  // action via useActionState. With JavaScript alive it gives pending state +
+  // returned errors; with JavaScript dead (a hydration crash, a stale bundle)
+  // the form still POSTs and the page re-renders server-side. The queue's
+  // primary control no longer depends on the failable layer.
+  const [toggleState, toggleFormAction, togglePending] = useActionState(
+    async (_prev: { error: string | null }, formData: FormData) => {
       try {
-        const r = await toggleAction(fd(extra));
-        setErrMsg(r?.error ?? null);
-        if (!r?.error) router.refresh();
+        return await toggleAction(formData);
       } catch (e) {
-        // A rejected server-action round-trip (stale client bundle, network,
-        // framework) must be VISIBLE, never a swallowed promise.
-        setErrMsg(e instanceof Error ? e.message : String(e));
+        return { error: e instanceof Error ? e.message : String(e) };
       }
-    });
+    },
+    { error: null } as { error: string | null },
+  );
+  const ownerField = scope === "event" ? "eventId" : "tournamentId";
   const live = queueEnabled && session?.status === "live";
   const paused = !!(live && session?.paused);
   const courts = session?.courts ?? [];
@@ -55,9 +59,6 @@ export function EventQueueAdmin({
     for (const [k, v] of Object.entries(extra)) f.append(k, v);
     return f;
   };
-  const toggleAction = scope === "event" ? setQueueEnabled : setTournamentQueueEnabled;
-  const pauseAction = scope === "event" ? setEventQueuePaused : setTournamentQueuePaused;
-  const courtAction = scope === "event" ? setEventCourtClosed : setTournamentCourtClosed;
 
   return (
     <div className="flex h-full flex-col rounded-3xl bg-[#0f2233] p-5 text-white shadow-e1">
@@ -72,20 +73,23 @@ export function EventQueueAdmin({
       {warning ? (
         <p className="mt-3 rounded-2xl bg-[#f5c518]/10 px-3.5 py-2 text-xs font-semibold text-[#f5c518]">{warning}</p>
       ) : null}
-      {errMsg ? (
-        <p className="mt-3 rounded-2xl bg-red-400/10 px-3.5 py-2 text-xs font-semibold text-red-300">{errMsg}</p>
+      {toggleState.error ? (
+        <p className="mt-3 rounded-2xl bg-red-400/10 px-3.5 py-2 text-xs font-semibold text-red-300">{toggleState.error}</p>
       ) : null}
 
       {!live ? (
         <div className="flex flex-1 flex-col items-start justify-center py-2">
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => runToggle({ enabled: "1" })}
-            className="press inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3 text-base font-bold text-white transition hover:bg-brand-deep disabled:opacity-60"
-          >
-            <Power size={17} /> Turn on the queue
-          </button>
+          <form action={toggleFormAction} className="contents">
+            <input type="hidden" name={ownerField} value={eventId} />
+            <input type="hidden" name="enabled" value="1" />
+            <button
+              type="submit"
+              disabled={togglePending}
+              className="press inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3 text-base font-bold text-white transition hover:bg-brand-deep disabled:opacity-60"
+            >
+              <Power size={17} /> {togglePending ? "Turning on\u2026" : "Turn on the queue"}
+            </button>
+          </form>
           <p className="mt-2.5 text-xs text-white/45">Turning it off clears courts, players, and settings.</p>
         </div>
       ) : (
@@ -109,15 +113,17 @@ export function EventQueueAdmin({
             <Link href={`/queue/${session!.id}`} className="press inline-flex items-center gap-1.5 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10">
               <SlidersHorizontal size={15} /> {courts.length ? "Add / edit courts" : "Set up courts"}
             </Link>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => runToggle({})}
-              className="press ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
-              title="Clears courts, players, and settings — the code survives for printed posters"
-            >
-              <Power size={14} /> Turn off
-            </button>
+            <form action={toggleFormAction} className="contents">
+              <input type="hidden" name={ownerField} value={eventId} />
+              <button
+                type="submit"
+                disabled={togglePending}
+                className="press ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
+                title="Clears courts, players, and settings — the code survives for printed posters"
+              >
+                <Power size={14} /> Turn off
+              </button>
+            </form>
           </div>
 
           {courts.length ? (

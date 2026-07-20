@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { redirect } from "next/navigation";
 import { BadgeCheck, ShieldCheck } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { VerificationDataPanel } from "@/components/verification-privacy";
 import { startVerification, approveVerification } from "@/app/account/actions";
@@ -22,7 +21,6 @@ export default async function VerificationSettingsPage() {
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Verification" }]} />
-      <BackButton fallback="/settings" label="Settings" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink" />
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Identity verification</h1>
       <p className="mt-2 text-sm text-mute">Every Klimr player is verified — it&rsquo;s the trust floor for rankings and matches, and it keeps the community real.</p>
 

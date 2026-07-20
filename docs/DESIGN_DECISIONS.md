@@ -166,6 +166,51 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-19 — ONE navigation system: BackButton deleted outright
+- Gabriel's architectural call, and the right one: after trail-aware
+  suppression, every BackButton on the site rendered null — pure dead weight
+  duplicating the trail's purpose. Deleted: the component, its
+  navigation-history provider (sole consumer), the layout mount, and all 22
+  usages (the sweep found 10 more than the icon-pattern purge ever saw —
+  settings, play, courts, challenges, chats room).
+- Doctrine, stated for reviewers: breadcrumbs are the site's single navigation
+  system. The parent crumb IS "back to parent" — deterministic on deep links
+  and fresh tabs, where history-back dead-ends (the very case BackButton's
+  fallback patched). "Return to wherever I was" belongs to the browser's own
+  Back button; duplicating browser chrome is an anti-pattern. Standalone
+  surfaces keep their purpose-built escapes, which were never BackButton.
+
+### 2026-07-19 — Back button retired SYSTEMICALLY (schema confirmed applied)
+- Gabriel's query confirms tournament_id + team_name_mode exist in prod — the
+  0125/0126 theory is closed; the form-action toggle build is the decisive
+  turn-on test.
+- The event page's lingering "‹ Events" exposed why the purge was fragile: it
+  hunted icon patterns while the page used the shared BackButton component.
+  Enumerating patterns is whack-a-mole; the reliable fix is a property of the
+  component: BackButton now consults the SAME registry that renders breadcrumb
+  trails and returns null wherever a trail exists (in-shell, depth ≥ 2) — every
+  consumer, current and future, governed by one line of truth. It keeps working
+  on standalone surfaces and top-level pages, where no trail renders.
+
+### 2026-07-19 — Avionics pass: the queue toggle survives dead JavaScript
+- Field report: Turn on silent again on a FRESH event, zero event-page errors,
+  but Diagnostics shows #418 hydration crashes on /feed and a Mapbox teardown
+  crash on /marketplace — proof more hydration bombs existed and could kill any
+  page's handlers. Structural response, not another patch:
+- **Redundancy.** The panel's Turn on / Turn off are now NATIVE FORMS bound to
+  the server action via useActionState: JS alive → pending state + inline
+  errors; JS dead (crash, stale bundle) → the form still POSTs and the page
+  re-renders server-side. The queue's primary control no longer depends on the
+  failable layer.
+- **Schema tolerance.** ensureQueueLive omits tournament_id when null and
+  createSession omits team_name_mode when default + logs-and-degrades otherwise
+  — an unapplied 0125/0126 can no longer break turn-on or creation.
+- **Hydration bombs neutralized.** The Wire's day buckets/times are viewer-local
+  → the whole feed gates on hydration (useSyncExternalStore); events-map guards
+  its init-teardown race (cancelled check on load, try around resize/remove).
+- /queue/new dropped its event-era `redirect("/events")` — standalone creation
+  is first-class from the Live Queue hub, event pre-link still honored.
+
 ### 2026-07-19 — Courtside app hardening: validation, security posture, brand
 - **No more 404 dead ends.** New GET /api/q/validate pre-flights every code:
   the app connects only when { ok, live }; invalid → "not valid" message,

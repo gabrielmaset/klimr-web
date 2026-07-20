@@ -1,5 +1,4 @@
 import { Search } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 
@@ -32,7 +31,6 @@ export default async function AdminActionsLog({ searchParams }: { searchParams: 
 
   return (
     <div>
-      <BackButton fallback="/admin" label="Overview" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink" />
 
       <div className="mb-4">
         <h2 className="font-display text-2xl text-ink">Staff actions</h2>

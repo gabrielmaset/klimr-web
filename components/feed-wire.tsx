@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   CalendarDays, ChevronDown, ChevronRight, Flag, Heart, HeartPulse, Medal,
@@ -67,7 +67,16 @@ type Block =
  *  volume is one grouped entry per shared happening. Rows here run ~44px,
  *  same-kind bursts roll up, days read like newspaper editions, the list is
  *  hard-capped (no infinite scroll), and unseen items carry a quiet dot. */
+const subscribeNever = () => () => {};
+const snapTrue = () => true;
+const snapFalse = () => false;
+
 export function FeedWire({ rows }: { rows: WireRow[] }) {
+  // Day buckets ("Today"/"Yesterday") and times are the VIEWER's local calendar
+  // — the server cannot know it. Rendering them at SSR caused React #418 (the
+  // hydration crash that kills every click on the page). The whole wire waits
+  // one frame for hydration instead; nothing here is SEO content.
+  const mounted = useSyncExternalStore(subscribeNever, snapTrue, snapFalse);
   const [nowMs] = useState(() => Date.now());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -142,6 +151,8 @@ export function FeedWire({ rows }: { rows: WireRow[] }) {
 
   const shown = showAll ? blocks : blocks.slice(0, VISIBLE_CAP);
   const remaining = blocks.length - shown.length;
+
+  if (!mounted) return <div aria-hidden className="min-h-[40vh]" />;
 
   return (
     <section className="mt-3 overflow-hidden rounded-[18px] border border-rule bg-surface shadow-e1">

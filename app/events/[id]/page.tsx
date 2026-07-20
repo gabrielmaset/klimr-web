@@ -4,7 +4,6 @@ import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { MapPin, Clock, Users, Check, CalendarPlus, DollarSign, Pencil, Ban, Repeat, ArrowRight, MessageCircle, UserCheck, X, Crown, Shield, Wrench, ExternalLink, RotateCcw } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { EventHeroCover } from "@/components/event-hero-cover";
 import { EventQueueAdmin } from "@/components/event-queue-admin";
 import { EventAdmins } from "@/components/event-admins";
@@ -206,7 +205,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: e.title }]} />
-      <BackButton fallback="/events" label="Events" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       {/* hero */}
       <EventHeroCover eventId={e.id} initialUrl={coverUrl} canEdit={isAdmin} sportKey={e.sport_key}>

@@ -10,7 +10,6 @@ import "@fontsource-variable/fraunces/full.css"; // logotype only — see compon
 import "./globals.css";
 import Script from "next/script";
 import { AppShell } from "@/components/app-shell";
-import { NavigationHistoryProvider } from "@/components/navigation-history";
 import { DiagnosticsInit } from "@/components/diagnostics-init";
 import { ErrorReporter } from "@/components/error-reporter";
 
@@ -73,9 +72,7 @@ export default function RootLayout({
         <ContourLayer opacity={0.02} behind />
         <ContourLayer opacity={0.02} />
         <DiagnosticsInit />
-        <NavigationHistoryProvider>
-          <AppShell>{children}</AppShell>
-        </NavigationHistoryProvider>
+        <AppShell>{children}</AppShell>
         {adsenseClient ? (
           <Script
             id="adsense-loader"

@@ -33,18 +33,18 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
           const last = i === items.length - 1;
           return (
             <li key={`${c.label}-${i}`} className="flex min-w-0 items-center gap-x-1.5">
-              {i > 0 ? <ChevronRight size={12} className="shrink-0 text-faint" aria-hidden /> : null}
+              {i > 0 ? <ChevronRight size={13} className="shrink-0 text-faint" aria-hidden /> : null}
               {c.href && !last ? (
                 <Link
                   href={c.href}
-                  className="max-w-[15rem] truncate text-[12.5px] font-semibold text-mute transition-colors hover:text-ink"
+                  className="max-w-[15rem] truncate text-sm font-semibold text-mute transition-colors hover:text-ink"
                 >
                   {c.label}
                 </Link>
               ) : (
                 <span
                   aria-current={last ? "page" : undefined}
-                  className={`max-w-[17rem] truncate text-[12.5px] font-semibold ${last ? "text-ink" : "text-mute"}`}
+                  className={`max-w-[17rem] truncate text-sm font-semibold ${last ? "text-ink" : "text-mute"}`}
                 >
                   {c.label}
                 </span>

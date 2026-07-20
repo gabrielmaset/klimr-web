@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShieldCheck, Trophy } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { TournamentSetupWizard } from "@/components/tournament-setup-wizard";
 import type { FormatType } from "@/lib/tournament";
@@ -56,7 +55,6 @@ export default async function NewTournamentPage() {
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <BackButton fallback="/tournaments" label="Tournaments" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink" icon="arrow" />
 
       <div className="flex items-center gap-3">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-tint-brand text-brand-deep">

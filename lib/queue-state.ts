@@ -78,7 +78,7 @@ export async function ensureQueueLive(
     for (let attempt = 0; attempt < 5; attempt++) {
       const { data, error } = await admin
         .from("court_sessions")
-        .insert({ code: sessionCode(), event_id: owner.eventId, tournament_id: owner.tournamentId, organizer_id: organizerId, title: ev?.title ?? "Live queue", sport_key: ev?.sport_key ?? "tennis", status: "live" })
+        .insert({ code: sessionCode(), event_id: owner.eventId, organizer_id: organizerId, title: ev?.title ?? "Live queue", sport_key: ev?.sport_key ?? "tennis", status: "live", ...(owner.tournamentId ? { tournament_id: owner.tournamentId } : {}) })
         .select("id")
         .maybeSingle();
       if (data?.id) return { id: data.id, error: null };

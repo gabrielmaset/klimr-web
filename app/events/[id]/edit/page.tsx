@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { BackButton } from "@/components/back-button";
 import { EventForm } from "@/components/event-form";
 
 export const metadata: Metadata = { title: "Edit event" };
@@ -34,7 +33,6 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: e.title, href: `/events/${e.id}` }, { label: "Edit" }]} />
-      <BackButton fallback={`/events/${id}`} label="Event" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
       <div className="mb-6">
         <p className="kicker text-brand-deep">Edit</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Edit event</h1>

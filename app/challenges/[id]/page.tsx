@@ -3,7 +3,6 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { Trophy, Users, Flag } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { SportChip } from "@/components/sport-chip";
@@ -62,7 +61,6 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Challenges", href: "/challenges" }, { label: "Challenge" }]} />
-      <BackButton fallback="/challenges" label="Region challenges" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <div className="flex items-center gap-2 text-sm text-mute">
         <SportChip sport={c.sport_key} />

@@ -3,7 +3,6 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, Mail, KeyRound, Bell } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Linked email · Settings" };
@@ -18,7 +17,6 @@ export default async function EmailSettingsPage() {
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Email" }]} />
-      <BackButton fallback="/settings" label="Settings" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute transition-colors hover:text-ink" />
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Linked email</h1>
       <p className="mt-2 text-sm text-mute">This is the email you use to sign in to Klimr and where we send match and ranking updates.</p>
 

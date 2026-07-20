@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
 import { MapPin, Check, Sparkles } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { respondToOffer } from "../actions";
 
@@ -46,7 +45,6 @@ export default async function SponsorDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <BackButton fallback="/sponsorships" label="Sponsorships" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       {/* brand header */}
       <div className="overflow-hidden rounded-3xl border border-rule">

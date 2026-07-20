@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SportIcon } from "@/components/sport-icons";
 import { Lock, Send, ShieldCheck } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/avatar";
 import { sportMeta, sportSlug } from "@/lib/sports";
@@ -321,7 +320,6 @@ export function ChatRoom({
       <div className="flex h-[calc(100dvh-4rem-var(--bottom-nav-h))] min-h-[420px] flex-col overflow-hidden rounded-[20px] border border-rule bg-surface shadow-e1 md:h-[calc(100dvh-8.25rem)]">
       {/* header */}
       <div className="flex items-center gap-3 border-b border-rule-soft bg-surface px-4 py-3">
-        <BackButton fallback="/chats" label="" ariaLabel="Back to chats" className="press text-mute hover:text-ink" size={20} />
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] text-base" style={{ background: SPORT_TONES[sportSlug(match.sport_key)]?.bg ?? "var(--color-bg)", border: `1px solid ${SPORT_TONES[sportSlug(match.sport_key)]?.bd ?? "var(--color-rule)"}` }} aria-hidden>
           <SportIcon sport={match.sport_key} variant="glyph" size={22} />
         </span>

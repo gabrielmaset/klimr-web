@@ -64,17 +64,18 @@ export function EventsMap({
       });
       map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
       map.on("load", () => {
+        if (cancelled) return; // unmounted mid-init — touching the map now throws
         loadedRef.current = true;
         map.addSource("near-ring", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         map.addLayer({ id: "near-ring-fill", type: "fill", source: "near-ring", paint: { "fill-color": "#FF6A35", "fill-opacity": 0.05 } });
         map.addLayer({ id: "near-ring-line", type: "line", source: "near-ring", paint: { "line-color": "#E23E0D", "line-width": 1.5, "line-dasharray": [1.5, 2.5] } });
-        map.resize();
+        try { map.resize(); } catch { /* container already gone */ }
       });
       mapRef.current = map;
     })();
     return () => {
       cancelled = true;
-      mapRef.current?.remove();
+      try { mapRef.current?.remove(); } catch { /* double-teardown race */ }
       mapRef.current = null;
       loadedRef.current = false;
     };

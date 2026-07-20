@@ -1,5 +1,4 @@
 import { Trash2 } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 import { CodeGenerator } from "./CodeGenerator";
@@ -65,7 +64,6 @@ export default async function AdminCodesPage() {
 
   return (
     <div>
-      <BackButton fallback="/admin" label="Admin" className="press mb-5 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       <h1 className="font-display text-3xl text-ink sm:text-4xl">Codes</h1>
       <p className="mt-1 text-sm text-mute">Generate, view, disable, and delete invite and investor codes.</p>

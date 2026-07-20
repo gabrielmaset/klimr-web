@@ -4,7 +4,6 @@ import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { Crown, Users, MapPin } from "lucide-react";
-import { BackButton } from "@/components/back-button";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta, teamSizeFor } from "@/lib/sports";
 import { teamKit } from "@/lib/team-kit";
@@ -115,7 +114,6 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
   return (
     <div className="mx-auto max-w-page px-5 py-6 sm:py-8">
       <Breadcrumbs items={[{ label: "Teams", href: "/teams" }, { label: team.name }]} />
-      <BackButton fallback="/teams" label="Teams" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink" size={15} />
 
       {/* ===== crest banner — the club's billboard ===== */}
       <div className="relative overflow-hidden rounded-[1.75rem] p-6 sm:p-9" style={{ background: `linear-gradient(125deg, ${kit.deep} 0%, ${kit.primary} 58%, ${kit.primary} 100%)` }}>
