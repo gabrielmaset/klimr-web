@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import { KlimrMark } from "@/components/logo";
 import QRCode from "qrcode";
 import { Crown, Play, Clock, Maximize, Minimize } from "lucide-react";
@@ -116,11 +116,17 @@ function HoldButton({ label, color, onConfirm, disabled }: { label: string; colo
   );
 }
 
+const subscribeNever = () => () => {};
+const originSnapshot = () => window.location.origin;
+const emptySnapshot = () => "";
+
 export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false }: { initial: QSessionState; courtId: string; canOperate: boolean; code?: string; isApp?: boolean }) {
   const sid = initial.session.id;
   const { state, refetch } = useQueueState(sid, initial, 3000);
   const [now, setNow] = useState(() => Date.now());
-  const [origin, setOrigin] = useState("");
+  // Origin is only knowable in the browser; the store pattern keeps SSR and
+  // hydration rendering "" (no mismatch) and fills it right after.
+  const origin = useSyncExternalStore(subscribeNever, originSnapshot, emptySnapshot);
   const [qr, setQr] = useState("");
   const [pending, start] = useTransition();
   const [note, setNote] = useState<string | null>(null);
@@ -144,10 +150,6 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
     else document.documentElement.requestFullscreen?.().catch(() => {});
   };
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOrigin(window.location.origin);
-  }, []);
 
   const walkUrl = origin ? `${origin}/q/${state.session.code}` : "";
   const hostPath = walkUrl.replace(/^https?:\/\//, "").replace(/^www\./, "");
@@ -222,6 +224,17 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
   };
   const sPaused = sessionLive && !!state.session.paused;
   const court = state.courts.find((c) => c.id === courtId);
+
+  // FREEZE-BY-DERIVATION for organizer edits: the one setting that could
+  // disrupt a RUNNING game is the formation — and the running match already
+  // carries its own truth (the teams it was formed with). While a match is
+  // live, the formation pill derives from the match; the moment it ends, the
+  // court's latest value shows. Name and level edits apply immediately —
+  // renaming a court mid-game is a fix, not a disruption. Pure data, no
+  // memory, no refs (repo rules).
+  const liveMatchSize = court?.current ? (court.current.a?.size ?? court.current.b?.size ?? court.teamSize) : null;
+  const shownTeamSize = liveMatchSize ?? court?.teamSize ?? 0;
+
   const heldTeam = court ? court.queue.find((t) => t.hold && t.wins > 0) ?? null : null;
   const upNext = court ? court.queue.filter((t) => !t.hold).slice(0, 3) : [];
   const canStart = !!court && court.queue.length >= 2;
@@ -247,7 +260,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
         <div className="mt-[1.2vh] flex flex-wrap items-center justify-center gap-x-[1.4vw] gap-y-2">
           <h1 className="font-display leading-none text-[clamp(2.2rem,5.4vw,5rem)]">{court?.label ?? "Court"}</h1>
           {court ? (
-            <span className="rounded-full bg-white/12 px-[1.3vw] py-[0.9vh] font-display font-bold leading-none text-[clamp(1.1rem,2.2vw,2.1rem)]">{formationLabel(court.teamSize)}</span>
+            <span className="rounded-full bg-white/12 px-[1.3vw] py-[0.9vh] font-display font-bold leading-none text-[clamp(1.1rem,2.2vw,2.1rem)]">{formationLabel(shownTeamSize)}</span>
           ) : null}
           {court && court.levels.length ? (
             <span className="rounded-full border border-white/15 px-[1.3vw] py-[0.9vh] font-semibold leading-none text-white/70 text-[clamp(0.9rem,1.7vw,1.6rem)]">{court.levels.map(levelLabel).join(" · ")}</span>

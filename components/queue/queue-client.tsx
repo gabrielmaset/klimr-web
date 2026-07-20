@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, UserCheck, Power, RotateCcw, Pause, Settings, ChevronDown, MapPin } from "lucide-react";
+import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, UserCheck, Power, RotateCcw, Pause, Settings, ChevronDown, MapPin, Pencil } from "lucide-react";
 import type { QSessionState, QCourtState, QTeam } from "@/lib/queue";
 import { LEVELS, levelLabel, formationLabel, formationsFor } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { useQueueState } from "@/components/queue/use-queue-state";
-import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, restartSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings } from "@/app/queue/actions";
+import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, restartSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings, updateCourt } from "@/app/queue/actions";
 
 type Action = (fd: FormData) => Promise<{ ok?: true; error?: string }>;
 
@@ -148,6 +148,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
   // Operator credential: the courtside/display code — DISTINCT from the public
   // join code so poster-scanners can never drive the match controls.
   const dCode = session.displayCode ?? session.code;
+  const [editCourtId, setEditCourtId] = useState<string | null>(null);
   const winRule = session.winCap <= 1 ? "Teams play once, then re-form" : `Winners stay until ${session.winCap} wins, then re-form`;
   const myTeam = me ? findTeam(state, me.teamId) : null;
   const myPending = state.myPending;
@@ -499,8 +500,16 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                       Open display
                     </a>
                   </p>
+                  {editCourtId === c.id ? (
+                    <CourtEditor court={c} sizeOptions={sizeOptions} pending={pending} run={run} onDone={() => setEditCourtId(null)} />
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-1.5">
+                  {isOrganizer && session.status === "live" ? (
+                    <button type="button" onClick={() => setEditCourtId(editCourtId === c.id ? null : c.id)} className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-bg" title="Rename, change formation, or adjust levels">
+                      <Pencil size={12} /> Edit
+                    </button>
+                  ) : null}
                   {isOrganizer && session.status === "live" ? (
                     <a href={`/q/${dCode}/${ci + 1}`} target="_blank" rel="noreferrer" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-bg" title="Open the login-free Courtside display for a tablet">
                       <Monitor size={12} /> Courtside
@@ -661,7 +670,62 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
       )}
 
       {/* organizer: add court */}
-      {isOrganizer && session.status !== "ended" ? <AddCourt sid={sid} sportKey={session.sportKey} nextN={state.courts.length + 1} pending={pending} run={run} /> : null}
+      {isOrganizer && session.status !== "ended" ? <AddCourt key={state.courts.length} sid={sid} sportKey={session.sportKey} nextN={state.courts.length + 1} pending={pending} run={run} /> : null}
+    </div>
+  );
+}
+
+/** Inline editor for an existing court. Saves via updateCourt; the courtside
+ *  screen adopts changes on its next poll — immediately when the court is
+ *  between games, or the moment the current match ends (display freeze rule). */
+function CourtEditor({ court, sizeOptions, pending, run, onDone }: { court: { id: string; label: string; teamSize: number; levels: string[] }; sizeOptions: number[]; pending: boolean; run: (fn: Action, fd: FormData, c?: boolean) => void; onDone: () => void }) {
+  const [label, setLabel] = useState(court.label);
+  const [size, setSize] = useState(sizeOptions.includes(court.teamSize) ? court.teamSize : (sizeOptions[0] ?? 2));
+  const [levels, setLevels] = useState<string[]>(court.levels);
+  const save = () => {
+    const f = new FormData();
+    f.append("courtId", court.id);
+    f.append("label", (label.trim() || court.label).slice(0, 40));
+    f.append("courtSize", String(size));
+    f.append("levelsSet", "1");
+    for (const l of levels) f.append("levels", l);
+    run(updateCourt, f);
+    onDone();
+  };
+  return (
+    <div className="mt-3 rounded-2xl border border-rule bg-bg/60 p-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-mute">Court name</label>
+          <input value={label} onChange={(e) => setLabel(e.target.value.slice(0, 40))} className="w-44 rounded-xl border border-rule bg-white px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-mute">Formation</label>
+          <select value={size} onChange={(e) => setSize(parseInt(e.target.value, 10))} className="rounded-xl border border-rule bg-white px-3 py-2 text-sm">
+            {sizeOptions.map((n) => (
+              <option key={n} value={n}>{formationLabel(n)}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-mute">Levels (optional)</label>
+          <div className="flex flex-wrap gap-1.5">
+            {LEVELS.map((l) => {
+              const on = levels.includes(l.key);
+              return (
+                <button key={l.key} type="button" onClick={() => setLevels(on ? levels.filter((x) => x !== l.key) : [...levels, l.key])} className={`press rounded-full border px-2.5 py-1 text-[11px] font-semibold ${on ? "border-brand bg-brand/10 text-brand-deep" : "border-rule bg-white text-mute"}`}>
+                  {l.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <button type="button" onClick={onDone} className="press rounded-full border border-rule bg-white px-3.5 py-2 text-xs font-semibold text-mute hover:text-ink">Cancel</button>
+          <button type="button" disabled={pending} onClick={save} className="press rounded-full bg-ink px-4 py-2 text-xs font-bold text-white hover:bg-ink-soft disabled:opacity-50">Save</button>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] text-faint">Name and level changes show on the courtside screen within seconds. A formation change applies from the next match — the running game keeps the formation it started with.</p>
     </div>
   );
 }
@@ -669,7 +733,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
 function AddCourt({ sid, sportKey, nextN, pending, run }: { sid: string; sportKey: string; nextN: number; pending: boolean; run: (fn: Action, fd: FormData, c?: boolean) => void }) {
   const sizeOptions = formationsFor(sportKey);
   const [size, setSize] = useState(sizeOptions[0] ?? 2);
-  const [label, setLabel] = useState("");
+  const [label, setLabel] = useState(`Court ${nextN}`);
   const [levels, setLevels] = useState<string[]>([]);
   const toggle = (k: string) => setLevels((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
   return (
@@ -710,7 +774,7 @@ function AddCourt({ sid, sportKey, nextN, pending, run }: { sid: string; sportKe
             const f = new FormData();
             f.append("sessionId", sid);
             f.append("courtSize", String(sizeOptions.includes(size) ? size : sizeOptions[0]));
-            if (label.trim()) f.append("label", label.trim().slice(0, 40));
+            f.append("label", (label.trim() || `Court ${nextN}`).slice(0, 40));
             levels.forEach((l) => f.append("levels", l));
             run(addCourt, f);
             setLevels([]);

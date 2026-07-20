@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearSessionPlay, wipeSession, ensureQueueLive, sessionPatch } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS } from "@/lib/sports";
-import { LEVELS, metersBetween } from "@/lib/queue";
+import { LEVELS, metersBetween, formationsFor } from "@/lib/queue";
 import { pickupMatchPoints } from "@/lib/ranking";
 import { recomputePlayerPoints } from "@/lib/points";
 import type { Database } from "@/lib/database.types";
@@ -33,7 +33,7 @@ async function currentUserId(): Promise<string | null> {
 async function sessionRow(admin: Admin, id: string) {
   const { data } = await admin
     .from("court_sessions")
-    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams, paused, paused_by, tournament_id")
+    .select("id, organizer_id, status, win_cap, allow_guests, require_location, center_lat, center_lng, radius_m, title, event_id, event_only, require_approval, allow_full_teams, paused, paused_by, tournament_id, sport_key")
     .eq("id", id)
     .maybeSingle();
   return data;
@@ -152,7 +152,12 @@ export async function updateCourt(formData: FormData): Promise<Result> {
   const patch: { label?: string; team_size?: number; levels?: string[] } = {};
   const label = String(formData.get("label") || "").trim();
   if (label) patch.label = label;
-  if (formData.get("courtSize") != null) patch.team_size = Math.min(8, Math.max(1, parseInt(String(formData.get("courtSize")), 10) || 4));
+  if (formData.get("courtSize") != null) {
+    const wanted = Math.min(8, Math.max(1, parseInt(String(formData.get("courtSize")), 10) || 4));
+    const allowed = formationsFor(guard.session!.sport_key);
+    if (!allowed.includes(wanted)) return { error: "That formation isn't available for this sport." };
+    patch.team_size = wanted;
+  }
   if (formData.getAll("levels").length || formData.get("levelsSet") != null) patch.levels = cleanLevels(formData.getAll("levels").map(String));
   await admin.from("queue_courts").update(patch).eq("id", courtId);
   revalidatePath(`/queue/${guard.session!.id}`);

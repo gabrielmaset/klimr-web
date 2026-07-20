@@ -166,6 +166,20 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-20 — Courts are live-editable; the display freezes by derivation
+- Add-a-court prefills the real name (Court N, editable; remounts per add so
+  numbering stays fresh). Every existing court gains an inline editor (name,
+  formation, levels) behind an Edit button — updateCourt validated server-side
+  against the sport's formation list.
+- Propagation semantics, per Gabriel: name/level edits show on the courtside
+  screen within a poll (~seconds), always. A formation change never disturbs a
+  RUNNING game because the display derives the live formation from the match's
+  own teams (their size is the formation truth) and adopts the court's new
+  value the moment the match ends. Freeze-by-DERIVATION, not memory — the
+  repo's no-refs-in-render/no-setState-in-effect rules pushed toward the purer
+  design. The display's origin read also moved to the useSyncExternalStore
+  pattern while in the file.
+
 ### 2026-07-20 — Operator/join credential split (0128) + display refinements
 - Gabriel's security catch: the public join code doubled as the courtside
   operator code — anyone scanning the poster could open /q/<code>/<n> and
