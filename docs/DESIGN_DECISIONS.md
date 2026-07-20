@@ -166,6 +166,28 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-19 — Live: 45UBR3. Doctrine: computed options, read-time validation
+- THE QUEUE IS LIVE — the activated_at fix ended the saga (screenshot: Live
+  pill, walk-up code, Pause/Turn off). Remaining polish landed with a doctrine
+  Gabriel asked for by name:
+- **Options are computed, never stored.** Every option list (formations per
+  sport, levels, naming modes) derives from lib rules at RENDER time — a rule
+  change applies to thousands of existing events on their next load, no
+  backfill. The Add-a-court select now uses formationsFor(sport) (no 1v1 beach
+  volleyball; padel doubles-only); values outside current rules render a
+  "(legacy size)" flag instead of breaking — read-time validation, the
+  read-repair pattern.
+- **SSR-per-request IS the live connection.** Pages are dynamic server renders
+  against Postgres — every load reflects the database now. The failures this
+  week were never staleness: they were reads through the wrong lens (RLS) and
+  a derived clock (retire) — both now doctrine'd: panel truth reads admin;
+  derived state carries its own timestamps. Realtime sockets stay reserved for
+  play-state (the queue's polling), not config — subscriptions everywhere
+  would add cost and failure modes with zero correctness gain.
+- Queue page: bespoke "Back to event page" link removed (the trail owns
+  navigation); per-court Display codes (code+court, Copy, Open display) now
+  live beside each court in session setup, matching the organizer panel.
+
 ### 2026-07-19 — THE LOOP: revive → instant idle-retire. activated_at (0127)
 - Gabriel's step-trace caught it in two rows: turn-on verified flag=true
   session=live, and the very next page render reported session=ended. The 12h

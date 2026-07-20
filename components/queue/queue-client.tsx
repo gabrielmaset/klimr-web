@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, UserCheck, Power, RotateCcw, ArrowLeft, Pause, Settings, ChevronDown, MapPin } from "lucide-react";
+import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, UserCheck, Power, RotateCcw, Pause, Settings, ChevronDown, MapPin } from "lucide-react";
 import type { QSessionState, QCourtState, QTeam } from "@/lib/queue";
-import { LEVELS, levelLabel, formationLabel, FORMATIONS } from "@/lib/queue";
+import { LEVELS, levelLabel, formationLabel, formationsFor } from "@/lib/queue";
 import { sportMeta } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { useQueueState } from "@/components/queue/use-queue-state";
@@ -142,6 +142,9 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
 
   const { session, courts, me } = state;
   const meta = sportMeta(session.sportKey);
+  // Options are COMPUTED from current rules at render — never stored UI state.
+  // A rule change applies to every session, old or new, on its next load.
+  const sizeOptions = formationsFor(session.sportKey);
   const winRule = session.winCap <= 1 ? "Teams play once, then re-form" : `Winners stay until ${session.winCap} wins, then re-form`;
   const myTeam = me ? findTeam(state, me.teamId) : null;
   const myPending = state.myPending;
@@ -171,11 +174,6 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
 
   return (
     <div className="space-y-5">
-      {/* back to the event this queue belongs to */}
-      <a href={session.eventId ? `/events/${session.eventId}` : "/events"} className="press inline-flex items-center gap-1.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={16} /> {session.eventId ? "Back to event page" : "Back to events"}
-      </a>
-
       {/* header */}
       <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -486,7 +484,17 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                 <div>
                   <h2 className="font-display text-lg text-ink">{c.label}</h2>
                   <p className="mt-0.5 text-xs text-mute">
-                    {formationLabel(c.teamSize)} · {c.levels.length ? c.levels.map(levelLabel).join(", ") : "All levels"}
+                    {formationLabel(c.teamSize)}{sizeOptions.includes(c.teamSize) ? "" : " (legacy size)"} · {c.levels.length ? c.levels.map(levelLabel).join(", ") : "All levels"}
+                  </p>
+                  <p className="mt-1.5 flex items-center gap-2 text-xs text-mute">
+                    <span className="font-semibold uppercase tracking-wider text-faint">Display</span>
+                    <span className="font-mono text-[13px] font-bold text-ink">{session.code}{ci + 1}</span>
+                    <button type="button" className="press rounded-full border border-rule px-2 py-0.5 font-semibold hover:border-brand hover:text-ink" onClick={() => navigator.clipboard?.writeText(`${session.code}${ci + 1}`)}>
+                      Copy
+                    </button>
+                    <a href={`/q/${session.code}/${ci + 1}`} target="_blank" rel="noreferrer" className="press rounded-full border border-rule px-2 py-0.5 font-semibold hover:border-brand hover:text-ink">
+                      Open display
+                    </a>
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -650,13 +658,14 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
       )}
 
       {/* organizer: add court */}
-      {isOrganizer && session.status !== "ended" ? <AddCourt sid={sid} pending={pending} run={run} /> : null}
+      {isOrganizer && session.status !== "ended" ? <AddCourt sid={sid} sportKey={session.sportKey} pending={pending} run={run} /> : null}
     </div>
   );
 }
 
-function AddCourt({ sid, pending, run }: { sid: string; pending: boolean; run: (fn: Action, fd: FormData, c?: boolean) => void }) {
-  const [size, setSize] = useState(4);
+function AddCourt({ sid, sportKey, pending, run }: { sid: string; sportKey: string; pending: boolean; run: (fn: Action, fd: FormData, c?: boolean) => void }) {
+  const sizeOptions = formationsFor(sportKey);
+  const [size, setSize] = useState(sizeOptions[0] ?? 2);
   const [levels, setLevels] = useState<string[]>([]);
   const toggle = (k: string) => setLevels((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
   return (
@@ -667,8 +676,8 @@ function AddCourt({ sid, pending, run }: { sid: string; pending: boolean; run: (
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <label className="mb-1 block text-xs font-semibold text-mute">Formation</label>
-          <select value={size} onChange={(e) => setSize(parseInt(e.target.value, 10))} className="rounded-xl border border-rule bg-white px-3 py-2 text-sm">
-            {FORMATIONS.map((n) => (
+          <select value={sizeOptions.includes(size) ? size : sizeOptions[0]} onChange={(e) => setSize(parseInt(e.target.value, 10))} className="rounded-xl border border-rule bg-white px-3 py-2 text-sm">
+            {sizeOptions.map((n) => (
               <option key={n} value={n}>
                 {formationLabel(n)}
               </option>
@@ -694,7 +703,7 @@ function AddCourt({ sid, pending, run }: { sid: string; pending: boolean; run: (
           onClick={() => {
             const f = new FormData();
             f.append("sessionId", sid);
-            f.append("courtSize", String(size));
+            f.append("courtSize", String(sizeOptions.includes(size) ? size : sizeOptions[0]));
             levels.forEach((l) => f.append("levels", l));
             run(addCourt, f);
             setLevels([]);
