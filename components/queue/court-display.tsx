@@ -78,7 +78,7 @@ function joinedAt(iso: string | null): string {
  *  cancel. (2) touch-action:none AND -webkit-touch-callout:none are both required — a
  *  3s press sits deep in Safari's long-press territory, and without the callout kill
  *  Safari fires pointercancel mid-hold even when the finger never moves. */
-function HoldButton({ label, color, onConfirm, disabled }: { label: string; color: string; onConfirm: () => void; disabled?: boolean }) {
+function HoldButton({ label, color, onConfirm, disabled, ghost = false }: { label: string; color: string; onConfirm: () => void; disabled?: boolean; ghost?: boolean }) {
   const [progress, setProgress] = useState(0);
   const raf = useRef<number | null>(null);
   const startT = useRef(0);
@@ -130,14 +130,32 @@ function HoldButton({ label, color, onConfirm, disabled }: { label: string; colo
       onPointerUp={cancel}
       onPointerCancel={cancel}
       onContextMenu={(e) => e.preventDefault()}
-      className="press relative w-full select-none overflow-hidden rounded-[1.4vw] font-display font-bold text-[#0a0f1f] transition disabled:opacity-60"
-      style={{ background: color, touchAction: "none", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", fontSize: "clamp(1.1rem,2vw,2rem)" }}
+      className={
+        ghost
+          ? "press relative select-none overflow-hidden rounded-full border border-white/20 font-semibold text-white/70 transition hover:bg-white/10 disabled:opacity-40"
+          : "press relative w-full select-none overflow-hidden rounded-[1.4vw] font-display font-bold text-[#0a0f1f] transition disabled:opacity-60"
+      }
+      style={
+        ghost
+          ? { touchAction: "none", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", fontSize: "clamp(0.85rem,1.5vw,1.4rem)" }
+          : { background: color, touchAction: "none", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", fontSize: "clamp(1.1rem,2vw,2rem)" }
+      }
     >
-      <span className="absolute inset-y-0 left-0 bg-black/25" style={{ width: `${progress * 100}%` }} aria-hidden />
-      <span className="relative flex flex-col items-center justify-center gap-0.5 py-[2.1vh] leading-none">
-        <span>{label}</span>
-        <span className="text-[0.46em] font-bold uppercase tracking-[0.18em] opacity-75">{active ? "Keep holding to confirm" : "Press & hold to confirm"}</span>
-      </span>
+      <span className={`absolute inset-y-0 left-0 ${ghost ? "bg-white/15" : "bg-black/25"}`} style={{ width: `${progress * 100}%` }} aria-hidden />
+      {ghost ? (
+        <span className="relative flex flex-col items-center justify-center gap-0.5 px-[2.5vw] py-[1.4vh] leading-none">
+          <span>{label}</span>
+          {/* the caption teaches only while a press is in flight */}
+          <span className={`overflow-hidden text-[0.56em] font-bold uppercase tracking-[0.18em] text-white/60 transition-all duration-200 ${active ? "mt-0.5 max-h-[1.2em] opacity-100" : "max-h-0 opacity-0"}`}>
+            Keep holding to confirm
+          </span>
+        </span>
+      ) : (
+        <span className="relative flex flex-col items-center justify-center gap-0.5 py-[2.1vh] leading-none">
+          <span>{label}</span>
+          <span className="text-[0.46em] font-bold uppercase tracking-[0.18em] opacity-75">{active ? "Keep holding to confirm" : "Press & hold to confirm"}</span>
+        </span>
+      )}
     </button>
   );
 }
@@ -396,7 +414,8 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
                       winning team — so it earns the same press-&-hold contract
                       as recording a win. */}
                   <HoldButton
-                    label="Winners are done — call the next two"
+                    ghost
+                    label="Winners are done — call the next two in line"
                     color="#8b93a7"
                     disabled={pending}
                     onConfirm={() => stepDown(heldTeam.id)}

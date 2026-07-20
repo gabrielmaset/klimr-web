@@ -176,8 +176,10 @@ surface-by-surface in later phases; **new code should use these from the start.*
 - Up-next meta drops the "· 2m waiting" tail (the join time already says it);
   one line per team, always.
 - "Winners are done — call the next two" sat beside Start next match and,
-  mispressed, dissolves the winning team — it now uses the same HoldButton
-  press-&-hold fill as recording a win.
+  mispressed, dissolves the winning team — it now requires press-&-hold, via a
+  new HoldButton ghost variant that keeps the original quiet outline look:
+  soft white fill sweeps only during the press, and the "keep holding"
+  caption fades in only while a press is in flight.
 
 ### 2026-07-20 — Geofence distances speak the user's units
 - "You're 7444m away" → locale-aware, Google-Maps-style formatting via
