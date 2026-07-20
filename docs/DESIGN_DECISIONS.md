@@ -166,6 +166,15 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-19 — The gate was eating the app's APIs (public-path additions)
+- Tablet's "answered unexpectedly" = HTTP 200 with an HTML body: the middleware
+  auth gate intercepted /api/q/validate (born this week, never whitelisted) and
+  served its page to the app's JSON client. /api/app-diagnostics was equally
+  gated — which is why the tablet's own failure reports never landed. Both are
+  now PUBLIC_PATHS (they're defensive-by-design: poster-public codes only;
+  header-gated clamped ingestion). Standing rule: any endpoint meant for the
+  anonymous Courtside device must ship WITH its middleware whitelist entry.
+
 ### 2026-07-19 — Live: 45UBR3. Doctrine: computed options, read-time validation
 - THE QUEUE IS LIVE — the activated_at fix ended the saga (screenshot: Live
   pill, walk-up code, Pause/Turn off). Remaining polish landed with a doctrine

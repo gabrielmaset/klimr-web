@@ -3,7 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
 // Reachable without a session. Everything else redirects to /login.
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/gate", "/q", "/api/queue"];
+// /api/q (validate) and /api/app-diagnostics serve the Courtside iPad app —
+// an anonymous device by design. Both are defensive (poster-public codes only;
+// header-gated, clamped ingestion) and must never hit the auth gate: the gate
+// answers HTML with a 200, which reads as data corruption to API clients.
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/gate", "/q", "/api/queue", "/api/q", "/api/app-diagnostics"];
 
 // Reachable with a session that has NOT yet cleared 2FA (AAL1). These are the
 // pages a signed-in user needs *in order to* complete or recover 2FA, so the
