@@ -78,10 +78,10 @@ export default async function TournamentDashboard({ params }: { params: Promise<
   let queueSession: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null = null;
   if (t.queue_enabled) {
     const qadmin = createAdminClient();
-    const { data: qs } = await supabase.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("tournament_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const { data: qs } = await qadmin.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("tournament_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (qs && (await retireSessionIfStale(qadmin, qs))) qs.status = "ended";
     if (qs) {
-      const { data: courtRows } = await supabase.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
+      const { data: courtRows } = await qadmin.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
       let pausedByName: string | null = null;
       if (qs.paused && qs.paused_by) {
         const { data: pauser } = await supabase.from("profiles").select("display_name").eq("id", qs.paused_by).maybeSingle();

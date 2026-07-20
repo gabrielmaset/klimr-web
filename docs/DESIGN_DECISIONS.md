@@ -166,6 +166,20 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-19 — ROOT CAUSE: RLS-silent session reads · full step tracing
+- The event page (and my tournament dashboard block) read court_sessions with
+  the USER-scoped client. An RLS-blocked select returns EMPTY WITH NO ERROR —
+  so the panel rendered OFF while the database was live and the action
+  truthfully reported verified success. Every symptom of the week-long saga
+  fits this shape: no red line, no diagnostics, "Turning on…" settling,
+  persistence across every write-path fix. Rule, now standing: ORGANIZER-PANEL
+  DATA READS WITH THE ADMIN CLIENT — panel truth must never depend on RLS.
+- Instruments, permanent: (1) every Turn on/off click writes ONE
+  "[queue-trace]" row to Admin → Diagnostics with the full step narrative
+  (timings, guard, branch, ids, read-back); (2) a page tripwire reports itself
+  whenever flag=true but the page can't see a live session — the exact
+  divergence that hid this bug.
+
 ### 2026-07-19 — Read-back verification closes the last silent shape
 - Field evidence narrowed everything: "Turning on…" renders and settles ⇒
   hydration alive, form fired, action completed returning success past EVERY

@@ -543,18 +543,47 @@ export async function setQueueEnabled(formData: FormData): Promise<{ error: stri
   }
 }
 
+/** One row per Turn on/off click in Admin → Diagnostics: the full step
+ *  narrative (timings, branch, ids, read-back). Search "queue-trace". */
+async function writeQueueTrace(ok: boolean, enabled: boolean, eventId: string, userId: string | null, steps: string[]) {
+  try {
+    const admin = createAdminClient();
+    await admin.from("error_logs").insert({
+      user_id: userId,
+      level: ok ? "info" : "error",
+      message: `[queue-trace] turn-${enabled ? "on" : "off"} ${ok ? "OK" : "FAILED"} · event ${eventId.slice(0, 8)}`,
+      detail: steps.join("\n"),
+      url: `/events/${eventId}`,
+      user_agent: "server-action",
+    });
+  } catch {
+    /* tracing must never break the action */
+  }
+}
+
 async function setQueueEnabledInner(formData: FormData): Promise<{ error: string | null }> {
   const eventId = String(formData.get("eventId") ?? "");
   const enabled = formData.get("enabled") != null;
+  const t0 = Date.now();
+  const steps: string[] = [];
+  const mark = (s: string) => steps.push(`+${Date.now() - t0}ms  ${s}`);
+  mark(`parsed: eventId=${eventId.slice(0, 8) || "(empty)"} enabled=${enabled}`);
   if (!eventId) return { error: "Missing event." };
   const guard = await eventAdminGuard(eventId);
-  if (!guard.ok) return { error: guard.error ?? "Not allowed." };
+  if (!guard.ok) {
+    mark(`guard FAILED: ${guard.error ?? "not allowed"}`);
+    await writeQueueTrace(false, enabled, eventId, null, steps);
+    return { error: guard.error ?? "Not allowed." };
+  }
+  mark(`guard ok: user=${guard.user.id.slice(0, 8)}`);
   const admin = createAdminClient();
   if (enabled) {
     // ON means PLAYING: create-or-revive the session, go live unpaused.
     const res = await ensureQueueLive(admin, { eventId, tournamentId: null }, guard.user.id);
+    mark(`ensure: sessionId=${res.id ? res.id.slice(0, 8) : "null"} error=${res.error ?? "none"}`);
     if (res.error) {
       console.error("[queue] turn-on failed for event", eventId, res.error);
+      await writeQueueTrace(false, enabled, eventId, guard.user.id, steps);
       return { error: res.error };
     }
     // READ-BACK VERIFY — the last silent failure shape in a fully-checked
@@ -563,12 +592,16 @@ async function setQueueEnabledInner(formData: FormData): Promise<{ error: string
     // loud error carrying exactly what the database read back.
     const { data: flagRow } = await admin.from("events").select("queue_enabled").eq("id", eventId).maybeSingle();
     const { data: verifySession } = await admin.from("court_sessions").select("id, status, event_id").eq("event_id", eventId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    mark(`readback: flag=${String(flagRow?.queue_enabled)} session=${verifySession ? verifySession.status : "none"} sessionId=${verifySession?.id?.slice(0, 8) ?? "-"}`);
     if (flagRow?.queue_enabled !== true || verifySession?.status !== "live") {
       const readback = `flag=${String(flagRow?.queue_enabled)} session=${verifySession ? `${verifySession.status}` : "none"}`;
       console.error("[queue] turn-on readback mismatch", { eventId, readback, sessionId: res.id });
+      await writeQueueTrace(false, enabled, eventId, guard.user.id, steps);
       return { error: `Turn-on wrote but the database read back wrong (${readback}). Send this message to support.` };
     }
     console.log("[queue] turn-on verified", { eventId, sessionId: res.id });
+    mark("verified — turn-on complete");
+    await writeQueueTrace(true, enabled, eventId, guard.user.id, steps);
   } else {
     // OFF means BLANK SLATE: play state, courts and tuned settings all clear;
     // only the session row + its public code survive for printed QR posters.
@@ -578,6 +611,10 @@ async function setQueueEnabledInner(formData: FormData): Promise<{ error: string
       revalidatePath(`/queue/${s.id}`);
     }
     await admin.from("events").update({ queue_enabled: false }).eq("id", eventId);
+  }
+  if (!enabled) {
+    mark("turn-off complete (wipe + flag cleared)");
+    await writeQueueTrace(true, enabled, eventId, guard.user.id, steps);
   }
   revalidatePath(`/events/${eventId}`);
   return { error: null };

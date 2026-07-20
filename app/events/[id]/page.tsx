@@ -126,18 +126,23 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     // fall back to the pre-0124 columns so the panel still reflects reality,
     // and surface a visible nudge instead of silently rendering "Off".
     let qs: { id: string; code: string; status: string; paused: boolean; paused_by: string | null; created_at: string } | null = null;
-    const full = await supabase.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    // ORGANIZER-PANEL DATA READS WITH THE ADMIN CLIENT. The user-scoped client
+    // goes through RLS, and a blocked select returns EMPTY WITH NO ERROR —
+    // the panel then renders OFF while the database is live. That silent shape
+    // was the queue saga's root cause; it must never depend on RLS again.
+    const qadmin = createAdminClient();
+    const full = await qadmin.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (full.error) {
       console.error("[queue] session select failed — is migration 0124 applied?", full.error.message);
       queueWarning = "Run migration 0124 to finish this update — pause names are off until then.";
-      const lite = await supabase.from("court_sessions").select("id, code, status, paused, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const lite = await qadmin.from("court_sessions").select("id, code, status, paused, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
       qs = lite.data ? { ...lite.data, paused_by: null } : null;
     } else {
       qs = full.data;
     }
-    if (qs && (await retireSessionIfStale(createAdminClient(), qs))) qs.status = "ended";
+    if (qs && (await retireSessionIfStale(qadmin, qs))) qs.status = "ended";
     if (qs) {
-      const { data: courtRows } = await supabase.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
+      const { data: courtRows } = await qadmin.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
       let pausedByName: string | null = null;
       if (qs.paused && qs.paused_by) {
         const { data: pauser } = await supabase.from("profiles").select("display_name").eq("id", qs.paused_by).maybeSingle();
@@ -152,6 +157,20 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         courts: (courtRows ?? []).map((c, i) => ({ id: c.id, label: c.label, index: i + 1, closed: !!c.closed_at })),
       };
     }
+
+  // Tripwire: the flag says ON but this page can't see a live session — the
+  // exact divergence that hid the queue bug. Reports itself to Diagnostics.
+  if (e.queue_enabled && session?.status !== "live") {
+    const trip = createAdminClient();
+    await trip.from("error_logs").insert({
+      user_id: null,
+      level: "warn",
+      message: `[queue-trace] page mismatch: flag=true, session=${session ? session.status : "none"}`,
+      detail: `event ${id}`,
+      url: `/events/${id}`,
+      user_agent: "server",
+    });
+  }
   }
 
   const courtData = court.data as { id: string; name: string; neighborhood: string | null; city: string | null; lat: number | null; lng: number | null } | null;
