@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const headers = { "cache-control": "no-store" };
   if (code.length !== 6) return NextResponse.json({ ok: false, live: false, courts: 0 }, { headers });
   const admin = createAdminClient();
-  const { data: s } = await admin.from("court_sessions").select("id, status").eq("code", code).maybeSingle();
+  const { data: s } = await admin.from("court_sessions").select("id, status").eq("display_code", code).maybeSingle();
   if (!s) return NextResponse.json({ ok: false, live: false, courts: 0 }, { headers });
   const { count } = await admin.from("queue_courts").select("id", { count: "exact", head: true }).eq("session_id", s.id);
   return NextResponse.json({ ok: true, live: s.status === "live", courts: count ?? 0 }, { headers });

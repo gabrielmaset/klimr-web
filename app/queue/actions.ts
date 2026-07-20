@@ -103,11 +103,16 @@ export async function createSession(formData: FormData): Promise<void> {
   let sessionId = "";
   for (let attempt = 0; attempt < 6 && !sessionId; attempt++) {
     const code = genCode();
-    const { data, error } = await admin
+    const base = { code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, ...(teamNameMode !== "letters" ? { team_name_mode: teamNameMode } : {}), allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null };
+    let { data, error } = await admin
       .from("court_sessions")
-      .insert({ code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, ...(teamNameMode !== "letters" ? { team_name_mode: teamNameMode } : {}), allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null })
+      .insert({ ...base, display_code: genCode() })
       .select("id")
       .single();
+    if (error && error.code !== "23505" && /display_code/.test(error.message)) {
+      console.error("[queue] display_code missing — apply migration 0128. Retrying without it.");
+      ({ data, error } = await admin.from("court_sessions").insert(base).select("id").single());
+    }
     if (!error && data) sessionId = data.id;
     else if (error && error.code !== "23505") break; // non-uniqueness error: stop
   }

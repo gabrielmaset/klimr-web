@@ -166,6 +166,19 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-20 — Operator/join credential split (0128) + display refinements
+- Gabriel's security catch: the public join code doubled as the courtside
+  operator code — anyone scanning the poster could open /q/<code>/<n> and
+  drive the match controls. court_sessions.display_code (0128, backfilled) is
+  now the operator/kiosk credential: shown only in organizer tools + session
+  setup, typed into the iPad, resolved by /api/q/validate and /q/<code>/<n>.
+  The join code joins; the display code operates. Inserts are 0128-tolerant.
+- Display: brand lockup moved to the top-left (was buried by the QR), join URL
+  drops the www, match-side team names +30%, "in line since" left-aligns under
+  the number chip. Beach volleyball gains 5v5. Add-a-court gains an editable
+  name (placeholder Court N). iPad gets a visible discreet exit chip:
+  hold 3 s → setup screen (replaces the invisible corner + menu).
+
 ### 2026-07-19 — The gate was eating the app's APIs (public-path additions)
 - Tablet's "answered unexpectedly" = HTTP 200 with an HTML body: the middleware
   auth gate intercepted /api/q/validate (born this week, never whitelisted) and

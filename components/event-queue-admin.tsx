@@ -26,7 +26,7 @@ export function EventQueueAdmin({
   eventId: string;
   scope?: "event" | "tournament";
   queueEnabled: boolean;
-  session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null;
+  session: { id: string; code: string; displayCode?: string | null; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null;
   warning?: string | null;
 }) {
   const toggleAction = scope === "event" ? setQueueEnabled : setTournamentQueueEnabled;
@@ -139,7 +139,7 @@ export function EventQueueAdmin({
                       {c.closed ? <span className="text-[10px] font-bold uppercase tracking-wide text-white/35">Closed</span> : null}
                     </span>
                     <span className={`font-mono text-2xl font-bold leading-none tracking-[0.18em] sm:text-3xl ${c.closed ? "text-white/30" : "text-white"}`}>
-                      {session!.code}{c.index}
+                      {(session!.displayCode ?? session!.code)}{c.index}
                     </span>
                     <CopyChip text={`${session!.code}${c.index}`} />
                     <a href={`/q/${session!.code}/${c.index}`} target="_blank" rel="noreferrer" title="Open courtside display" className="press grid h-8 w-8 place-items-center rounded-full border border-white/20 text-white/70 transition hover:bg-white/10">

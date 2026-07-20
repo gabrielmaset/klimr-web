@@ -119,7 +119,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     })
     .sort((a, b) => (a.isOwner === b.isOwner ? 0 : a.isOwner ? -1 : 1));
 
-  let session: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null = null;
+  let session: { id: string; code: string; displayCode?: string | null; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null = null;
   let queueWarning: string | null = null;
   if (e.queue_enabled) {
     // Tolerate a not-yet-applied 0124: if the full select fails on paused_by,
@@ -131,7 +131,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     // the panel then renders OFF while the database is live. That silent shape
     // was the queue saga's root cause; it must never depend on RLS again.
     const qadmin = createAdminClient();
-    const full = await qadmin.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const full = await qadmin.from("court_sessions").select("id, code, display_code, status, paused, paused_by, created_at").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (full.error) {
       console.error("[queue] session select failed — is migration 0124 applied?", full.error.message);
       queueWarning = "Run migration 0124 to finish this update — pause names are off until then.";
@@ -151,6 +151,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       session = {
         id: qs.id,
         code: qs.code,
+        displayCode: "display_code" in qs ? ((qs as { display_code?: string | null }).display_code ?? null) : null,
         status: qs.status,
         paused: !!qs.paused,
         pausedByName,

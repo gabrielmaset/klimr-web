@@ -75,10 +75,10 @@ export default async function TournamentDashboard({ params }: { params: Promise<
 
   // Open-court live queue (optional; beside the bracket). Same assembly as the
   // event page: latest session, lazy retire, courts, pauser name.
-  let queueSession: { id: string; code: string; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null = null;
+  let queueSession: { id: string; code: string; displayCode?: string | null; status: string; paused: boolean; pausedByName: string | null; courts: { id: string; label: string; index: number; closed: boolean }[] } | null = null;
   if (t.queue_enabled) {
     const qadmin = createAdminClient();
-    const { data: qs } = await qadmin.from("court_sessions").select("id, code, status, paused, paused_by, created_at").eq("tournament_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const { data: qs } = await qadmin.from("court_sessions").select("id, code, display_code, status, paused, paused_by, created_at").eq("tournament_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (qs && (await retireSessionIfStale(qadmin, qs))) qs.status = "ended";
     if (qs) {
       const { data: courtRows } = await qadmin.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
@@ -87,7 +87,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
         const { data: pauser } = await supabase.from("profiles").select("display_name").eq("id", qs.paused_by).maybeSingle();
         pausedByName = pauser?.display_name ?? null;
       }
-      queueSession = { id: qs.id, code: qs.code, status: qs.status, paused: !!qs.paused, pausedByName, courts: (courtRows ?? []).map((c, i) => ({ id: c.id, label: c.label, index: i + 1, closed: !!c.closed_at })) };
+      queueSession = { id: qs.id, code: qs.code, displayCode: qs.display_code ?? null, status: qs.status, paused: !!qs.paused, pausedByName, courts: (courtRows ?? []).map((c, i) => ({ id: c.id, label: c.label, index: i + 1, closed: !!c.closed_at })) };
     }
   }
 

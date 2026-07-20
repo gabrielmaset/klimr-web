@@ -79,11 +79,14 @@ export async function ensureQueueLive(
   const mintFresh = async (): Promise<{ id: string | null; error: string | null }> => {
     const { data: ev } = await admin.from(owner.eventId ? "events" : "tournaments").select("title, sport_key").eq("id", ownerId).maybeSingle();
     for (let attempt = 0; attempt < 5; attempt++) {
-      const { data, error } = await admin
-        .from("court_sessions")
-        .insert({ code: sessionCode(), event_id: owner.eventId, organizer_id: organizerId, title: ev?.title ?? "Live queue", sport_key: ev?.sport_key ?? "tennis", status: "live", ...(owner.tournamentId ? { tournament_id: owner.tournamentId } : {}) })
-        .select("id")
-        .maybeSingle();
+      const payload = { code: sessionCode(), display_code: sessionCode(), event_id: owner.eventId, organizer_id: organizerId, title: ev?.title ?? "Live queue", sport_key: ev?.sport_key ?? "tennis", status: "live", ...(owner.tournamentId ? { tournament_id: owner.tournamentId } : {}) };
+      let { data, error } = await admin.from("court_sessions").insert(payload).select("id").maybeSingle();
+      if (error && error.code !== "23505" && /display_code/.test(error.message)) {
+        console.error("[queue] display_code missing — apply migration 0128. Retrying without it.");
+        const { display_code: _omit, ...rest } = payload;
+        void _omit;
+        ({ data, error } = await admin.from("court_sessions").insert(rest).select("id").maybeSingle());
+      }
       if (data?.id) return { id: data.id, error: null };
       if (error && error.code !== "23505") {
         console.error("[queue] session insert failed:", error.message);
@@ -193,7 +196,7 @@ export async function retireSessionIfStale(
 export async function loadSessionState(admin: Admin, sessionId: string, meId?: string | null): Promise<QSessionState | null> {
   const { data: s } = await admin
     .from("court_sessions")
-    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, paused, paused_by, tournament_id, team_name_mode, center_lat, center_lng, radius_m, organizer_id, created_at")
+    .select("id, event_id, code, title, sport_key, status, win_cap, allow_guests, require_location, event_only, require_approval, allow_full_teams, paused, paused_by, tournament_id, team_name_mode, display_code, center_lat, center_lng, radius_m, organizer_id, created_at")
     .eq("id", sessionId)
     .maybeSingle();
   if (!s) return null;
@@ -312,6 +315,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       eventId: s.event_id,
       tournamentId: s.tournament_id,
       teamNameMode: (s.team_name_mode === "first_player" || s.team_name_mode === "initials" ? s.team_name_mode : "letters") as "letters" | "first_player" | "initials",
+      displayCode: s.display_code ?? null,
       code: s.code,
       title: s.title,
       sportKey: s.sport_key,

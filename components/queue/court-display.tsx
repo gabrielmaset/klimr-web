@@ -150,7 +150,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
   }, []);
 
   const walkUrl = origin ? `${origin}/q/${state.session.code}` : "";
-  const hostPath = walkUrl.replace(/^https?:\/\//, "");
+  const hostPath = walkUrl.replace(/^https?:\/\//, "").replace(/^www\./, "");
 
   useEffect(() => {
     if (!walkUrl) return;
@@ -235,7 +235,11 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
           the title + court row keeps both out from under the system chrome. */}
       <div className="px-[max(0.9rem,3vw)] pt-[max(1.4vh,env(safe-area-inset-top))]">
         <div className="relative flex min-h-9 items-center justify-center">
-          <p className="max-w-[62%] truncate text-center text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
+          <span className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-[0.5vw] text-white">
+            <KlimrMark size={20} dot="brand" />
+            <span className="logotype text-[clamp(1.05rem,1.8vw,1.7rem)] leading-none">klimr</span>
+          </span>
+          <p className="max-w-[52%] truncate text-center text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
           {isApp ? null : <button type="button" onClick={toggleFullscreen} className="press absolute right-0 top-1/2 inline-flex shrink-0 -translate-y-1/2 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
             {isFs ? <Minimize size={15} /> : <Maximize size={15} />} {isFs ? "Exit full screen" : "Full screen"}
           </button>}
@@ -308,7 +312,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
                   </div>
                   <div className="flex min-h-0 flex-1 overflow-y-auto px-[max(0.9rem,2.2vw)] py-[1vh]">
                     <div className="my-auto">
-                      <StackedNames team={t} className="font-display font-semibold text-[clamp(1.1rem,2.3vw,2.2rem)]" />
+                      <StackedNames team={t} className="font-display font-semibold text-[clamp(1.35rem,2.9vw,2.9rem)]" />
                     </div>
                   </div>
                   {canOperate ? (
@@ -389,18 +393,20 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
             ) : (
               <div className="grid grid-cols-1 gap-[max(0.5rem,1.5vw)] landscape:grid-cols-3 md:grid-cols-3">
                 {upNext.map((t, i) => (
-                  <div key={t.id} className="flex items-start gap-[max(0.5rem,1vw)] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)]">
-                    <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(2rem,3vw,3rem)", height: "clamp(2rem,3vw,3rem)", fontSize: "clamp(1rem,1.6vw,1.6rem)" }}>
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <StackedNames team={t} className="font-semibold leading-snug text-white text-[clamp(1.1rem,1.9vw,1.85rem)]" />
-                      {t.queuedAt ? (
-                        <p className="mt-1 flex items-center gap-1 text-[clamp(0.6rem,0.95vw,0.9rem)] font-medium text-white/45">
-                          <Clock size={"1em" as unknown as number} /> in line since {joinedAt(t.queuedAt)} · {waited(t.queuedAt, now)}
-                        </p>
-                      ) : null}
+                  <div key={t.id} className="flex flex-col gap-[0.4rem] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)]">
+                    <div className="flex items-start gap-[max(0.5rem,1vw)]">
+                      <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(2rem,3vw,3rem)", height: "clamp(2rem,3vw,3rem)", fontSize: "clamp(1rem,1.6vw,1.6rem)" }}>
+                        {i + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <StackedNames team={t} className="font-semibold leading-snug text-white text-[clamp(1.1rem,1.9vw,1.85rem)]" />
+                      </div>
                     </div>
+                    {t.queuedAt ? (
+                      <p className="flex items-center gap-1 text-[clamp(0.6rem,0.95vw,0.9rem)] font-medium text-white/45">
+                        <Clock size={"1em" as unknown as number} /> in line since {joinedAt(t.queuedAt)} · {waited(t.queuedAt, now)}
+                      </p>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -419,10 +425,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
               <div className="min-w-0">
                 <p className="text-[clamp(0.62rem,0.95vw,0.9rem)] font-bold uppercase tracking-[0.2em] text-white/55">Join the line — scan or type</p>
                 <p className="mt-1 break-all font-mono font-bold leading-tight text-white text-[clamp(1rem,1.9vw,1.9rem)]">{hostPath}</p>
-                <p className="mt-[0.8vh] flex items-center gap-[0.5vw] text-white/60">
-                  <KlimrMark size={22} dot="brand" />
-                  <span className="logotype text-white text-[clamp(0.95rem,1.6vw,1.5rem)]">klimr</span>
-                </p>
+
               </div>
             </div>
           ) : null}

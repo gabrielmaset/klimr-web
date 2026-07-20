@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Courtside display" };
 export default async function PublicCourtDisplayPage({ params }: { params: Promise<{ code: string; court: string }> }) {
   const { code, court } = await params;
   const admin = createAdminClient();
-  const { data: row } = await admin.from("court_sessions").select("id, code").eq("code", code.toUpperCase()).maybeSingle();
+  const { data: row } = await admin.from("court_sessions").select("id, code").eq("display_code", code.toUpperCase()).maybeSingle();
   if (!row) notFound();
 
   const state = await loadSessionState(admin, row.id, null);

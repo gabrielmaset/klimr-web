@@ -17,7 +17,7 @@ export const SPORT_FORMATIONS: Record<string, number[]> = {
   pickleball: [1, 2],
   padel: [2],
   racquetball: [1, 2, 3],
-  beach_volleyball: [2, 3, 4, 6],
+  beach_volleyball: [2, 3, 4, 5, 6],
 };
 export function formationsFor(sportKey: string): number[] {
   return SPORT_FORMATIONS[sportKey] ?? [1, 2, 3, 4];
@@ -93,6 +93,7 @@ export type QSessionState = {
     eventId: string | null;
     tournamentId: string | null;
     teamNameMode: "letters" | "first_player" | "initials";
+    displayCode: string | null;
     code: string;
     title: string;
     sportKey: string;

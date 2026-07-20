@@ -145,6 +145,9 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
   // Options are COMPUTED from current rules at render — never stored UI state.
   // A rule change applies to every session, old or new, on its next load.
   const sizeOptions = formationsFor(session.sportKey);
+  // Operator credential: the courtside/display code — DISTINCT from the public
+  // join code so poster-scanners can never drive the match controls.
+  const dCode = session.displayCode ?? session.code;
   const winRule = session.winCap <= 1 ? "Teams play once, then re-form" : `Winners stay until ${session.winCap} wins, then re-form`;
   const myTeam = me ? findTeam(state, me.teamId) : null;
   const myPending = state.myPending;
@@ -271,7 +274,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                   </p>
                 ) : null}
                 <p className="text-xs text-mute">
-                  Courtside screen on a separate tablet? Open <span className="font-mono font-semibold text-ink">klimr.com/q</span> and enter code <span className="font-mono font-bold tracking-wider text-ink">{session.code}</span> + the court number.
+                  Courtside screen on a separate tablet? Open <span className="font-mono font-semibold text-ink">klimr.com/q</span> and enter the display code <span className="font-mono font-bold tracking-wider text-ink">{dCode}</span> + the court number. It’s different from the join code on purpose — only people you show it to can run the screen.
                 </p>
                 <p className="text-xs text-faint">Turning off resets the queue and stops it — it won&rsquo;t cancel the event or its recurring series.</p>
               </>
@@ -488,18 +491,18 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                   </p>
                   <p className="mt-1.5 flex items-center gap-2 text-xs text-mute">
                     <span className="font-semibold uppercase tracking-wider text-faint">Display</span>
-                    <span className="font-mono text-[13px] font-bold text-ink">{session.code}{ci + 1}</span>
-                    <button type="button" className="press rounded-full border border-rule px-2 py-0.5 font-semibold hover:border-brand hover:text-ink" onClick={() => navigator.clipboard?.writeText(`${session.code}${ci + 1}`)}>
+                    <span className="font-mono text-[13px] font-bold text-ink">{dCode}{ci + 1}</span>
+                    <button type="button" className="press rounded-full border border-rule px-2 py-0.5 font-semibold hover:border-brand hover:text-ink" onClick={() => navigator.clipboard?.writeText(`${dCode}${ci + 1}`)}>
                       Copy
                     </button>
-                    <a href={`/q/${session.code}/${ci + 1}`} target="_blank" rel="noreferrer" className="press rounded-full border border-rule px-2 py-0.5 font-semibold hover:border-brand hover:text-ink">
+                    <a href={`/q/${dCode}/${ci + 1}`} target="_blank" rel="noreferrer" className="press rounded-full border border-rule px-2 py-0.5 font-semibold hover:border-brand hover:text-ink">
                       Open display
                     </a>
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {isOrganizer && session.status === "live" ? (
-                    <a href={`/q/${session.code}/${ci + 1}`} target="_blank" rel="noreferrer" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-bg" title="Open the login-free Courtside display for a tablet">
+                    <a href={`/q/${dCode}/${ci + 1}`} target="_blank" rel="noreferrer" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-white px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-bg" title="Open the login-free Courtside display for a tablet">
                       <Monitor size={12} /> Courtside
                     </a>
                   ) : null}
@@ -658,14 +661,15 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
       )}
 
       {/* organizer: add court */}
-      {isOrganizer && session.status !== "ended" ? <AddCourt sid={sid} sportKey={session.sportKey} pending={pending} run={run} /> : null}
+      {isOrganizer && session.status !== "ended" ? <AddCourt sid={sid} sportKey={session.sportKey} nextN={state.courts.length + 1} pending={pending} run={run} /> : null}
     </div>
   );
 }
 
-function AddCourt({ sid, sportKey, pending, run }: { sid: string; sportKey: string; pending: boolean; run: (fn: Action, fd: FormData, c?: boolean) => void }) {
+function AddCourt({ sid, sportKey, nextN, pending, run }: { sid: string; sportKey: string; nextN: number; pending: boolean; run: (fn: Action, fd: FormData, c?: boolean) => void }) {
   const sizeOptions = formationsFor(sportKey);
   const [size, setSize] = useState(sizeOptions[0] ?? 2);
+  const [label, setLabel] = useState("");
   const [levels, setLevels] = useState<string[]>([]);
   const toggle = (k: string) => setLevels((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
   return (
@@ -675,6 +679,8 @@ function AddCourt({ sid, sportKey, pending, run }: { sid: string; sportKey: stri
       </p>
       <div className="flex flex-wrap items-end gap-4">
         <div>
+          <label className="mb-1 block text-xs font-semibold text-mute">Court name</label>
+          <input value={label} onChange={(e) => setLabel(e.target.value.slice(0, 40))} placeholder={`Court ${nextN}`} className="mb-3 block w-44 rounded-xl border border-rule bg-white px-3 py-2 text-sm" />
           <label className="mb-1 block text-xs font-semibold text-mute">Formation</label>
           <select value={sizeOptions.includes(size) ? size : sizeOptions[0]} onChange={(e) => setSize(parseInt(e.target.value, 10))} className="rounded-xl border border-rule bg-white px-3 py-2 text-sm">
             {sizeOptions.map((n) => (
@@ -704,6 +710,7 @@ function AddCourt({ sid, sportKey, pending, run }: { sid: string; sportKey: stri
             const f = new FormData();
             f.append("sessionId", sid);
             f.append("courtSize", String(sizeOptions.includes(size) ? size : sizeOptions[0]));
+            if (label.trim()) f.append("label", label.trim().slice(0, 40));
             levels.forEach((l) => f.append("levels", l));
             run(addCourt, f);
             setLevels([]);
