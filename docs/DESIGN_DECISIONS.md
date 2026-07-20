@@ -166,6 +166,29 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-19 — Courtside app hardening: validation, security posture, brand
+- **No more 404 dead ends.** New GET /api/q/validate pre-flights every code:
+  the app connects only when { ok, live }; invalid → "not valid" message,
+  found-but-off → "ask the organizer to turn it on". The field never persists
+  (clears on open, on success, on failure), and even a race that reaches a 404
+  now hits the app's navigationResponse guard → "Start over" overlay instead of
+  a stranded kiosk.
+- **Security posture (core property: the app holds ZERO secrets).** WKWebView
+  locked with App-Bound Domains (WKAppBoundDomains=klimr.com Info.plist +
+  limitsNavigationsToAppBoundDomains), our own https+klimr.com-only navigation
+  policy, non-persistent website data store (stateless kiosk), https upgrade,
+  and a JS bridge that accepts three fixed message types from klimr.com frames
+  only. Server surfaces are anonymous-by-design and defensive: /api/q/validate
+  returns nothing beyond { ok, live, courts }; /api/app-diagnostics requires
+  the x-klimr-app marker, whitelists level, clamps sizes, reflects nothing.
+- **App errors flow into Admin → Diagnostics**, tagged "[Courtside]" with
+  url app://courtside; the admin page gains a source filter (All / Website /
+  Courtside app). Reported: HTTP≥400 display loads, web-process terminations,
+  5-consecutive offline failures.
+- Display polish: true OLED black base (radial fades to #000), Up-next names
+  ~35% larger, guest tag dropped on the big screen, and the Klimr mark +
+  Fraunces wordmark join the walk-up panel so the brand is always on screen.
+
 ### 2026-07-19 — Breadcrumbs become the SYSTEM · back buttons retired · Live Queue in-shell
 - Two-tier breadcrumb system. Tier 1 (zero config): AutoBreadcrumbs mounts once
   in the signed-in shell and derives every in-shell page's trail from a central

@@ -21,9 +21,9 @@ type LogRow = {
   created_at: string;
 };
 
-export default async function AdminDiagnostics({ searchParams }: { searchParams: Promise<{ q?: string; level?: string }> }) {
+export default async function AdminDiagnostics({ searchParams }: { searchParams: Promise<{ q?: string; level?: string; src?: string }> }) {
   const gate = await requireAdmin("support");
-  const { q, level } = await searchParams;
+  const { q, level, src: srcParam } = await searchParams;
   const admin = createAdminClient();
 
   let query = admin
@@ -36,6 +36,9 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
   const viewerTz = me?.timezone ?? "America/Los_Angeles";
   const lvl = level === "error" || level === "warn" || level === "info" ? level : "";
   if (lvl) query = query.eq("level", lvl);
+  const srcFilter = srcParam === "app" || srcParam === "web" ? srcParam : "";
+  if (srcFilter === "app") query = query.ilike("message", "[Courtside]%");
+  if (srcFilter === "web") query = query.not("message", "ilike", "[Courtside]%");
   const term = (q ?? "").trim().replace(/[%,()]/g, "");
   if (term) query = query.or(`message.ilike.%${term}%,url.ilike.%${term}%,detail.ilike.%${term}%`);
 
@@ -76,6 +79,11 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
             className="w-full rounded-[10px] border border-rule-2 bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
         </div>
+        <select name="src" defaultValue={srcFilter} className="rounded-[10px] border border-rule-2 bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">
+          <option value="">All sources</option>
+          <option value="web">Website</option>
+          <option value="app">Courtside app</option>
+        </select>
         <select name="level" defaultValue={lvl} className="rounded-[10px] border border-rule-2 bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15">
           <option value="">All levels</option>
           <option value="error">Errors</option>

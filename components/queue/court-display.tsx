@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { KlimrMark } from "@/components/logo";
 import QRCode from "qrcode";
 import { Crown, Play, Clock, Maximize, Minimize } from "lucide-react";
 import type { QSessionState, QTeam } from "@/lib/queue";
@@ -24,7 +25,6 @@ function StackedNames({ team, className }: { team: QTeam; className?: string }) 
       {team.members.map((m, i) => (
         <p key={i} className={`leading-tight ${className ?? ""}`}>
           {m.name}
-          {m.isGuest ? <span className="ml-2 align-middle text-[0.5em] font-normal uppercase tracking-wider text-white/35">guest</span> : null}
         </p>
       ))}
     </div>
@@ -228,7 +228,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
   const cap = state.session.winCap;
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0c0e16, #050609 58%)" }}>
+    <div className="fixed inset-0 z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0a0c12, #000000 62%)" }}>
       {/* top bar. Centered on purpose: in fullscreen, iPadOS floats its own ✕
           dismiss control at the top-left and the status bar stays over the top
           edge — so the safe-area padding clears the clock/battery, and centring
@@ -390,11 +390,11 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
               <div className="grid grid-cols-1 gap-[max(0.5rem,1.5vw)] landscape:grid-cols-3 md:grid-cols-3">
                 {upNext.map((t, i) => (
                   <div key={t.id} className="flex items-start gap-[max(0.5rem,1vw)] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)]">
-                    <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(1.7rem,2.6vw,2.6rem)", height: "clamp(1.7rem,2.6vw,2.6rem)", fontSize: "clamp(0.85rem,1.4vw,1.4rem)" }}>
+                    <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(2rem,3vw,3rem)", height: "clamp(2rem,3vw,3rem)", fontSize: "clamp(1rem,1.6vw,1.6rem)" }}>
                       {i + 1}
                     </span>
                     <div className="min-w-0">
-                      <StackedNames team={t} className="font-semibold text-white text-[clamp(0.9rem,1.4vw,1.35rem)]" />
+                      <StackedNames team={t} className="font-semibold leading-snug text-white text-[clamp(1.1rem,1.9vw,1.85rem)]" />
                       {t.queuedAt ? (
                         <p className="mt-1 flex items-center gap-1 text-[clamp(0.6rem,0.95vw,0.9rem)] font-medium text-white/45">
                           <Clock size={"1em" as unknown as number} /> in line since {joinedAt(t.queuedAt)} · {waited(t.queuedAt, now)}
@@ -419,6 +419,10 @@ export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false
               <div className="min-w-0">
                 <p className="text-[clamp(0.62rem,0.95vw,0.9rem)] font-bold uppercase tracking-[0.2em] text-white/55">Join the line — scan or type</p>
                 <p className="mt-1 break-all font-mono font-bold leading-tight text-white text-[clamp(1rem,1.9vw,1.9rem)]">{hostPath}</p>
+                <p className="mt-[0.8vh] flex items-center gap-[0.5vw] text-white/60">
+                  <KlimrMark size={22} dot="brand" />
+                  <span className="logotype text-white text-[clamp(0.95rem,1.6vw,1.5rem)]">klimr</span>
+                </p>
               </div>
             </div>
           ) : null}
