@@ -166,6 +166,20 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-18 — Courtside kiosk polish: chromeless, self-resetting, louder winner
+- In-app detection: /q/[code]/[court] reads the KlimrCourtside user agent and
+  the display hides its "Full screen" button inside the app (the app IS full
+  screen). The native gear chip is gone too — the organizer escape hatch is an
+  invisible 90px press-and-hold zone in the top-left corner (1.2 s).
+- First web→native bridge: the page posts { ended | active | exit } to the
+  klimrCourtside message handler. On "ended" the app drifts back to its setup
+  screen after 30 s (cancelled if the queue springs back to life); the ended
+  screen gains an in-app "Start over" button that exits immediately.
+- Court-less resilience: a wiped session has zero courts — the display route no
+  longer 404s; it renders the ended/asleep takeover with courtId "".
+- Winner-stays banner enlarged (label ~40% up, names to clamp 2.2–4.6 rem bold)
+  so the team staying on is readable from the service line.
+
 ### 2026-07-18 — Live Queue standalone (create from /q) · team-name modes (0126)
 - Live Queue graduates to a feature of its own: the /q front door now offers
   "Create" (→ /queue/new) for people just meeting to play — no event or

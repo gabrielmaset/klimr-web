@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSessionState } from "@/lib/queue-state";
@@ -19,10 +20,14 @@ export default async function PublicCourtDisplayPage({ params }: { params: Promi
   const state = await loadSessionState(admin, row.id, null);
   if (!state) notFound();
 
-  // "1"/"2"/… resolve to a court by position; also accept a raw court id for old links.
+  // "1"/"2"/… resolve to a court by position; also accept a raw court id for old
+  // links. A missing court is NOT a 404: after the day's wipe a session has no
+  // courts at all, and the display must still show its ended/asleep takeover.
   const n = parseInt(court, 10);
   const target = Number.isFinite(n) && n >= 1 && n <= state.courts.length ? state.courts[n - 1] : state.courts.find((c) => c.id === court);
-  if (!target) notFound();
 
-  return <CourtDisplay initial={state} courtId={target.id} canOperate code={state.session.code} />;
+  const ua = (await headers()).get("user-agent") ?? "";
+  const isApp = ua.includes("KlimrCourtside");
+
+  return <CourtDisplay initial={state} courtId={target?.id ?? ""} canOperate code={state.session.code} isApp={isApp} />;
 }

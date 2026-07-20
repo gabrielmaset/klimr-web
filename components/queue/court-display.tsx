@@ -116,7 +116,7 @@ function HoldButton({ label, color, onConfirm, disabled }: { label: string; colo
   );
 }
 
-export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: QSessionState; courtId: string; canOperate: boolean; code?: string }) {
+export function CourtDisplay({ initial, courtId, canOperate, code, isApp = false }: { initial: QSessionState; courtId: string; canOperate: boolean; code?: string; isApp?: boolean }) {
   const sid = initial.session.id;
   const { state, refetch } = useQueueState(sid, initial, 3000);
   const [now, setNow] = useState(() => Date.now());
@@ -206,6 +206,20 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
 
   const sessionLive = state.session.status === "live";
   const sessionOver = state.session.status === "ended";
+
+  // Native app bridge (KlimrCourtside iPad shell). The page announces the
+  // session phase so the app can auto-return to its setup screen ~30s after a
+  // day ends; "Start over" exits immediately. No-ops in normal browsers.
+  useEffect(() => {
+    if (!isApp) return;
+    type BridgeWindow = Window & { webkit?: { messageHandlers?: { klimrCourtside?: { postMessage: (m: unknown) => void } } } };
+    const bridge = (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside;
+    bridge?.postMessage({ type: sessionOver ? "ended" : "active" });
+  }, [isApp, sessionOver]);
+  const exitToSetup = () => {
+    type BridgeWindow = Window & { webkit?: { messageHandlers?: { klimrCourtside?: { postMessage: (m: unknown) => void } } } };
+    (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside?.postMessage({ type: "exit" });
+  };
   const sPaused = sessionLive && !!state.session.paused;
   const court = state.courts.find((c) => c.id === courtId);
   const heldTeam = court ? court.queue.find((t) => t.hold && t.wins > 0) ?? null : null;
@@ -222,9 +236,9 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
       <div className="px-[max(0.9rem,3vw)] pt-[max(1.4vh,env(safe-area-inset-top))]">
         <div className="relative flex min-h-9 items-center justify-center">
           <p className="max-w-[62%] truncate text-center text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
-          <button type="button" onClick={toggleFullscreen} className="press absolute right-0 top-1/2 inline-flex shrink-0 -translate-y-1/2 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
+          {isApp ? null : <button type="button" onClick={toggleFullscreen} className="press absolute right-0 top-1/2 inline-flex shrink-0 -translate-y-1/2 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
             {isFs ? <Minimize size={15} /> : <Maximize size={15} />} {isFs ? "Exit full screen" : "Full screen"}
-          </button>
+          </button>}
         </div>
         <div className="mt-[1.2vh] flex flex-wrap items-center justify-center gap-x-[1.4vw] gap-y-2">
           <h1 className="font-display leading-none text-[clamp(2.2rem,5.4vw,5rem)]">{court?.label ?? "Court"}</h1>
@@ -246,6 +260,11 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
           <p className="max-w-[46ch] text-[clamp(0.95rem,1.6vw,1.5rem)] text-white/55">
             {sessionOver ? "Thanks for playing — the organizer can start a new session from the queue page." : "Hang tight — this screen wakes up the moment the organizer turns the queue on."}
           </p>
+          {isApp && sessionOver ? (
+            <button type="button" onClick={exitToSetup} className="press mt-[1vh] rounded-full bg-white px-8 py-3.5 font-display text-[clamp(1rem,1.7vw,1.5rem)] font-bold text-[#0a0f1f]">
+              Start over
+            </button>
+          ) : null}
         </div>
       ) : !court ? (
         <div className="grid flex-1 place-items-center text-white/60">This court was removed.</div>
@@ -309,10 +328,10 @@ export function CourtDisplay({ initial, courtId, canOperate, code }: { initial: 
           {heldTeam ? (
             <>
               <div>
-                <p className="text-[clamp(0.8rem,1.4vw,1.3rem)] font-bold uppercase tracking-[0.2em] text-[#f5c518]">
-                  Winner stays · {heldTeam.wins} {heldTeam.wins === 1 ? "win" : "wins"}{cap > 1 ? ` of ${cap}` : ""}
+                <p className="text-[clamp(1.05rem,2vw,1.9rem)] font-bold uppercase tracking-[0.18em] text-[#f5c518]">
+                  Winner stays on court · {heldTeam.wins} {heldTeam.wins === 1 ? "win" : "wins"}{cap > 1 ? ` of ${cap}` : ""}
                 </p>
-                <p className="mt-1 font-display font-semibold text-[clamp(1.4rem,3.2vw,2.8rem)]">{heldTeam.members.map((m) => m.name).join(" · ") || "—"}</p>
+                <p className="mt-2 font-display font-bold leading-tight text-[clamp(2.2rem,5.2vw,4.6rem)]">{heldTeam.members.map((m) => m.name).join(" · ") || "—"}</p>
               </div>
               {canOperate ? (
                 <div className="flex flex-col items-center gap-[1.6vh]">
