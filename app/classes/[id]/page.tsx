@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Users, Check, X, CalendarDays, ShieldCheck } from "lucide-react";
+import { MapPin, Users, Check, X, CalendarDays, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sportMeta, sportSlug } from "@/lib/sports";
@@ -102,9 +101,6 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Classes & Coaching", href: "/classes" }, { label: c.title }]} />
-      <Link href="/classes" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={16} /> Back to classes
-      </Link>
 
       {/* Header */}
       <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-6">

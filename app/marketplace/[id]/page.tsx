@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Heart, ShieldCheck, BadgeCheck, Flag } from "lucide-react";
+import { Heart, ShieldCheck, BadgeCheck, Flag } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta, sportSlug } from "@/lib/sports";
 import { SPORT_TONES } from "@/components/sport-chip";
@@ -79,9 +79,6 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
 
   return (
     <div className="mx-auto max-w-[980px] px-[30px] pb-16 pt-[22px]">
-      <Link href="/marketplace" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={15} /> Marketplace
-      </Link>
 
       {notice === "chat" || notice === "buy" ? (
         <p className="mt-3 rounded-[12px] border border-[#f0c2b0] bg-[#fbeee7] px-3.5 py-2.5 text-[13px] font-semibold text-[#b91c1c]">

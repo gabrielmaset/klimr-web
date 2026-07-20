@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = { title: "How we review content — Klimr" };
 
 export default function ReviewPolicyPage() {
   return (
     <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
-      <Link href="/health" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={15} /> Health &amp; Nutrition
-      </Link>
       <h1 className="mt-5 font-display text-[32px] font-bold leading-tight text-ink">How we review content</h1>
       <div className="mt-4 grid gap-4 text-[14.5px] leading-relaxed text-ink-soft">
         <p>

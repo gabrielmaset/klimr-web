@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { AutoBreadcrumbs } from "@/components/auto-breadcrumbs";
 import { SideNav } from "@/components/side-nav";
 import { MobileTopBar } from "@/components/mobile-top-bar";
 import { BottomNav } from "@/components/bottom-nav";
@@ -62,7 +63,7 @@ export function AppChrome({
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar unreadCount={unread} avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={adminRole} />
         <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} teams={teams} />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1"><AutoBreadcrumbs />{children}</main>
         <SiteFooter authed />
         <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
       </div>

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { HistoryList, type HistoryRow } from "@/components/history-list";
@@ -56,9 +54,6 @@ export default async function PastEventsPage() {
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: "Past events" }]} />
-      <Link href="/events" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={15} /> Events
-      </Link>
       <div className="mb-6 mt-4">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Events — History</p>
         <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Past events</h1>

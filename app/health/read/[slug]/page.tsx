@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ShieldCheck, ExternalLink } from "lucide-react";
+import { ShieldCheck, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { articleBySlug, topicLabel, FEATURED_COLLECTION } from "@/lib/health-content";
 
@@ -32,9 +32,6 @@ export default async function HealthReadPage({ params }: { params: Promise<{ slu
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-8 sm:py-10">
-      <Link href="/health" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={15} /> Health &amp; Nutrition
-      </Link>
 
       <article className="mt-5">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[.18em] text-flame-text">

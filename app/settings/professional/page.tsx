@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, BadgeCheck, Clock, CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Clock, CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { roleLabel } from "@/lib/professional-roles";
 import { ProfessionalStatusForm } from "@/components/professional-status-form";
@@ -54,9 +53,6 @@ export default async function ProfessionalSettingsPage({ searchParams }: { searc
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Professional status" }]} />
-      <Link href="/settings" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={16} /> Settings
-      </Link>
       <div className="mb-6">
         <p className="kicker text-brand-deep">Account</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Professional status</h1>

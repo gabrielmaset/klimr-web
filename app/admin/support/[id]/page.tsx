@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Sparkles, Mail, User } from "lucide-react";
+import { Sparkles, Mail, User } from "lucide-react";
 import { requireAdmin } from "@/lib/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { setTicketStatus, saveTicketNote } from "../actions";
@@ -42,9 +42,6 @@ export default async function AdminTicket({ params }: { params: Promise<{ id: st
 
   return (
     <div>
-      <Link href="/admin/support" className="press mb-4 inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-        <ChevronLeft size={15} /> Support queue
-      </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

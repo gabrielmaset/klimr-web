@@ -118,3 +118,17 @@ export type QSessionState = {
   // the requesting user's outstanding join request, if any
   myPending: { id: string; courtId: string } | null;
 };
+
+/** Uppercase, alphanumeric, max 7 — a 6-char session code, optionally plus a
+ *  court digit ("3ZGARK2" = code 3ZGARK, court 2). */
+export function cleanQueueCode(v: string): string {
+  return v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+
+export function splitQueueCode(v: string): { code: string; court: number | null } {
+  if (v.length === 7) {
+    const n = Number(v[6]);
+    if (n >= 1 && n <= 9) return { code: v.slice(0, 6), court: n };
+  }
+  return { code: v.slice(0, 6), court: null };
+}

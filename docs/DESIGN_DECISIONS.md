@@ -166,6 +166,24 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-19 — Breadcrumbs become the SYSTEM · back buttons retired · Live Queue in-shell
+- Two-tier breadcrumb system. Tier 1 (zero config): AutoBreadcrumbs mounts once
+  in the signed-in shell and derives every in-shell page's trail from a central
+  registry (lib/breadcrumb-map.ts — static labels, dynamic-leaf labels keyed by
+  parent, structural skips, root-href overrides). Any page added tomorrow gets
+  correct crumbs with no wiring. Tier 2 (rich): pages keep/ship their own
+  server <Breadcrumbs/> with real titles + data-driven parents; a pure-CSS
+  :has() rule hides the auto tier whenever a page-owned trail exists — no JS,
+  no hydration risk, correct across soft navigation.
+- Legacy back links purged (15 across classes, events/past, marketplace, health,
+  resources, settings, tournaments/past, admin ticket) — the trail IS the back
+  affordance now. Deliberately kept: /support's "Help center" (top-level pages
+  render no trail) and standalone surfaces' escape links.
+- Live Queue enters the shell: nav → /queue, a proper in-shell hub (join by
+  code — 6 or 7 chars — or create a standalone queue). /q remains the
+  chromeless QR / walk-up destination; same codes, same normalization
+  (cleanQueueCode/splitQueueCode now shared from lib/queue.ts).
+
 ### 2026-07-18 — Courtside kiosk polish: chromeless, self-resetting, louder winner
 - In-app detection: /q/[code]/[court] reads the KlimrCourtside user agent and
   the display hides its "Full screen" button inside the app (the app IS full

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { GearEditor, type GearItem } from "@/components/gear-editor";
 import { saveProfilePageSettings } from "./actions";
@@ -32,9 +32,6 @@ export default async function ProfilePageSettings({ searchParams }: { searchPara
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Profile page" }]} />
-      <Link href="/settings" className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={15} /> Settings
-      </Link>
       <div className="mb-6 mt-4">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Settings — Profile page</p>
         <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Your public profile</h1>

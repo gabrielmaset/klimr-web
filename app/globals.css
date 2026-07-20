@@ -400,3 +400,12 @@ select:focus-visible {
 }
 .wiz-card { animation: wiz-in 0.26s ease both; }
 .wiz-sum { animation: sum-in 0.3s ease both; }
+
+/* Breadcrumb tiers: when a page renders its own (richer) breadcrumb nav, hide
+   the shell's automatic one — pure CSS, correct across soft navigation. */
+main:has(nav[aria-label="Breadcrumb"]) [data-auto-breadcrumbs]:has(nav[aria-label="Breadcrumb"]) {
+  display: none;
+}
+main:has(:not([data-auto-breadcrumbs]) > nav[aria-label="Breadcrumb"]) [data-auto-breadcrumbs] {
+  display: none;
+}

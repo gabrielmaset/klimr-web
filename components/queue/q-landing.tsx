@@ -5,19 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Monitor, Minus, Plus } from "lucide-react";
 
-// Codes are 6 chars; a COURT code is the same 6 plus the court number
-// ("3ZGARK2" = code 3ZGARK, court 2) — as printed beside each court in
-// Organizer tools and typed into the Courtside iPad. Accept both here.
-function cleanCode(v: string): string {
-  return v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
-}
-function splitCode(v: string): { code: string; court: number | null } {
-  if (v.length === 7) {
-    const n = Number(v[6]);
-    if (n >= 1 && n <= 9) return { code: v.slice(0, 6), court: n };
-  }
-  return { code: v.slice(0, 6), court: null };
-}
+import { cleanQueueCode as cleanCode, splitQueueCode as splitCode } from "@/lib/queue";
 
 export function QLanding() {
   const router = useRouter();

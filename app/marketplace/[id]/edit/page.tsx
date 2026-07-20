@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { ListingForm, type ListingInitial } from "@/components/listing-form";
@@ -42,9 +40,6 @@ export default async function EditListingPage({ params }: { params: Promise<{ id
 
   return (
     <div className="mx-auto max-w-[880px] px-[30px] pb-16 pt-[22px]">
-      <Link href={`/marketplace/${l.id}`} className="press inline-flex items-center gap-1.5 text-sm text-mute transition-colors hover:text-ink">
-        <ArrowLeft size={15} /> Back to listing
-      </Link>
       <div className="mt-4">
         <PageHeader kicker="Marketplace — Edit listing" title={l.title} sub="Changes go live immediately when you save." />
       </div>
