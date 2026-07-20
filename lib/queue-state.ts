@@ -33,10 +33,13 @@ export async function sessionPatch(
 ): Promise<string | null> {
   const { error } = await admin.from("court_sessions").update(patch).eq("id", sessionId);
   if (!error) return null;
-  if ("paused_by" in patch && /paused_by/.test(error.message)) {
-    console.error("[queue] paused_by missing — apply migration 0124. Retrying without it.");
-    const { paused_by: _omit, ...rest } = patch;
-    void _omit;
+  // Schema tolerance: columns from newer migrations (0124 paused_by,
+  // 0127 activated_at) degrade gracefully instead of failing the whole patch.
+  const missing = (["paused_by", "activated_at"] as const).filter((k) => k in patch && new RegExp(k).test(error.message));
+  if (missing.length) {
+    console.error(`[queue] column(s) ${missing.join(", ")} missing — apply migrations 0124/0127. Retrying without.`);
+    const rest: SessionUpdate = { ...patch };
+    for (const k of missing) delete rest[k];
     const { error: e2 } = await admin.from("court_sessions").update(rest).eq("id", sessionId);
     return e2 ? e2.message : null;
   }
@@ -111,7 +114,7 @@ export async function ensureQueueLive(
     // Turn on must work on every event, not just clean ones. (The old walk-up
     // code retires with it — nothing playable was attached to it anyway.)
     if (existing!.status === "ended") await clearSessionPlay(admin, sessionId);
-    const err = await sessionPatch(admin, sessionId, { status: "live", paused: false, paused_by: null, ended_at: null });
+    const err = await sessionPatch(admin, sessionId, { status: "live", paused: false, paused_by: null, ended_at: null, activated_at: new Date().toISOString() });
     const { data: check } = await admin.from("court_sessions").select("status").eq("id", sessionId).maybeSingle();
     if (err || check?.status !== "live") {
       console.error("[queue] legacy session unrevivable — minting fresh", { sessionId, err, readBack: check?.status ?? null });
@@ -151,7 +154,16 @@ export async function retireSessionIfStale(
     admin.from("queue_matches").select("started_at, ended_at").eq("session_id", s.id).order("started_at", { ascending: false }).limit(1),
     admin.from("queue_teams").select("created_at").eq("session_id", s.id).order("created_at", { ascending: false }).limit(1),
   ]);
+  // The clock's anchor is when this queue DAY went live — not the session
+  // row's age. Without it, a revived (empty, days-old) session retired itself
+  // on the very next read: the self-defeating loop behind the turn-on saga.
+  const { data: actRow, error: actErr } = await admin.from("court_sessions").select("activated_at").eq("id", s.id).maybeSingle();
+  if (actErr) {
+    console.error("[queue] activated_at missing — apply migration 0127. Idle retire paused until then.");
+    return false;
+  }
   const times: number[] = [new Date(s.created_at).getTime()];
+  if (actRow?.activated_at) times.push(new Date(actRow.activated_at).getTime());
   const lm = (lastMatchRows ?? [])[0] as { started_at: string | null; ended_at: string | null } | undefined;
   if (lm?.started_at) times.push(new Date(lm.started_at).getTime());
   if (lm?.ended_at) times.push(new Date(lm.ended_at).getTime());

@@ -166,6 +166,19 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-19 — THE LOOP: revive → instant idle-retire. activated_at (0127)
+- Gabriel's step-trace caught it in two rows: turn-on verified flag=true
+  session=live, and the very next page render reported session=ended. The 12h
+  idle retire measured from max(created_at, last match, last team) — a revived,
+  wiped-empty, DAYS-OLD session has only created_at, so every Turn on revived
+  it live and the next read retired it again. "Worked once on a fresh event"
+  = its session was minutes old; past 12h it joined the loop forever.
+- Fix: court_sessions.activated_at (0127) = when this queue DAY went live.
+  Revival (ensure + standalone restart) stamps it; retire anchors on
+  max(activated_at, activity); if 0127 is missing, retire pauses itself
+  (correctness over cleanup) and sessionPatch's tolerance now covers both
+  0124/0127 columns generically.
+
 ### 2026-07-19 — ROOT CAUSE: RLS-silent session reads · full step tracing
 - The event page (and my tournament dashboard block) read court_sessions with
   the USER-scoped client. An RLS-blocked select returns EMPTY WITH NO ERROR —

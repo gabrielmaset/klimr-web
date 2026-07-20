@@ -451,7 +451,7 @@ export async function restartSession(formData: FormData): Promise<Result> {
     if (revived.error) return { error: revived.error };
   } else {
     await clearSessionPlay(admin, sessionId);
-    await sessionPatch(admin, sessionId, { status: "live", paused: false, paused_by: null, ended_at: null });
+    await sessionPatch(admin, sessionId, { status: "live", paused: false, paused_by: null, ended_at: null, activated_at: new Date().toISOString() });
   }
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
