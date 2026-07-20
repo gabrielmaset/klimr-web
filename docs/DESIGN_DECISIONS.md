@@ -166,6 +166,27 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-20 — One-line names (marquee), 16-char cap, safer winners-done
+- Long names wrapped the Next-up cards to three lines. Every name now renders
+  on ONE line via MarqueeText: when it overflows, a courtside marquee holds
+  2 s, glides to the end, holds 2 s, glides home — measured in an effect and
+  driven by the Web Animations API (no state, no re-renders; short names never
+  move). Player names capped at 16 chars, client (maxLength+slice) and server
+  (join + full-team paths) — court labels keep 40.
+- Up-next meta drops the "· 2m waiting" tail (the join time already says it);
+  one line per team, always.
+- "Winners are done — call the next two" sat beside Start next match and,
+  mispressed, dissolves the winning team — it now uses the same HoldButton
+  press-&-hold fill as recording a win.
+
+### 2026-07-20 — Geofence distances speak the user's units
+- "You're 7444m away" → locale-aware, Google-Maps-style formatting via
+  lib/queue.ts#formatDistance + prefersImperial (US/LR/MM from Accept-Language,
+  read server-side in the join action; every other market gets metric —
+  future-proof by default). Imperial: feet under a mile (nearest 50 ≥ 100 ft,
+  so the 150 m radius reads "500 ft"), miles with one decimal under 10.
+  Metric: meters nearest 10, km past 1000. Settings copy shows both units.
+
 ### 2026-07-20 — Kiosk exit done right: top-right, tap teaches, hold shows progress
 - Field report: the bottom-right hold-3s ✕ had zero affordance — users tapped
   repeatedly and assumed it was broken (it also crowded the QR panel). Rebuilt

@@ -362,7 +362,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                     />
                     <SettingRow
                       title={<span className="inline-flex items-center gap-1.5"><MapPin size={14} /> On-site check</span>}
-                      desc="Verify players are within ~150m of the court when they join. Turning this on pins the court to your current location."
+                      desc="Verify players are within about 150 m (500 ft) of the court when they join. Turning this on pins the court to your current location."
                       on={session.requireLocation}
                       disabled={pending}
                       onToggle={toggleRequireLocation}

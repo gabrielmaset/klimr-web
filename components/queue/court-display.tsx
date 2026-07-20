@@ -18,13 +18,47 @@ const SIDES: Side[] = [
 const HOLD_MS = 3000;
 const perfNow = () => performance.now();
 
+/** One-line name with a courtside marquee when it overflows: hold 2 s at the
+ *  start, glide to reveal the end, hold 2 s, glide home — forever. Measured in
+ *  an effect and driven by the Web Animations API (no state, no re-renders):
+ *  short names never animate; long ones stay on a single line everywhere. */
+function MarqueeText({ text }: { text: string }) {
+  const outer = useRef<HTMLSpanElement | null>(null);
+  const inner = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    const o = outer.current;
+    const el = inner.current;
+    if (!o || !el) return;
+    const shift = el.scrollWidth - o.clientWidth;
+    if (shift <= 4) return;
+    const scrollSec = Math.max(0.9, shift / 55);
+    const total = 2 + scrollSec + 2 + scrollSec;
+    const anim = el.animate(
+      [
+        { transform: "translateX(0)", offset: 0 },
+        { transform: "translateX(0)", offset: 2 / total },
+        { transform: `translateX(${-shift}px)`, offset: (2 + scrollSec) / total },
+        { transform: `translateX(${-shift}px)`, offset: (2 + scrollSec + 2) / total },
+        { transform: "translateX(0)", offset: 1 },
+      ],
+      { duration: total * 1000, iterations: Infinity, easing: "linear" },
+    );
+    return () => anim.cancel();
+  }, [text]);
+  return (
+    <span ref={outer} className="block overflow-hidden whitespace-nowrap">
+      <span ref={inner} className="inline-block will-change-transform">{text}</span>
+    </span>
+  );
+}
+
 function StackedNames({ team, className }: { team: QTeam; className?: string }) {
   if (!team.members.length) return <p className={className}>—</p>;
   return (
     <div className="space-y-1">
       {team.members.map((m, i) => (
         <p key={i} className={`leading-tight ${className ?? ""}`}>
-          {m.name}
+          <MarqueeText text={m.name} />
         </p>
       ))}
     </div>
@@ -36,14 +70,6 @@ function joinedAt(iso: string | null): string {
   const t = Date.parse(iso);
   if (!isFinite(t)) return "";
   return new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-function waited(iso: string | null, now: number): string {
-  if (!iso) return "";
-  const ms = now - Date.parse(iso);
-  if (!isFinite(ms) || ms < 60000) return "just now";
-  const m = Math.floor(ms / 60000);
-  if (m < 60) return `${m}m waiting`;
-  return `${Math.floor(m / 60)}h ${m % 60}m waiting`;
 }
 
 /** Press-and-hold to confirm: a left-to-right fill acts as a 3-second countdown so a stray tap can't end a match.
@@ -366,15 +392,15 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
                   >
                     <Play size={"1.1em" as unknown as number} /> Start next match
                   </button>
-                  <button
-                    type="button"
+                  {/* Sits beside Start next match and, mispressed, dissolves the
+                      winning team — so it earns the same press-&-hold contract
+                      as recording a win. */}
+                  <HoldButton
+                    label="Winners are done — call the next two"
+                    color="#8b93a7"
                     disabled={pending}
-                    onClick={() => stepDown(heldTeam.id)}
-                    className="press rounded-full border border-white/20 px-[2.5vw] py-[1.4vh] font-semibold text-white/70 transition hover:bg-white/10 disabled:opacity-40"
-                    style={{ fontSize: "clamp(0.85rem,1.5vw,1.4rem)" }}
-                  >
-                    Winners are done — call the next two in line
-                  </button>
+                    onConfirm={() => stepDown(heldTeam.id)}
+                  />
                   {!canStart ? <p className="text-[clamp(0.8rem,1.3vw,1.2rem)] text-white/40">No challengers in the queue yet.</p> : null}
                 </div>
               ) : (
@@ -422,7 +448,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
                     </div>
                     {t.queuedAt ? (
                       <p className="flex items-center gap-1 text-[clamp(0.6rem,0.95vw,0.9rem)] font-medium text-white/45">
-                        <Clock size={"1em" as unknown as number} /> in line since {joinedAt(t.queuedAt)} · {waited(t.queuedAt, now)}
+                        <Clock size={"1em" as unknown as number} /> in line since {joinedAt(t.queuedAt)}
                       </p>
                     ) : null}
                   </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { randomInt } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -8,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearSessionPlay, wipeSession, ensureQueueLive, sessionPatch } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS } from "@/lib/sports";
-import { LEVELS, metersBetween, formationsFor } from "@/lib/queue";
+import { LEVELS, metersBetween, formationsFor, formatDistance, prefersImperial } from "@/lib/queue";
 import { pickupMatchPoints } from "@/lib/ranking";
 import { recomputePlayerPoints } from "@/lib/points";
 import type { Database } from "@/lib/database.types";
@@ -256,7 +257,10 @@ async function validateJoin(admin: Admin, court: CourtLite, s: Session, member: 
   if (s.require_location && s.center_lat != null && s.center_lng != null) {
     if (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) return { error: "location_required" };
     const dist = metersBetween(coords.lat as number, coords.lng as number, s.center_lat, s.center_lng);
-    if (dist > s.radius_m) return { error: `You're ${Math.round(dist)}m away — you need to be within ${s.radius_m}m to join.` };
+    if (dist > s.radius_m) {
+      const imp = prefersImperial((await headers()).get("accept-language"));
+      return { error: `You're ${formatDistance(dist, imp)} away — you need to be within ${formatDistance(s.radius_m, imp)} to join.` };
+    }
   }
 
   if (s.event_only) {
@@ -354,7 +358,7 @@ export async function joinCourt(formData: FormData): Promise<Result & { pending?
 export async function joinCourtGuest(formData: FormData): Promise<Result & { pending?: boolean }> {
   const admin = createAdminClient();
   const courtId = String(formData.get("courtId") || "");
-  const name = String(formData.get("name") || "").trim().slice(0, 40);
+  const name = String(formData.get("name") || "").trim().slice(0, 16);
   if (name.length < 2) return { error: "Enter your name." };
   const lat = parseFloat(String(formData.get("lat") || ""));
   const lng = parseFloat(String(formData.get("lng") || ""));
@@ -370,7 +374,7 @@ export async function joinCourtFullTeam(formData: FormData): Promise<Result> {
   const courtId = String(formData.get("courtId") || "");
   const names = formData
     .getAll("names")
-    .map((n) => String(n).trim().slice(0, 40))
+    .map((n) => String(n).trim().slice(0, 16))
     .filter((n) => n.length >= 1);
   const lat = parseFloat(String(formData.get("lat") || ""));
   const lng = parseFloat(String(formData.get("lng") || ""));

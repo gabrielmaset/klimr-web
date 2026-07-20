@@ -133,3 +133,31 @@ export function splitQueueCode(v: string): { code: string; court: number | null 
   }
   return { code: v.slice(0, 6), court: null };
 }
+
+/** Human distance, Google-Maps style. Imperial: feet under a mile (nearest
+ *  50 ft ≥ 100, nearest 10 below — 150 m reads "500 ft"), miles above (one
+ *  decimal under 10). Metric mirrors it: meters nearest 10, km past 1000. */
+export function formatDistance(meters: number, imperial: boolean): string {
+  if (imperial) {
+    const ft = meters * 3.28084;
+    if (ft >= 5280) {
+      const mi = ft / 5280;
+      return `${mi >= 10 ? Math.round(mi) : Math.round(mi * 10) / 10} mi`;
+    }
+    const r = ft < 100 ? Math.max(10, Math.round(ft / 10) * 10) : Math.round(ft / 50) * 50;
+    return `${r} ft`;
+  }
+  if (meters >= 1000) {
+    const km = meters / 1000;
+    return `${km >= 10 ? Math.round(km) : Math.round(km * 10) / 10} km`;
+  }
+  return `${Math.max(10, Math.round(meters / 10) * 10)} m`;
+}
+
+/** Imperial-preferring regions (US, Liberia, Myanmar) from a locale or
+ *  Accept-Language string; everyone else — current and future markets —
+ *  gets metric. */
+export function prefersImperial(localeish: string | null | undefined): boolean {
+  const first = (localeish ?? "").split(",")[0]?.trim() ?? "";
+  return /-(US|LR|MM)\b/i.test(first);
+}

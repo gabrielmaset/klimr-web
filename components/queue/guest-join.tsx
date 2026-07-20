@@ -171,9 +171,9 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-ink-soft">Your name</label>
                 <input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  maxLength={16}
+                  onChange={(e) => setName(e.target.value.slice(0, 16))}
                   placeholder="e.g. Alex R."
-                  maxLength={40}
                   className="w-full rounded-[10px] border-2 border-rule-2 bg-bg px-4 py-3.5 text-lg font-semibold text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
                 />
                 <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-mute">
@@ -282,9 +282,9 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                                   <input
                                     key={i}
                                     value={nm}
-                                    onChange={(e) => setTeamName(i, e.target.value)}
+                                    onChange={(e) => setTeamName(i, e.target.value.slice(0, 16))}
                                     placeholder={i === 0 ? "You" : `Player ${i + 1}`}
-                                    maxLength={40}
+                                    maxLength={16}
                                     className="w-full rounded-[10px] border-2 border-rule-2 bg-bg px-3.5 py-3 text-base font-semibold text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
                                   />
                                 ))}
