@@ -16,15 +16,6 @@ type Item = NavItem;
 // live destinations kept beyond the spec's list — flagged in DESIGN_DECISIONS.
 const GROUPS = NAV_GROUPS;
 
-function groupsFor(showBusiness: boolean): typeof NAV_GROUPS {
-  if (!showBusiness) return GROUPS;
-  return GROUPS.map((g): (typeof NAV_GROUPS)[number] =>
-    g.header === "Discover"
-      ? { ...g, items: [...g.items, { href: "/business", label: "Business", Icon: Briefcase }] }
-      : g,
-  );
-}
-
 const kicker = "font-mono text-[9px] font-semibold uppercase tracking-[.18em] text-faint";
 
 export function SideNav({
@@ -33,7 +24,7 @@ export function SideNav({
   avatarName,
   email,
   adminRole,
-  showBusiness = false,
+  businesses = [],
   presenceMode,
 }: {
   avatarUrl: string | null;
@@ -41,7 +32,7 @@ export function SideNav({
   avatarName: string;
   email: string | null;
   adminRole: boolean;
-  showBusiness?: boolean;
+  businesses?: { id: string; name: string }[];
   presenceMode: PresenceMode;
 }) {
   const pathname = usePathname();
@@ -200,7 +191,7 @@ export function SideNav({
 
         <div className="relative mt-3.5 min-h-0 flex-1">
         <div ref={scrollRef} className="h-full space-y-2 overflow-y-auto scrollbar-hidden">
-          {groupsFor(showBusiness).map((g) => {
+          {GROUPS.map((g) => {
             if (!g.header) {
               return (
                 <nav key="primary" className="flex flex-col gap-0.5" aria-label="Main">
@@ -230,6 +221,19 @@ export function SideNav({
           <ChevronDown size={15} className="animate-bounce text-mute" />
         </div>
       </div>
+
+        {businesses.length ? (
+          <div className="mt-2 shrink-0">
+            {collapsed ? (
+              <div aria-hidden className="mx-2 mb-1.5 border-t border-rule-soft" />
+            ) : (
+              <p className={`${kicker} px-3 pb-[5px]`}>Business</p>
+            )}
+            {businesses.map((biz) =>
+              renderLink({ href: `/business/${biz.id}`, label: biz.name, Icon: Briefcase }),
+            )}
+          </div>
+        ) : null}
 
         {adminRole ? (
           <div className="mt-2 shrink-0">

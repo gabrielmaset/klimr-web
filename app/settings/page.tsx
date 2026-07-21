@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import {
   ChevronRight, Download, Mail, ShieldCheck, UserRound, Trophy, BadgeCheck,
   Eye, KeyRound,
-  MapPin, Swords, CalendarDays, BookOpen, Users, CreditCard, LifeBuoy, FileText, ScrollText, Send, Ban, GraduationCap,
-} from "lucide-react";
+  MapPin, Swords, CalendarDays, BookOpen, Users, CreditCard, LifeBuoy, FileText, ScrollText, Send, Ban, GraduationCap, Briefcase } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOutAction, signOutEverywhereAction } from "@/app/auth/actions";
 import { Avatar } from "@/components/avatar";
@@ -127,6 +126,7 @@ export default async function SettingsPage() {
               { Icon: Eye, title: "Profile page", desc: "Privacy, gear bag, and what visitors see", href: "/settings/profile-page" },
               { Icon: GraduationCap, title: "Professional & hosting", desc: "Apply as a coach, health pro, event organizer, or tournament director", href: "/settings/professional" },
               { Icon: Mail, title: "Linked email & phone", desc: "How you sign in and get reached", href: "/settings/email" },
+              { Icon: Briefcase, title: "Business accounts", desc: "Create and manage businesses linked to your account", href: "/business" },
               { Icon: KeyRound, title: "Sign-in & security", desc: "Magic link and two-factor", href: "/account/security" },
             ]}
           />

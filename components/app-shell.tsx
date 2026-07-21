@@ -45,7 +45,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let avatarUrl: string | null = null;
   let avatarHue = 200;
   let avatarName = user?.email ?? "You";
-let showBusiness = false;
+let businesses: { id: string; name: string }[] = [];
   let adminRole: string | null = null;
   let unread = 0;
   let chatUnread = 0;
@@ -79,7 +79,22 @@ let showBusiness = false;
       .select("enabled")
       .eq("key", "business_publication")
       .maybeSingle();
-    showBusiness = !!bizFlag?.enabled;
+    if (bizFlag?.enabled) {
+      const { data: memberRows } = await supabase
+        .from("business_members")
+        .select("business_id")
+        .eq("user_id", user.id)
+        .limit(6);
+      const ids = ((memberRows ?? []) as { business_id: string }[]).map((r) => r.business_id);
+      if (ids.length) {
+        const { data: bizRows } = await supabase
+          .from("business_accounts")
+          .select("id, name")
+          .in("id", ids)
+          .order("created_at", { ascending: true });
+        businesses = ((bizRows ?? []) as { id: string; name: string }[]).map((r) => ({ id: r.id, name: r.name }));
+      }
+    }
 
     // Everything the global TopBar needs (teams, unread, chat, presence, next
     // match) comes from one shared helper so the workspaces show the same bar.
@@ -106,7 +121,7 @@ let showBusiness = false;
       avatarName={avatarName}
       email={user?.email ?? null}
       adminRole={!!adminRole}
-      showBusiness={showBusiness}
+      businesses={businesses}
       presenceMode={presenceMode}
       teams={teams}
       chatUnread={chatUnread}

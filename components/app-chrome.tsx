@@ -29,7 +29,7 @@ export function AppChrome({
   avatarName,
   email,
   adminRole,
-  showBusiness = false,
+  businesses = [],
   presenceMode,
   teams,
   chatUnread,
@@ -42,7 +42,7 @@ export function AppChrome({
   avatarName: string;
   email: string | null;
   adminRole: boolean;
-  showBusiness?: boolean;
+  businesses?: { id: string; name: string }[];
   presenceMode: PresenceMode;
   teams: Team[];
   chatUnread: number;
@@ -60,7 +60,7 @@ export function AppChrome({
         avatarName={avatarName}
         email={email}
         adminRole={adminRole}
-        showBusiness={showBusiness}
+        businesses={businesses}
         presenceMode={presenceMode}
       />
       <div className="flex min-w-0 flex-1 flex-col">

@@ -166,34 +166,50 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
-### 2026-07-21 — Pre-rebuild audit: one security hole, three efficiency fixes, layout + nav alignment
+### 2026-07-21 — Business portal restructure (no migration): Gabriel's clarified UX model
 
-Full sweep of everything since the last rebuild, findings fixed and re-verified.
-SECURITY (real): submitTierApplication accepted client-supplied doc paths unvalidated —
-a hostile manager could reference another business's storage path and the admin queue
-would mint a signed READ url for it. Fixed: every path must start with
-`{businessId}/` and contain no `..`; also corrected a misleading comment claiming
-signed-URL uploads re-check storage RLS (they're token-authorized — the real security
-is the server-side manager check + server-built path, now stated accurately).
-EFFICIENCY: admin Event Pulse counted occurrences by selecting EVERY row (O(all
-occurrences) — the exact anti-pattern the scale doctrine bans) → nine head-count
-queries; business Verified-reach had an await-per-team N+1 → one batched
-team_members fetch; admin tier-doc signed URLs were sequential → Promise.all.
-CONSISTENCY: the five new business/b pages used an invented container
-(px-[30px] pb-16 pt-[22px]) against the codebase-canonical px-5 py-8 sm:py-10 (51
-uses) → aligned; the dynamic createAdminClient import → top-level like everywhere
-else. NAVIGATION: /admin/liveness had no breadcrumb label → "Event Pulse"; /business
-had NO entry point anywhere once its flag flips → AppShell now reads
-business_publication server-side and threads showBusiness through AppChrome into
-SideNav, which appends a Briefcase "Business" item to Discover only when on — dark
-stays dark, flip makes it findable. One self-inflicted bug during the fix itself: a
-global GROUPS.map replace made the new groupsFor helper recursive (its own internal
-map got rewritten); caught by tsc, repaired with explicit types. VERIFIED CLEAN:
-checked-and-fine list includes event_managers readability (proposal notifications
-work), all RPC auth paths, RLS-only deletes (withdraw flows), guard/RPC bypass
-scoping, and race guards on admin decisions. All eight harness suites re-run fresh —
-including 70 against the cascade-fixed 0135 — all passed; repo lint 0, tsc 0,
-production build clean. Ready for rebuild on Gabriel's word.
+Course correction from Gabriel, executed in full. The Business system complements the
+professionals category and must NOT live in the main Discover menu — the flag-gated
+nav item from the audit turn is removed. The model instead: (1) CREATION IN SETTINGS —
+the Settings index gains a "Business accounts" card ("Create and manage businesses
+linked to your account", Facebook-page style) leading to the existing list+create
+flow; (2) THE LOWER MENU IS THE DOORWAY — when business_publication is on, AppShell
+fetches the user's memberships (two indexed queries; the typed client can't infer the
+hand-written types' empty Relationships for an embedded join, so no join) and SideNav
+renders each business name with a Briefcase icon in the lower region beside Admin;
+(3) CLICKING OPENS A TRUE PORTAL, like tournaments — app/business/[id]/layout.tsx
+replaces the app chrome entirely, mirroring the tournament-workspace contract:
+components/business-nav.tsx clones the rail grammar (collapse/overlay, glyph header
+with kind/status/tier chips, grouped items, public-page link, back-to-Klimr pill,
+mobile exit strip + chip nav) in a deep business green (#08301f gradient) to
+distinguish workspaces at a glance. The monolithic manage page split into five portal
+pages: Dashboard (draft banner, Listing toggle, Verified-reach milestones), Profile
+(edit form), Team (members), Sponsorships (list + withdraw + proposer with the Player
+Coming-soon tile), Verification (the Tier-2 three-state machine). Layout guards
+flag + membership once; non-members bounce to /b/[slug]. Ops note for the record:
+the container died mid-restructure (9 consecutive failures incl. bare echo), rolled
+back to end-of-previous-turn, then recovered — every file re-applied verbatim from
+conversation, all gates re-run green, portal routes confirmed in the build table.
+
+### 2026-07-21 — Production feedback fix (migration 0138): events use status 'active'
+
+Gabriel's first deploy screenshots caught what the harness could not: the mock's
+events.status default was 'published', but PRODUCTION events use 'active' (the live
+Happening-soon module's own filter proves it). Three of my new call sites filtered on
+'published' — the feed's DiscoverEvents (why the module never rendered), the sponsor
+target search, and critically the eligibility predicate inside liveness_run itself,
+which made the Event Pulse generator match ZERO real events. App queries corrected;
+0138 ships liveness_run v4 = v3 with the single predicate fixed (derived verbatim, one
+token changed), safe to run after 0129–0137. The harness mock's default is now
+'active' so this drift class can't silently pass again; both liveness suites
+re-verified through 0138. Lesson: mocks copy vocabulary from production inserts, not
+assumptions. Also from the screenshots, working-as-designed: no Business entry because
+business_publication is off — flipping it reveals nav + console + public pages
+together; and Gabriel's three professional requests were all rejected, so the 0135
+backfill (approved providers only) created no business for him — create at
+/business/new post-flip, then approve in /admin/businesses. (This entry also removes
+an accidental duplication of the audit entry below — same tool-retry class as the
+types incident, caught by the count-assert.)
 
 ### 2026-07-21 — Pre-rebuild audit: one security hole, three efficiency fixes, layout + nav alignment
 

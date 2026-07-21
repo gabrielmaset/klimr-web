@@ -343,7 +343,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     supabase
       .from("events")
       .select("id, title, sport_key, starts_at")
-      .eq("status", "published")
+      .eq("status", "active")
       .is("cancelled_at", null)
       .gte("starts_at", new Date().toISOString())
       .order("starts_at", { ascending: true })

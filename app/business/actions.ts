@@ -113,7 +113,7 @@ export async function searchSponsorTargets(kind: string, q: string): Promise<{ h
     const { data } = await supabase
       .from("events")
       .select("id, title, sport_key, recurrence")
-      .eq("status", "published")
+      .eq("status", "active")
       .is("cancelled_at", null)
       .ilike("title", `%${needle}%`)
       .limit(8);
