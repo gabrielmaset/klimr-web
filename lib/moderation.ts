@@ -9,15 +9,23 @@ import "server-only";
  * This is the application-layer defense; production media hosting also needs known-CSAM
  * hash matching + legal reporting.
  *
- * Provider is Anthropic by default; set ANTHROPIC_API_KEY (and optionally
- * MODERATION_MODEL) in the environment. The call happens on the server, so it is
- * not subject to the browser CSP.
+ * PROVIDER SWITCH (Gabriel, 2026-07-21): default is Anthropic (ANTHROPIC_API_KEY,
+ * optional MODERATION_MODEL — billed per token). To switch, set
+ * MODERATION_PROVIDER=openai and OPENAI_API_KEY — OpenAI's moderation endpoint
+ * (omni-moderation-latest) is currently free of charge, covers text AND images,
+ * and maps onto the same category vocabulary below. The public API of this file
+ * (moderateText / moderateImage / Verdict / containsCSAE) never changes, so the
+ * switch is env-only: no code edits, no redeploy beyond setting the variables.
+ * The call happens on the server, so it is not subject to the browser CSP.
  */
 
 export type Verdict = { allowed: boolean; categories: string[]; reason?: string };
 
+const PROVIDER = (process.env.MODERATION_PROVIDER ?? "anthropic").toLowerCase();
 const KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.MODERATION_MODEL ?? "claude-sonnet-4-6";
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const ACTIVE_KEY = PROVIDER === "openai" ? OPENAI_KEY : KEY;
 
 /** The single most important label: child sexual abuse / exploitation material. */
 export const CSAE = "csae";
@@ -38,7 +46,7 @@ type ContentPart =
   | { type: "text"; text: string }
   | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
 
-async function classify(parts: ContentPart[]): Promise<Verdict> {
+async function classifyAnthropic(parts: ContentPart[]): Promise<Verdict> {
   if (!KEY) {
     return { allowed: false, categories: ["moderation_unconfigured"], reason: "Content safety isn't configured yet." };
   }
@@ -85,6 +93,53 @@ async function classify(parts: ContentPart[]): Promise<Verdict> {
   }
 }
 
+/** OpenAI omni-moderation adapter. Their category taxonomy maps onto ours;
+ *  anything sexual involving minors collapses to `csae` (highest priority). */
+async function classifyOpenAI(parts: ContentPart[]): Promise<Verdict> {
+  if (!OPENAI_KEY) {
+    return { allowed: false, categories: ["moderation_unconfigured"], reason: "Content safety isn't configured yet." };
+  }
+  try {
+    const input = parts.map((p) =>
+      p.type === "text"
+        ? { type: "text" as const, text: p.text }
+        : { type: "image_url" as const, image_url: { url: `data:${p.source.media_type};base64,${p.source.data}` } },
+    );
+    const res = await fetch("https://api.openai.com/v1/moderations", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${OPENAI_KEY}` },
+      body: JSON.stringify({ model: "omni-moderation-latest", input }),
+    });
+    if (!res.ok) {
+      return { allowed: false, categories: ["moderation_error"], reason: `Safety check failed (${res.status}).` };
+    }
+    const data = (await res.json()) as { results?: { flagged?: boolean; categories?: Record<string, boolean> }[] };
+    const r = data.results?.[0];
+    if (!r) return { allowed: false, categories: ["moderation_error"], reason: "Empty safety response." };
+    const on = Object.entries(r.categories ?? {}).filter(([, v]) => v).map(([k]) => k);
+    const mapped = new Set<string>();
+    for (const c of on) {
+      if (c.includes("minors")) mapped.add(CSAE);
+      else if (c.startsWith("sexual")) mapped.add("sexual");
+      else if (c.startsWith("violence") || c.startsWith("self-harm")) mapped.add("violence");
+      else if (c.startsWith("hate") || c.startsWith("harassment")) mapped.add("hate");
+      else if (c.startsWith("illicit")) mapped.add("drugs_weapons");
+      else mapped.add("other");
+    }
+    return {
+      allowed: r.flagged !== true,
+      categories: [...mapped],
+      reason: on.length ? `Flagged: ${on.join(", ")}` : undefined,
+    };
+  } catch {
+    return { allowed: false, categories: ["moderation_error"], reason: "Could not verify content safety." };
+  }
+}
+
+function classify(parts: ContentPart[]): Promise<Verdict> {
+  return PROVIDER === "openai" ? classifyOpenAI(parts) : classifyAnthropic(parts);
+}
+
 export async function moderateText(text: string): Promise<Verdict> {
   const t = text.trim();
   if (!t) return { allowed: true, categories: [] };
@@ -92,8 +147,8 @@ export async function moderateText(text: string): Promise<Verdict> {
   // (e.g. local/dev before ANTHROPIC_API_KEY is set), let text through so the feed
   // is usable, backed by user reporting + admin review. Once the key is set, every
   // post and comment is AI-screened. Image moderation below stays fail-closed.
-  if (!KEY) {
-    console.warn("[moderation] ANTHROPIC_API_KEY not set — text published without AI screening.");
+  if (!ACTIVE_KEY) {
+    console.warn(`[moderation] ${PROVIDER === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY"} not set — text published without AI screening.`);
     return { allowed: true, categories: [] };
   }
   return classify([{ type: "text", text: `User-submitted text to classify:\n"""${t}"""` }]);

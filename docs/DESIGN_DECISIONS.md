@@ -166,6 +166,459 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-21 — Pre-rebuild audit: one security hole, three efficiency fixes, layout + nav alignment
+
+Full sweep of everything since the last rebuild, findings fixed and re-verified.
+SECURITY (real): submitTierApplication accepted client-supplied doc paths unvalidated —
+a hostile manager could reference another business's storage path and the admin queue
+would mint a signed READ url for it. Fixed: every path must start with
+`{businessId}/` and contain no `..`; also corrected a misleading comment claiming
+signed-URL uploads re-check storage RLS (they're token-authorized — the real security
+is the server-side manager check + server-built path, now stated accurately).
+EFFICIENCY: admin Event Pulse counted occurrences by selecting EVERY row (O(all
+occurrences) — the exact anti-pattern the scale doctrine bans) → nine head-count
+queries; business Verified-reach had an await-per-team N+1 → one batched
+team_members fetch; admin tier-doc signed URLs were sequential → Promise.all.
+CONSISTENCY: the five new business/b pages used an invented container
+(px-[30px] pb-16 pt-[22px]) against the codebase-canonical px-5 py-8 sm:py-10 (51
+uses) → aligned; the dynamic createAdminClient import → top-level like everywhere
+else. NAVIGATION: /admin/liveness had no breadcrumb label → "Event Pulse"; /business
+had NO entry point anywhere once its flag flips → AppShell now reads
+business_publication server-side and threads showBusiness through AppChrome into
+SideNav, which appends a Briefcase "Business" item to Discover only when on — dark
+stays dark, flip makes it findable. One self-inflicted bug during the fix itself: a
+global GROUPS.map replace made the new groupsFor helper recursive (its own internal
+map got rewritten); caught by tsc, repaired with explicit types. VERIFIED CLEAN:
+checked-and-fine list includes event_managers readability (proposal notifications
+work), all RPC auth paths, RLS-only deletes (withdraw flows), guard/RPC bypass
+scoping, and race guards on admin decisions. All eight harness suites re-run fresh —
+including 70 against the cascade-fixed 0135 — all passed; repo lint 0, tsc 0,
+production build clean. Ready for rebuild on Gabriel's word.
+
+### 2026-07-21 — Pre-rebuild audit: one security hole, three efficiency fixes, layout + nav alignment
+
+Full sweep of everything since the last rebuild, findings fixed and re-verified.
+SECURITY (real): submitTierApplication accepted client-supplied doc paths unvalidated —
+a hostile manager could reference another business's storage path and the admin queue
+would mint a signed READ url for it. Fixed: every path must start with
+`{businessId}/` and contain no `..`; also corrected a misleading comment claiming
+signed-URL uploads re-check storage RLS (they're token-authorized — the real security
+is the server-side manager check + server-built path, now stated accurately).
+EFFICIENCY: admin Event Pulse counted occurrences by selecting EVERY row (O(all
+occurrences) — the exact anti-pattern the scale doctrine bans) → nine head-count
+queries; business Verified-reach had an await-per-team N+1 → one batched
+team_members fetch; admin tier-doc signed URLs were sequential → Promise.all.
+CONSISTENCY: the five new business/b pages used an invented container
+(px-[30px] pb-16 pt-[22px]) against the codebase-canonical px-5 py-8 sm:py-10 (51
+uses) → aligned; the dynamic createAdminClient import → top-level like everywhere
+else. NAVIGATION: /admin/liveness had no breadcrumb label → "Event Pulse"; /business
+had NO entry point anywhere once its flag flips → AppShell now reads
+business_publication server-side and threads showBusiness through AppChrome into
+SideNav, which appends a Briefcase "Business" item to Discover only when on — dark
+stays dark, flip makes it findable. One self-inflicted bug during the fix itself: a
+global GROUPS.map replace made the new groupsFor helper recursive (its own internal
+map got rewritten); caught by tsc, repaired with explicit types. VERIFIED CLEAN:
+checked-and-fine list includes event_managers readability (proposal notifications
+work), all RPC auth paths, RLS-only deletes (withdraw flows), guard/RPC bypass
+scoping, and race guards on admin decisions. All eight harness suites re-run fresh —
+including 70 against the cascade-fixed 0135 — all passed; repo lint 0, tsc 0,
+production build clean. Ready for rebuild on Gabriel's word.
+
+### 2026-07-21 — Self-serve Tier-2 applications (migration 0137) — every plan thread closed
+
+The last deferred item. Migration 0137 mirrors 0051's proven private-storage pattern
+exactly: a `business-docs` bucket (private, 10 MB, images+PDF), path convention
+<business_id>/<uuid>-<file>, and `can_access_business_docs` (safe-cast SECURITY
+DEFINER → is_business_manager) authorizing read/insert/delete by the first path
+segment. `business_tier_applications` carries domain, notes, docs jsonb, and a
+NOT-NULL terms_accepted_at; an insert trigger enforces eligibility (business active,
+not already tier2, 1–8 docs, real domain) and a partial unique index enforces ONE open
+application — decided applications free the slot for reapply. No user update policy
+exists: decisions are service-role writes only. Harness 80_tierapp_test.sql (with a
+minimal storage-schema mock so the bucket DDL executes) passed all rules — and CAUGHT
+A REAL 0135 BUG: business deletion tripped the last-owner guard via the member
+cascade; fixed at the source (undelivered migration) with a parent-gone check, and
+suite 60 re-verified. Console: the tier note became a three-state machine — apply form
+(TierApplication: multi-file signed-URL uploads to the private bucket, domain, notes,
+the four-point checklist naming documents/domain/brand-kit/terms and the no-money
+line, terms checkbox), in-review card with doc count + withdraw, or the plain
+explainer when not yet eligible. Admin: application blocks appear inline on business
+cards with server-minted 1-hour signed doc links, one-tap "Approve → Sponsor-ready"
+(sets tier2 in the same stroke) or Reject with a reason that reaches the owner; the
+admin index counts open applications. EVERY THREAD FROM THE PLAN IS NOW CLOSED.
+
+### 2026-07-21 — Team consent + sponsorship discovery surfaces (no migration)
+
+Two of the three deferred items. TEAM SIDE: the team workspace now fetches its
+sponsorships in one pass — managers see the SponsorshipRequests consent card (pending
+proposals, Approve/Decline through the audited RPC) right under the hero, and when
+`sponsorship_discovery` is on everyone sees the SponsorStrip. DISCOVERY: new
+components/sponsor-strip.tsx renders "Sponsored by" chips linking to /b/{slug}, with
+the tier-2 shield only when earned — active-only (so consented by definition), and
+unpublished sponsor businesses can't render because RLS won't resolve them for
+visitors: correctness by construction, not by filter. The event page gained the same
+strip under the attendance strip, AND its three separate feature_flags reads were
+consolidated into one `.in()` fetch feeding a flag map — the attendance strip,
+organizer consent card, and sponsor strip all read from it (scale-first: one indexed
+query instead of three). Both surfaces are double-gated: business_publication AND
+sponsorship_discovery, so discovery can flip independently after businesses go live.
+Remaining deferred item: the self-serve Tier-2 application with document upload.
+
+### 2026-07-21 — Milestone-bucket analytics (no migration) — Business phase COMPLETE
+
+Decision 15 rendered. lib/analytics-buckets.ts is the single source: below 100 nothing,
+then 100+/500+/1k+/5k+/25k+/50k+/100k+/500k+/1M+ via formatMilestoneBucket (plus
+nextMilestone for honest growing-copy). The contract is structural: business-facing
+pages compute buckets SERVER-SIDE and ship only strings — exact figures never reach the
+client for business views; internal/admin surfaces may show exact later. First surface:
+the "Verified reach" card on the business manage page, powered by Event Pulse — for
+each ACTIVE sponsorship, event targets sum verified_count over
+completed_with_evidence occurrences (court-checked evidence, not claimed impressions)
+and team targets use roster size; a headline total bucket, per-sponsorship bucket rows,
+sub-100 shows "Growing — milestones appear from 100 verified", and the philosophy line
+sits right on the card: "Klimr shows milestones, not raw counts." The JS-side
+summation is bounded (2000-occurrence cap) and noted for a future aggregate RPC when
+scale asks. With this the BUSINESS ACCOUNTS PHASE IS FEATURE-COMPLETE for v1:
+foundation+merge (0135), sponsorship engine (0136), console, admin review queue,
+public /b/[slug], proposal flow with organizer consent and the player Coming-soon
+surface, and bucketed analytics — all dark behind business_publication. Deferred
+within-phase: team-page consent wiring, self-serve tier application with document
+upload, sponsorship_discovery surfaces.
+
+### 2026-07-21 — Sponsorship proposal flow (no migration)
+
+The engine gets its hands. Business side (components/sponsorship-proposer.tsx, on the
+manage page for owners/managers of sponsor-ready businesses): kind tiles for Event and
+Team plus a deliberately disabled PLAYER tile wearing a "Coming soon" pip — decision #6
+made visible; the engine underneath already accepts players. Live search
+(searchSponsorTargets: published events / undeleted teams, never players), then terms —
+label, optional amount ("on record only"), description — and Send. proposeSponsorship
+maps every 0136 errcode to human copy (not sponsor-ready, prohibited category,
+duplicate, target gone), then notifies every target controller (event creator+managers
+or team creator+managers, never the proposer) with "Nothing shows anywhere until you
+approve." Pending rows in the Sponsorships card grow a Withdraw (RLS: managers,
+pending only). Target side (components/sponsorship-requests.tsx): the event organizer
+tools gain a consent card — business name, label, recorded amount, description,
+one-tap Approve/Decline through the audited respond_sponsorship RPC — flag-gated with
+the rest of the business system; team-page wiring reuses the same component when the
+team workspace gets its pass. The recorded-only line appears at BOTH ends of the flow.
+Remaining in phase: milestone-bucket analytics.
+
+### 2026-07-21 — Public business page /b/[slug] (no migration)
+
+What the world sees — and what owners preview. RLS does the visibility math for free:
+published+active resolves for everyone, unpublished resolves only for members, so the
+SAME route is a true preview with a banner ("Only your team can see this page right
+now") that also explains the path to public (review, then list). The page: kind kicker,
+display-face name, tier badges only when earned (Verified / Sponsor-ready with
+ShieldCheck), area, sport chips, headline, prose About, a Contact aside
+(website/email/phone), a Manage button for members, and — the part the whole
+sponsorship engine was for — "Proud sponsor of": the business's ACTIVE sponsorships
+with target names resolved across events, teams, and players, each linking to the
+target, footed by the honest line "Every listing here was approved by the sponsored
+side" (true by construction: active = consented). Slug metadata strips the uniquing
+suffix for the title. The console manage page gains a View-public-page button so
+owners bounce between editing and previewing. Flag-gated like the console. Remaining
+in phase: sponsorship proposal flow (player target = Coming soon surface) and
+milestone-bucket analytics.
+
+### 2026-07-21 — Admin business review queue (no migration)
+
+The switch that turns drafts into businesses. `/admin/businesses` (admin role, matching
+the providers-review bar) tabs draft / active / suspended with live counts. Each card:
+name, kind chip, tier chip (color-toned), Listed badge, owner linked into the admin
+user view, created date, area, sports, declared sponsor category, headline. Controls:
+Approve (draft→active), Suspend, Reactivate — all through `reviewBusiness`, service-role
+only per the 0135 guard, logAdminAction-attributed, with owner notifications whose copy
+matches the moment ("Your business passed review — list it whenever you're ready").
+Tier assignment is a separate deliberate form per card: select none/tier1/tier2 + a
+review note that lands in the admin log; `setBusinessTier` notifies the owner, and the
+tier2 copy says exactly what unlocked ("You're sponsor-ready — proposals and sponsorship
+tools"). Manual review is the v1 mechanism by design — the self-serve tier application
+with document upload arrives with the document pipeline, mirroring how provider review
+worked before IDV. Admin index gains a "Business reviews" card counting drafts,
+accented when nonzero. Remaining in phase: public /b/[slug], the sponsorship proposal
+flow (player target = "Coming soon" surface), milestone-bucket analytics.
+
+### 2026-07-21 — Business console v1 (no migration; dark behind business_publication)
+
+Three routes, one flag: /business (your memberships with kind/tier/status/role at a
+glance + New business), /business/new (kind picker cards, name/headline/area, sport
+chips → draft via createBusiness with a uniqued slug; the copy says plainly that drafts
+are private and Klimr reviews before go-live), and /business/[id] (manage). The manage
+page: owners/managers edit profile fields through a strictly-typed patch action —
+verification_level and status aren't even in the type, and the 0135 guard would revert
+them anyway; a Listing card with publish/unlist that explains it takes effect only once
+review approves; the team roster read-only with "inviting teammates lands here soon";
+and a Sponsorships card listing the business's arrangements with recorded amounts and
+statuses, plus the honest tier note when not sponsor-ready. Draft businesses get an
+awaiting-review banner. Everything 404s while `business_publication` is off — one flag
+lights the console and future public pages together, no half-visible states. tsc caught
+a Record<string,unknown> vs typed-Update mismatch in the edit action; rewritten as an
+explicit Patch type, which is also the safer shape. Next: the admin business review
+queue (draft→active + tier2 document review) and the public /b/[slug] page.
+
+### 2026-07-21 — Sponsorship engine (migration 0136): recorded-only, consent-based, category-enforced
+
+Decisions #5/#6/#7/16 in one coherent schema. `sponsorships` records the relationship —
+business → event | team | PLAYER (day one, per Gabriel; the surface says Coming soon,
+the engine does not wait) — with an optional disclosed amount that is a matter of
+record, never a charge. Consent mirrors tag consent: pending until the target's
+controller responds via `respond_sponsorship` (event organizer through
+_liveness_is_organizer, team creator OR pro-team manager, or the player themself), one
+response ever, either party may `end_sponsorship`. The category policy is enforced IN
+the database: `sponsorship_categories` seeds the 13+5 list from
+lib/sponsorship-categories.ts (service-role-maintained mirror), businesses declare a
+category, prohibited refuses at insert with a clean errcode, restricted requires tier2
+which is itself the review gate, and sponsoring AT ALL requires an active tier2
+business. Direct status writes are guarded (0006 pattern) with a transaction-local
+set_config bypass so the SECURITY DEFINER RPCs' own writes pass — the guard-vs-RPC
+conflict was one of four defects self-review caught pre-harness (with an OLD-on-INSERT
+audit bug, missing pro-team-manager control, and a policy calling a function
+authenticated couldn't execute). Every transition lands in `sponsorship_events`
+(created/target_response/ended, actor-attributed). Harness 70_sponsorship_test.sql:
+all gates, wrong-actor refusal, organizer approve, single response, player
+self-decline, guard revert, either-party end, exactly 3 audit rows — ALL PASSED.
+Types patched with count-assertions after the earlier double-application incident.
+
+### 2026-07-21 — Business Accounts foundation (migration 0135): the merge
+
+Decision #2 executed. `business_accounts` is the organizational tenant — kinds
+professional | venue | shop | club | brand — with slug, owner, brand/contact fields,
+sports[]+roles[] (professional capabilities carried straight from providers), and the
+no-payments tier vocabulary none|tier1|tier2. `business_members` (owner/manager/staff)
+with three database guarantees: creating a business auto-seats its owner (trigger), a
+business can never lose its last owner (trigger, errcode-clean), and
+verification_level/status move only by the service role — the 0006 moderation-guard
+pattern, silently reverting anything else while ordinary edits pass. RLS: published+
+active readable by all, members always see their own; drafts creatable by anyone as
+themselves; owner/manager update via SECURITY DEFINER `is_business_manager` (no
+recursive RLS); member management manager-gated with self-leave and owner rows
+trigger-only. THE MERGE: every approved class_provider gets a kind='professional'
+business (name from profile, slug uniqued with an id suffix, id_verified/
+background_checked → tier1, basic → none, active but UNPUBLISHED), and
+`class_providers.business_id` links them — classes keep provider_id, fully
+non-breaking. Ships dark twice over: published=false AND the business_publication flag.
+Harness-verified (60_business_test.sql) including duplicate-display-name slug safety.
+One ops note: the tool retried a types patch mid-flight and double-applied it;
+caught by tsc, deduplicated, all gates green. Next slices: sponsorship engine schema
+(event/team/player targets, recorded-only), then the business console dark behind the
+flag.
+
+### 2026-07-21 — Recap tag consent engine (migration 0134)
+
+Decision #4 implemented end to end: tags are pending until the tagged player approves.
+`post_tags` (unique per post+player) with three database guarantees: an insert trigger
+refusing self-tags and blocked pairs (0099's is_blocked_pair — SECURITY DEFINER so RLS
+users can consult it), a one-response-ever update trigger (pending → approved|declined,
+immutable identity fields, responded_at stamped), and RLS where approved tags are public
+only where the post is visible while participants always see their own. Only the post
+author may tag (insert policy checks authorship); the author may retract anytime.
+Harness-verified in 50_tags_test.sql: self-tag/blocked refusals, uniqueness, single
+response with timestamp, re-response refused, cascade. Actions: tagPlayersOnPost
+(batch ≤8, notifies each — "Your name shows only if you approve"), respondToTag (form
+action; approving notifies the tagger), retractTag. Surfaces: a Tag-requests consent
+card at the top of the feed (tagged player only, pending only, Approve/Decline one-tap)
+and approved names render on Wire post rows as a quiet "With A, B" line. The recap
+COMPOSER (picking players from a match) arrives with the recap feature itself; the
+consent engine it needs is now complete and launch-ready.
+
+### 2026-07-21 — Seven open decisions RESOLVED (Gabriel) + immediate implementations
+
+Gabriel's verdicts, verbatim intent: (1) reaction name = **Ace** — implemented now: Zap
+icon replaces Heart in both the Wire button and FeedPostActions, aria "Ace this post" /
+"Undo ace", like-notification copy now "aced your post"; post_likes remains the store.
+(2) **Merge** class providers into Business Accounts — shapes the next phase's schema.
+(3) Moderation vendor: **Anthropic now, engineered for env-only switch** — lib/moderation
+refactored to a provider dispatcher: MODERATION_PROVIDER=openai + OPENAI_API_KEY flips to
+a complete OpenAI omni-moderation adapter (text AND images, currently free of charge;
+sexual/minors collapses to `csae`), public API unchanged so the switch is zero-code.
+(4) Recap tag consent = **pending-until-approved** (engine next). (5) already resolved:
+recorded-only money. (6) Player sponsorship: **build the engine launch-ready, defer the
+surface** behind a "Coming soon" — player targets go into the sponsorship schema from
+day one. (7) Excluded categories: **industry-standard list adopted** — authored as
+docs/SPONSORSHIP-CATEGORIES.md + enforceable lib/sponsorship-categories.ts (13
+prohibited incl. gambling/betting outright for match-integrity reasons; 5
+restricted-with-review incl. alcohol under 18+ conditions), added to the master document
+index. (8) **Feed-first** sequencing confirmed — Feed lane is complete, Business
+Accounts phase opens now.
+
+### 2026-07-21 — Repost model (migration 0133)
+
+Mechanics shipped; display naming stays open. `posts.repost_of` references the original
+with ON DELETE CASCADE (no ghost content), a partial unique index makes one repost per
+member per original — so the toggle is deterministic — and a BEFORE INSERT trigger
+refuses repost-of-repost, unpublished originals, and missing originals with proper
+errcodes. `feed_on_post` v3 (replaces 0112's) emits cards for empty-body reposts too,
+carrying repost_of in the payload. All harness-verified in 40_repost_test.sql:
+guards, single-card emission with payload, duplicate + depth refusals, and cascade
+clearing both the repost and every card. App: `toggleRepost` is one tap — delete own
+repost if it exists, else insert (forced pending by 0006) and service-role approve with
+no AI pass since there is no new text; original author notified (never self, hour
+dedupe). The Wire renders reposts as the reposter's row with a small ↻ from-{name}
+monospace marker after the bold name, the ORIGINAL body as the excerpt (page resolves
+originals + authors in the same batched block as likes/comments), and a Repeat2 toggle
+between the heart and the comment button that lights brand-deep when you've reposted.
+Commentary-on-repost is schema-ready (body stays nullable) but has no UI yet — its
+moderation path is already defined (new text → AI gate) when we want it.
+
+### 2026-07-21 — Discover surfaces in the feed (no migration)
+
+One source of truth, two placements. `components/discover-modules.tsx` holds the
+presentational People-you-may-know and Upcoming-near-you cards; the feed page fetches
+once (the 0099 `people_you_may_know` graph RPC at limit 5 — its context line prefers the
+strongest social signal available: played-together × count, then mutual connections, then
+a shared sport, then area — plus the three soonest published events) and feeds BOTH
+placements. Desktop: the modules join the existing aside above the reserved sponsor slot.
+Mobile: the Wire's block assembler inserts a compact discover card after every ~10th
+content block (cap 4, alternating variants, `lg:hidden` so large screens never see
+doubles), counting the card itself so spacing stays even. Day headers don't count toward
+the cadence. PYMK avatars resolve through the same public-storage pattern the event page
+uses. With this, the decision-independent Feed lane is exhausted except the repost model;
+everything else waits on the seven open decisions.
+
+### 2026-07-21 — Admin moderation queue (no migration)
+
+Human review closes the loop the AI gate opened. `/admin/moderation` (support role) shows
+posts AND comments in one place, tabbed pending / flagged / rejected with live totals per
+tab (both content types combined), author links into the admin user view, the stored AI
+labels on each post, and two-button resolution: Publish or Reject. Both actions go
+through the service role — the only principal the 0006 guard allows to touch
+moderation_status — so publishing here makes the 0112 trigger emit the feed card
+automatically, and rejecting an approved item clears it; every decision is
+logAdminAction-attributed (`moderation:post:approved` etc.) with the author as target.
+The admin index gains a "Moderation queue" card whose count (pending+flagged across both
+tables) accents when nonzero. Honest framing in the page copy: the AI pipeline already
+publishes or rejects synchronously, so this queue's realistic contents are appeals on
+rejections, stragglers stuck pending, and the future `flagged` state (report-driven or
+classifier-unsure) — the machinery now exists for all three. breadcrumb-map already
+anticipated the route ("moderation: Moderation").
+
+### 2026-07-21 — Comment threads in the Wire (no migration)
+
+The confirmed flat+one-reply shape, visible. `components/post-comments.tsx` renders the
+thread under a member post in the Wire: bold-name ledger rows matching the Wire's density
+(no avatars — text-first like everything around it), one CornerDownRight-indented reply
+level, delete-own on hover, Enter-to-send composer with an explicit replying-to chip.
+Threads load LAZILY via `listPostComments` — a proper useEffect fetch (a first draft
+fired the load inside render via startTransition; self-caught and moved to an effect
+with a liveness guard), so 45 Wire blocks never pay for threads nobody opened, and
+`mine` is computed server-side so the client carries no identity. After posting, the
+list re-fetches: what you see is exactly what everyone sees, because the moderation
+pipeline already ran synchronously. WireLine grows a MessageCircle toggle beside the
+heart (same visual grammar, count-when-nonzero); the row wraps in a container only for
+posts so the parent divide-y treats row+thread as one unit. The feed page counts
+approved comments with the same batched `.in()` pattern as likes (one Promise.all) —
+denormalized counter columns for BOTH remain a single future migration when scale asks.
+
+### 2026-07-21 — Feed groundwork (migration 0132): honest publishing, author polymorphism, one-level replies
+
+Decision-independent Feed 2.0 foundations, built on the discovery that the 0006/0112
+architecture was already right and merely unwired: DB triggers force every user-client
+insert to `pending` and only service_role may change moderation_status, while the 0112
+feed trigger emits cards only on `approved` — so member posts were landing pending and
+never surfacing. `createFeedPost` now runs the honest pipeline: user-client insert
+(pending by trigger), `moderateText` (the existing Anthropic seam in lib/moderation.ts —
+CSAE-first policy, fail-open only when unconfigured for text, fail-closed for images),
+then service-role publish or reject with labels recorded. Blocked content never surfaces
+anywhere by construction. Migration 0132 adds `posts.author_type` ('user' default,
+'business' check-ready for either providers-merge outcome) and `post_comments.
+parent_comment_id` with a BEFORE INSERT trigger enforcing the confirmed flat+one-reply
+shape (nested, cross-post, and orphan parents all refused with proper errcodes; replies
+cascade-delete with their root) — harness-verified in 30_feed_test.sql. New actions:
+`addPostComment` (same pipeline; friendly pre-validation with the trigger as backstop;
+notifies the post author, never self) and `deleteOwnComment` (RLS-scoped). Comment UI
+threads land next slice after reading feed-wire internals; the reaction table needs
+nothing — post_likes already IS the single-reaction store, only its display name (the
+"Ace" decision) is pending.
+
+### 2026-07-21 — Public attendance strip (no migration; behind attendance_strip_public)
+
+The confirmed privacy cutoffs made visible: `components/event-attendance-strip.tsx` renders
+"Recent sessions · verified at the court" chips on the event page (just under the hero,
+above the RSVP actions) from the last four CLOSED occurrences — completed_with_evidence and
+past skipped dates only. Counts follow Gabriel's approved rules exactly via
+publicAttendanceLabel: <4 suppressed (chip says just "Played" — play is confirmed, the
+number is private), 4–9 renders "5–9 played", ≥10 exact. Empty occurrences are OMITTED —
+the strip is proof of life, not a shame ledger. Skipped dates show the organizer's note so
+gaps read as intentional ("Skipped — Holiday"). Delayed publish is inherent: only
+grace-closed occurrences exist to render. Entirely flag-gated: one PK read of
+`attendance_strip_public` (off = seeded default) short-circuits before the occurrence
+query, so the feature is built, shipped dark, and lights up on flip with zero deploy.
+Event Pulse is now feature-complete for the shadow + nudge phases; remaining GA work
+(auto-dormancy on the real column, discovery unlisting) waits on shadow-data review.
+
+### 2026-07-21 — Event Pulse nudges + archive (migration 0131), job v3
+
+Rollout step 2 of shadow→nudge→limited→GA. `liveness_run` v3 (derived programmatically from
+v2 + eight verified deltas so nothing drifts) adds: organizer nudges behind the
+`event_liveness_nudges` flag, written set-based by the job itself in the same statement as
+the series machine — on a transition INTO watch or dormant, the creator and every
+event_manager get a kind:'system' notification with deliberately forgiving copy ("skipped
+dates never count against you" / "run your next session and it springs right back") linking
+to /events/{id}; transitions-only semantics make dedupe structural (re-runs nudge zero).
+Archive rule: shadow 'dormant' for ≥6 months with a fresh empty close → shadow 'archived'
+(reason dormant_six_months), silent by design (no nudge — the dormant nudge already fired),
+dormant_at preserved through the transition, real liveness_status still untouched.
+Resurrection stays one session away (streak=0 → active from any state). Verified on the
+scratch-Postgres harness: suite 1 fully re-passes under v3 (no regression) and the new
+suite proves 2 dormant nudges (creator+manager) + 1 watch nudge with correct copy split,
+zero nudges on re-run, and archive with real=active + dormant_at kept + silence.
+REASON_LABEL in lib/liveness.ts now covers every code the job and RPCs emit, so the admin
+transition log reads in plain English. Flags to flip when Gabriel is ready:
+`event_liveness_nudges` (this slice), then `event_liveness_auto_dormancy` (GA — real column).
+
+### 2026-07-21 — Event Pulse organizer tools (migration 0130) + verified job v2
+
+The humane half of liveness. Five SECURITY DEFINER RPCs (execute → authenticated; organizer
+check via `_liveness_is_organizer` = creator or event_managers): `liveness_skip_occurrence`
+(any future/near date, optional 140-char note, upserts the occurrence row using
+`_liveness_occ_bounds` which mirrors the generator's time math; already-closed dates refuse
+with `already_closed` BEFORE the past-date guard — test-found precedence fix),
+`liveness_unskip_occurrence`, `liveness_pause_series` (≤180 days; immediately skips window
+dates 'Paused by organizer'), `liveness_resume_series` (works from paused OR ended —
+forgiveness by design; re-schedules future paused-skips and clears stale closed_at), and
+`liveness_end_series` (cancels future dates; restartable). `liveness_transitions.actor`
+records who did what. `liveness_run` v2 adds: step-0 auto-unpause when `paused_until`
+passes, pause-window occurrences close as SKIPPED never empty, ended-series stragglers
+cancel, and a simplified audit RETURNING. Verified end-to-end on a scratch Postgres 16
+(mock base schema + both migrations + behavioral suite in /home/claude/pg): three strikes
+→ shadow dormant with real status untouched, guest walk-ins counted, idempotent re-runs,
+stranger refused, closed-guard, pause produces zero empty closes, resume, end+forgiveness,
+six attributed audit rows — ALL PASSED. App layer: `upcomingOccurrenceDates()` exported
+from lib/event-schedule.ts (client-side mirror of the generator for dates not yet in the
+DB), five thin form actions in app/events/actions.ts mapping RPC error codes to human
+copy, and `components/event-liveness-panel.tsx` — the organizer "Schedule & liveness"
+card on the event page (recurring events only): next six dates with skip/restore + note,
+pause-until with server-computed min date (module-level helper per the no-Date.now-in-render
+rule), resume, and End-series behind DangerConfirm. Copy tells organizers plainly: skipped
+and paused dates never count against the event.
+
+### 2026-07-21 — Event Pulse shadow (migration 0129): occurrences, evidence, three strikes
+
+Liveness ships shadow-first per plan v2. Migration 0129 adds `feature_flags` (seeded with the
+full liveness/business/sponsorship flag set; `event_liveness_shadow` on, everything else off),
+`event_occurrences` (unique per event+date, occurrence FSM), liveness columns on `events`
+(`liveness_status` real vs `liveness_shadow`, `empty_streak`, `last_alive_at`, `organizer_state`,
+`paused_until`, rule version), and the append-only `liveness_transitions` audit. One SECURITY
+DEFINER job `liveness_run(grace, job_id)` does everything set-based: (1) generates occurrences
+for queue-enabled published events by mirroring lib/event-schedule.ts exactly (SU..SA tokens,
+Sunday-anchored biweekly, same day-of-month monthly) in America/Los_Angeles — rule v1 documents
+the fixed-TZ limitation until events carry a timezone; (2) closes occurrences 18h after end,
+tallying evidence from queue truth — `queue_team_members` via `queue_teams.session_id` →
+`court_sessions.event_id`, members AND walk-in guests (`'g:'||lower(guest_name)`; no RSVP ever
+required — Gabriel), plus match counts for the evidence jsonb; (3) runs the series machine on the
+SHADOW column only: three consecutive empties → dormant (monthly also ≥75 quiet days), one empty
+→ watch, first two closed occurrences exempt, skipped/cancelled excluded, organizer pause
+respected, every change audited with reason codes + job id. `event_liveness_paused` is the outage
+circuit breaker (job no-ops). Scope guard: only queue-enabled events are judged — formats that
+can't produce evidence are never punished by its absence. Admin → Event Pulse (`/admin/liveness`,
+admin role) shows flags, occurrence stats, off-active series, recent transitions, and a Run-now
+button (`runLivenessNow` → service-role RPC, admin-action logged). pg_cron scheduling note in the
+migration for the Pro upgrade. Constants live in `lib/liveness.ts` (3 strikes, 18h grace, 75d,
+exemption count, privacy-safe `publicAttendanceLabel`: <4 suppressed, 4–9 range, ≥10 exact) so
+tuning never needs a migration.
+
 ### 2026-07-20 — One-line names (marquee), 16-char cap, safer winners-done
 - Long names wrapped the Next-up cards to three lines. Every name now renders
   on ONE line via MarqueeText: when it overflows, a courtside marquee holds

@@ -9,8 +9,31 @@ import { EventQueueAdmin } from "@/components/event-queue-admin";
 import { EventAdmins } from "@/components/event-admins";
 import { EventLocationMap } from "@/components/event-location-map";
 import { EventShareKit } from "@/components/event-share-kit";
+import { EventLivenessPanel } from "@/components/event-liveness-panel";
+import { EventAttendanceStrip, type AttendanceStripItem } from "@/components/event-attendance-strip";
+import { SponsorshipRequests, type SponsorshipRequestItem } from "@/components/sponsorship-requests";
+import { SponsorStrip, type SponsorStripItem } from "@/components/sponsor-strip";
+import { publicAttendanceLabel } from "@/lib/liveness";
+
+/** Today as YYYY-MM-DD (module-level per the no-Date.now-in-render rule). */
+function todayDateKey(): string {
+  const d = new Date();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** Tomorrow as YYYY-MM-DD (module-level per the no-Date.now-in-render rule). */
+function tomorrowDateKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
+import { upcomingOccurrenceDates } from "@/lib/event-schedule";
 import { sanitizeRichText, looksLikeHtml } from "@/lib/rich-text";
 import { Avatar } from "@/components/avatar";
 import { rsvp, cancelRsvp, approveMember, denyMember } from "../actions";
@@ -68,7 +91,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const { data: e } = await supabase
     .from("events")
-    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at, location_reveal")
+    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at, location_reveal, organizer_state, paused_until")
     .eq("id", id)
     .maybeSingle();
   if (!e) notFound();
@@ -85,6 +108,108 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const adminIds = new Set<string>([e.created_by ?? "", ...((managerRows ?? []).map((m) => m.user_id))].filter(Boolean));
   const isAdmin = isOwner || adminIds.has(user.id);
+
+  // Event Pulse — upcoming dates for the organizer schedule panel (merge DB
+  // statuses onto computed dates; rows may not exist until skipped/generated).
+  const upcoming = isAdmin && e.recurrence !== "none"
+    ? upcomingOccurrenceDates(e.starts_at, e.recurrence, e.recurrence_days ?? [], 6)
+    : [];
+  const occByDate = new Map<string, { status: string; skip_note: string | null }>();
+  if (upcoming.length) {
+    const { data: occRows } = await supabase
+      .from("event_occurrences")
+      .select("occ_date, status, skip_note")
+      .eq("event_id", e.id)
+      .in("occ_date", upcoming.map((u) => u.date));
+    for (const r of (occRows ?? []) as { occ_date: string; status: string; skip_note: string | null }[]) {
+      occByDate.set(r.occ_date, { status: r.status, skip_note: r.skip_note });
+    }
+  }
+  const livenessOccurrences = upcoming.map((u) => ({
+    date: u.date,
+    label: u.startsAt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+    status: occByDate.get(u.date)?.status ?? "scheduled",
+    skipNote: occByDate.get(u.date)?.skip_note ?? null,
+  }));
+  const minPauseDate = tomorrowDateKey();
+
+  // One read for every flag this page consults.
+  const { data: flagRows } = await supabase
+    .from("feature_flags")
+    .select("key, enabled")
+    .in("key", ["attendance_strip_public", "business_publication", "sponsorship_discovery"]);
+  const flagOn = new Map(((flagRows ?? []) as { key: string; enabled: boolean }[]).map((f) => [f.key, f.enabled]));
+
+  // Pending sponsorship proposals targeting this event (organizer consent).
+  let sponsorshipRequests: SponsorshipRequestItem[] = [];
+  if (isAdmin) {
+    if (flagOn.get("business_publication")) {
+      const { data: reqs } = await supabase
+        .from("sponsorships")
+        .select("id, business_id, label, amount_cents, description")
+        .eq("target_kind", "event")
+        .eq("target_id", e.id)
+        .eq("status", "pending")
+        .limit(6);
+      const reqRows = (reqs ?? []) as { id: string; business_id: string; label: string; amount_cents: number | null; description: string | null }[];
+      if (reqRows.length) {
+        const bizIds = [...new Set(reqRows.map((r) => r.business_id))];
+        const { data: bizzes } = await supabase.from("business_accounts").select("id, name").in("id", bizIds);
+        const bizName = new Map(((bizzes ?? []) as { id: string; name: string }[]).map((x) => [x.id, x.name]));
+        sponsorshipRequests = reqRows.map((r) => ({
+          id: r.id,
+          businessName: bizName.get(r.business_id) ?? "A business",
+          label: r.label,
+          amountCents: r.amount_cents,
+          description: r.description,
+        }));
+      }
+    }
+  }
+
+  // Public "Sponsored by" strip (discovery flag; targets consented by definition).
+  let eventSponsors: SponsorStripItem[] = [];
+  if (flagOn.get("business_publication") && flagOn.get("sponsorship_discovery")) {
+    const { data: act } = await supabase
+      .from("sponsorships")
+      .select("id, business_id, label")
+      .eq("target_kind", "event")
+      .eq("target_id", e.id)
+      .eq("status", "active")
+      .limit(8);
+    const actRows = (act ?? []) as { id: string; business_id: string; label: string }[];
+    if (actRows.length) {
+      const bids = [...new Set(actRows.map((r) => r.business_id))];
+      const { data: bs } = await supabase.from("business_accounts").select("id, name, slug, verification_level").in("id", bids);
+      const bMap = new Map(((bs ?? []) as { id: string; name: string; slug: string; verification_level: string }[]).map((x) => [x.id, x]));
+      eventSponsors = actRows
+        .map((r) => {
+          const b = bMap.get(r.business_id);
+          return b ? { id: r.id, name: b.name, slug: b.slug, label: r.label, sponsorReady: b.verification_level === "tier2" } : null;
+        })
+        .filter((x): x is SponsorStripItem => !!x);
+    }
+  }
+
+  // Public attendance strip (Event Pulse) — closed history only, behind its flag.
+  let stripItems: AttendanceStripItem[] = [];
+  if (flagOn.get("attendance_strip_public")) {
+    const { data: closedOccs } = await supabase
+      .from("event_occurrences")
+      .select("occ_date, starts_at, status, verified_count, skip_note")
+      .eq("event_id", e.id)
+      .in("status", ["completed_with_evidence", "skipped"])
+      .lt("occ_date", todayDateKey())
+      .order("occ_date", { ascending: false })
+      .limit(4);
+    stripItems = ((closedOccs ?? []) as { occ_date: string; starts_at: string; status: string; verified_count: number; skip_note: string | null }[]).map((o) => ({
+      key: o.occ_date,
+      dateLabel: new Date(o.starts_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      kind: o.status === "skipped" ? ("skipped" as const) : ("played" as const),
+      label: o.status === "skipped" ? "Skipped" : (publicAttendanceLabel(o.verified_count) ?? "Played"),
+      note: o.status === "skipped" ? o.skip_note : null,
+    }));
+  }
 
   const allRsvps = rsvps ?? [];
   const cycleStartMs = rsvpCycleStartMs(e.starts_at, e.recurrence, e.recurrence_days ?? []);
@@ -295,6 +420,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         <div className="mt-5 rounded-2xl border border-rule bg-bg px-4 py-3 text-sm font-semibold text-mute">This event has ended.</div>
       ) : null}
 
+      <EventAttendanceStrip items={stripItems} />
+
+      <SponsorStrip items={eventSponsors} />
+
       {/* primary actions (attendee-facing) */}
       <div className="mt-5 flex flex-wrap items-center gap-2">
         {canRsvp ? (
@@ -495,6 +624,21 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           url={`https://klimr.com/events/${e.id}`}
         />
           </div>
+
+          <SponsorshipRequests items={sponsorshipRequests} backPath={`/events/${e.id}`} />
+
+          {e.recurrence !== "none" ? (
+            <div className="mt-4">
+              <EventLivenessPanel
+                eventId={e.id}
+                recurrence={e.recurrence}
+                organizerState={e.organizer_state}
+                pausedUntil={e.paused_until}
+                occurrences={livenessOccurrences}
+                minPauseDate={minPauseDate}
+              />
+            </div>
+          ) : null}
         </section>
       ) : null}
 

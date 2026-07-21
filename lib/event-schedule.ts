@@ -79,3 +79,37 @@ export function rsvpCycleStartISO(startsAtISO: string, recurrence: string | null
   const ms = rsvpCycleStartMs(startsAtISO, recurrence, days, now);
   return ms == null ? null : new Date(ms).toISOString();
 }
+
+/** Upcoming occurrence dates for an event series (local time), as YYYY-MM-DD +
+ *  a display timestamp. Mirrors the SQL generator (rule v1). Used by the
+ *  organizer liveness panel to offer skip targets before rows exist in the DB. */
+export function upcomingOccurrenceDates(
+  startsAtISO: string,
+  recurrence: string | null,
+  days: string[],
+  count = 6,
+  now: Date = new Date(),
+): { date: string; startsAt: Date }[] {
+  const start = new Date(startsAtISO);
+  if (Number.isNaN(start.getTime())) return [];
+  const rec = recurrence || "none";
+  if (rec === "none") {
+    return start.getTime() >= now.getTime() - DAY_MS
+      ? [{ date: toDateKey(start), startsAt: start }]
+      : [];
+  }
+  const all = occurrencesInWindow(start, rec, days, now)
+    .filter((ms) => ms >= now.getTime() - DAY_MS)
+    .sort((a, b) => a - b)
+    .slice(0, count);
+  return all.map((ms) => {
+    const d = new Date(ms);
+    return { date: toDateKey(d), startsAt: d };
+  });
+}
+
+function toDateKey(d: Date): string {
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}

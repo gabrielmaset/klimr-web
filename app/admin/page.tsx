@@ -8,18 +8,27 @@ export default async function AdminHome() {
   const { role } = await requireAdmin("support");
   const admin = createAdminClient();
 
-  const [openReports, users, posts, openMatches, pendingVerif, restricted] = await Promise.all([
+  const [openReports, users, posts, openMatches, pendingVerif, restricted, modPosts, modComments, draftBiz, tierApps] = await Promise.all([
     admin.from("reports").select("*", { count: "exact", head: true }).eq("status", "open"),
     admin.from("profiles").select("*", { count: "exact", head: true }),
     admin.from("posts").select("*", { count: "exact", head: true }).eq("moderation_status", "approved"),
     admin.from("matches").select("*", { count: "exact", head: true }).in("status", ["open", "scheduled"]),
     admin.from("profiles").select("*", { count: "exact", head: true }).eq("verification_status", "pending"),
     admin.from("profiles").select("*", { count: "exact", head: true }).in("account_status", ["suspended", "banned"]),
+    admin.from("posts").select("*", { count: "exact", head: true }).in("moderation_status", ["pending", "flagged"]),
+    admin.from("post_comments").select("*", { count: "exact", head: true }).in("moderation_status", ["pending", "flagged"]),
+    admin.from("business_accounts").select("*", { count: "exact", head: true }).eq("status", "draft"),
+    admin.from("business_tier_applications").select("*", { count: "exact", head: true }).eq("status", "submitted"),
   ]);
+  const modQueue = (modPosts.count ?? 0) + (modComments.count ?? 0);
 
   const stats = [
     { label: "Open reports", value: openReports.count ?? 0, href: "/admin/reports", accent: (openReports.count ?? 0) > 0 },
     { label: "Players", value: users.count ?? 0, href: "/admin/users" },
+    { label: "Event Pulse (shadow)", value: "\u2192", href: "/admin/liveness" },
+    { label: "Moderation queue", value: modQueue, href: "/admin/moderation", accent: modQueue > 0 },
+    { label: "Business reviews", value: draftBiz.count ?? 0, href: "/admin/businesses", accent: (draftBiz.count ?? 0) > 0 },
+    { label: "Tier-2 applications", value: tierApps.count ?? 0, href: "/admin/businesses?status=active", accent: (tierApps.count ?? 0) > 0 },
     { label: "Posts live", value: posts.count ?? 0 },
     { label: "Open matches", value: openMatches.count ?? 0 },
     { label: "Pending verification", value: pendingVerif.count ?? 0, href: "/admin/users?verification=pending", accent: (pendingVerif.count ?? 0) > 0 },

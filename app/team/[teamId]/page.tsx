@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { Users, MapPin, IdCard, CalendarClock, MessageCircle, UserPlus, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta, teamSizeFor } from "@/lib/sports";
+import { SponsorshipRequests, type SponsorshipRequestItem } from "@/components/sponsorship-requests";
+import { SponsorStrip, type SponsorStripItem } from "@/components/sponsor-strip";
 import { TeamSticker } from "@/components/team-sticker";
 
 type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null };
@@ -37,6 +39,51 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
     for (const p of (profs as Prof[] | null) ?? []) profById.set(p.id, p);
   }
   const avatarUrl = (p: Prof | undefined) => (p?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null);
+
+  // Sponsorships: consent requests for managers + the public "Sponsored by" strip.
+  const { data: flagRows } = await supabase
+    .from("feature_flags")
+    .select("key, enabled")
+    .in("key", ["business_publication", "sponsorship_discovery"]);
+  const flagOn = new Map(((flagRows ?? []) as { key: string; enabled: boolean }[]).map((f) => [f.key, f.enabled]));
+  let teamSponsorRequests: SponsorshipRequestItem[] = [];
+  let teamSponsors: SponsorStripItem[] = [];
+  if (flagOn.get("business_publication")) {
+    const wanted = canManage ? ["pending", "active"] : ["active"];
+    const { data: spons } = await supabase
+      .from("sponsorships")
+      .select("id, business_id, label, amount_cents, description, status")
+      .eq("target_kind", "team")
+      .eq("target_id", teamId)
+      .in("status", wanted)
+      .limit(10);
+    const sRows = (spons ?? []) as { id: string; business_id: string; label: string; amount_cents: number | null; description: string | null; status: string }[];
+    if (sRows.length) {
+      const bizIds = [...new Set(sRows.map((r) => r.business_id))];
+      const { data: bizzes } = await supabase.from("business_accounts").select("id, name, slug, verification_level").in("id", bizIds);
+      const bizById = new Map(((bizzes ?? []) as { id: string; name: string; slug: string; verification_level: string }[]).map((x) => [x.id, x]));
+      if (canManage) {
+        teamSponsorRequests = sRows
+          .filter((r) => r.status === "pending")
+          .map((r) => ({
+            id: r.id,
+            businessName: bizById.get(r.business_id)?.name ?? "A business",
+            label: r.label,
+            amountCents: r.amount_cents,
+            description: r.description,
+          }));
+      }
+      if (flagOn.get("sponsorship_discovery")) {
+        teamSponsors = sRows
+          .filter((r) => r.status === "active")
+          .map((r) => {
+            const b = bizById.get(r.business_id);
+            return b ? { id: r.id, name: b.name, slug: b.slug, label: r.label, sponsorReady: b.verification_level === "tier2" } : null;
+          })
+          .filter((x): x is SponsorStripItem => !!x);
+      }
+    }
+  }
 
   const statById = new Map<string, Stat>();
   let totalMatches = 0;
@@ -84,6 +131,9 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
           </div>
         </div>
       </div>
+
+      <SponsorshipRequests items={teamSponsorRequests} backPath={base} />
+      <SponsorStrip items={teamSponsors} />
 
       {/* stats */}
       <div className="mt-6 grid grid-cols-3 gap-3">

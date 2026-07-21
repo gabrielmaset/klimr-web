@@ -576,3 +576,143 @@ export async function reviewProviderApplication(formData: FormData) {
   }
   revalidatePath("/admin/providers");
 }
+
+/** Event Pulse: invoke the liveness job now (shadow-safe; service role only). */
+export async function runLivenessNow(): Promise<void> {
+  const { userId } = await requireAdmin("admin");
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("liveness_run", { p_grace_hours: 18, p_job_id: `admin:${userId.slice(0, 8)}` });
+  await logAdminAction(userId, "liveness:run", null, error ? `error: ${error.message}` : JSON.stringify(data));
+  revalidatePath("/admin/liveness");
+}
+
+/** Moderation queue: publish or reject a member post (service role is the only
+ *  principal the 0006 guard lets change moderation_status; the 0112 trigger
+ *  emits or clears the feed card automatically on the transition). */
+export async function setPostModeration(formData: FormData): Promise<void> {
+  const { userId } = await requireAdmin("support");
+  const postId = String(formData.get("postId") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (!postId || (status !== "approved" && status !== "rejected")) return;
+  const admin = createAdminClient();
+  const { data: post } = await admin.from("posts").select("author_id").eq("id", postId).maybeSingle();
+  await admin.from("posts").update({ moderation_status: status }).eq("id", postId);
+  await logAdminAction(userId, `moderation:post:${status}`, post?.author_id ?? null, undefined, postId);
+  revalidatePath("/admin/moderation");
+  revalidatePath("/feed");
+}
+
+/** Moderation queue: publish or reject a comment. */
+export async function setCommentModeration(formData: FormData): Promise<void> {
+  const { userId } = await requireAdmin("support");
+  const commentId = String(formData.get("commentId") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (!commentId || (status !== "approved" && status !== "rejected")) return;
+  const admin = createAdminClient();
+  const { data: c } = await admin.from("post_comments").select("author_id").eq("id", commentId).maybeSingle();
+  await admin.from("post_comments").update({ moderation_status: status }).eq("id", commentId);
+  await logAdminAction(userId, `moderation:comment:${status}`, c?.author_id ?? null, undefined, commentId);
+  revalidatePath("/admin/moderation");
+  revalidatePath("/feed");
+}
+
+/** Business review: draft → active (or suspend / reactivate). Service role is
+ *  the only principal the 0135 guard lets touch status; owner gets notified. */
+export async function reviewBusiness(formData: FormData): Promise<void> {
+  const { userId } = await requireAdmin("admin");
+  const businessId = String(formData.get("businessId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const map: Record<string, string> = { activate: "active", suspend: "suspended", reactivate: "active" };
+  const next = map[decision];
+  if (!businessId || !next) return;
+  const admin = createAdminClient();
+  const { data: b } = await admin.from("business_accounts").select("owner_id, name, status").eq("id", businessId).maybeSingle();
+  if (!b) return;
+  await admin.from("business_accounts").update({ status: next }).eq("id", businessId);
+  await logAdminAction(userId, `business:${decision}`, b.owner_id, undefined, businessId);
+  await createNotification({
+    userId: b.owner_id,
+    kind: "system",
+    title:
+      decision === "suspend"
+        ? `"${b.name}" was suspended`
+        : `"${b.name}" is approved`,
+    body:
+      decision === "suspend"
+        ? "Contact support if you believe this is a mistake."
+        : "Your business passed review — list it whenever you're ready.",
+    linkUrl: `/business/${businessId}`,
+  });
+  revalidatePath("/admin/businesses");
+  revalidatePath(`/business/${businessId}`);
+}
+
+/** Verification tier: none → tier1 → tier2 (sponsor-ready), set after the
+ *  no-payments Tier-2 review (documents, domain, brand kit, terms). */
+export async function setBusinessTier(formData: FormData): Promise<void> {
+  const { userId } = await requireAdmin("admin");
+  const businessId = String(formData.get("businessId") ?? "");
+  const tier = String(formData.get("tier") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 200);
+  if (!businessId || !["none", "tier1", "tier2"].includes(tier)) return;
+  const admin = createAdminClient();
+  const { data: b } = await admin.from("business_accounts").select("owner_id, name, verification_level").eq("id", businessId).maybeSingle();
+  if (!b || b.verification_level === tier) return;
+  await admin.from("business_accounts").update({ verification_level: tier }).eq("id", businessId);
+  await logAdminAction(userId, `business:tier:${tier}`, b.owner_id, note || undefined, businessId);
+  await createNotification({
+    userId: b.owner_id,
+    kind: "system",
+    title: `"${b.name}" verification updated`,
+    body:
+      tier === "tier2"
+        ? "You're sponsor-ready — proposals and sponsorship tools are unlocked."
+        : tier === "tier1"
+          ? "Verified. Sponsor-ready (Tier 2) needs the document review."
+          : note || "Verification level changed.",
+    linkUrl: `/business/${businessId}`,
+  });
+  revalidatePath("/admin/businesses");
+  revalidatePath(`/business/${businessId}`);
+}
+
+/** Decide a Tier-2 application. Approve sets the business Sponsor-ready in the
+ *  same stroke; both writes are service-role (the only principal the guards
+ *  allow), logged, and the owner is notified with copy that says what changed. */
+export async function decideTierApplication(formData: FormData): Promise<void> {
+  const { userId } = await requireAdmin("admin");
+  const appId = String(formData.get("applicationId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 200);
+  if (!appId || (decision !== "approved" && decision !== "rejected")) return;
+  const admin = createAdminClient();
+  const { data: app } = await admin
+    .from("business_tier_applications")
+    .select("id, business_id, status")
+    .eq("id", appId)
+    .maybeSingle();
+  if (!app || app.status !== "submitted") return;
+  const { data: biz } = await admin.from("business_accounts").select("owner_id, name").eq("id", app.business_id).maybeSingle();
+  await admin
+    .from("business_tier_applications")
+    .update({ status: decision, decided_by: userId, decided_at: new Date().toISOString(), decision_note: note || null })
+    .eq("id", appId);
+  if (decision === "approved") {
+    await admin.from("business_accounts").update({ verification_level: "tier2" }).eq("id", app.business_id);
+  }
+  await logAdminAction(userId, `business:tier_app:${decision}`, biz?.owner_id ?? null, note || undefined, appId);
+  if (biz) {
+    await createNotification({
+      userId: biz.owner_id,
+      kind: "system",
+      title: decision === "approved" ? `"${biz.name}" is Sponsor-ready` : `"${biz.name}" Tier-2 application`,
+      body:
+        decision === "approved"
+          ? "Document review passed — sponsorship proposals are unlocked."
+          : note || "The application wasn't approved this time. You can apply again.",
+      linkUrl: `/business/${app.business_id}`,
+    });
+  }
+  revalidatePath("/admin/businesses");
+  revalidatePath(`/business/${app.business_id}`);
+}

@@ -501,6 +501,42 @@ export interface Database {
         Update: { status?: JoinStatus; waitlist_position?: number | null };
         Relationships: [];
       };
+      sponsorships: {
+        Row: { id: string; business_id: string; target_kind: string; target_id: string; label: string; description: string | null; amount_cents: number | null; currency: string; starts_on: string; ends_on: string | null; status: string; created_by: string; created_at: string; responded_at: string | null };
+        Insert: { id?: string; business_id: string; target_kind: string; target_id: string; label?: string; description?: string | null; amount_cents?: number | null; currency?: string; starts_on?: string; ends_on?: string | null; status?: string; created_by: string };
+        Update: { label?: string; description?: string | null; amount_cents?: number | null; starts_on?: string; ends_on?: string | null };
+        Relationships: [];
+      };
+      sponsorship_categories: {
+        Row: { key: string; label: string; tier: string; updated_at: string };
+        Insert: { key: string; label: string; tier: string };
+        Update: { label?: string; tier?: string };
+        Relationships: [];
+      };
+      sponsorship_events: {
+        Row: { id: string; sponsorship_id: string; prev: string | null; next: string; actor: string | null; reason: string | null; created_at: string };
+        Insert: { id?: string; sponsorship_id: string; prev?: string | null; next: string; actor?: string | null; reason?: string | null };
+        Update: { reason?: string | null };
+        Relationships: [];
+      };
+      business_tier_applications: {
+        Row: { id: string; business_id: string; submitted_by: string; status: string; domain: string; notes: string | null; docs: Json; terms_accepted_at: string; decided_by: string | null; decided_at: string | null; decision_note: string | null; created_at: string };
+        Insert: { id?: string; business_id: string; submitted_by: string; status?: string; domain: string; notes?: string | null; docs?: Json; terms_accepted_at: string };
+        Update: { status?: string; decided_by?: string | null; decided_at?: string | null; decision_note?: string | null };
+        Relationships: [];
+      };
+      business_accounts: {
+        Row: { id: string; kind: string; name: string; slug: string; owner_id: string; headline: string | null; bio: string | null; website: string | null; contact_email: string | null; phone: string | null; area_text: string | null; sports: string[]; roles: string[]; logo_path: string | null; category: string | null; verification_level: string; status: string; published: boolean; created_at: string; updated_at: string };
+        Insert: { id?: string; kind: string; name: string; slug: string; owner_id: string; headline?: string | null; bio?: string | null; website?: string | null; contact_email?: string | null; phone?: string | null; area_text?: string | null; sports?: string[]; roles?: string[]; logo_path?: string | null; category?: string | null; verification_level?: string; status?: string; published?: boolean };
+        Update: { name?: string; slug?: string; headline?: string | null; bio?: string | null; website?: string | null; contact_email?: string | null; phone?: string | null; area_text?: string | null; sports?: string[]; roles?: string[]; logo_path?: string | null; category?: string | null; verification_level?: string; status?: string; published?: boolean };
+        Relationships: [];
+      };
+      business_members: {
+        Row: { business_id: string; user_id: string; role: string; added_by: string | null; created_at: string };
+        Insert: { business_id: string; user_id: string; role: string; added_by?: string | null; created_at?: string };
+        Update: { role?: string };
+        Relationships: [];
+      };
       blocks: {
         Row: { blocker_id: string; blocked_id: string; created_at: string };
         Insert: { blocker_id: string; blocked_id: string; created_at?: string };
@@ -548,6 +584,12 @@ export interface Database {
         Update: { points?: number; rank?: number };
         Relationships: [];
       };
+      post_tags: {
+        Row: { id: string; post_id: string; user_id: string; tagged_by: string; status: string; created_at: string; responded_at: string | null };
+        Insert: { id?: string; post_id: string; user_id: string; tagged_by: string; status?: string; created_at?: string; responded_at?: string | null };
+        Update: { status?: string };
+        Relationships: [];
+      };
       posts: {
         Row: {
           id: string;
@@ -557,6 +599,8 @@ export interface Database {
           match_id: string | null;
           moderation_status: ModerationStatus;
           moderation_labels: string[] | null;
+          author_type: string;
+          repost_of: string | null;
           created_at: string;
         };
         Insert: {
@@ -567,6 +611,8 @@ export interface Database {
           match_id?: string | null;
           moderation_status?: ModerationStatus;
           moderation_labels?: string[] | null;
+          author_type?: string;
+          repost_of?: string | null;
           created_at?: string;
         };
         Update: {
@@ -613,6 +659,7 @@ export interface Database {
           author_id: string;
           body: string;
           moderation_status: ModerationStatus;
+          parent_comment_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -621,6 +668,7 @@ export interface Database {
           author_id: string;
           body: string;
           moderation_status?: ModerationStatus;
+          parent_comment_id?: string | null;
           created_at?: string;
         };
         Update: { body?: string; moderation_status?: ModerationStatus };
@@ -1360,6 +1408,24 @@ export interface Database {
         Update: { status?: string; ends_at?: string | null };
         Relationships: [];
       };
+      feature_flags: {
+        Row: { key: string; enabled: boolean; note: string | null; updated_at: string };
+        Insert: { key: string; enabled?: boolean; note?: string | null; updated_at?: string };
+        Update: { enabled?: boolean; note?: string | null; updated_at?: string };
+        Relationships: [];
+      };
+      event_occurrences: {
+        Row: { id: string; event_id: string; occ_date: string; starts_at: string; ends_at: string; status: string; verified_count: number; evidence: Json | null; skip_note: string | null; closed_at: string | null; created_at: string };
+        Insert: { id?: string; event_id: string; occ_date: string; starts_at: string; ends_at: string; status?: string; verified_count?: number; evidence?: Json | null; skip_note?: string | null; closed_at?: string | null; created_at?: string };
+        Update: { status?: string; verified_count?: number; evidence?: Json | null; skip_note?: string | null; closed_at?: string | null };
+        Relationships: [];
+      };
+      liveness_transitions: {
+        Row: { id: string; event_id: string; occurrence_id: string | null; scope: string; prev: string; next: string; reason_code: string; shadow: boolean; evidence: Json | null; rule_version: number; job_id: string | null; created_at: string };
+        Insert: { id?: string; event_id: string; occurrence_id?: string | null; scope: string; prev: string; next: string; reason_code: string; shadow?: boolean; evidence?: Json | null; rule_version?: number; job_id?: string | null; created_at?: string };
+        Update: { reason_code?: string };
+        Relationships: [];
+      };
       events: {
         Row: {
           id: string;
@@ -1385,7 +1451,7 @@ export interface Database {
           join_policy: string;
           recurrence: string;
           recurrence_days: string[];
-         host_ack_at: string | null;  location_reveal: string; };
+         host_ack_at: string | null;  location_reveal: string;           liveness_status: string;           liveness_shadow: string;           empty_streak: number;           last_alive_at: string | null;           dormant_at: string | null;           organizer_state: string;           paused_until: string | null;           liveness_rule_version: number; };
         Insert: {
           id?: string;
           title: string;
@@ -1410,7 +1476,7 @@ export interface Database {
           join_policy?: string;
           recurrence?: string;
           recurrence_days?: string[];
-         host_ack_at?: string | null;  location_reveal?: string; };
+         host_ack_at?: string | null;  location_reveal?: string;           liveness_status?: string;           liveness_shadow?: string;           empty_streak?: number;           last_alive_at?: string | null;           dormant_at?: string | null;           organizer_state?: string;           paused_until?: string | null;           liveness_rule_version?: number; };
         Update: {
           title?: string;
           sport_key?: string;
@@ -1432,7 +1498,7 @@ export interface Database {
           join_policy?: string;
           recurrence?: string;
           recurrence_days?: string[];
-         location_reveal?: string; };
+         location_reveal?: string;           liveness_status?: string;           liveness_shadow?: string;           empty_streak?: number;           last_alive_at?: string | null;           dormant_at?: string | null;           organizer_state?: string;           paused_until?: string | null; };
         Relationships: [];
       };
       event_rsvps: {
@@ -1598,8 +1664,8 @@ export interface Database {
       };
       class_providers: {
         Row: { user_id: string; status: string; headline: string | null; bio: string | null; approved_by: string | null; approved_at: string; created_at: string; roles: string[]; verification_level: string; rating_avg: number | null; rating_count: number; credential_expires_at: string | null; format: string; price_from_cents: number | null; availability: string; next_opening: string | null; area_text: string | null; sports: string[] };
-        Insert: { user_id: string; status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; approved_at?: string; created_at?: string; roles?: string[]; verification_level?: string; credential_expires_at?: string | null; format?: string; price_from_cents?: number | null; availability?: string; next_opening?: string | null; area_text?: string | null; sports?: string[] };
-        Update: { status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; roles?: string[]; verification_level?: string; credential_expires_at?: string | null; format?: string; price_from_cents?: number | null; availability?: string; next_opening?: string | null; area_text?: string | null; sports?: string[] };
+        Insert: { user_id: string; status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; approved_at?: string; created_at?: string; roles?: string[]; verification_level?: string; credential_expires_at?: string | null; format?: string; price_from_cents?: number | null; availability?: string; next_opening?: string | null; area_text?: string | null; sports?: string[];           business_id?: string | null };
+        Update: { status?: string; headline?: string | null; bio?: string | null; approved_by?: string | null; roles?: string[]; verification_level?: string; credential_expires_at?: string | null; format?: string; price_from_cents?: number | null; availability?: string; next_opening?: string | null; area_text?: string | null; sports?: string[];           business_id?: string | null };
         Relationships: [];
       };
       broadcasts: {
@@ -1769,6 +1835,15 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      liveness_run: { Args: { p_grace_hours?: number; p_job_id?: string }; Returns: Json };
+      is_business_manager: { Args: { p_business: string; p_uid: string }; Returns: boolean };
+      respond_sponsorship: { Args: { p_id: string; p_accept: boolean }; Returns: Json };
+      end_sponsorship: { Args: { p_id: string }; Returns: Json };
+      liveness_skip_occurrence: { Args: { p_event: string; p_date: string; p_note?: string }; Returns: Json };
+      liveness_unskip_occurrence: { Args: { p_event: string; p_date: string }; Returns: Json };
+      liveness_pause_series: { Args: { p_event: string; p_until: string }; Returns: Json };
+      liveness_resume_series: { Args: { p_event: string }; Returns: Json };
+      liveness_end_series: { Args: { p_event: string }; Returns: Json };
       bump_article_read: { Args: { p_slug: string }; Returns: undefined };
       ranked_players: {
         Args: { p_sport: string; p_scope?: string; p_region?: string | null };

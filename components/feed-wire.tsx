@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
-  CalendarDays, ChevronDown, ChevronRight, Flag, Heart, HeartPulse, Medal,
-  Megaphone, MessageSquare, Newspaper, ShoppingBag, Sparkles, TrendingUp, Trophy, UserPlus, Users,
+  CalendarDays, ChevronDown, ChevronRight, Flag, HeartPulse, Medal, Zap,
+  Megaphone, MessageCircle, MessageSquare, Newspaper, Repeat2, ShoppingBag, Sparkles, TrendingUp, Trophy, UserPlus, Users,
 } from "lucide-react";
 import { SportIcon } from "@/components/sport-icons";
-import { togglePostLike } from "@/app/feed/actions";
+import { togglePostLike, toggleRepost } from "@/app/feed/actions";
+import { PostThread } from "@/components/post-comments";
+import { DiscoverPeople, DiscoverEvents, type DiscoverPerson, type DiscoverEvent } from "@/components/discover-modules";
 
 export type WireRow = {
   id: string;
@@ -24,6 +26,10 @@ export type WireRow = {
   postId?: string | null;
   likeCount?: number;
   liked?: boolean;
+  commentCount?: number;
+  reposted?: boolean;
+  repostOfName?: string | null;
+  tagNames?: string[];
   names?: string[];
 };
 
@@ -59,7 +65,8 @@ function dayLabel(iso: string, nowMs: number): string {
 type Block =
   | { t: "day"; key: string; label: string }
   | { t: "row"; key: string; row: WireRow; unseen: boolean }
-  | { t: "rollup"; key: string; kind: string; label: string; accent: string; rows: WireRow[]; unseen: boolean };
+  | { t: "rollup"; key: string; kind: string; label: string; accent: string; rows: WireRow[]; unseen: boolean }
+  | { t: "discover"; key: string; variant: "people" | "events" };
 
 /** THE WIRE — a dense, filterable ledger. Research-backed: users equate feed
  *  quality with information density and mourn missing compact modes; the most
@@ -71,7 +78,7 @@ const subscribeNever = () => () => {};
 const snapTrue = () => true;
 const snapFalse = () => false;
 
-export function FeedWire({ rows }: { rows: WireRow[] }) {
+export function FeedWire({ rows, discover }: { rows: WireRow[]; discover?: { people: DiscoverPerson[]; events: DiscoverEvent[] } }) {
   // Day buckets ("Today"/"Yesterday") and times are the VIEWER's local calendar
   // — the server cannot know it. Rendering them at SSR caused React #418 (the
   // hydration crash that kills every click on the page). The whole wire waits
@@ -146,8 +153,28 @@ export function FeedWire({ rows }: { rows: WireRow[] }) {
       out.push({ t: "row", key: r.id, row: r, unseen: Date.parse(r.when) > lastSeen });
       i++;
     }
+    // Discovery every ~10 content blocks (mobile in-feed placement; the
+    // desktop aside carries the full modules, so these hide at lg).
+    if (discover && (discover.people.length || discover.events.length)) {
+      const withDiscover: Block[] = [];
+      let content = 0;
+      let inserted = 0;
+      const variants: ("people" | "events")[] = [];
+      if (discover.people.length) variants.push("people");
+      if (discover.events.length) variants.push("events");
+      for (const b of out) {
+        withDiscover.push(b);
+        if (b.t !== "day") content++;
+        if (content > 0 && content % 10 === 0 && inserted < 4 && b.t !== "day") {
+          withDiscover.push({ t: "discover", key: `disc-${inserted}`, variant: variants[inserted % variants.length] });
+          inserted++;
+          content++; // count the card itself so spacing stays even
+        }
+      }
+      return withDiscover;
+    }
     return out;
-  }, [rows, hidden, nowMs, lastSeen]);
+  }, [rows, hidden, nowMs, lastSeen, discover]);
 
   const shown = showAll ? blocks : blocks.slice(0, VISIBLE_CAP);
   const remaining = blocks.length - shown.length;
@@ -222,6 +249,17 @@ export function FeedWire({ rows }: { rows: WireRow[] }) {
               </div>
             );
           }
+          if (b.t === "discover") {
+            return (
+              <div key={b.key} className="bg-bg/40 px-3 py-2.5 lg:hidden">
+                {b.variant === "people" ? (
+                  <DiscoverPeople people={discover?.people ?? []} compact />
+                ) : (
+                  <DiscoverEvents events={discover?.events ?? []} compact />
+                )}
+              </div>
+            );
+          }
           return <WireLine key={b.key} row={b.row} nowMs={nowMs} unseen={b.unseen} />;
         })}
       </div>
@@ -248,6 +286,21 @@ function WireLine({ row, nowMs, unseen, indent }: { row: WireRow; nowMs: number;
   const [liked, setLiked] = useState(!!row.liked);
   const [count, setCount] = useState(row.likeCount ?? 0);
   const [busy, setBusy] = useState(false);
+  const [threadOpen, setThreadOpen] = useState(false);
+  const [cCount, setCCount] = useState(row.commentCount ?? 0);
+  const [reposted, setReposted] = useState(!!row.reposted);
+  const [repBusy, setRepBusy] = useState(false);
+
+  async function repost() {
+    if (!row.postId || repBusy) return;
+    setRepBusy(true);
+    const next = !reposted;
+    setReposted(next);
+    const res = await toggleRepost(row.postId);
+    if (!res.ok) setReposted(!next);
+    else setReposted(res.reposted);
+    setRepBusy(false);
+  }
 
   async function like() {
     if (!row.postId || busy) return;
@@ -269,10 +322,18 @@ function WireLine({ row, nowMs, unseen, indent }: { row: WireRow; nowMs: number;
       <Icon size={14} className="shrink-0" style={{ color: row.accent }} aria-hidden />
       <span className={`min-w-0 flex-1 text-[13.5px] leading-snug text-ink ${row.isPost ? "" : "truncate"}`}>
         <span className="font-bold">{row.text}</span>
+        {row.repostOfName ? (
+          <span className="ml-1.5 inline-flex items-center gap-1 align-middle font-mono text-[9px] font-bold uppercase tracking-[.1em] text-faint">
+            <Repeat2 size={10} aria-hidden /> from {row.repostOfName}
+          </span>
+        ) : null}
         {row.sub ? (
           <span className={`text-mute ${row.isPost ? "mt-0.5 block overflow-hidden text-[13px] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]" : ""}`}>
             {row.isPost ? row.sub : ` — ${row.sub}`}
           </span>
+        ) : null}
+        {row.isPost && row.tagNames?.length ? (
+          <span className="mt-0.5 block text-[11.5px] text-faint">With {row.tagNames.join(", ")}</span>
         ) : null}
       </span>
       {row.sport ? <SportIcon sport={row.sport} variant="badge" size={14} className="opacity-90" /> : null}
@@ -285,11 +346,41 @@ function WireLine({ row, nowMs, unseen, indent }: { row: WireRow; nowMs: number;
             void like();
           }}
           aria-pressed={liked}
-          aria-label={liked ? "Unlike" : "Like"}
+          aria-label={liked ? "Undo ace" : "Ace this post"}
           className="press inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-bold transition-colors"
           style={{ color: liked ? "#E23E0D" : "var(--color-faint)" }}
         >
-          <Heart size={13} fill={liked ? "currentColor" : "none"} aria-hidden /> {count > 0 ? count : ""}
+          <Zap size={13} fill={liked ? "currentColor" : "none"} aria-hidden /> {count > 0 ? count : ""}
+        </button>
+      ) : null}
+      {row.isPost && row.postId ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            void repost();
+          }}
+          aria-pressed={reposted}
+          aria-label={reposted ? "Undo repost" : "Repost"}
+          className="press inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-bold transition-colors"
+          style={{ color: reposted ? "var(--color-brand-deep)" : "var(--color-faint)" }}
+        >
+          <Repeat2 size={13} aria-hidden />
+        </button>
+      ) : null}
+      {row.isPost && row.postId ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            setThreadOpen((o) => !o);
+          }}
+          aria-expanded={threadOpen}
+          aria-label={threadOpen ? "Hide comments" : "Show comments"}
+          className="press inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-bold transition-colors"
+          style={{ color: threadOpen ? "var(--color-ink)" : "var(--color-faint)" }}
+        >
+          <MessageCircle size={13} aria-hidden /> {cCount > 0 ? cCount : ""}
         </button>
       ) : null}
       <span className="shrink-0 font-mono text-[10px] font-semibold uppercase text-faint">{timeShort(row.when, nowMs)}</span>
@@ -298,11 +389,18 @@ function WireLine({ row, nowMs, unseen, indent }: { row: WireRow; nowMs: number;
   );
 
   const cls = `flex items-center gap-2.5 px-4 ${row.isPost ? "py-2.5" : "py-2"} ${indent ? "pl-9" : ""} transition-colors hover:bg-bg/60`;
-  return row.href ? (
+  const line = row.href ? (
     <Link href={row.href} className={cls}>
       {body}
     </Link>
   ) : (
     <div className={cls}>{body}</div>
+  );
+  if (!row.isPost || !row.postId) return line;
+  return (
+    <div>
+      {line}
+      {threadOpen ? <PostThread postId={row.postId} onCountChange={setCCount} /> : null}
+    </div>
   );
 }

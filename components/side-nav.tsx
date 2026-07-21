@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, ShieldCheck, LogOut, User, Gift, ChevronsUpDown, IdCard, ChevronDown, ChevronLeft, ChevronRight, MessageSquare, HelpCircle } from "lucide-react";
+import { Settings, ShieldCheck, LogOut, User, Gift, ChevronsUpDown, IdCard, ChevronDown, ChevronLeft, ChevronRight, MessageSquare, HelpCircle, Briefcase } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { NAV_GROUPS, type NavItem } from "@/lib/nav";
 import { KlimrLogo } from "@/components/logo";
@@ -16,6 +16,15 @@ type Item = NavItem;
 // live destinations kept beyond the spec's list — flagged in DESIGN_DECISIONS.
 const GROUPS = NAV_GROUPS;
 
+function groupsFor(showBusiness: boolean): typeof NAV_GROUPS {
+  if (!showBusiness) return GROUPS;
+  return GROUPS.map((g): (typeof NAV_GROUPS)[number] =>
+    g.header === "Discover"
+      ? { ...g, items: [...g.items, { href: "/business", label: "Business", Icon: Briefcase }] }
+      : g,
+  );
+}
+
 const kicker = "font-mono text-[9px] font-semibold uppercase tracking-[.18em] text-faint";
 
 export function SideNav({
@@ -24,6 +33,7 @@ export function SideNav({
   avatarName,
   email,
   adminRole,
+  showBusiness = false,
   presenceMode,
 }: {
   avatarUrl: string | null;
@@ -31,6 +41,7 @@ export function SideNav({
   avatarName: string;
   email: string | null;
   adminRole: boolean;
+  showBusiness?: boolean;
   presenceMode: PresenceMode;
 }) {
   const pathname = usePathname();
@@ -189,7 +200,7 @@ export function SideNav({
 
         <div className="relative mt-3.5 min-h-0 flex-1">
         <div ref={scrollRef} className="h-full space-y-2 overflow-y-auto scrollbar-hidden">
-          {GROUPS.map((g) => {
+          {groupsFor(showBusiness).map((g) => {
             if (!g.header) {
               return (
                 <nav key="primary" className="flex flex-col gap-0.5" aria-label="Main">

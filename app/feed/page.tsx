@@ -6,6 +6,8 @@ import { lookupZip } from "@/lib/us-places";
 import { FeedLivePill } from "@/components/feed-live-pill";
 import { FeedComposer } from "@/components/feed-composer";
 import { FeedWire } from "@/components/feed-wire";
+import { DiscoverPeople, DiscoverEvents, type DiscoverPerson, type DiscoverEvent } from "@/components/discover-modules";
+import { TagRequests, type TagRequestItem } from "@/components/tag-requests";
 import { createClient } from "@/lib/supabase/server";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { sportMeta } from "@/lib/sports";
@@ -226,11 +228,52 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   const postIds = [...new Set(stream.filter((s) => s.kind === "member_post" && s.object_id).map((s) => s.object_id as string))];
   const likeCount = new Map<string, number>();
   const myLiked = new Set<string>();
+  const commentCount = new Map<string, number>();
+  const repostInfo = new Map<string, { name: string; body: string | null }>();
+  const myReposted = new Set<string>();
+  const tagNamesByPost = new Map<string, string[]>();
   if (postIds.length) {
-    const { data: likes } = await supabase.from("post_likes").select("post_id, user_id").in("post_id", postIds);
+    const [{ data: likes }, { data: cmts }, { data: postRows }, { data: myReps }, { data: tagRows }] = await Promise.all([
+      supabase.from("post_likes").select("post_id, user_id").in("post_id", postIds),
+      supabase.from("post_comments").select("post_id").in("post_id", postIds).eq("moderation_status", "approved"),
+      supabase.from("posts").select("id, repost_of").in("id", postIds).not("repost_of", "is", null),
+      supabase.from("posts").select("repost_of").eq("author_id", user.id).in("repost_of", postIds),
+      supabase.from("post_tags").select("post_id, user_id").in("post_id", postIds).eq("status", "approved"),
+    ]);
+    for (const r of (myReps ?? []) as { repost_of: string | null }[]) if (r.repost_of) myReposted.add(r.repost_of);
+    const taggedIds = [...new Set(((tagRows ?? []) as { user_id: string }[]).map((t) => t.user_id))];
+    const taggedNames = new Map<string, string>();
+    if (taggedIds.length) {
+      const { data: tps } = await supabase.from("profiles").select("id, display_name").in("id", taggedIds);
+      for (const p of (tps ?? []) as { id: string; display_name: string }[]) taggedNames.set(p.id, p.display_name);
+    }
+    for (const t of (tagRows ?? []) as { post_id: string; user_id: string }[]) {
+      const arr = tagNamesByPost.get(t.post_id) ?? [];
+      const nm = taggedNames.get(t.user_id);
+      if (nm) arr.push(nm);
+      tagNamesByPost.set(t.post_id, arr);
+    }
+    const origIds = [...new Set(((postRows ?? []) as { id: string; repost_of: string | null }[]).map((r) => r.repost_of).filter((x): x is string => !!x))];
+    if (origIds.length) {
+      const { data: origs } = await supabase.from("posts").select("id, author_id, body").in("id", origIds);
+      const origAuthorIds = [...new Set(((origs ?? []) as { author_id: string }[]).map((o) => o.author_id))];
+      const origNames = new Map<string, string>();
+      if (origAuthorIds.length) {
+        const { data: ops } = await supabase.from("profiles").select("id, display_name").in("id", origAuthorIds);
+        for (const p of (ops ?? []) as { id: string; display_name: string }[]) origNames.set(p.id, p.display_name);
+      }
+      const origById = new Map(((origs ?? []) as { id: string; author_id: string; body: string | null }[]).map((o) => [o.id, o]));
+      for (const r of (postRows ?? []) as { id: string; repost_of: string | null }[]) {
+        const o = r.repost_of ? origById.get(r.repost_of) : null;
+        if (o) repostInfo.set(r.id, { name: origNames.get(o.author_id) ?? "a member", body: o.body });
+      }
+    }
     for (const l of likes ?? []) {
       likeCount.set(l.post_id, (likeCount.get(l.post_id) ?? 0) + 1);
       if (l.user_id === user.id) myLiked.add(l.post_id);
+    }
+    for (const c of (cmts ?? []) as { post_id: string }[]) {
+      commentCount.set(c.post_id, (commentCount.get(c.post_id) ?? 0) + 1);
     }
   }
 
@@ -278,7 +321,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       accent: s.accent,
       when: item.published_at,
       text: isPost ? (item.actorName ?? "A Klimr member") : (item.title ?? s.label),
-      sub: isPost ? item.body : `${item.body}${item.city ? ` · ${item.city}` : ""}`,
+      sub: isPost ? (item.object_id && repostInfo.has(item.object_id) ? repostInfo.get(item.object_id)?.body ?? null : item.body) : `${item.body}${item.city ? ` · ${item.city}` : ""}`,
       href: item.link_url,
       sport: item.sport_key,
       inCircle: item.inCircle,
@@ -286,9 +329,74 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       postId: isPost ? item.object_id : null,
       likeCount: isPost && item.object_id ? likeCount.get(item.object_id) ?? 0 : 0,
       liked: isPost && item.object_id ? myLiked.has(item.object_id) : false,
+      commentCount: isPost && item.object_id ? commentCount.get(item.object_id) ?? 0 : 0,
+      reposted: isPost && item.object_id ? myReposted.has(item.object_id) : false,
+      repostOfName: isPost && item.object_id ? repostInfo.get(item.object_id)?.name ?? null : null,
+      tagNames: isPost && item.object_id ? tagNamesByPost.get(item.object_id) ?? [] : [],
     };
   });
   const upcomingCount = (upcomingMatches ?? []).length;
+
+  // Discover — people-you-may-know (0099 graph RPC) + soonest upcoming events.
+  const [{ data: pymkRows }, { data: upEvents }] = await Promise.all([
+    supabase.rpc("people_you_may_know", { p_limit: 5 }),
+    supabase
+      .from("events")
+      .select("id, title, sport_key, starts_at")
+      .eq("status", "published")
+      .is("cancelled_at", null)
+      .gte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(3),
+  ]);
+  const discoverPeople: DiscoverPerson[] = ((pymkRows ?? []) as {
+    user_id: string; display_name: string; avatar_hue: number; avatar_path: string | null;
+    mutual_count: number; shared_sports: string[]; same_area: string | null; played_together: number;
+  }[]).map((r) => ({
+    id: r.user_id,
+    name: r.display_name,
+    hue: r.avatar_hue,
+    avatarUrl: r.avatar_path ? supabase.storage.from("avatars").getPublicUrl(r.avatar_path).data.publicUrl : null,
+    context:
+      r.played_together > 0
+        ? `Played together ${r.played_together}×`
+        : r.mutual_count > 0
+          ? `${r.mutual_count} mutual connection${r.mutual_count === 1 ? "" : "s"}`
+          : r.shared_sports.length
+            ? `Also plays ${r.shared_sports[0]}`
+            : (r.same_area ?? "In your area"),
+  }));
+  const discoverEvents: DiscoverEvent[] = ((upEvents ?? []) as { id: string; title: string; sport_key: string | null; starts_at: string }[]).map((e) => ({
+    id: e.id,
+    title: e.title,
+    sport: e.sport_key,
+    whenLabel: new Date(e.starts_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+  }));
+
+  // My pending tag requests — consent before my name appears anywhere.
+  let tagRequests: TagRequestItem[] = [];
+  const { data: pendingTags } = await supabase
+    .from("post_tags")
+    .select("id, post_id, tagged_by")
+    .eq("user_id", user.id)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (pendingTags?.length) {
+    const pIds = [...new Set(pendingTags.map((t) => t.post_id))];
+    const tIds = [...new Set(pendingTags.map((t) => t.tagged_by))];
+    const [{ data: tposts }, { data: tprofs }] = await Promise.all([
+      supabase.from("posts").select("id, body").in("id", pIds),
+      supabase.from("profiles").select("id, display_name").in("id", tIds),
+    ]);
+    const bodyOf = new Map(((tposts ?? []) as { id: string; body: string | null }[]).map((x) => [x.id, x.body]));
+    const nameOf2 = new Map(((tprofs ?? []) as { id: string; display_name: string }[]).map((x) => [x.id, x.display_name]));
+    tagRequests = pendingTags.map((t) => ({
+      tagId: t.id,
+      taggerName: nameOf2.get(t.tagged_by) ?? "A member",
+      excerpt: (bodyOf.get(t.post_id) ?? "").slice(0, 80),
+    }));
+  }
 
   return (
     <div className="mx-auto max-w-page px-[30px] pb-16 pt-[22px]">
@@ -375,8 +483,9 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
             </div>
           </div>
           <FeedLivePill />
+          <TagRequests items={tagRequests} />
           <FeedComposer />
-          <FeedWire rows={wireRows} />
+          <FeedWire rows={wireRows} discover={{ people: discoverPeople, events: discoverEvents }} />
         </div>
 
         <aside className="min-w-0 space-y-4">
@@ -454,6 +563,9 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
               ))}
             </div>
           </div>
+
+          <DiscoverPeople people={discoverPeople} />
+          <DiscoverEvents events={discoverEvents} />
 
           {/* Sponsor slot — honest reserved card (§2.4) */}
           <div className="rounded-[18px] border border-rule bg-surface p-4" style={{ backgroundImage: "repeating-linear-gradient(135deg, rgba(32,27,18,.018) 0 10px, transparent 10px 20px)" }}>

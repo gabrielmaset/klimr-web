@@ -660,3 +660,71 @@ export async function setEventQueuePaused(formData: FormData) {
   revalidatePath(`/queue/${s.id}`);
 }
 
+
+/* ============ Event Pulse — organizer liveness controls ============ */
+/* Thin wrappers over SECURITY DEFINER RPCs (migration 0130); the RPCs do the
+   organizer check, state validation, and audit. Forms return void by rule. */
+
+async function livenessRpc(
+  fn: "liveness_skip_occurrence" | "liveness_unskip_occurrence" | "liveness_pause_series" | "liveness_resume_series" | "liveness_end_series",
+  args: Record<string, string>,
+  eventId: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in required." };
+  const { data, error } = await supabase.rpc(fn, args as never);
+  if (error) return { error: error.message };
+  const j = (data ?? {}) as { ok?: boolean; error?: string };
+  if (!j.ok) {
+    const map: Record<string, string> = {
+      not_organizer: "Only the organizer can do that.",
+      date_past: "That date has already passed.",
+      already_closed: "That occurrence has already been recorded.",
+      not_skipped: "That date isn't skipped.",
+      bad_until: "Pick a resume date within the next 6 months.",
+      not_paused: "The series isn't paused.",
+      not_found: "Event not found.",
+    };
+    return { error: map[j.error ?? ""] ?? "Couldn't update the schedule." };
+  }
+  revalidatePath(`/events/${eventId}`);
+  return {};
+}
+
+export async function skipOccurrence(formData: FormData): Promise<void> {
+  const eventId = String(formData.get("eventId") ?? "");
+  const date = String(formData.get("date") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+  if (!eventId || !date) return;
+  await livenessRpc("liveness_skip_occurrence", note ? { p_event: eventId, p_date: date, p_note: note } : { p_event: eventId, p_date: date }, eventId);
+}
+
+export async function unskipOccurrence(formData: FormData): Promise<void> {
+  const eventId = String(formData.get("eventId") ?? "");
+  const date = String(formData.get("date") ?? "");
+  if (!eventId || !date) return;
+  await livenessRpc("liveness_unskip_occurrence", { p_event: eventId, p_date: date }, eventId);
+}
+
+export async function pauseSeries(formData: FormData): Promise<void> {
+  const eventId = String(formData.get("eventId") ?? "");
+  const until = String(formData.get("until") ?? "");
+  if (!eventId || !until) return;
+  const untilISO = new Date(`${until}T23:59:00`).toISOString();
+  await livenessRpc("liveness_pause_series", { p_event: eventId, p_until: untilISO }, eventId);
+}
+
+export async function resumeSeries(formData: FormData): Promise<void> {
+  const eventId = String(formData.get("eventId") ?? "");
+  if (!eventId) return;
+  await livenessRpc("liveness_resume_series", { p_event: eventId }, eventId);
+}
+
+/** Used by DangerConfirm (needs the {error} shape back, not a form action). */
+export async function endSeries(eventId: string): Promise<{ error?: string } | void> {
+  const res = await livenessRpc("liveness_end_series", { p_event: eventId }, eventId);
+  if (res.error) return { error: res.error };
+}

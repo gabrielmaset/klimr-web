@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Trash2 } from "lucide-react";
+import { Trash2, Zap } from "lucide-react";
 import { togglePostLike, deleteOwnPost } from "@/app/feed/actions";
 
 /** Heart + delete-own controls on a member post card. Optimistic heart. */
@@ -18,7 +18,7 @@ export function FeedPostActions({ postId, initialCount, initialLiked, mine }: { 
       <button
         type="button"
         aria-pressed={liked}
-        aria-label={liked ? "Unlike" : "Like"}
+        aria-label={liked ? "Undo ace" : "Ace this post"}
         onClick={() => {
           const next = !liked;
           setLiked(next);
@@ -33,7 +33,7 @@ export function FeedPostActions({ postId, initialCount, initialLiked, mine }: { 
         }}
         className="press inline-flex items-center gap-1.5 text-xs font-bold"
       >
-        <Heart size={15} className={liked ? "fill-[#E23E0D] text-[#E23E0D]" : "text-mute"} />
+        <Zap size={15} className={liked ? "fill-[#E23E0D] text-[#E23E0D]" : "text-mute"} />
         <span className={liked ? "text-[#E23E0D]" : "text-mute"}>{count > 0 ? count : ""}</span>
       </button>
       {mine ? (

@@ -45,6 +45,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let avatarUrl: string | null = null;
   let avatarHue = 200;
   let avatarName = user?.email ?? "You";
+let showBusiness = false;
   let adminRole: string | null = null;
   let unread = 0;
   let chatUnread = 0;
@@ -73,6 +74,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     // Admin role drives the SideNav admin link (not part of the shared bar).
     const { data: r } = await supabase.rpc("current_admin_role");
     adminRole = typeof r === "string" ? r : null;
+    const { data: bizFlag } = await supabase
+      .from("feature_flags")
+      .select("enabled")
+      .eq("key", "business_publication")
+      .maybeSingle();
+    showBusiness = !!bizFlag?.enabled;
 
     // Everything the global TopBar needs (teams, unread, chat, presence, next
     // match) comes from one shared helper so the workspaces show the same bar.
@@ -99,6 +106,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       avatarName={avatarName}
       email={user?.email ?? null}
       adminRole={!!adminRole}
+      showBusiness={showBusiness}
       presenceMode={presenceMode}
       teams={teams}
       chatUnread={chatUnread}

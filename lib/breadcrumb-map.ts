@@ -55,6 +55,10 @@ export const SEGMENT_LABELS: Record<string, string> = {
   export: "Export",
   // admin sections
   moderation: "Moderation",
+  liveness: "Event Pulse",
+  b: "Business",
+  business: "Business",
+  businesses: "Businesses",
   users: "Users",
   providers: "Providers",
   broadcast: "Broadcast",
