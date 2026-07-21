@@ -341,3 +341,77 @@ export async function retractTag(formData: FormData): Promise<void> {
   await supabase.from("post_tags").delete().eq("id", tagId).eq("tagged_by", user.id);
   revalidatePath("/feed");
 }
+
+/** Feed v2 — request a signed upload slot in feed-media for the composer.
+ *  Path is always {user.id}/... so the bucket's own-folder RLS holds; the
+ *  client uploads directly, then submits the post with the returned path. */
+export async function prepareFeedMediaUpload(input: {
+  kind: "photo" | "video";
+  contentType: string;
+  ext: string;
+}): Promise<{ ok: boolean; path?: string; token?: string; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sign in first." };
+  if (!(await accountActive(supabase, user.id))) return { ok: false, error: "Account inactive." };
+  const okImage = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const okVideo = ["video/mp4", "video/webm", "video/quicktime"];
+  const allowed = input.kind === "photo" ? okImage : okVideo;
+  if (!allowed.includes(input.contentType)) return { ok: false, error: "Unsupported file type." };
+  const ext = input.ext.replace(/[^a-z0-9]/gi, "").slice(0, 5).toLowerCase() || "bin";
+  const path = `${user.id}/${input.kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { data, error } = await supabase.storage.from("feed-media").createSignedUploadUrl(path);
+  if (error || !data) return { ok: false, error: "Could not start the upload." };
+  return { ok: true, path, token: data.token };
+}
+
+/** Feed v2 — typed member posts (post / photo / video / ask / milestone).
+ *  Same honest moderation pipeline as classic posts; media path must live in
+ *  the caller's own folder; clips are capped at 30 seconds (DB check is the
+ *  backstop). Match reports never come through here — create_match_post()
+ *  is the ranked-result seam. */
+export async function createTypedFeedPost(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  if (!(await accountActive(supabase, user.id))) return;
+  const rawType = String(formData.get("post_type") ?? "post");
+  const postType = ["post", "photo", "video", "ask", "milestone"].includes(rawType) ? rawType : "post";
+  const body = String(formData.get("body") ?? "").trim().slice(0, 500);
+  const sport = String(formData.get("sport") ?? "").trim() || null;
+  const mediaPathRaw = String(formData.get("media_path") ?? "").trim();
+  const durationRaw = Number(formData.get("media_duration_seconds") ?? 0);
+  const milestoneLabel = String(formData.get("milestone_label") ?? "").trim().slice(0, 120);
+
+  const needsMedia = postType === "photo" || postType === "video";
+  const mediaPath = mediaPathRaw && mediaPathRaw.startsWith(`${user.id}/`) && !mediaPathRaw.includes("..") ? mediaPathRaw : null;
+  if (needsMedia && !mediaPath) return;
+  if (!needsMedia && body.length < 2) return;
+  const duration = postType === "video" ? Math.min(31, Math.max(1, Math.round(durationRaw) || 1)) : null;
+
+  const { data: inserted } = await supabase
+    .from("posts")
+    .insert({
+      author_id: user.id,
+      body: body || null,
+      sport_key: sport,
+      post_type: postType,
+      media_path: mediaPath,
+      media_duration_seconds: duration,
+      milestone: postType === "milestone" && milestoneLabel ? { label: milestoneLabel } : null,
+    })
+    .select("id")
+    .maybeSingle();
+  if (!inserted) return;
+  const v = await moderateText(body || milestoneLabel || postType);
+  const admin = createAdminClient();
+  await admin
+    .from("posts")
+    .update({ moderation_status: v.allowed ? "approved" : "rejected", moderation_labels: v.categories.length ? v.categories : null })
+    .eq("id", inserted.id);
+  revalidatePath("/feed");
+}

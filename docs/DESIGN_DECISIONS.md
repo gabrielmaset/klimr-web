@@ -166,6 +166,35 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-21 — Feed v2 (migration 0139): the real social feed
+
+The read-only wire is replaced by a chronological social feed built to Gabriel's
+Claude-Design handoff (KLIMR-FEED-HANDOFF.md — reference-exact). Posts are now
+TYPED: photo, highlight (video), ask, milestone, plain post, and match — with
+0139 adding post_type/media_path/media_duration_seconds/milestone/match_summary
+to posts, the public feed-media bucket (own-folder RLS, images + clips), and a
+30-second clip cap enforced twice (client duration probe + DB check 1..31s).
+The composer offers exactly the four research-driven chips; match reports are
+NOT composable — they auto-generate via public.create_match_post(), a
+SECURITY DEFINER, participant-guarded, idempotent-per-author+match seam that
+the future ranked-result confirmation flow calls in one line (result capture
+itself is Phase-3 rankings work, so no trigger yet by design). Feed mechanics:
+Nearby/Your-circle scopes (circle = accepted friendships; blocks filter),
+underline type tabs with live mono count chips, scope+type in the URL, strictly
+newest-first, a real caught-up terminator, and the old wire folded into one
+compact expandable digest card on the All tab. Actions: Ace (tennis-ball icon,
+pop animation, reduced-motion aware, optimistic via togglePostLike), Comments
+(lazy flat thread), Share (Send to a chat / Copy link — chats are E2E-encrypted
+so v1 copies the link and routes to /chats; a deep in-chat picker is follow-up).
+REPOSTS ARE RETIRED from the UI ("No reposts on Klimr — sharing is
+person-to-person"); the 0133 tables remain harmlessly. Pill buttons are gone
+from the feed per the retired-pill rule — rounded-rectangle geometry throughout.
+The next-match hero and ticker left the page (reference-exact layout); the
+sidebar carries the altitude flame card, the four-principle promise card,
+Happening soon, People you may know, and the single labeled sponsor slot.
+TagRequests consent stays on the feed (prop is items=). Dead hero/ticker code
+and their queries were purged; eslint is at zero warnings.
+
 ### 2026-07-21 — Business portal restructure (no migration): Gabriel's clarified UX model
 
 Course correction from Gabriel, executed in full. The Business system complements the

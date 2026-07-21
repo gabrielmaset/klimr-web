@@ -601,6 +601,11 @@ export interface Database {
           moderation_labels: string[] | null;
           author_type: string;
           repost_of: string | null;
+          post_type: string;
+          media_path: string | null;
+          media_duration_seconds: number | null;
+          milestone: Json | null;
+          match_summary: Json | null;
           created_at: string;
         };
         Insert: {
@@ -613,9 +618,19 @@ export interface Database {
           moderation_labels?: string[] | null;
           author_type?: string;
           repost_of?: string | null;
+          post_type?: string;
+          media_path?: string | null;
+          media_duration_seconds?: number | null;
+          milestone?: Json | null;
+          match_summary?: Json | null;
           created_at?: string;
         };
         Update: {
+          post_type?: string;
+          media_path?: string | null;
+          media_duration_seconds?: number | null;
+          milestone?: Json | null;
+          match_summary?: Json | null;
           body?: string | null;
           sport_key?: string | null;
           match_id?: string | null;
@@ -1835,6 +1850,10 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      create_match_post: {
+        Args: { p_match_id: string; p_opponent: string; p_score: string; p_court: string; p_note?: string };
+        Returns: string;
+      };
       liveness_run: { Args: { p_grace_hours?: number; p_job_id?: string }; Returns: Json };
       is_business_manager: { Args: { p_business: string; p_uid: string }; Returns: boolean };
       respond_sponsorship: { Args: { p_id: string; p_accept: boolean }; Returns: Json };
