@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notify";
-import { moderateText } from "@/lib/moderation";
+import { moderateText, moderateImage } from "@/lib/moderation";
 import { accountActive } from "@/lib/guards";
 
 /** Share a post with players nearby. The 0006 trigger forces every user-client
@@ -51,6 +51,12 @@ export async function addPostComment(input: {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sign in to comment." };
   if (!(await accountActive(supabase, user.id))) return { error: "Your account can't comment right now." };
+  const { count: recentComments } = await supabase
+    .from("post_comments")
+    .select("id", { count: "exact", head: true })
+    .eq("author_id", user.id)
+    .gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
+  if ((recentComments ?? 0) >= 60) return { error: "You've hit the hourly comment limit — back to the court for a bit." };
   const body = input.body.trim().slice(0, 500);
   if (body.length < 1) return { error: "Write something first." };
   const postId = input.postId;
@@ -356,6 +362,17 @@ export async function prepareFeedMediaUpload(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Sign in first." };
   if (!(await accountActive(supabase, user.id))) return { ok: false, error: "Account inactive." };
+  const { count: recentPosts } = await supabase
+    .from("posts")
+    .select("id", { count: "exact", head: true })
+    .eq("author_id", user.id)
+    .gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
+  if ((recentPosts ?? 0) >= 15) return { ok: false, error: "You've hit the hourly posting limit." };
+  const { data: recentObjects } = await createAdminClient()
+    .storage.from("feed-media")
+    .list(user.id, { limit: 60, sortBy: { column: "created_at", order: "desc" } });
+  const uploadsLastHour = (recentObjects ?? []).filter((o) => o.created_at && Date.parse(o.created_at) > Date.now() - 3_600_000).length;
+  if (uploadsLastHour >= 30) return { ok: false, error: "You've hit the hourly upload limit." };
   const okImage = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   const okVideo = ["video/mp4", "video/webm", "video/quicktime"];
   const allowed = input.kind === "photo" ? okImage : okVideo;
@@ -367,20 +384,39 @@ export async function prepareFeedMediaUpload(input: {
   return { ok: true, path, token: data.token };
 }
 
-/** Feed v2 — typed member posts (post / photo / video / ask / milestone).
- *  Same honest moderation pipeline as classic posts; media path must live in
- *  the caller's own folder; clips are capped at 30 seconds (DB check is the
- *  backstop). Match reports never come through here — create_match_post()
- *  is the ranked-result seam. */
-export async function createTypedFeedPost(formData: FormData): Promise<void> {
+/** Feed v2 — typed member posts (post / photo / video / ask / milestone), with
+ *  per-post audience and an HONEST result: the composer always learns exactly
+ *  what happened. States:
+ *    approved — visible per audience rules immediately;
+ *    pending  — the safety gate could not run (or a large image awaits review):
+ *               only the author sees it, wearing an IN REVIEW chip;
+ *    rejected — the classifier flagged it: author-only NOT PUBLISHED chip, and
+ *               any uploaded media is deleted on the spot.
+ *  Gate-infrastructure labels (moderation_error / moderation_unconfigured /
+ *  image_review) route to pending — a broken classifier must never look like
+ *  a content verdict. Match reports still come only from create_match_post(). */
+export type CreatePostResult = { ok: boolean; status?: "approved" | "pending" | "rejected"; error?: string };
+
+const GATE_DOWN = new Set(["moderation_error", "moderation_unconfigured", "image_review"]);
+
+export async function createTypedFeedPost(formData: FormData): Promise<CreatePostResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
-  if (!(await accountActive(supabase, user.id))) return;
+  if (!user) return { ok: false, error: "Sign in first." };
+  if (!(await accountActive(supabase, user.id))) return { ok: false, error: "Your account isn't active." };
+  const { count: recentPosts } = await supabase
+    .from("posts")
+    .select("id", { count: "exact", head: true })
+    .eq("author_id", user.id)
+    .gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
+  if ((recentPosts ?? 0) >= 15) return { ok: false, error: "You've hit the hourly posting limit — let the feed breathe." };
+
   const rawType = String(formData.get("post_type") ?? "post");
   const postType = ["post", "photo", "video", "ask", "milestone"].includes(rawType) ? rawType : "post";
+  const rawAud = String(formData.get("audience") ?? "public");
+  const audience = ["public", "followers", "friends"].includes(rawAud) ? rawAud : "public";
   const body = String(formData.get("body") ?? "").trim().slice(0, 500);
   const sport = String(formData.get("sport") ?? "").trim() || null;
   const mediaPathRaw = String(formData.get("media_path") ?? "").trim();
@@ -389,29 +425,66 @@ export async function createTypedFeedPost(formData: FormData): Promise<void> {
 
   const needsMedia = postType === "photo" || postType === "video";
   const mediaPath = mediaPathRaw && mediaPathRaw.startsWith(`${user.id}/`) && !mediaPathRaw.includes("..") ? mediaPathRaw : null;
-  if (needsMedia && !mediaPath) return;
-  if (!needsMedia && body.length < 2) return;
+  if (needsMedia && !mediaPath) return { ok: false, error: "Attach the photo or clip first." };
+  if (!needsMedia && body.length < 2) return { ok: false, error: "Write a couple of words first." };
   const duration = postType === "video" ? Math.min(31, Math.max(1, Math.round(durationRaw) || 1)) : null;
 
-  const { data: inserted } = await supabase
+  const { data: inserted, error: insErr } = await supabase
     .from("posts")
     .insert({
       author_id: user.id,
       body: body || null,
       sport_key: sport,
       post_type: postType,
+      audience,
       media_path: mediaPath,
       media_duration_seconds: duration,
       milestone: postType === "milestone" && milestoneLabel ? { label: milestoneLabel } : null,
     })
     .select("id")
     .maybeSingle();
-  if (!inserted) return;
-  const v = await moderateText(body || milestoneLabel || postType);
+  if (insErr || !inserted) {
+    console.error("[feed] post insert failed", insErr?.message);
+    return { ok: false, error: "Could not save the post — try again." };
+  }
+
   const admin = createAdminClient();
-  await admin
+  const verdicts = [await moderateText(body || milestoneLabel || postType)];
+  const extraLabels: string[] = [];
+  if (postType === "photo" && mediaPath) {
+    const { data: file } = await admin.storage.from("feed-media").download(mediaPath);
+    if (!file) {
+      verdicts.push({ allowed: false, categories: ["moderation_error"], reason: "Could not read the upload." });
+    } else {
+      const buf = Buffer.from(await file.arrayBuffer());
+      if (buf.byteLength <= 4_500_000) {
+        verdicts.push(await moderateImage(buf.toString("base64"), file.type || "image/jpeg"));
+      } else {
+        verdicts.push({ allowed: false, categories: ["image_review"], reason: "Large image queued for review." });
+      }
+    }
+  }
+  if (postType === "video") extraLabels.push("media_unscreened");
+
+  const labels = [...new Set([...verdicts.flatMap((v) => v.categories), ...extraLabels])];
+  const flagged = verdicts.some((v) => !v.allowed && v.categories.some((c) => !GATE_DOWN.has(c)));
+  const gateDown = !flagged && verdicts.some((v) => !v.allowed);
+  const status: "approved" | "pending" | "rejected" = flagged ? "rejected" : gateDown ? "pending" : "approved";
+
+  if (status === "rejected" && mediaPath) {
+    await admin.storage.from("feed-media").remove([mediaPath]);
+  }
+  const { error: pubErr } = await admin
     .from("posts")
-    .update({ moderation_status: v.allowed ? "approved" : "rejected", moderation_labels: v.categories.length ? v.categories : null })
+    .update({ moderation_status: status, moderation_labels: labels.length ? labels : null })
     .eq("id", inserted.id);
+  if (pubErr) {
+    // Service-role publish failed (bad env, network) — the row stays pending, the
+    // author still sees it with the IN REVIEW chip. Loud in the logs.
+    console.error("[feed] moderation publish failed", pubErr.message);
+    revalidatePath("/feed");
+    return { ok: true, status: "pending" };
+  }
   revalidatePath("/feed");
+  return { ok: true, status };
 }

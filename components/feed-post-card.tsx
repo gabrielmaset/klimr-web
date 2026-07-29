@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { BadgeCheck, MessagesSquare, Send, Link2, MessageCircle, Play, Trophy, Loader2 } from "lucide-react";
+import { BadgeCheck, MessagesSquare, Send, Link2, MessageCircle, Play, Trophy, Loader2, Users, Lock } from "lucide-react";
 import { SportIcon } from "@/components/sport-icons";
 import { sportMeta } from "@/lib/sports";
 import { togglePostLike, addPostComment, listPostComments, type ThreadComment } from "@/app/feed/actions";
@@ -49,6 +49,8 @@ export type FeedPostView = {
   aces: number;
   aced: boolean;
   comments: number;
+  status: "approved" | "pending" | "rejected";
+  audience: "public" | "followers" | "friends";
 };
 
 const disc = (h: number) => `linear-gradient(145deg, hsl(${h},70%,52%), hsl(${(h + 24) % 360},66%,42%))`;
@@ -164,6 +166,24 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
               {t.label}
             </span>
             <span className="font-mono text-[9.5px] text-faint">{post.meta}</span>
+            {post.audience === "friends" ? (
+              <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold tracking-[0.08em] text-faint" title="Friends only">
+                <Lock size={10} /> FRIENDS
+              </span>
+            ) : post.audience === "followers" ? (
+              <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold tracking-[0.08em] text-faint" title="Friends & followers">
+                <Users size={10} /> FRIENDS+
+              </span>
+            ) : null}
+            {post.status === "pending" ? (
+              <span className="rounded-md bg-[#FDF3DD] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#B45309]">
+                IN REVIEW · ONLY YOU
+              </span>
+            ) : post.status === "rejected" ? (
+              <span className="rounded-md bg-[#FDECEC] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#B42318]">
+                NOT PUBLISHED
+              </span>
+            ) : null}
           </div>
         </div>
         {sm && post.sport ? (

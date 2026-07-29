@@ -85,7 +85,7 @@ begin
   select pr.display_name into v_name from public.profiles pr where pr.id = v_uid;
   insert into public.posts (author_id, author_type, post_type, body, sport_key, match_id, match_summary, moderation_status)
   values (
-    v_uid, 'member', 'match', nullif(p_note, ''), v_sport, p_match_id,
+    v_uid, 'user', 'match', nullif(p_note, ''), v_sport, p_match_id,
     jsonb_build_object('winner', coalesce(v_name, 'Winner'), 'opponent', p_opponent, 'score', p_score, 'court', p_court),
     'approved'
   ) returning id into v_post_id;

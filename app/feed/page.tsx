@@ -8,6 +8,7 @@ import { FeedComposer } from "@/components/feed-composer";
 import { DiscoverPeople, DiscoverEvents, type DiscoverPerson, type DiscoverEvent } from "@/components/discover-modules";
 import { TagRequests, type TagRequestItem } from "@/components/tag-requests";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { sportMeta } from "@/lib/sports";
 import { PageHeader } from "@/components/page-header";
@@ -334,14 +335,15 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     const d = Math.round(h / 24);
     return d <= 1 ? "YESTERDAY" : `${d}D AGO`;
   };
-  const { data: v2Rows } = await supabase
+  const { data: v2Rows, error: v2Err } = await supabase
     .from("posts")
-    .select("id, author_id, body, sport_key, post_type, media_path, media_duration_seconds, milestone, match_summary, created_at")
-    .eq("moderation_status", "approved")
-    .eq("author_type", "member")
+    .select("id, author_id, body, sport_key, post_type, media_path, media_duration_seconds, milestone, match_summary, audience, moderation_status, created_at")
+    // Visibility is fully governed by RLS (0140/0142): approved posts per
+    // audience + blocks, plus the author's own posts in any status.
     .is("repost_of", null)
     .order("created_at", { ascending: false })
     .limit(60);
+  if (v2Err) console.error("[feed] posts query failed", v2Err.message);
   const scopedPosts = (v2Rows ?? []).filter((p) => {
     if (blocked.has(p.author_id)) return false;
     if (lane === "circle") return p.author_id === user.id || circle.has(p.author_id);
@@ -377,6 +379,13 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       });
     }
   }
+  // Private bucket → per-render signed URLs, one batched admin call.
+  const mediaPaths = visiblePosts.map((p) => p.media_path).filter((x): x is string => !!x);
+  const signedMedia = new Map<string, string>();
+  if (mediaPaths.length) {
+    const { data: signed } = await createAdminClient().storage.from("feed-media").createSignedUrls(mediaPaths, 3600);
+    for (const s of signed ?? []) if (s.path && s.signedUrl) signedMedia.set(s.path, s.signedUrl);
+  }
   const initialsOf = (name: string) =>
     name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "K";
   const feedPosts: FeedPostView[] = visiblePosts.map((p) => {
@@ -384,7 +393,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     const area = author.zip ? lookupZip(author.zip)?.city ?? "Klimr" : "Klimr";
     const ms = (p.milestone ?? null) as { label?: string; rank?: string; place?: string } | null;
     const match = (p.match_summary ?? null) as { winner: string; opponent: string; score: string; court: string } | null;
-    const mediaUrl = p.media_path ? supabase.storage.from("feed-media").getPublicUrl(p.media_path).data.publicUrl : null;
+    const mediaUrl = p.media_path ? signedMedia.get(p.media_path) ?? null : null;
     const dur = p.media_duration_seconds;
     return {
       id: p.id,
@@ -404,6 +413,8 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       aces: v2Likes.get(p.id) ?? 0,
       aced: v2Mine.has(p.id),
       comments: v2Comments.get(p.id) ?? 0,
+      status: (p.moderation_status === "approved" || p.moderation_status === "rejected" ? p.moderation_status : "pending") as FeedPostView["status"],
+      audience: (["public", "followers", "friends"].includes(p.audience) ? p.audience : "public") as FeedPostView["audience"],
     };
   });
   const viewer = { initials: initialsOf(profile?.display_name ?? "You"), hue: profile?.avatar_hue ?? 200 };

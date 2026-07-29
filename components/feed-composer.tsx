@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Image as ImageIcon, Video, MessagesSquare, Trophy, Send, Loader2, X } from "lucide-react";
+import { Image as ImageIcon, Video, MessagesSquare, Trophy, Send, Loader2, X, Globe, Users, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { createTypedFeedPost, prepareFeedMediaUpload } from "@/app/feed/actions";
 
@@ -21,6 +21,8 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
   const fileRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState("");
   const [type, setType] = useState<PostType | null>(null);
+  const [audience, setAudience] = useState<"public" | "followers" | "friends">("public");
+  const [note, setNote] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
@@ -116,10 +118,22 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
       if (mediaPath) fd.set("media_path", mediaPath);
       if (type === "video" && duration) fd.set("media_duration_seconds", String(duration));
       if (type === "milestone") fd.set("milestone_label", body.trim().slice(0, 120));
-      await createTypedFeedPost(fd);
+      fd.set("audience", audience);
+      const res = await createTypedFeedPost(fd);
+      if (!res.ok) {
+        setErr(res.error ?? "Could not post — try again.");
+        return;
+      }
       setBody("");
       setType(null);
       clearMedia();
+      setNote(
+        res.status === "pending"
+          ? "Posted — it's in review, so only you can see it until it clears."
+          : res.status === "rejected"
+            ? "That didn't pass the content check — it's saved on your feed as not published."
+            : null
+      );
       router.refresh();
     });
   };
@@ -135,7 +149,7 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
         </span>
         <input
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => { setBody(e.target.value); setNote(null); }}
           onKeyDown={(e) => {
             if (e.key === "Enter") post();
           }}
@@ -176,7 +190,29 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
 
-      <div className="mt-3 flex flex-wrap items-center gap-[7px]">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Who can see this</span>
+        {(
+          [
+            { key: "public", label: "Public", Icon: Globe },
+            { key: "followers", label: "Friends & followers", Icon: Users },
+            { key: "friends", label: "Friends only", Icon: Lock },
+          ] as const
+        ).map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setAudience(key)}
+            className={`press inline-flex h-[26px] items-center gap-1 rounded-[9px] border px-2.5 text-[11px] font-semibold transition-colors ${
+              audience === key ? "border-[#FFD4BC] bg-tint-brand text-brand-deep" : "border-rule-2 bg-surface text-mute hover:border-faint"
+            }`}
+          >
+            <Icon size={11} /> {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-[7px]">
         {TYPES.map(({ key, label, Icon }) => {
           const active = type === key;
           return (
@@ -206,6 +242,7 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
         </button>
       </div>
       {err ? <p className="mt-2 text-xs font-semibold text-danger">{err}</p> : null}
+      {note ? <p className="mt-2 text-xs font-semibold text-brand-deep">{note}</p> : null}
       <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-faint">
         <Trophy size={12} /> Match reports post automatically when you finish a ranked match.
       </p>

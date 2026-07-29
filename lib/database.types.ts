@@ -606,6 +606,7 @@ export interface Database {
           media_duration_seconds: number | null;
           milestone: Json | null;
           match_summary: Json | null;
+          audience: string;
           created_at: string;
         };
         Insert: {
@@ -623,6 +624,7 @@ export interface Database {
           media_duration_seconds?: number | null;
           milestone?: Json | null;
           match_summary?: Json | null;
+          audience?: string;
           created_at?: string;
         };
         Update: {
@@ -631,6 +633,7 @@ export interface Database {
           media_duration_seconds?: number | null;
           milestone?: Json | null;
           match_summary?: Json | null;
+          audience?: string;
           body?: string | null;
           sport_key?: string | null;
           match_id?: string | null;

@@ -166,6 +166,102 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-21 — Feed security audit + hardening (migration 0142)
+
+Pre-rebuild audit of the entire feed surface at Gabriel's request, with every
+finding fixed in the DATABASE first and verified in the harness with a
+non-superuser probe under the authenticated role. Confirmed already solid:
+all queries are parameterized (supabase-js/PostgREST — no string SQL
+anywhere); like/comment WRITES were post_visible()-gated since 0006, so 0140
+made them audience-aware automatically; tags policies correctly scoped;
+posts insert/update/delete are author-only with the moderation guard
+triggers on top; feed components contain zero dangerouslySetInnerHTML (React
+auto-escaping everywhere); the classifier keeps user content structurally
+separated in the user message with strict JSON-only parsing and
+unsure→disallow; bucket mime allow-list excludes SVG (an XSS vector); no
+storage UPDATE policy + upsert-off signed slots means an approved photo can
+never be swapped for different bytes after moderation; server actions carry
+Next's built-in origin check (CSRF). Findings FIXED in 0142: (1) post_likes
+was readable using(true) — full-system like enumeration, including activity
+on friends-only posts; now gated on post_visible(). (2) Blocks lived only in
+page code; now inside the posts RLS policy and post_visible() — a block
+hides both parties' posts from each other in both directions, public
+included. (3) media_path grafting: "update own post" allowed pointing
+media_path at any string, including a path copied from a friend's visible
+post, and the renderer would sign it — re-hosting/leak vector closed with a
+two-column CHECK pinning media_path to author_id's folder. (4) Composite
+(author_id, created_at) indexes on posts and post_comments backing new
+app-level rate limits: 15 posts/hr, 60 comments/hr, 30 upload slots/hr.
+Also: the page's interpolated .or() filter removed — visibility is now
+purely the RLS boundary; classifier system prompt hardened with an explicit
+untrusted-content directive against prompt injection. Probe battery (8/8):
+block symmetry, third-party unaffected, likes leak closed, friend access
+intact, stranger like-INSERT denied by RLS, cross-folder media_path rejected
+by the check, own-folder accepted. Honest residuals, stated not hidden:
+videos publish on the text gate with a recorded media_unscreened label until
+frame sampling exists; signed URLs are shareable for their 1-hour life
+(inherent to the pattern); at-rest encryption is platform AES-256 + TLS in
+transit — posts/media are deliberately NOT end-to-end encrypted because
+server-side moderation requires readability (chats remain E2E); "hack-proof"
+is not a property any system has — verified invariants and no silent
+failure modes are.
+
+### 2026-07-21 — The vanish, actually solved (migration 0141): author_type reality
+
+Gabriel's diagnostic proved the "vanished" post was APPROVED all along — the
+moderation pipeline had worked perfectly. The real culprit: posts.author_type
+is 'user' | 'business' with a CHECK constraint (0132, default 'user'); the
+value 'member' has never existed. It came from a wrong scratch-harness mock
+after the container outage and leaked into two places: the Feed v2 page's
+.eq("author_type","member") filter — which therefore matched ZERO rows for
+all eternity — and create_match_post()'s insert, which would have violated
+the check on its first-ever call. Fixes: the page filter is DROPPED entirely
+(every posts row is feed-eligible; moderation + audience RLS govern
+visibility, and business-authored posts joining the feed later is a feature,
+not a leak), the posts query now surfaces its error to the server log instead
+of silently rendering an empty feed, and 0141 recreates the seam with 'user'.
+Second landmine defused while re-verifying with the REAL 0006 triggers
+installed in the harness: force_moderation_pending bypasses only
+current_user = 'service_role', and a SECURITY DEFINER function runs as its
+OWNER — owned by postgres, the seam's 'approved' was silently forced back to
+'pending'. 0141 therefore transfers ownership to service_role (which also
+carries BYPASSRLS in production). Full simulation now passes: approved
+survives the trigger, winner snapshot lands, idempotency holds,
+non-participants raise. Lesson recorded: never trust a scratch mock's
+defaults over the numbered migration that created the column — 0132 was on
+disk the whole time.
+
+### 2026-07-21 — Post privacy + honest publish pipeline (migration 0140)
+
+Two production findings from Gabriel's first live post, fixed as one machine.
+(1) THE VANISH: createTypedFeedPost could end in rejected (classifier flag OR
+classifier failure — fail-closed catch) or stuck-pending (service-role publish
+update failing silently), and the composer reset regardless while the page
+showed only approved rows — so even the author lost sight of their post. Now:
+the action returns { ok, status, error }; the composer resets only on ok and
+narrates non-approved outcomes; gate-INFRASTRUCTURE labels (moderation_error,
+moderation_unconfigured, image_review) route to PENDING — a broken classifier
+must never masquerade as a content verdict; the service-role update result is
+checked and logged; and the feed query shows the author their own posts in any
+status, wearing IN REVIEW · ONLY YOU or NOT PUBLISHED chips. Photos are now
+actually screened (admin download → moderateImage, ≤4.5MB; larger → pending
+'image_review'); rejected media is deleted from storage on the spot; videos
+publish on the text gate with a recorded 'media_unscreened' label until frame
+sampling exists (deliberate, documented launch pragmatism). (2) PRIVACY:
+posts.audience ('public' · 'followers' = friends+followers · 'friends'),
+ENFORCED IN THE DATABASE per the DB-level-security principle — the "posts
+readable" RLS policy and the SECURITY DEFINER post_visible() (which gates
+likes/comments/media reads) both restate the full audience rules over the
+indexed friendships/follows pair lookups; verified in the harness with a
+non-superuser probe holding the authenticated role across six scenarios
+(friend/stranger/follower/non-follower/pending-hidden/author-own-pending).
+The composer gains a Who-can-see-this selector (rounded rectangles, no
+pills); cards carry FRIENDS / FRIENDS+ markers. The 0112 wire trigger now
+emits member_post feed_items ONLY for public+approved posts and retracts on
+de-approval or audience narrowing. The feed-media bucket flipped PRIVATE:
+the page signs URLs per render in one batched admin createSignedUrls call
+(1h expiry) — a friends-only photo is no longer one public URL away.
+
 ### 2026-07-21 — Feed v2 (migration 0139): the real social feed
 
 The read-only wire is replaced by a chronological social feed built to Gabriel's
