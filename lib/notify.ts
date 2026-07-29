@@ -24,7 +24,25 @@ async function deliverPush(_input: { userId: string; kind: Kind; title: string; 
 
 /** THE notification seam. Every feature calls this — never inserts directly —
  *  so in-app rows and every future channel stay in lockstep.
- *  Best-effort: never throws to the caller. */
+ *  Best-effort: never throws to the caller.
+ *
+ *  PREFERENCE ENFORCEMENT: each kind maps to the user_preferences toggle that
+ *  governs it (null = always deliver). "system" is deliberately unmutable —
+ *  account, safety, and moderation notices bypass preferences, the industry
+ *  standard. Friend requests/accepts have no toggle by design (core social
+ *  graph). A missing prefs row means default-on. */
+const KIND_PREF: Record<Kind, "notif_match_invites" | "notif_ranking_changes" | "notif_region_challenges" | "notif_marketplace_events" | null> = {
+  match_invite: "notif_match_invites",
+  match_join: "notif_match_invites",
+  match_confirm: "notif_match_invites",
+  ranking: "notif_ranking_changes",
+  region_challenge: "notif_region_challenges",
+  marketplace: "notif_marketplace_events",
+  sponsorship: "notif_marketplace_events",
+  friend_request: null,
+  friend_accept: null,
+  system: null,
+};
 export async function createNotification(input: {
   userId: string;
   kind: Kind;
@@ -34,6 +52,15 @@ export async function createNotification(input: {
 }) {
   try {
     const admin = createAdminClient();
+    const prefCol = KIND_PREF[input.kind];
+    if (prefCol) {
+      const { data: prefs } = await admin
+        .from("user_preferences")
+        .select("notif_match_invites, notif_ranking_changes, notif_region_challenges, notif_marketplace_events")
+        .eq("user_id", input.userId)
+        .maybeSingle();
+      if (prefs && prefs[prefCol] === false) return; // muted by the recipient
+    }
     await admin.from("notifications").insert({
       user_id: input.userId,
       kind: input.kind,

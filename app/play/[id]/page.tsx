@@ -109,11 +109,12 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     const invSet = new Set(((inv as { invited_user_id: string }[] | null) ?? []).map((i) => i.invited_user_id));
     const candidateIds = friendIds.filter((fid) => !partSet.has(fid) && !invSet.has(fid));
     if (candidateIds.length) {
-      type FP = { id: string; display_name: string; avatar_hue: number | null; avatar_path: string | null; city: string | null };
+      type FP = { id: string; display_name: string; avatar_hue: number | null; avatar_path: string | null; city: string | null; open_to_invites: boolean | null };
       const { data: fp } = await supabase
         .from("profiles")
-        .select("id, display_name, avatar_hue, avatar_path, city")
-        .in("id", candidateIds);
+        .select("id, display_name, avatar_hue, avatar_path, city, open_to_invites")
+        .in("id", candidateIds)
+        .neq("open_to_invites", false);
       inviteFriends = ((fp as FP[] | null) ?? []).map((p) => ({
         id: p.id,
         display_name: p.display_name,

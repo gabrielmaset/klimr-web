@@ -7,7 +7,7 @@ import { TeamSticker } from "@/components/team-sticker";
 import { InviteSearch } from "@/app/teams/[id]/InviteSearch";
 import { MemberControls } from "@/app/teams/[id]/MemberControls";
 
-type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null };
+type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null; open_to_invites?: boolean | null };
 type FriendForInvite = { id: string; display_name: string; avatar_hue: number; avatar_url: string | null; city: string | null };
 type Stat = { points: number; skill: string | null; matches: number; wins: number };
 type PsRow = { user_id: string; points: number; skill_level: string; matches_played: number; wins: number };
@@ -62,11 +62,11 @@ export default async function TeamRoster({ params }: { params: Promise<{ teamId:
     const candidateIds = friendIds.filter((fid) => !memberIds.includes(fid) && !pendingIds.has(fid));
     const lookupIds = [...new Set([...candidateIds, ...pendingIds])];
     if (lookupIds.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path, city").in("id", lookupIds);
+      const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path, city, open_to_invites").in("id", lookupIds);
       const map = new Map(((profs as Prof[] | null) ?? []).map((p) => [p.id, p]));
       friendsForInvite = candidateIds
         .map((cid) => map.get(cid))
-        .filter(Boolean)
+        .filter((p): p is Prof => !!p && p.open_to_invites !== false)
         .map((p) => ({
           id: p!.id,
           display_name: p!.display_name,

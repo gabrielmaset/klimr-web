@@ -3,7 +3,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BadgeCheck, MapPin, ShieldCheck, Trophy, Ban, Pencil, Medal, Users, Swords, Clock, ChevronRight, Grid2x2 } from "lucide-react";
+import { BadgeCheck, MapPin, ShieldCheck, Trophy, Ban, Pencil, Medal, Users, Swords, Clock, ChevronRight, Grid2x2, Lock } from "lucide-react";
 import { RankHistoryChart, type HistoryPoint } from "@/components/rank-history-chart";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +12,7 @@ import { sportMeta } from "@/lib/sports";
 import { displayAge } from "@/lib/age";
 import { lookupZip } from "@/lib/us-places";
 import { RelationshipButtons, type FriendStatus } from "@/components/relationship-buttons";
+import { publicLocationLabel } from "@/lib/location-privacy";
 import { mapFriendshipRow, buildContextChips, type RelationshipContext } from "@/lib/social";
 import { BackPill } from "@/components/back-pill";
 import { ProfileMenu } from "@/components/profile-menu";
@@ -25,6 +26,8 @@ type Profile = {
   avatar_hue: number;
   avatar_path: string | null;
   verification_status: string;
+  open_to_invites: boolean;
+  location_precision: string | null;
   account_status: string;
   reliability: number;
   home_zip: string | null;
@@ -114,7 +117,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const { data: profileRow } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, avatar_hue, avatar_path, verification_status, account_status, reliability, home_zip, neighborhood, city, state, country, primary_sport, created_at, date_of_birth, birth_year, gear, usual_times, profile_gallery, show_courts, show_teams, show_tournaments",
+      "id, display_name, avatar_hue, avatar_path, verification_status, account_status, reliability, home_zip, neighborhood, city, state, country, primary_sport, created_at, date_of_birth, birth_year, gear, usual_times, profile_gallery, show_courts, show_teams, show_tournaments, open_to_invites, location_precision",
     )
     .eq("id", id)
     .single();
@@ -434,7 +437,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   ) : null}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mute">
-                  <span className="inline-flex items-center gap-1"><MapPin size={12} /> {[profile.neighborhood ?? profile.city, profile.state].filter(Boolean).join(", ") || "Location unset"}</span>
+                  <span className="inline-flex items-center gap-1"><MapPin size={12} /> {publicLocationLabel(profile, isSelf)}</span>
                   {age ? <span>{age}</span> : null}
                   {profile.reliability >= 85 ? (
                     <span className="inline-flex items-center gap-1 rounded-full border border-[#CFE8D5] bg-[#EFF8F0] px-2 py-0.5 font-semibold text-[#217A34]">
@@ -460,14 +463,21 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 </Link>
               ) : (
                 <>
-                  <Link
-                    href="/play/new"
-                    className="press inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-flame hover:brightness-[1.06]"
-                    style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
-                  >
-                    <Swords size={15} /> Challenge {first}
-                  </Link>
+                  {profile.open_to_invites === false ? null : (
+                    <Link
+                      href="/play/new"
+                      className="press inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-flame hover:brightness-[1.06]"
+                      style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
+                    >
+                      <Swords size={15} /> Challenge {first}
+                    </Link>
+                  )}
                   <RelationshipButtons targetId={profile.id} friendStatus={friendStatus} isFollowing={isFollowing} />
+                  {profile.open_to_invites === false ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-[10px] border border-rule-2 bg-bg px-3 py-2 text-xs font-semibold text-mute" title="This player has turned off match and team invites">
+                      <Lock size={13} /> Not open for invites
+                    </span>
+                  ) : null}
                   <ProfileMenu userId={profile.id} name={profile.display_name} alreadyReported={reported} />
                 </>
               )}

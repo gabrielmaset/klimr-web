@@ -2,7 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Image as ImageIcon, Video, MessagesSquare, Trophy, Send, Loader2, X, Globe, Users, Lock } from "lucide-react";
+import { Image as ImageIcon, Video, MessagesSquare, Trophy, Send, Loader2, X, Globe, Users, Lock, ChevronDown, Check } from "lucide-react";
+import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createTypedFeedPost, prepareFeedMediaUpload } from "@/app/feed/actions";
 
@@ -14,6 +15,13 @@ const TYPES: { key: PostType; label: string; Icon: typeof ImageIcon }[] = [
   { key: "milestone", label: "Milestone", Icon: Trophy },
 ];
 
+type Audience = "public" | "followers" | "friends";
+const AUDIENCES: { key: Audience; label: string; sub: string; Icon: typeof Globe }[] = [
+  { key: "public", label: "Public", sub: "Anyone on Klimr can see this", Icon: Globe },
+  { key: "followers", label: "Friends & followers", sub: "People you're connected with or who follow you", Icon: Users },
+  { key: "friends", label: "Friends only", sub: "Only your accepted connections", Icon: Lock },
+];
+
 /** Feed v2 composer — the four research-driven post types (photo, 30s highlight,
  *  ask, milestone). Match reports post automatically; no pills anywhere. */
 export function FeedComposer({ initials, hue }: { initials: string; hue: number }) {
@@ -21,8 +29,17 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
   const fileRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState("");
   const [type, setType] = useState<PostType | null>(null);
-  const [audience, setAudience] = useState<"public" | "followers" | "friends">("public");
+  const [audience, setAudience] = useState<Audience>("public");
+  const [audienceOpen, setAudienceOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const ActiveAudienceIcon = AUDIENCES.find((a) => a.key === audience)?.Icon ?? Globe;
+
+  useEffect(() => {
+    if (!audienceOpen) return;
+    const close = () => setAudienceOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [audienceOpen]);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
@@ -190,56 +207,83 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Who can see this</span>
-        {(
-          [
-            { key: "public", label: "Public", Icon: Globe },
-            { key: "followers", label: "Friends & followers", Icon: Users },
-            { key: "friends", label: "Friends only", Icon: Lock },
-          ] as const
-        ).map(({ key, label, Icon }) => (
+      <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-2.5 border-t border-rule-soft pt-3">
+        <div className="flex flex-wrap items-center gap-[7px]">
+          {TYPES.map(({ key, label, Icon }) => {
+            const active = type === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => pickType(key)}
+                title={label}
+                className={`press inline-flex h-[30px] items-center gap-1.5 rounded-[10px] border px-3 text-xs font-semibold transition-colors ${
+                  active ? "border-[#FFD4BC] bg-tint-brand text-brand-deep" : "border-rule-2 bg-surface text-mute hover:border-faint"
+                }`}
+              >
+                <Icon size={13.5} /> {label}
+              </button>
+            );
+          })}
+        </div>
+
+        <span className="ml-auto flex items-center gap-2">
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setAudienceOpen((o) => !o)}
+              aria-haspopup="listbox"
+              aria-expanded={audienceOpen}
+              className="press inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs font-semibold text-ink transition-colors hover:bg-hover"
+            >
+              <ActiveAudienceIcon size={13} className="text-mute" />
+              <span className="hidden sm:inline">{AUDIENCES.find((a) => a.key === audience)?.label}</span>
+              <ChevronDown size={13} className="text-faint" />
+            </button>
+            {audienceOpen ? (
+              <div
+                role="listbox"
+                className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-rule-2 bg-surface p-1 shadow-e3"
+              >
+                <p className="px-2.5 pb-1 pt-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Who can see this</p>
+                {AUDIENCES.map(({ key, label, sub, Icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="option"
+                    aria-selected={audience === key}
+                    onClick={() => {
+                      setAudience(key);
+                      setAudienceOpen(false);
+                    }}
+                    className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-hover ${
+                      audience === key ? "bg-tint-brand/60" : ""
+                    }`}
+                  >
+                    <Icon size={15} className={`mt-0.5 shrink-0 ${audience === key ? "text-brand-deep" : "text-mute"}`} />
+                    <span className="min-w-0">
+                      <span className={`block text-[13px] font-semibold ${audience === key ? "text-brand-deep" : "text-ink"}`}>{label}</span>
+                      <span className="block text-[11px] leading-snug text-faint">{sub}</span>
+                    </span>
+                    {audience === key ? <Check size={14} className="ml-auto mt-0.5 shrink-0 text-brand-deep" /> : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           <button
-            key={key}
             type="button"
-            onClick={() => setAudience(key)}
-            className={`press inline-flex h-[26px] items-center gap-1 rounded-[9px] border px-2.5 text-[11px] font-semibold transition-colors ${
-              audience === key ? "border-[#FFD4BC] bg-tint-brand text-brand-deep" : "border-rule-2 bg-surface text-mute hover:border-faint"
+            onClick={post}
+            disabled={!ready}
+            className={`press inline-flex h-8 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold transition-colors ${
+              ready ? "bg-brand text-white shadow-[0_4px_14px_-6px_rgba(214,58,15,.5)] hover:bg-[#E23E0D]" : "cursor-default bg-[#EDE7DA] text-faint"
             }`}
           >
-            <Icon size={11} /> {label}
+            {pending ? <Loader2 size={13} className="animate-spin" /> : null}
+            Post <Send size={13} />
           </button>
-        ))}
-      </div>
-
-      <div className="mt-2.5 flex flex-wrap items-center gap-[7px]">
-        {TYPES.map(({ key, label, Icon }) => {
-          const active = type === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => pickType(key)}
-              className={`press inline-flex h-[30px] items-center gap-1.5 rounded-[10px] border px-3 text-xs font-semibold transition-colors ${
-                active ? "border-[#FFD4BC] bg-tint-brand text-brand-deep" : "border-rule-2 bg-surface text-mute hover:border-faint"
-              }`}
-            >
-              <Icon size={13.5} /> {label}
-            </button>
-          );
-        })}
-        <span className="flex-1" />
-        <button
-          type="button"
-          onClick={post}
-          disabled={!ready}
-          className={`press inline-flex h-8 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold transition-colors ${
-            ready ? "bg-brand text-white shadow-[0_4px_14px_-6px_rgba(214,58,15,.5)] hover:bg-[#E23E0D]" : "cursor-default bg-[#EDE7DA] text-faint"
-          }`}
-        >
-          {pending ? <Loader2 size={13} className="animate-spin" /> : null}
-          Post <Send size={13} />
-        </button>
+        </span>
       </div>
       {err ? <p className="mt-2 text-xs font-semibold text-danger">{err}</p> : null}
       {note ? <p className="mt-2 text-xs font-semibold text-brand-deep">{note}</p> : null}

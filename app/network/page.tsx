@@ -17,6 +17,7 @@ type Prof = {
   verification_status: string;
   primary_sport: string | null;
   neighborhood: string | null;
+  location_precision?: string | null;
   city: string | null;
 };
 
@@ -70,7 +71,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
   if (allIds.length) {
     const { data } = await supabase
       .from("profiles")
-      .select("id, display_name, avatar_hue, avatar_path, verification_status, primary_sport, neighborhood, city")
+      .select("id, display_name, avatar_hue, avatar_path, verification_status, primary_sport, neighborhood, city, location_precision")
       .in("id", allIds);
     for (const p of (data as Prof[] | null) ?? []) pmap.set(p.id, p);
   }
@@ -109,7 +110,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
       sportKey: p.primary_sport ?? null,
       sportName: m?.name ?? null,
       sportEmoji: m?.emoji ?? null,
-      place: [p.neighborhood, p.city].filter(Boolean).join(", ") || null,
+      place: [p.location_precision === "city" ? null : p.neighborhood, p.city].filter(Boolean).join(", ") || null,
       addedAt,
       playedTogether: playedWith.get(id) ?? 0,
       isFriend: friendStatusById.get(id) === "friends",

@@ -43,6 +43,7 @@ export async function logAdminAction(
   targetUserId: string | null,
   detail?: string,
   targetRef?: string,
+  meta?: Record<string, unknown>,
 ): Promise<void> {
   const admin = createAdminClient();
   await admin.from("admin_actions").insert({
@@ -51,5 +52,6 @@ export async function logAdminAction(
     target_user_id: targetUserId,
     target_ref: targetRef ?? null,
     detail: detail ?? null,
+    meta: (meta ?? null) as never,
   });
 }

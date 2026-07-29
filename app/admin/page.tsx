@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
+import { StaffActionsLog, type StaffAction } from "@/components/staff-actions-log";
 
 export const metadata = { title: "Admin" };
 
@@ -35,20 +36,34 @@ export default async function AdminHome() {
     { label: "Suspended / banned", value: restricted.count ?? 0, href: "/admin/users?status=restricted", accent: (restricted.count ?? 0) > 0 },
   ];
 
-  let recentActions: { id: string; action: string; created_at: string; detail: string | null; actor_id: string | null }[] = [];
-  const actorNames = new Map<string, string>();
+  let staffActions: StaffAction[] = [];
   if (role === "superadmin") {
     const { data } = await admin
       .from("admin_actions")
-      .select("id, action, created_at, detail, actor_id")
+      .select("id, action, created_at, detail, actor_id, target_user_id, target_ref, meta")
       .order("created_at", { ascending: false })
       .limit(100);
-    recentActions = data ?? [];
-    const ids = [...new Set(recentActions.map((a) => a.actor_id).filter((x): x is string => !!x))];
-    if (ids.length) {
-      const { data: ps } = await admin.from("profiles").select("id, display_name").in("id", ids);
-      for (const x of (ps as { id: string; display_name: string }[] | null) ?? []) actorNames.set(x.id, x.display_name);
+    const rows = data ?? [];
+    const nameIds = [
+      ...new Set(
+        rows.flatMap((a) => [a.actor_id, a.target_user_id]).filter((x): x is string => !!x),
+      ),
+    ];
+    const names = new Map<string, string>();
+    if (nameIds.length) {
+      const { data: ps } = await admin.from("profiles").select("id, display_name").in("id", nameIds);
+      for (const x of (ps as { id: string; display_name: string }[] | null) ?? []) names.set(x.id, x.display_name);
     }
+    staffActions = rows.map((a) => ({
+      id: a.id,
+      action: a.action,
+      created_at: a.created_at,
+      detail: a.detail,
+      actorName: a.actor_id ? names.get(a.actor_id) ?? null : null,
+      targetName: a.target_user_id ? names.get(a.target_user_id) ?? null : null,
+      targetRef: a.target_ref,
+      meta: (a.meta as Record<string, unknown> | null) ?? null,
+    }));
   }
 
   // Currently / recently active players — proxied by a last-seen heartbeat the
@@ -124,25 +139,10 @@ export default async function AdminHome() {
             <div className="kicker text-faint">Recent staff actions</div>
             <Link href="/admin/actions" className="text-xs font-semibold text-brand-deep transition-colors hover:underline">View all &rarr;</Link>
           </div>
-          {recentActions.length === 0 ? (
+          {staffActions.length === 0 ? (
             <p className="text-sm text-mute">No actions recorded yet.</p>
           ) : (
-            <div className="max-h-[28rem] space-y-1.5 overflow-y-auto rounded-2xl border border-rule/60 bg-bg/30 p-2">
-              {recentActions.map((a) => (
-                <div key={a.id} className="rounded-xl border border-rule bg-surface shadow-e1 px-4 py-2.5 text-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-mono text-ink">{a.action}</span>
-                    <span className="shrink-0 text-faint">{new Date(a.created_at).toLocaleString("en-US")}</span>
-                  </div>
-                  {a.detail || a.actor_id ? (
-                    <p className="mt-0.5 text-xs text-mute">
-                      {a.detail ?? ""}
-                      {a.actor_id ? `${a.detail ? " · " : ""}by ${actorNames.get(a.actor_id) ?? "—"}` : ""}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
+            <StaffActionsLog actions={staffActions} />
           )}
         </div>
       ) : null}

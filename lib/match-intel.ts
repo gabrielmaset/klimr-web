@@ -53,7 +53,7 @@ export async function suggestedOpponents(supabase: SB, meId: string, sportKey: s
   const ids = candidates.map((c) => c.user_id);
   const { data: profs } = await supabase
     .from("profiles")
-    .select("id, display_name, avatar_hue, avatar_path, neighborhood, city, home_zip, state, availability, account_status")
+    .select("id, display_name, avatar_hue, avatar_path, neighborhood, city, home_zip, state, availability, account_status, location_precision")
     .in("id", ids);
   const profById = new Map((profs ?? []).map((p) => [p.id, p]));
 
@@ -66,6 +66,9 @@ export async function suggestedOpponents(supabase: SB, meId: string, sportKey: s
     const p = profById.get(c.user_id);
     if (!p) continue;
     if (p.account_status && p.account_status !== "active") continue;
+    // Location precision (0145): city-tier players never expose neighborhood —
+    // masked before scoring so reasons and output both inherit it.
+    if (p.location_precision === "city") p.neighborhood = null;
 
     const reasons: string[] = [];
     let locPts = 0;

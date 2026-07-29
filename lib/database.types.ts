@@ -209,6 +209,8 @@ export interface Database {
           country: string;
           primary_sport: string | null;
           verification_status: VerificationStatus;
+          open_to_invites: boolean;
+          location_precision: string;
           reliability: number;
           avatar_hue: number;
           avatar_path: string | null;
@@ -251,6 +253,8 @@ export interface Database {
           country?: string;
           primary_sport?: string | null;
           verification_status?: VerificationStatus;
+          open_to_invites?: boolean;
+          location_precision?: string;
           reliability?: number;
           avatar_hue?: number;
           avatar_path?: string | null;
@@ -284,6 +288,8 @@ export interface Database {
           country?: string;
           primary_sport?: string | null;
           verification_status?: VerificationStatus;
+          open_to_invites?: boolean;
+          location_precision?: string;
           reliability?: number;
           avatar_hue?: number;
           avatar_path?: string | null;
@@ -818,6 +824,7 @@ export interface Database {
           target_user_id: string | null;
           target_ref: string | null;
           detail: string | null;
+          meta: Json | null;
           created_at: string;
         };
         Insert: {
@@ -827,6 +834,7 @@ export interface Database {
           target_user_id?: string | null;
           target_ref?: string | null;
           detail?: string | null;
+          meta?: Json | null;
           created_at?: string;
         };
         Update: { detail?: string | null };

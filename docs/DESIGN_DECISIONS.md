@@ -166,6 +166,84 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-29 — Cosmetic-settings audit: notifications enforced, location precision built (0145)
+
+Follow-through on the invite-privacy finding: a full sweep of every user
+setting for cosmetic-vs-enforced. ALREADY ENFORCED: show_courts/teams/
+tournaments (profile render), who_can_invite (0144), presence, availability,
+sports, blocked, profile fields. CONFIRMED COSMETIC (nothing read them): the
+four notification toggles, email_digest, and two fields with no UI at all —
+profile_visibility and location_precision (hidden inputs only).
+
+Fixes this pass: (1) NOTIFICATIONS ENFORCED at the single seam — lib/notify.ts
+gains KIND_PREF mapping every notification kind to its user_preferences toggle
+(match_invite/join/confirm → notif_match_invites; ranking →
+notif_ranking_changes; region_challenge → notif_region_challenges;
+marketplace + sponsorship → notif_marketplace_events). "system" is
+deliberately UNMUTABLE (account/safety/moderation notices bypass prefs —
+industry standard) and friend_request/accept have no toggle by design. A
+missing prefs row = default-on; muted recipients get no row inserted.
+(2) LOCATION PRECISION BUILT AS A REAL FEATURE (0145): the existing
+value vocabulary honored ('city' | 'neighborhood' | 'zip', default
+neighborhood); mirrored to profiles.location_precision by the 0144 sync-trigger
+pattern with backfill + CHECK; lib/location-privacy.ts is THE display-rule
+module (publicLocationLabel, zipVisible, precisionOf); applied at every
+surface that shows another player's location: profile header line, the
+matchmaking engine (lib/match-intel.ts masks neighborhood BEFORE scoring so
+"Plays in X" reasons can't leak), and the network directory. The feed was
+already city-level (compliant at every tier). Rankings stay ZIP-scoped —
+the ladder IS the ZIP; precision governs profile display, not competition.
+The Privacy section finally gets the missing control (City only /
+Neighborhood / Exact ZIP). Harness: sync both directions + CHECK rejection.
+
+Deliberately NOT built: email_digest enforcement (deliverPush is a documented
+no-op seam — there is no mailer to gate; the digest is a feature, not a
+settings fix) and profile_visibility (dead field, no UI, contradicts the
+stated model that verified members are always visible — candidate for
+deletion). Both stated to Gabriel rather than silently skipped.
+
+### 2026-07-29 — Audit-trail evidence, composer polish, enforced invite privacy (0143 + 0144)
+
+Three items from Gabriel's production review.
+
+(1) STAFF-ACTION EVIDENCE (0143). The audit log recorded only bare action
+strings ("verification:verified · by Gabriel"), losing the WHAT. admin_actions
+gains a meta jsonb column and logAdminAction takes a structured snapshot,
+written at action time. Enriched: setVerification (subject name/email,
+previous→new status, and the verification_handoffs that backed the decision —
+ref, started, completed/expired), setAccountStatus (before-state + reason +
+suspended_until), reviewProviderApplication (credential type/id/jurisdiction,
+verification URL, applicant + reviewer notes, decision). The dashboard's
+"Recent staff actions" rows are now buttons opening components/
+staff-actions-log.tsx — a client overlay (fixed inset, backdrop, stopPropagation
+card) formatting meta into a labelled evidence sheet with a dedicated identity-
+handoff list. Rows with no meta (pre-0143) show a graceful "predates structured
+capture" note. The page fetch now also resolves target_user_id → name so the
+overlay names the subject, not just the actor.
+
+(2) COMPOSER POLISH. The three audience choices were pill-shaped buttons
+(retired-pill violation) in a separate row above the type chips, leaving an
+awkward stacked layout. Replaced with ONE unified toolbar: the four type chips
+left, then ml-auto pushes an audience DROPDOWN (Public / Friends & followers /
+Friends only, each with a one-line description + active check) beside the Post
+button. Dropdown uses a window-level click-away with stopPropagation on the
+trigger so the toggle doesn't self-close. No empty bands, no pills.
+
+(3) "WHO CAN INVITE ME" — NOW ENFORCED (0144). Was cosmetic: the toggle saved
+user_preferences.who_can_invite but nothing honored it. Now: a trigger mirrors
+it to profiles.open_to_invites (indexed partial index on =false), readable
+under existing profile RLS so pickers filter in one predicate. Enforcement is a
+BEFORE INSERT trigger on BOTH match_invites and team_invites — triggers bind
+the service role too (team invites are created service-side, where RLS wouldn't
+catch it), and the same trigger refuses invites across a block in either
+direction. App layer: the match picker (play/[id]) and team roster picker both
+exclude open_to_invites=false candidates; the public profile (profile/[id])
+hides the Challenge button and shows a "Not open for invites" lock chip for
+closed users (a challenge is an invite). Harness-verified with the real triggers
+installed: closed target refused even on the service path, blocked pair refused
+both directions, open target still accepted, flag syncs both ways on toggle.
+Standard applied: enforce at the data layer, reflect in the UI, never UI-only.
+
 ### 2026-07-21 — Feed security audit + hardening (migration 0142)
 
 Pre-rebuild audit of the entire feed surface at Gabriel's request, with every

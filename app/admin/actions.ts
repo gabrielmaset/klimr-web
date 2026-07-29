@@ -71,6 +71,19 @@ export async function setVerification(formData: FormData) {
   const value = String(formData.get("value")) === "verified" ? "verified" : "unverified";
 
   const admin = createAdminClient();
+  const { data: before } = await admin
+    .from("profiles")
+    .select("display_name, verification_status")
+    .eq("id", target)
+    .maybeSingle();
+  // Evidence snapshot: which cross-device handoffs backed this decision.
+  const { data: handoffs } = await admin
+    .from("verification_handoffs")
+    .select("token, created_at, consumed_at, expires_at")
+    .eq("user_id", target)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  const { data: authInfo } = await admin.auth.admin.getUserById(target);
   await admin.from("profiles").update({ verification_status: value }).eq("id", target);
   await createNotification({
     userId: target,
@@ -79,7 +92,20 @@ export async function setVerification(formData: FormData) {
     body: value === "verified" ? "The verified badge now shows on your profile." : `Status: ${value}. Contact support if this looks wrong.`,
     linkUrl: "/me",
   });
-  await logAdminAction(userId, `verification:${value}`, target);
+  await logAdminAction(userId, `verification:${value}`, target, undefined, undefined, {
+    subject_name: before?.display_name ?? null,
+    subject_email: authInfo?.user?.email ?? null,
+    previous_status: before?.verification_status ?? null,
+    new_status: value,
+    method: "cross-device identity handoff",
+    handoffs: (handoffs ?? []).map((h) => ({
+      ref: h.token.slice(0, 8),
+      started: h.created_at,
+      completed: h.consumed_at,
+      expired: h.expires_at,
+    })),
+    handoff_count: (handoffs ?? []).length,
+  });
   revalidatePath(`/admin/users/${target}`);
 }
 
@@ -96,9 +122,23 @@ export async function setAccountStatus(formData: FormData) {
       ? new Date(Date.now() + days * 86_400_000).toISOString()
       : null;
 
+  const reason = String(formData.get("reason") ?? "").trim() || null;
   const admin = createAdminClient();
+  const { data: beforeAcct } = await admin
+    .from("profiles")
+    .select("display_name, account_status, suspended_until")
+    .eq("id", target)
+    .maybeSingle();
+  const { data: acctAuth } = await admin.auth.admin.getUserById(target);
   await admin.from("profiles").update({ account_status: status, suspended_until }).eq("id", target);
-  await logAdminAction(userId, `account:${status}`, target, suspended_until ? `until ${suspended_until}` : undefined);
+  await logAdminAction(userId, `account:${status}`, target, suspended_until ? `until ${suspended_until}` : undefined, undefined, {
+    subject_name: beforeAcct?.display_name ?? null,
+    subject_email: acctAuth?.user?.email ?? null,
+    previous_status: beforeAcct?.account_status ?? null,
+    new_status: status,
+    suspended_until,
+    reason,
+  });
   revalidatePath(`/admin/users/${target}`);
   revalidatePath("/admin");
 }
@@ -523,10 +563,20 @@ export async function reviewProviderApplication(formData: FormData) {
   const admin = createAdminClient();
   const { data: app } = await admin
     .from("provider_applications")
-    .select("id, user_id, role, headline")
+    .select("id, user_id, role, headline, credential_type, credential_id, credential_jurisdiction, verification_url, applicant_note")
     .eq("id", appId)
     .maybeSingle();
   if (!app) return;
+  const { data: appSubject } = await admin.from("profiles").select("display_name").eq("id", app.user_id).maybeSingle();
+  const credentialMeta = {
+    subject_name: appSubject?.display_name ?? null,
+    role: app.role,
+    credential_type: app.credential_type,
+    credential_id: app.credential_id,
+    credential_jurisdiction: app.credential_jurisdiction,
+    verification_url: app.verification_url,
+    applicant_note: app.applicant_note,
+  };
 
   if (decision === "approve") {
     const { data: existing } = await admin.from("class_providers").select("roles, credential_expires_at").eq("user_id", app.user_id).maybeSingle();
@@ -552,7 +602,7 @@ export async function reviewProviderApplication(formData: FormData) {
       .from("provider_applications")
       .update({ status: "approved", review_note: note, reviewed_by: userId, reviewed_at: new Date().toISOString() })
       .eq("id", appId);
-    await logAdminAction(userId, `provider_app:approve:${app.role}`, app.user_id, note ?? undefined, appId);
+    await logAdminAction(userId, `provider_app:approve:${app.role}`, app.user_id, note ?? undefined, appId, { ...credentialMeta, decision: "approved", reviewer_note: note, credential_expires: credentialExpires });
     await createNotification({
       userId: app.user_id,
       kind: "system",
@@ -565,7 +615,7 @@ export async function reviewProviderApplication(formData: FormData) {
       .from("provider_applications")
       .update({ status: "rejected", review_note: note, reviewed_by: userId, reviewed_at: new Date().toISOString() })
       .eq("id", appId);
-    await logAdminAction(userId, `provider_app:reject:${app.role}`, app.user_id, note ?? undefined, appId);
+    await logAdminAction(userId, `provider_app:reject:${app.role}`, app.user_id, note ?? undefined, appId, { ...credentialMeta, decision: "rejected", reviewer_note: note });
     await createNotification({
       userId: app.user_id,
       kind: "system",

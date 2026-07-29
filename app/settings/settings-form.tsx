@@ -119,6 +119,17 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
           </p>
           <div className="mt-2 divide-y divide-rule">
             <Segmented
+              label="Location precision"
+              hint="How precisely your location shows to other members"
+              value={["city", "neighborhood", "zip"].includes(p.location_precision) ? p.location_precision : "neighborhood"}
+              onChange={(v) => set("location_precision", v)}
+              options={[
+                { value: "city", label: "City only" },
+                { value: "neighborhood", label: "Neighborhood" },
+                { value: "zip", label: "Exact ZIP" },
+              ]}
+            />
+            <Segmented
               label="Who can invite me"
               hint="Who can send you match invites"
               value={p.who_can_invite === "nobody" ? "nobody" : "anyone"}
