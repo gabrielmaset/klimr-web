@@ -42,6 +42,7 @@ import { eventKindLabel } from "@/lib/event-kinds";
 import { firstMapsUrlInText, resolveEventPin } from "@/lib/maps-url";
 import { looksNonEnglish } from "@/lib/lang";
 import { EventDescription } from "@/components/event-description";
+import { EventPinRecheck } from "@/components/event-pin-recheck";
 
 // Module-level clock — render-purity rule bans bare Date.now() in components.
 const nowMs = () => Date.now();
@@ -96,7 +97,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const { data: e } = await supabase
     .from("events")
-    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at, location_reveal, organizer_state, paused_until, location_lat, location_lng, location_pin_at")
+    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at, location_reveal, organizer_state, paused_until, location_lat, location_lng, location_pin_at, location_pin_source")
     .eq("id", id)
     .maybeSingle();
   if (!e) notFound();
@@ -331,27 +332,33 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   // Persisted pin first (resolved once at save — 0146), then the court's
   // stored coordinate. Older events lazy-heal on first view: run the full
   // ladder, WRITE the result back, and back off 24h between failed attempts.
+  const storedPin = e.location_lat != null && e.location_lng != null ? { lat: e.location_lat, lng: e.location_lng } : null;
   let mapPoint =
-    e.location_lat != null && e.location_lng != null
-      ? { lat: e.location_lat, lng: e.location_lng }
-      : courtData?.lat != null && courtData?.lng != null
-        ? { lat: courtData.lat, lng: courtData.lng }
-        : null;
-  if (!mapPoint && !locationLocked) {
+    storedPin ?? (courtData?.lat != null && courtData?.lng != null ? { lat: courtData.lat, lng: courtData.lng } : null);
+  // Venue-tier pins are PROVISIONAL: while a Maps link exists, keep retrying
+  // it daily and upgrade in place — a city-centroid pin must never be able to
+  // permanently block the exact one (that's how this event got stuck).
+  const provisional = !!storedPin && e.location_pin_source === "venue" && !!pinUrl;
+  if ((!mapPoint || provisional) && !locationLocked) {
     const lastTry = e.location_pin_at ? Date.parse(e.location_pin_at) : 0;
     if (nowMs() - lastTry > 86_400_000) {
       const healed = await resolveEventPin({ locationUrl: pinUrl, description: e.description, venueText: mapsQuery || e.location_text });
+      const upgraded = healed && (healed.source !== "venue" || !storedPin);
       await createAdminClient()
         .from("events")
-        .update({
-          location_lat: healed?.point.lat ?? null,
-          location_lng: healed?.point.lng ?? null,
-          location_pin_source: healed?.source ?? null,
-          location_pin_at: new Date().toISOString(),
-        })
+        .update(
+          upgraded
+            ? {
+                location_lat: healed.point.lat,
+                location_lng: healed.point.lng,
+                location_pin_source: healed.source,
+                location_pin_at: new Date().toISOString(),
+              }
+            : { location_pin_at: new Date().toISOString() },
+        )
         .eq("id", e.id);
-      if (healed) mapPoint = healed.point;
-      else console.error("[maps] unresolved event pin", { eventId: e.id, hasKey: !!process.env.GOOGLE_MAPS_API_KEY, pinUrl });
+      if (upgraded) mapPoint = healed.point;
+      else if (!healed && !mapPoint) console.error("[maps] unresolved event pin", { eventId: e.id, hasKey: !!process.env.GOOGLE_MAPS_API_KEY, pinUrl });
     }
   }
 
@@ -572,6 +579,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             <Link href={`/events/${e.id}/edit`} className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-ink-soft">
               <Pencil size={14} /> Edit event details
             </Link>
+            <EventPinRecheck eventId={e.id} />
             {isOwner ? (
               <DangerConfirm
                 word="CANCEL"

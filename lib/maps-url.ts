@@ -86,10 +86,12 @@ export function isMapsShortLink(raw: string | null | undefined): boolean {
 //      document, and only with page-specific patterns.
 // Cached a day; always fails soft to null (callers fall back to geocoding the
 // venue text).
-export async function resolveMapsShortLink(raw: string | null | undefined): Promise<LatLng | null> {
+const short = (u: string) => (u.length > 96 ? u.slice(0, 93) + "…" : u);
+
+export async function resolveMapsShortLink(raw: string | null | undefined, trace?: string[]): Promise<LatLng | null> {
   if (!raw || !isMapsShortLink(raw)) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4000);
+  const timer = setTimeout(() => controller.abort(), 6500);
   try {
     let current = raw;
     let finalRes: Response | null = null;
@@ -101,6 +103,7 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
         cache: "no-store",
       });
       const loc = res.headers.get("location");
+      trace?.push(`walk ${hop + 1}: ${short(current)} → ${res.status}${loc ? " → " + short(loc) : ""}`);
       if (res.status >= 300 && res.status < 400 && loc) {
         current = new URL(loc, current).toString();
         const unwrapped = unwrapGoogleRedirect(current) ?? embeddedUrlParam(current);
@@ -113,6 +116,7 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
       if (res.status === 200 && isMapsShortLink(current)) {
         const body = (await res.text()).slice(0, 300_000);
         const next = extractContinuationUrl(body, current);
+        trace?.push(next ? `html continuation → ${short(next)}` : "200 body had no continuation URL");
         if (next) {
           current = next;
           const p = parseLatLngFromMapsUrl(current);
@@ -124,10 +128,14 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
       break;
     }
     const fromFinalUrl = parseLatLngFromMapsUrl(current);
-    if (fromFinalUrl) return fromFinalUrl;
+    if (fromFinalUrl) {
+      trace?.push(`coords in final URL: ${fromFinalUrl.lat.toFixed(4)}, ${fromFinalUrl.lng.toFixed(4)}`);
+      return fromFinalUrl;
+    }
     const place = placeTextFromMapsUrl(current);
     if (place) {
       const g = await geocodeAddress(place);
+      trace?.push(`place text "${place}" → ${g ? `${g.lat.toFixed(4)}, ${g.lng.toFixed(4)}` : "geocode miss"}`);
       if (g) return g;
     }
     // HTML is consulted ONLY for a concrete /maps/place page. An expired short
@@ -137,17 +145,22 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
     if (finalRes && isGoogleMapsPlacePage(current)) {
       const body = (await finalRes.text()).slice(0, 400_000);
       const fromBody = parseLatLngFromHtml(body);
+      trace?.push(fromBody ? `place-page body coords: ${fromBody.lat.toFixed(4)}, ${fromBody.lng.toFixed(4)}` : "place page had no parseable coords");
       if (fromBody) return fromBody;
+    } else if (finalRes) {
+      trace?.push(`walk ended at ${short(current)} — not a place page, body refused (Hampshire rule)`);
     }
     // Last resort: let the platform follow the whole chain and read ONLY the
     // final URL (never a body) — catches redirect shapes the manual walk missed.
     try {
       const followed = await fetch(raw, { redirect: "follow", signal: controller.signal, cache: "no-store", headers: { "user-agent": BROWSER_UA, "accept": "text/html,application/xhtml+xml", "accept-language": "en-US,en;q=0.9" } });
+      trace?.push(`platform-follow final: ${short(followed.url)} (${followed.status})`);
       const p2 = parseLatLngFromMapsUrl(followed.url);
       if (p2) return p2;
       const place2 = placeTextFromMapsUrl(followed.url);
       if (place2) {
         const g2 = await geocodeAddress(place2);
+        trace?.push(`follow place text "${place2}" → ${g2 ? "geocoded" : "miss"}`);
         if (g2) return g2;
       }
       console.error("[maps] short-link unresolved", { raw, walked: current, followed: followed.url, status: followed.status });
@@ -155,7 +168,8 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
       console.error("[maps] short-link unresolved", { raw, walked: current });
     }
     return null;
-  } catch {
+  } catch (err) {
+    trace?.push(`aborted: ${err instanceof Error ? err.name : "error"} (likely timeout)`);
     return null;
   } finally {
     clearTimeout(timer);
@@ -240,10 +254,10 @@ export function placeTextFromMapsUrl(raw: string | null | undefined): string | n
 
 // Convenience for server components: parse first (cheap), then resolve a short
 // link if needed. Returns the best precise point we can get, or null.
-export async function mapsPointFromUrl(raw: string | null | undefined): Promise<LatLng | null> {
+export async function mapsPointFromUrl(raw: string | null | undefined, trace?: string[]): Promise<LatLng | null> {
   const direct = parseLatLngFromMapsUrl(raw);
   if (direct) return direct;
-  if (isMapsShortLink(raw)) return resolveMapsShortLink(raw);
+  if (isMapsShortLink(raw)) return resolveMapsShortLink(raw, trace);
   return null;
 }
 
@@ -320,21 +334,27 @@ export type ResolvedPin = { point: LatLng; source: "link" | "address" | "venue" 
  *  link coords → resolved short link → a Maps LINK inside the description →
  *  geocoded venue text. Prose addresses are deliberately NOT read (an address
  *  in the description may describe a different place). Fails soft to null. */
-export async function resolveEventPin(input: {
-  locationUrl: string | null | undefined;
-  description: string | null | undefined;
-  venueText: string | null | undefined;
-}): Promise<ResolvedPin | null> {
-  const fromLink = await mapsPointFromUrl(input.locationUrl);
+export async function resolveEventPin(
+  input: {
+    locationUrl: string | null | undefined;
+    description: string | null | undefined;
+    venueText: string | null | undefined;
+  },
+  trace?: string[],
+): Promise<ResolvedPin | null> {
+  if (input.locationUrl) trace?.push(`rung 1 — the pasted link: ${short(input.locationUrl)}`);
+  const fromLink = await mapsPointFromUrl(input.locationUrl, trace);
   if (fromLink) return { point: fromLink, source: "link" };
   const descUrl = firstMapsUrlInText((input.description ?? "").replace(/<[^>]+>/g, " "));
   if (descUrl && descUrl !== input.locationUrl) {
-    const fromDescLink = await mapsPointFromUrl(descUrl);
+    trace?.push(`rung 2 — Maps link in description: ${short(descUrl)}`);
+    const fromDescLink = await mapsPointFromUrl(descUrl, trace);
     if (fromDescLink) return { point: fromDescLink, source: "link" };
   }
   const venue = (input.venueText ?? "").trim();
   if (venue) {
     const g = await geocodeAddress(venue);
+    trace?.push(`rung 3 — venue text "${venue}" → ${g ? `${g.lat.toFixed(4)}, ${g.lng.toFixed(4)}` : "geocode miss"}`);
     if (g) return { point: g, source: "venue" };
   }
   return null;

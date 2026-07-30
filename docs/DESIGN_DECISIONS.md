@@ -166,6 +166,65 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — Event pin: the sticky-venue-pin flaw + traced resolution + organizer re-check
+
+Gabriel: the event map STILL shows the wrong pin. Two findings. (1) THE
+CERTAIN BUG — a stored pin blocked all further resolution: the first lazy
+heal fell through to the venue rung (city centroid), PERSISTED it, and from
+then on the page rendered the stored pin and never retried the link. A
+low-quality resolution could permanently defeat a better one. Fix:
+venue-tier pins are PROVISIONAL — while a Maps link exists, the page retries
+it daily (same 24h backoff) and upgrades in place; only a link-tier pin is
+final. Failed re-attempts touch only location_pin_at (no churn of a working
+approximate pin). (2) THE UNKNOWN — why link resolution fails on Vercel when
+the link works in a browser — cannot be diagnosed from the sandbox (goo.gl
+is egress-blocked), so the resolver is now INSTRUMENTED: an optional trace[]
+threads through resolveEventPin → mapsPointFromUrl → resolveMapsShortLink
+(12 trace points: each hop + status + location, continuation extraction,
+final-URL parse, place-text geocode, Hampshire refusals, platform-follow,
+abort/timeout). A "Re-check map pin" button in Organizer tools
+(creator/admin-gated server action) re-runs the ladder NOW, persists the
+result, refreshes the page, and renders the numbered trace — turning "the
+map is wrong" into an exact reportable diagnosis. Also: the walk timeout was
+raised 4s→6.5s; four seconds shared across six hops + 300KB body reads +
+geocoding on a cold serverless function was itself a plausible silent
+killer (aborts returned null indistinguishable from a dead link).
+
+### 2026-07-30 — Courts map pin bug root-caused + Daylight recolor hardened + rating promotion
+
+Gabriel's production screenshot: pins piled on the map's left edge (snapping
+back after every drag), a stock-looking map, and sparse-feeling cards. Root
+causes, all found:
+
+(1) THE PIN BUG — three transform crimes on the marker ROOT element, the one
+element Mapbox owns: inline `position:relative` overrode the stylesheet's
+`.mapboxgl-marker{position:absolute}` (markers fell into normal flow — the
+left-edge pile); `transition:transform` made GL's per-frame translate EASE
+(the post-drag drift); and the highlight effect wrote `transform:scale()` to
+the root, clobbering GL's translate outright. THE RULE, permanent: the marker
+root belongs to Mapbox — width/height/cursor only; every visual (SVG, number,
+live dot, hover scale, transitions) lives on an inner absolutely-positioned
+wrapper; z-index is the only safe root write.
+
+(2) RECOLOR — one try/catch wrapped the whole layer loop, so the first
+incompatible paint property silently aborted every recolor after it; and
+RESTYLE had NO water entry at all. Now: per-layer try/catch + water/waterway
+entries per the handoff palette.
+
+(3) HALO — addSource raced setStyle on the satellite toggle and layers were
+never re-added after style swaps. Now: the persistent style.load handler
+redraws BOTH the Daylight recolor and the halo from effect-synced refs
+(haloStateRef/satelliteRef), and the halo effect guards on isStyleLoaded().
+
+(4) SPEC GAPS closed: selecting a court pans its pin into view when
+off-screen; the callout meta carries {dist} MI · {n} COURTS · ★ {rating};
+and Google ratings are PROMOTED to the primary gold-star row when a court
+has no member reviews yet ("N GOOGLE REVIEWS"), demoting to the muted G line
+only once Klimr reviews exist — a Google-only court no longer looks broken.
+Remaining sparsity on cards (busy band, player avatars, court counts) is the
+hide-when-null rule working over an empty dataset, not a defect: those fill
+as queue history, check-ins, and court_count values accrue.
+
 ### 2026-07-30 — Side-nav scrollbar hidden (the affordance already existed) + 0147 chat-paste drift bit production
 
 Two small items with one big lesson. (1) The side nav's scroll-affordance

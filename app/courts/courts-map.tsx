@@ -32,12 +32,22 @@ function circleRing(lat: number, lng: number, radiusMi: number): [number, number
 }
 
 function applyDaylight(map: MapboxMap) {
-  try {
-    const layers = map.getStyle()?.layers ?? [];
-    for (const layer of layers) {
-      const id = layer.id;
+  // Per-layer try/catch: one incompatible paint property must never abort the
+  // whole recolor pass (that failure mode shipped a stock-looking map once).
+  const layers = map.getStyle()?.layers ?? [];
+  for (const layer of layers) {
+    const id = layer.id;
+    try {
       if (/poi|transit/.test(id) && layer.type === "symbol") {
         map.setLayoutProperty(id, "visibility", "none");
+        continue;
+      }
+      if (layer.type === "fill" && /water|ocean|sea/.test(id)) {
+        map.setPaintProperty(id, "fill-color", "#CFE3F2");
+        continue;
+      }
+      if (layer.type === "line" && /waterway|water-line|shoreline/.test(id)) {
+        map.setPaintProperty(id, "line-color", "#B9D3E8");
         continue;
       }
       for (const r of RESTYLE) {
@@ -53,11 +63,32 @@ function applyDaylight(map: MapboxMap) {
         map.setPaintProperty(id, "text-color", "#8A8069");
         map.setPaintProperty(id, "text-halo-color", "#F5F1E6");
       }
+    } catch {
+      /* this layer's schema differs — skip it, keep going */
+    }
+  }
+}
+
+/** Upsert the radius halo (dashed flame ring + tint) for the given ring. */
+function drawHalo(map: MapboxMap, ring: [number, number][]) {
+  try {
+    const data = { type: "Feature" as const, geometry: { type: "Polygon" as const, coordinates: [ring] }, properties: {} };
+    const src = map.getSource("radius-halo") as { setData?: (d: unknown) => void } | undefined;
+    if (src?.setData) src.setData(data);
+    else {
+      map.addSource("radius-halo", { type: "geojson", data });
+      map.addLayer({ id: "radius-halo-fill", type: "fill", source: "radius-halo", paint: { "fill-color": "#E8935E", "fill-opacity": 0.08 } });
+      map.addLayer({
+        id: "radius-halo-line",
+        type: "line",
+        source: "radius-halo",
+        paint: { "line-color": "#D97E45", "line-opacity": 0.55, "line-width": 1.5, "line-dasharray": [2, 2] },
+      });
     }
   } catch {
-    /* style variations across versions — best effort */
-}
+    /* style mid-swap — the style.load handler redraws */
   }
+}
 
 export function CourtsMap({
   token,
@@ -83,8 +114,10 @@ export function CourtsMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const mbRef = useRef<(typeof import("mapbox-gl"))["default"] | null>(null);
-  const markersRef = useRef<Map<string, { marker: Marker; el: HTMLDivElement }>>(new Map());
+  const markersRef = useRef<Map<string, { marker: Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map());
   const originMarkerRef = useRef<Marker | null>(null);
+  const haloStateRef = useRef<{ lat: number; lng: number; r: number } | null>(null);
+  const satelliteRef = useRef(false);
   const haloAnimRef = useRef<number | null>(null);
   const haloRadiusRef = useRef<number>(radiusMi);
   const [ready, setReady] = useState(false);
@@ -117,7 +150,11 @@ export function CourtsMap({
       map.on("error", (e: { error?: { status?: number; message?: string } }) => {
         console.warn("[courts map] tile/style error", e?.error?.status ?? "", e?.error?.message ?? "");
       });
-      map.on("style.load", () => applyDaylight(map));
+      map.on("style.load", () => {
+        applyDaylight(map);
+        const h = haloStateRef.current;
+        if (h && !satelliteRef.current) drawHalo(map, circleRing(h.lat, h.lng, h.r));
+      });
       map.on("load", () => {
         if (cancelled) return;
         mapRef.current = map;
@@ -148,55 +185,38 @@ export function CourtsMap({
 
   // ── radius halo (tweened) + origin dot ─────────────────────────────────
   useEffect(() => {
+    satelliteRef.current = satellite;
     const map = mapRef.current;
     const mapboxgl = mbRef.current;
-    if (!ready || !map || !mapboxgl || satellite) return;
-    if (!origin) return;
+    if (!ready || !map || !mapboxgl || !origin) return;
+    haloStateRef.current = { lat: origin.lat, lng: origin.lng, r: radiusMi };
 
-    const setHalo = (r: number) => {
-      const data = {
-        type: "Feature" as const,
-        geometry: { type: "Polygon" as const, coordinates: [circleRing(origin.lat, origin.lng, r)] },
-        properties: {},
-      };
-      const src = map.getSource("radius-halo") as { setData?: (d: unknown) => void } | undefined;
-      if (src?.setData) src.setData(data);
-      else {
-        map.addSource("radius-halo", { type: "geojson", data });
-        map.addLayer({ id: "radius-halo-fill", type: "fill", source: "radius-halo", paint: { "fill-color": "#E8935E", "fill-opacity": 0.08 } });
-        map.addLayer({
-          id: "radius-halo-line",
-          type: "line",
-          source: "radius-halo",
-          paint: { "line-color": "#D97E45", "line-opacity": 0.55, "line-width": 1.5, "line-dasharray": [2, 2] },
-        });
+    if (!satellite && map.isStyleLoaded()) {
+      const from = haloRadiusRef.current;
+      const to = radiusMi;
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (haloAnimRef.current) cancelAnimationFrame(haloAnimRef.current);
+      if (reduced || from === to || !map.getSource("radius-halo")) {
+        drawHalo(map, circleRing(origin.lat, origin.lng, to));
+        haloRadiusRef.current = to;
+      } else {
+        const t0 = performance.now();
+        const step = (t: number) => {
+          const k = Math.min(1, (t - t0) / 300);
+          const eased = 1 - Math.pow(1 - k, 3);
+          drawHalo(map, circleRing(origin.lat, origin.lng, from + (to - from) * eased));
+          if (k < 1) haloAnimRef.current = requestAnimationFrame(step);
+          else haloRadiusRef.current = to;
+        };
+        haloAnimRef.current = requestAnimationFrame(step);
       }
-    };
-
-    const from = haloRadiusRef.current;
-    const to = radiusMi;
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (haloAnimRef.current) cancelAnimationFrame(haloAnimRef.current);
-    if (reduced || from === to || !map.getSource("radius-halo")) {
-      setHalo(to);
-      haloRadiusRef.current = to;
-    } else {
-      const t0 = performance.now();
-      const step = (t: number) => {
-        const k = Math.min(1, (t - t0) / 300);
-        const eased = 1 - Math.pow(1 - k, 3);
-        setHalo(from + (to - from) * eased);
-        if (k < 1) haloAnimRef.current = requestAnimationFrame(step);
-        else haloRadiusRef.current = to;
-      };
-      haloAnimRef.current = requestAnimationFrame(step);
     }
 
     if (!originMarkerRef.current) {
       const dot = document.createElement("div");
       dot.style.cssText =
-        "width:16px;height:16px;border-radius:9999px;background:#3B82C4;border:3px solid #fff;box-shadow:0 0 0 5px rgba(59,130,196,.22)";
-      originMarkerRef.current = new mapboxgl.Marker(dot).setLngLat([origin.lng, origin.lat]).addTo(map);
+        "width:14px;height:14px;border-radius:9999px;background:#2E77C9;border:3px solid #fff;box-shadow:0 1px 4px rgba(20,40,80,.4)";
+      originMarkerRef.current = new mapboxgl.Marker({ element: dot, anchor: "center" }).setLngLat([origin.lng, origin.lat]).addTo(map);
     } else {
       originMarkerRef.current.setLngLat([origin.lng, origin.lat]);
     }
@@ -216,17 +236,23 @@ export function CourtsMap({
     if (origin) bounds.extend([origin.lng, origin.lat]);
 
     courts.forEach((c, i) => {
+      // Mapbox positions the ROOT via inline transform every frame — the root
+      // must stay untouched (no position/transform/transition overrides, ever;
+      // that exact mistake once piled every pin on the container's left edge).
       const el = document.createElement("div");
       el.setAttribute("role", "button");
       el.setAttribute("aria-label", `${i + 1}. ${c.name}`);
-      el.style.cssText = "position:relative;width:30px;height:38px;cursor:pointer;transform-origin:50% 100%;transition:transform .15s ease";
-      el.innerHTML =
+      el.style.cssText = "width:30px;height:38px;cursor:pointer";
+      const inner = document.createElement("div");
+      inner.style.cssText = "position:absolute;inset:0;transform-origin:50% 100%;transition:transform .15s ease";
+      inner.innerHTML =
         `<svg width="30" height="38" viewBox="0 0 30 38" style="position:absolute;inset:0;filter:drop-shadow(0 2px 4px rgba(30,26,20,.35))">` +
         `<path d="M15 37C15 37 28 22.5 28 14A13 13 0 1 0 2 14C2 22.5 15 37 15 37Z" fill="#1E1A14" stroke="#fff" stroke-width="2.5"/></svg>` +
         `<span style="position:absolute;top:4.5px;left:0;right:0;text-align:center;font:700 12px 'JetBrains Mono',ui-monospace,monospace;color:#fff">${i + 1}</span>` +
         (c.liveQueue
-          ? `<span style="position:absolute;right:-1px;top:-1px;width:9px;height:9px;border-radius:9999px;background:#2FA44F;border:2px solid #fff"></span>`
+          ? `<span style="position:absolute;right:-1px;top:-1px;width:9px;height:9px;border-radius:9999px;background:#2FA44F;border:2px solid #fff;animation:pulse 2s infinite"></span>`
           : "");
+      el.appendChild(inner);
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         onSelect(c.id);
@@ -234,7 +260,7 @@ export function CourtsMap({
       el.addEventListener("mouseenter", () => onHover(c.id));
       el.addEventListener("mouseleave", () => onHover(null));
       const marker = new mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat([c.lng, c.lat]).addTo(map);
-      markersRef.current.set(c.id, { marker, el });
+      markersRef.current.set(c.id, { marker, el, inner });
       bounds.extend([c.lng, c.lat]);
     });
 
@@ -247,9 +273,9 @@ export function CourtsMap({
 
   // ── cross-highlight + selected callout ─────────────────────────────────
   useEffect(() => {
-    markersRef.current.forEach(({ el }, id) => {
+    markersRef.current.forEach(({ el, inner }, id) => {
       const lift = id === selectedId || id === hoveredId;
-      el.style.transform = lift ? "scale(1.22)" : "scale(1)";
+      inner.style.transform = lift ? "scale(1.22)" : "scale(1)";
       el.style.zIndex = lift ? "5" : "1";
     });
   }, [selectedId, hoveredId]);
@@ -266,6 +292,10 @@ export function CourtsMap({
       const p = map.project([c.lng, c.lat]);
       setCallout({ x: p.x, y: p.y, court: c });
     };
+    const sel = courts.find((x) => x.id === selectedId);
+    if (sel && !map.getBounds()?.contains([sel.lng, sel.lat])) {
+      map.easeTo({ center: [sel.lng, sel.lat], duration: 450 });
+    }
     place();
     map.on("move", place);
     return () => {
@@ -342,7 +372,11 @@ export function CourtsMap({
         >
           <p className="truncate text-[12.5px] font-bold text-ink">{callout.court.name}</p>
           <p className="mt-0.5 font-mono text-[9px] tracking-[0.1em] text-faint">
-            {callout.court.distanceMi} MI{callout.court.area ? ` · ${callout.court.area.toUpperCase()}` : ""}
+            {callout.court.distanceMi} MI
+            {callout.court.courtCount ? ` · ${callout.court.courtCount} COURTS` : ""}
+            {(callout.court.memberRating ?? callout.court.googleRating) != null
+              ? ` · ★ ${(callout.court.memberRating ?? callout.court.googleRating)!.toFixed(1)}`
+              : ""}
           </p>
           <span className="pointer-events-auto mt-1.5 inline-block">
             <a href={`/courts/${callout.court.id}`} className="text-[11px] font-bold text-brand-deep">View court →</a>

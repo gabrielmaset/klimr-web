@@ -523,13 +523,24 @@ function CourtCard({
               <p className="font-mono text-[9px] tracking-[0.1em] text-faint">
                 {c.memberReviewCount} KLIMR {c.memberReviewCount === 1 ? "REVIEW" : "REVIEWS"}
               </p>
+              {c.googleRating != null ? (
+                <p className="mt-0.5 inline-flex items-center gap-1 font-mono text-[9.5px] tracking-[0.06em] text-faint" title={`${c.googleRatingCount} Google reviews`}>
+                  <span aria-hidden className="grid h-3.5 w-3.5 place-items-center rounded-[4px] border border-rule-2 bg-surface text-[8px] font-bold text-mute">G</span>
+                  {c.googleRating.toFixed(1)} · {c.googleRatingCount}
+                </p>
+              ) : null}
             </>
-          ) : null}
-          {c.googleRating != null ? (
-            <p className="mt-0.5 inline-flex items-center gap-1 font-mono text-[9.5px] tracking-[0.06em] text-faint" title={`${c.googleRatingCount} Google reviews`}>
-              <span aria-hidden className="grid h-3.5 w-3.5 place-items-center rounded-[4px] border border-rule-2 bg-surface text-[8px] font-bold text-mute">G</span>
-              {c.googleRating.toFixed(1)} · {c.googleRatingCount}
-            </p>
+          ) : c.googleRating != null ? (
+            // No member reviews yet — Google carries the star so the card
+            // still answers "is this place any good?"
+            <>
+              <p className="inline-flex items-center gap-1 text-sm font-bold text-ink">
+                <Star size={13} className="fill-[#D9A70B] text-[#D9A70B]" /> {c.googleRating.toFixed(1)}
+              </p>
+              <p className="font-mono text-[9px] tracking-[0.1em] text-faint">
+                {c.googleRatingCount} GOOGLE {c.googleRatingCount === 1 ? "REVIEW" : "REVIEWS"}
+              </p>
+            </>
           ) : null}
           {c.busy ? (
             <span className={`mt-1 inline-block rounded-md px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] ${BUSY_STYLE[c.busy]}`}>{c.busy}</span>

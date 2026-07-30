@@ -11,6 +11,7 @@ import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS, type SportKey } from "@/lib/sports";
 import { sanitizeRichText } from "@/lib/rich-text";
 import { resolveEventPin } from "@/lib/maps-url";
+import { getAdminRole } from "@/lib/admin";
 import { ALL_EVENT_KIND_VALUES } from "@/lib/event-kinds";
 import { withinRecoverWindow } from "@/lib/recover";
 import { rsvpCycleStartISO } from "@/lib/event-schedule";
@@ -809,4 +810,55 @@ export async function translateEventDescription(eventId: string): Promise<{ ok: 
   } catch {
     return { ok: false, error: "Translation failed — try again." };
   }
+}
+
+/** Organizer tool: re-run the pin ladder RIGHT NOW, persist the result, and
+ *  return the step-by-step resolution trace — production observability for
+ *  the one thing the sandbox can never test (what Google actually serves).
+ *  Gated to the event creator or a platform admin. */
+export async function recheckEventPin(eventId: string): Promise<{
+  ok: boolean;
+  source: string | null;
+  lat: number | null;
+  lng: number | null;
+  trace: string[];
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, source: null, lat: null, lng: null, trace: ["Sign in first."] };
+  const admin = createAdminClient();
+  const { data: ev } = await admin
+    .from("events")
+    .select("id, created_by, location_url, description, location_text")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!ev) return { ok: false, source: null, lat: null, lng: null, trace: ["Event not found."] };
+  const role = await getAdminRole();
+  if (ev.created_by !== user.id && !role) {
+    return { ok: false, source: null, lat: null, lng: null, trace: ["Only the organizer can re-check the pin."] };
+  }
+  const trace: string[] = [];
+  const pin = await resolveEventPin(
+    { locationUrl: ev.location_url, description: ev.description, venueText: ev.location_text },
+    trace,
+  );
+  await admin
+    .from("events")
+    .update({
+      location_lat: pin?.point.lat ?? null,
+      location_lng: pin?.point.lng ?? null,
+      location_pin_source: pin?.source ?? null,
+      location_pin_at: new Date().toISOString(),
+    })
+    .eq("id", eventId);
+  revalidatePath(`/events/${eventId}`);
+  return {
+    ok: !!pin,
+    source: pin?.source ?? null,
+    lat: pin?.point.lat ?? null,
+    lng: pin?.point.lng ?? null,
+    trace,
+  };
 }
