@@ -116,9 +116,28 @@ export function CourtsMap({
   const haloAnimRef = useRef<number | null>(null);
   const haloRadiusRef = useRef<number>(radiusMi);
   const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
+  const stageRef = useRef("waiting for token/container");
+  const [logLines, setLogLines] = useState<string[]>([]);
+  const [debugOn, setDebugOn] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [satellite, setSatellite] = useState(false);
   const [callout, setCallout] = useState<{ x: number; y: number; court: FinderCourt } | null>(null);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      if (window.location.search.includes("mapdebug")) setDebugOn(true);
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const log = (line: string) => {
+    stageRef.current = line;
+    const t = new Date();
+    const stamped = `${t.toLocaleTimeString("en-US", { hour12: false })}.${String(t.getMilliseconds()).padStart(3, "0")} ${line}`;
+    console.warn("[courts map]", line);
+    setLogLines((prev) => [...prev.slice(-13), stamped]);
+  };
 
   // ── init: a failure must be VISIBLE, never a silent blank canvas ─────────
   useEffect(() => {
@@ -126,17 +145,16 @@ export function CourtsMap({
     let cancelled = false;
     let resizeObserver: ResizeObserver | null = null;
     const watchdog = setTimeout(() => {
-      if (!cancelled) {
-        setReady((r) => {
-          if (!r) setMapError((e) => e ?? "The map didn't finish loading — check the Mapbox token's scopes and URL restrictions.");
-          return r;
-        });
+      if (!cancelled && !readyRef.current) {
+        setMapError((e) => e ?? `The map stalled at "${stageRef.current}" — check that the Mapbox token is a public pk. token and its URL restrictions include this domain.`);
       }
     }, 8000);
+    log("importing map library");
     (async () => {
       let mapboxgl: (typeof import("mapbox-gl"))["default"];
       try {
         mapboxgl = (await import("mapbox-gl")).default;
+        log("library loaded");
       } catch {
         if (!cancelled) setMapError("The map library failed to load.");
         return;
@@ -153,6 +171,7 @@ export function CourtsMap({
           zoom: 11,
           attributionControl: true,
         });
+        log("map constructed — loading style");
       } catch (err) {
         if (!cancelled) setMapError(err instanceof Error ? err.message : "The map couldn't start.");
         return;
@@ -160,20 +179,23 @@ export function CourtsMap({
       map.on("error", (e: { error?: { status?: number; message?: string } }) => {
         const msg = e?.error?.message ?? "";
         const status = e?.error?.status;
-        console.warn("[courts map] error", status ?? "", msg);
-        // Auth/style failures blank the canvas — surface them on screen.
-        if (status === 401 || status === 403 || /token|unauthorized|forbidden|style/i.test(msg)) {
-          setMapError(`Map error${status ? ` (${status})` : ""}: ${msg || "the Mapbox token was rejected."}`);
-        }
+        log(`ERROR${status ? ` ${status}` : ""}: ${msg || "unknown"}`);
+        // Any error while the canvas is blank is worth showing — a technical
+        // banner beats a silent blank, and healthy maps fire none.
+        setMapError((prev) => prev ?? `Map error${status ? ` (${status})` : ""}: ${msg || "unknown — see ?mapdebug=1"}`);
       });
       map.on("style.load", () => {
+        log("style loaded — recoloring");
         applyDaylight(map);
         const h = haloStateRef.current;
         if (h && !satelliteRef.current) drawHalo(map, circleRing(h.lat, h.lng, h.r));
       });
       map.on("load", () => {
         if (cancelled) return;
+        log("map ready");
+        map.once("idle", () => log("idle — first full render complete"));
         mapRef.current = map;
+        readyRef.current = true;
         setReady(true);
         setMapError(null);
         map.resize();
@@ -334,6 +356,15 @@ export function CourtsMap({
   return (
     <div className="relative h-[520px] overflow-hidden rounded-2xl border border-[#E3E5D8] shadow-e1 min-[900px]:h-[652px]">
       <div ref={containerRef} className="absolute inset-0" />
+
+      {debugOn ? (
+        <div className="absolute inset-x-3 bottom-14 z-30 max-h-44 overflow-y-auto rounded-lg bg-ink/90 p-2.5 font-mono text-[9.5px] leading-relaxed text-white/90">
+          <p className="mb-1 font-bold text-white">MAP DEBUG — token {token ? `${token.slice(0, 6)}…${token.slice(-4)} (${token.startsWith("pk.") ? "public ✓" : "NOT a pk. public token ✗"})` : "MISSING"}</p>
+          {logLines.map((l, i) => (
+            <p key={i} className="break-all">{l}</p>
+          ))}
+        </div>
+      ) : null}
 
       {mapError ? (
         <div className="pointer-events-none absolute inset-x-4 top-4 z-20 rounded-xl border border-danger/30 bg-[#FDECEA]/95 px-3.5 py-2.5 text-center">

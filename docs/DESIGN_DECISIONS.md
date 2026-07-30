@@ -166,6 +166,30 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — Map still blank in prod; CSP exonerated; ?mapdebug=1 ships
+
+Round three on the blank courts map — and this time the ABSENCE of the new
+error banner is itself the clue: either 'load' fired (map thinks it's fine)
+or the failure shape slipped the auth-only filter. Diagnosed what the
+sandbox CAN see: the CSP in next.config.ts was written for Mapbox
+(worker-src blob:, api.mapbox.com + *.tiles.mapbox.com + events.mapbox.com
+in connect-src, img-src data:/blob:) and the legacy map ran under it for
+months — CSP exonerated. What ships instead is the end of blind guessing:
+(1) EVERY map error now raises the banner (first error, any status/shape) —
+a technical banner beats a silent blank, and healthy maps fire none;
+(2) lifecycle STAGE tracking (importing library → library loaded → map
+constructed → style loaded → map ready → idle/first full render), with the
+8s watchdog reporting exactly which stage it stalled at; (3) ?mapdebug=1
+renders the full timestamped log ON the map, headed by a token fingerprint
+line that states outright whether the token is a public pk. token or not.
+The watchdog was also rewritten off the setState-inside-updater antipattern
+(readyRef), and the compiler's refs-in-render rule pushed the log into
+state where it belongs. Leading production suspects, in order: a secret
+sk. token where the browser needs pk. (the debug header names this
+instantly), token URL restrictions missing klimr.com/www, or an
+extension/network blocking api.mapbox.com. One screenshot of the debug
+panel ends the investigation.
+
 ### 2026-07-30 — AI-evaluated court facts (0150): inference is not faking
 
 Gabriel's call: when lights/free/court_count are unknown, let AI evaluate
