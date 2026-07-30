@@ -1,5 +1,6 @@
 "use client";
 
+import { FloatInput, FloatTextarea, FloatSelect } from "@/components/float-field";
 import { useMemo, useActionState, useState } from "react";
 import Link from "next/link";
 import {Check, ShieldCheck} from "lucide-react";
@@ -56,58 +57,39 @@ export function ProfileBasicsForm({ initial }: { initial: ProfileInitial }) {
         </>
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className={labelCls} htmlFor="first_name">First name</label>
-          <input id="first_name" name="first_name" disabled={initial.identityLocked} defaultValue={initial.first_name} maxLength={40} required className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls} htmlFor="last_name">Last name</label>
-          <input id="last_name" name="last_name" disabled={initial.identityLocked} defaultValue={initial.last_name} maxLength={40} required className={inputCls} />
-        </div>
+        <FloatInput label="First name" id="first_name" name="first_name" disabled={initial.identityLocked} defaultValue={initial.first_name} maxLength={40} required />
+        <FloatInput label="Last name" id="last_name" name="last_name" disabled={initial.identityLocked} defaultValue={initial.last_name} maxLength={40} required />
       </div>
 
       <div>
-        <label className={labelCls} htmlFor="bio">Bio</label>
-        <textarea
+        <FloatTextarea
+          label="Bio"
           id="bio"
           name="bio"
           value={bio}
           onChange={(e) => setBio(e.target.value.slice(0, 160))}
           rows={3}
-          placeholder="A line about your game — favorite shot, who you're looking to hit with…"
-          className={`${inputCls} resize-none`}
         />
         <p className="mt-1 text-right text-[11px] text-faint">{bio.length}/160</p>
       </div>
       <div>
-        <label className={labelCls} htmlFor="timezone">Time zone</label>
-        <select
-          id="timezone"
-          name="timezone"
-          value={timezone}
-          onChange={(e) => setTimezone(e.target.value)}
-          className="mt-1.5 w-full rounded-xl border border-rule-2 bg-surface px-3.5 py-3 text-[15px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15"
-        >
+        <FloatSelect label="Time zone" id="timezone" name="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
           {zones.map((z) => (
             <option key={z} value={z}>{z.replace(/_/g, " ")}</option>
           ))}
-        </select>
+        </FloatSelect>
         <p className="mt-1 text-[12.5px] text-mute">Set automatically when you joined — times around Klimr show in this zone.</p>
       </div>
 
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <FloatSelect label="Gender" id="gender" name="gender" defaultValue={initial.gender}>
+          {GENDERS.map((g) => (
+            <option key={g.value} value={g.value}>{g.label}</option>
+          ))}
+        </FloatSelect>
         <div>
-          <label className={labelCls} htmlFor="gender">Gender</label>
-          <select id="gender" name="gender" defaultValue={initial.gender} className={inputCls}>
-            {GENDERS.map((g) => (
-              <option key={g.value} value={g.value}>{g.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls} htmlFor="dob">Date of birth</label>
-          <input id="dob" name="dob" disabled={initial.identityLocked} type="date" defaultValue={initial.dob} required className={inputCls} />
+          <FloatInput label="Date of birth" id="dob" name="dob" disabled={initial.identityLocked} type="date" defaultValue={initial.dob} required />
         </div>
       </div>
 

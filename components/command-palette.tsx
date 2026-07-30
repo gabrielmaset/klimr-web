@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, User, MapPin, Users, CalendarDays, Plus, Trophy, CornerDownLeft, Loader2 } from "lucide-react";
+import { Search, User, MapPin, Users, CalendarDays, Plus, Trophy, CornerDownLeft, Loader2, Sparkles, ArrowUpRight } from "lucide-react";
 import { globalSearch } from "@/app/search/actions";
+import { aiSearch } from "@/app/search/ai-actions";
+import type { AiSearchResult } from "@/lib/ai-search";
 import type { SearchResult, SearchResultType } from "@/app/search/types";
 import { Avatar } from "@/components/avatar";
 
@@ -35,6 +37,7 @@ export function CommandPalette() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
+  const [ai, setAi] = useState<{ state: "idle" | "loading" | "done" | "error"; query?: string; result?: AiSearchResult; error?: string }>({ state: "idle" });
   const inputRef = useRef<HTMLInputElement>(null);
   const reqId = useRef(0);
 
@@ -97,6 +100,15 @@ export function CommandPalette() {
     return () => clearTimeout(t);
   }, [query]);
 
+  const runAi = () => {
+    const q = query.trim();
+    if (q.length < 3 || ai.state === "loading") return;
+    setAi({ state: "loading", query: q });
+    void aiSearch(q).then((res) => {
+      setAi(res.ok && res.result ? { state: "done", query: q, result: res.result } : { state: "error", query: q, error: res.error ?? "Try again." });
+    });
+  };
+
   const showingActions = query.trim().length < 2;
   const navItems: { href: string }[] = showingActions ? QUICK_ACTIONS : results;
   const activeClamped = navItems.length ? Math.min(active, navItems.length - 1) : 0;
@@ -129,7 +141,12 @@ export function CommandPalette() {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        runAi();
+        return;
+      }
+      if (e.key === "Enter") {
       e.preventDefault();
       const item = navItems[activeClamped];
       if (item) go(item.href);
@@ -173,7 +190,54 @@ export function CommandPalette() {
         </div>
 
         <div id="cmd-listbox" role="listbox" aria-label="Search results" className="max-h-[52vh] overflow-y-auto p-2">
-          {showingActions ? (
+          {ai.state !== "idle" && ai.query === query.trim() ? (
+            <div className="px-1 py-1">
+              {ai.state === "loading" ? (
+                <p className="flex items-center gap-2 px-2.5 py-8 text-sm font-semibold text-mute">
+                  <Loader2 size={15} className="animate-spin" /> Asking Klimr AI…
+                </p>
+              ) : ai.state === "error" ? (
+                <p className="px-2.5 py-8 text-sm text-mute">{ai.error}</p>
+              ) : ai.result ? (
+                <div className="space-y-3 px-1 py-1.5">
+                  <p className="px-1.5 text-[13.5px] leading-relaxed text-ink">{ai.result.summary}</p>
+                  {ai.result.steps?.length ? (
+                    <ol className="space-y-1 rounded-xl border border-rule-soft bg-bg px-3.5 py-3">
+                      {ai.result.steps.map((s, i) => (
+                        <li key={i} className="flex gap-2 text-[13px] text-ink-soft">
+                          <span className="font-mono text-[11px] font-bold text-brand">{i + 1}.</span> {s}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  {ai.result.groups.map((g) => (
+                    <div key={g.kind}>
+                      <p className="kicker px-1.5 pb-1 text-faint">{g.label}</p>
+                      {g.items.map((item) => (
+                        <button
+                          key={item.href + item.title}
+                          type="button"
+                          onClick={() => go(item.href)}
+                          className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-tint-brand"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-ink">{item.title}</span>
+                            {item.subtitle || item.meta ? (
+                              <span className="block truncate text-xs text-mute">{[item.subtitle, item.meta].filter(Boolean).join(" · ")}</span>
+                            ) : null}
+                          </span>
+                          <ArrowUpRight size={14} className="shrink-0 text-faint" />
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setAi({ state: "idle" })} className="press mx-1.5 mt-1 rounded-[9px] border border-rule-2 px-2.5 py-1.5 text-xs font-semibold text-mute hover:text-ink">
+                    Back to quick results
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : showingActions ? (
             <>
               <p className="kicker px-2.5 pb-1 pt-2 text-faint">Quick actions</p>
               {QUICK_ACTIONS.map((a, i) => {
@@ -197,7 +261,22 @@ export function CommandPalette() {
                 );
               })}
             </>
-          ) : results.length === 0 ? (
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={runAi}
+                className="mb-1 flex w-full items-center gap-3 rounded-xl border border-dashed border-[#F3C9B4] bg-[#FFF7F2] px-2.5 py-2.5 text-left text-sm font-semibold text-brand-deep transition-colors hover:bg-tint-brand"
+              >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface text-brand">
+                  <Sparkles size={15} />
+                </span>
+                <span className="min-w-0 flex-1 truncate">Ask Klimr AI — “{query.trim()}”</span>
+                <kbd className="hidden shrink-0 rounded-md border border-rule bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-faint sm:block">⌘↵</kbd>
+              </button>
+            </>
+          )}
+          {(ai.state !== "idle" && ai.query === query.trim()) || showingActions ? null : results.length === 0 ? (
             <p className="px-3 py-10 text-center text-sm text-mute">{loading ? "Searching…" : `No matches for “${query.trim()}”.`}</p>
           ) : (
             results.map((r, i) => {

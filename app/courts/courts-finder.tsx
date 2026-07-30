@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
   MapPin, LocateFixed, Search, Globe, Sun, Warehouse, Lightbulb, Tag, ListOrdered,
   Star, Navigation, ArrowRight, ChevronDown, Check, Plus, ShieldCheck, List, Map as MapIcon,
+  Loader2,
 } from "lucide-react";
 import { SPORTS } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
@@ -61,6 +62,7 @@ export function CourtsFinder({
   origin,
   originLabel,
   liveQueuesNow,
+  scanKicked = false,
   mapboxToken,
 }: {
   initial: Filters;
@@ -68,9 +70,17 @@ export function CourtsFinder({
   origin: { lat: number; lng: number } | null;
   originLabel: string;
   liveQueuesNow: number;
+  scanKicked?: boolean;
   mapboxToken: string | null;
 }) {
   const router = useRouter();
+  const refreshedRef = useRef(false);
+  useEffect(() => {
+    if (!scanKicked || refreshedRef.current) return;
+    refreshedRef.current = true;
+    const t = setTimeout(() => router.refresh(), 8000);
+    return () => clearTimeout(t);
+  }, [scanKicked, router]);
   const pathname = usePathname();
   const [zipDraft, setZipDraft] = useState(initial.zip);
   const [f, setF] = useState<Filters>(initial);
@@ -240,7 +250,7 @@ export function CourtsFinder({
             disabled={pending}
             className="press inline-flex h-11 items-center gap-2 rounded-[11px] bg-brand px-5 text-sm font-bold text-white shadow-[0_4px_14px_-6px_rgba(214,58,15,.5)] hover:bg-[#E23E0D]"
           >
-            <Search size={15} /> Find courts
+            {pending ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Find courts
           </button>
         </div>
 
@@ -400,6 +410,11 @@ export function CourtsFinder({
             </span>
             <span className="flex-1" />
             <label className="flex items-center gap-2">
+              {pending ? (
+                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[0.12em] text-mute"><Loader2 size={11} className="animate-spin" /> SEARCHING</span>
+              ) : scanKicked ? (
+                <span className="inline-flex items-center gap-1.5 rounded-[8px] border border-[#DCEBC0] bg-[#F1F8E3] px-2 py-0.5 font-mono text-[9.5px] font-semibold tracking-[0.1em] text-[#4D7C0F]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#4D7C0F]" /> EXPANDING COVERAGE</span>
+              ) : null}
               <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Sort</span>
               <select
                 value={f.sort}

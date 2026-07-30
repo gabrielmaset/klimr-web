@@ -166,6 +166,89 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — AI search made TOTAL: the registry + the site map
+
+Gabriel's correction: the tool list must cover EVERYTHING — Health &
+Nutrition, Sponsorships, Notifications, and any future feature — not a
+hand-enumerated set that rots. The architectural answer, two layers:
+(1) SEARCH REGISTRY (lib/search-registry.ts) — a declarative spine. Each
+domain is one entry: safe columns, RLS-scoped query on the user's client,
+server-minted hrefs, and a description. The generic `search_domain` tool
+builds its enum + its own description FROM the registry at runtime, so a
+new feature becomes searchable by adding ONE entry — zero orchestrator
+changes. Shipped domains: feed posts (audience RLS!), sponsorships, region
+challenges, and two PERSONAL domains (my_notifications, my_invites) that
+return only the caller's own rows. (2) SITE INDEX (lib/site-index.ts) — the
+navigational map of every user-facing page with keywords + descriptions,
+behind a `find_pages` tool, so "where do I…"/feature questions ALWAYS
+resolve to a correct link even for surfaces with no data adapter (Health &
+Nutrition, Playbook, Rankings, Settings subpages…). The system prompt's
+COVERAGE RULE routes: specialized tool → registry domain → find_pages; a
+page link with a pointer beats an empty answer. THE MAINTENANCE CONTRACT,
+now written into both files' headers: new feature = one site-index line
+(navigation) + optionally one registry entry (data) — nothing else.
+
+### 2026-07-30 — Date guard trigger (0152) + AI-enabled global search
+
+DATE GUARD: an organizer moving an event's start could leave a stale end
+date BEFORE it. 0152 fixes it where every write path passes — a BEFORE
+trigger on events AND tournaments: when ends_at < starts_at, ends_at snaps
+to the start's calendar day keeping its own clock time; if that still lands
+earlier (end time before start time), ends_at becomes exactly starts_at.
+Harness: shifted-same-day, clamped-to-start, valid-untouched — all green.
+(Fresh container this session had NO postgres; installed pg16 rather than
+skip the harness rule.)
+
+AI SEARCH (Gabriel's spec): the command palette gains "Ask Klimr AI" — one
+natural-language box over the whole platform. THE LOAD-BEARING SECURITY
+DECISION: every retrieval tool runs on the REQUESTING USER'S Supabase
+client, so Row-Level Security decides visibility. Friends-only locations,
+private profiles, hidden listings — enforced by the database, not by prompt
+instructions; the model orchestrates over what the user could already see,
+and holds no keys. Belt on top: explicit safe column lists per tool, hrefs
+minted SERVER-SIDE (the model can only echo tool-returned links; the parser
+drops any href not starting with "/"), the user query treated as untrusted
+in the system prompt, strict-JSON final shape, 12/min rate limit per user.
+Eight tools: events, tournaments, teams, players (open_to_invites ONLY —
+matchmaking respects invite privacy; availability {day,start,end}[] matched
+in the handler), marketplace (price ceilings), courts (reuses courts_finder
+with the user's home zip; "at night" ⇒ lights_required), pros+classes
+(class_providers approved + published classes), and a CURATED static help
+index (steps + known-good links — guidance can never leak data). Palette
+UX: a Sparkles "Ask Klimr AI" row leads typed results (⌘↵ shortcut), a
+loading state, then summary + grouped link rows + numbered how-to steps;
+the AI panel is BOUND to the query it answered (derived visibility — the
+compiler's no-setState-in-effect rule pushed a reset-effect into a cleaner
+design). Model: claude-haiku-4-5, tool-use loop capped at 4 rounds.
+
+### 2026-07-30 — Search re-architected to the industry pattern + floating labels
+
+Gabriel's three symptoms shared one architectural cause. (1) Padel: 0 under
+"All sports" but 9 when searched directly — because the All-sports scan
+covered a hand-picked pair (tennis+pickleball); the direct search triggered
+padel's own scan. (2) 15–60-second searches — because ingestion ran
+SYNCHRONOUSLY inside the page render: Google search + AI screen + serial
+upserts × sports, blocking the response. (3) Racquetball/Westwood empty —
+downstream of both. THE FIX is the pattern every serious search product
+uses: query-time reads ONLY Klimr's own index (instant); ingestion is
+background work. Implementation: the page computes which zip+sports lack a
+fresh scan (30-day log), kicks the ingest via Next's after() AFTER the
+response streams, and returns immediately; the finder shows the existing
+navigation transition as a SEARCHING spinner on the Find button + header,
+renders an EXPANDING COVERAGE chip when a background scan was kicked, and
+auto-refreshes ONCE after 8s to reveal what arrived (the chip clears itself
+because the server recomputes staleness). Under All sports the background
+scan now covers EVERY sport (log-gated per zip+sport — bounded cost at any
+scale). The AI screen already fails open. Repair lesson from the broken
+pushUrl patch: the finder ALREADY owned a navigation transition — regex
+wrapped a wrapper and shattered syntax; read the surrounding mechanism
+before adding a parallel one. FLOATING LABELS: Apple-pattern field family
+(components/float-field.tsx — FloatInput/FloatTextarea/FloatSelect) in pure
+CSS (placeholder-shown peers, no state): resting label at value size inside
+the field; floats to 10.5px on focus/filled; selects permanently floated;
+Klimr skin (r10, brand focus ring). Settings→Profile converted as the
+flagship; this is the platform standard for future forms.
+
 ### 2026-07-30 — Gap-fill scan shipped broken: wrong id contract + cache poisoning
 
 The screening gate worked exactly as designed and exposed the truth: the

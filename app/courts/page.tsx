@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { scanZipForCourts } from "./search-actions";
 
 const nowMs = () => Date.now();
@@ -100,18 +101,39 @@ export default async function CourtsPage({
       };
     });
   };
-  let courts = await loadCourts();
+  const courts = await loadCourts();
 
-  // Coverage gap-fill (0151): the first search for a zip+sport in 30 days
-  // also scans Google Places and ingests what the table is missing — real
-  // places like Westwood Rec appear on this search, not next quarter.
+  // Coverage expansion — the industry pattern: the page answers INSTANTLY
+  // from Klimr's own index; Google ingestion runs AFTER the response (never
+  // blocking a render), and the finder auto-refreshes once to reveal what
+  // arrived. Under "All sports" every sport is covered (30-day log-gated per
+  // zip+sport), not a hand-picked pair — the reason Padel showed 0 under All
+  // but 9 when searched directly.
+  let scanKicked = false;
   if (origin && zipHit) {
-    const scanSports =
-      sportParam !== "all"
-        ? [sportParam]
-        : [defaultSport !== "all" ? defaultSport : "tennis", "pickleball"].slice(0, 2);
-    const added = await scanZipForCourts(rawQuery, scanSports, radius);
-    if (added > 0) courts = await loadCourts();
+    const wanted = sportParam !== "all" ? [sportParam] : [...SPORT_KEYS];
+    const { data: logRows } = await createAdminClient()
+      .from("courts_scan_log")
+      .select("sport, scanned_at")
+      .eq("zip", rawQuery)
+      .in("sport", wanted);
+    const freshSet = new Set(
+      (logRows ?? []).filter((l) => Date.parse(l.scanned_at) > nowMs() - 30 * 86_400_000).map((l) => l.sport),
+    );
+    const stale = wanted.filter((s) => !freshSet.has(s));
+    if (stale.length) {
+      scanKicked = true;
+      const zip = rawQuery;
+      const rad = radius;
+      after(async () => {
+        try {
+          const added = await scanZipForCourts(zip, stale, rad);
+          console.error("[courts scan] background complete", zip, `+${added} courts`, `sports:${stale.length}`);
+        } catch (e) {
+          console.error("[courts scan] background failed", zip, e instanceof Error ? e.message : e);
+        }
+      });
+    }
   }
 
   // Header pulse: open Live Queue sessions right now, platform-wide.
@@ -137,6 +159,7 @@ export default async function CourtsPage({
       origin={origin}
       originLabel={originLabel}
       liveQueuesNow={liveNow ?? 0}
+      scanKicked={scanKicked}
       mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null}
     />
   );

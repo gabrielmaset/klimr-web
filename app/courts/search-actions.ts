@@ -594,7 +594,7 @@ export async function reverseToZip(input: { lat: number; lng: number }): Promise
  *  poisoning the cache. */
 export async function scanZipForCourts(zip: string, sports: string[], radiusMi: number): Promise<number> {
   if (!/^\d{5}$/.test(zip)) return 0;
-  const list = [...new Set(sports.filter((s) => SPORT_KEYS.includes(s)))].slice(0, 3);
+  const list = [...new Set(sports.filter((s) => SPORT_KEYS.includes(s)))].slice(0, 16);
   if (!list.length) return 0;
   const admin = createAdminClient();
   const { data: logs } = await admin.from("courts_scan_log").select("sport, scanned_at").eq("zip", zip).in("sport", list);
