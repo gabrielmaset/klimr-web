@@ -1,39 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { Map as MapboxMap, Marker } from "mapbox-gl";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Navigation } from "lucide-react";
 import type { FinderCourt } from "./courts-finder";
 
-/** Courts map — Mapbox GL restyled to Daylight (§6): parchment land, muted
- *  water, quiet parks, cream minor roads, warm arterials; POI/transit noise
- *  hidden; labels recolored. Numbered teardrop pins cross-highlight with the
- *  list, the selected court gets a callout, and the radius halo tweens when
- *  the radius changes (reduced-motion → instant). */
+const FALLBACK: [number, number] = [-118.44, 34.02];
 
-const FALLBACK: [number, number] = [-118.4344, 34.0031];
-
-const RESTYLE: { match: RegExp; kind: "fill" | "line" | "background"; color: string }[] = [
-  { match: /water/, kind: "fill", color: "#CFE3F2" },
-  { match: /^background$/, kind: "background", color: "#F5F1E6" },
-  { match: /landuse|landcover|park|pitch|grass|golf|cemetery/, kind: "fill", color: "#E1EBD6" },
-  { match: /land-structure|building/, kind: "fill", color: "#EDE8DB" },
-];
-
-function circleRing(lat: number, lng: number, radiusMi: number): [number, number][] {
-  const pts: [number, number][] = [];
-  const dLat = radiusMi / 69;
-  const dLng = radiusMi / (69 * Math.cos((lat * Math.PI) / 180));
-  for (let i = 0; i <= 64; i++) {
-    const a = (i / 64) * 2 * Math.PI;
-    pts.push([lng + Math.cos(a) * dLng, lat + Math.sin(a) * dLat]);
-  }
-  return pts;
-}
-
+/* ── Daylight recolor: per-layer isolation so one incompatible paint property
+   can never abort the pass (that failure once shipped a stock-looking map) ── */
 function applyDaylight(map: MapboxMap) {
-  // Per-layer try/catch: one incompatible paint property must never abort the
-  // whole recolor pass (that failure mode shipped a stock-looking map once).
   const layers = map.getStyle()?.layers ?? [];
   for (const layer of layers) {
     const id = layer.id;
@@ -42,18 +20,25 @@ function applyDaylight(map: MapboxMap) {
         map.setLayoutProperty(id, "visibility", "none");
         continue;
       }
+      if (layer.type === "background") {
+        map.setPaintProperty(id, "background-color", "#F5F1E6");
+        continue;
+      }
       if (layer.type === "fill" && /water|ocean|sea/.test(id)) {
         map.setPaintProperty(id, "fill-color", "#CFE3F2");
         continue;
       }
-      if (layer.type === "line" && /waterway|water-line|shoreline/.test(id)) {
+      if (layer.type === "line" && /waterway|shoreline/.test(id)) {
         map.setPaintProperty(id, "line-color", "#B9D3E8");
         continue;
       }
-      for (const r of RESTYLE) {
-        if (!r.match.test(id)) continue;
-        if (r.kind === "background" && layer.type === "background") map.setPaintProperty(id, "background-color", r.color);
-        if (r.kind === "fill" && layer.type === "fill") map.setPaintProperty(id, "fill-color", r.color);
+      if (layer.type === "fill" && /landuse|landcover|park|pitch|grass|golf|cemetery/.test(id)) {
+        map.setPaintProperty(id, "fill-color", "#E1EBD6");
+        continue;
+      }
+      if (layer.type === "fill" && /land-structure|building/.test(id)) {
+        map.setPaintProperty(id, "fill-color", "#EDE8DB");
+        continue;
       }
       if (layer.type === "line" && /road|street|bridge|tunnel/.test(id)) {
         const warm = /motorway|trunk|major/.test(id) ? "#F2C98C" : /primary|secondary|arterial/.test(id) ? "#FFFFFF" : "#EDE7D9";
@@ -69,7 +54,17 @@ function applyDaylight(map: MapboxMap) {
   }
 }
 
-/** Upsert the radius halo (dashed flame ring + tint) for the given ring. */
+function circleRing(lat: number, lng: number, radiusMi: number): [number, number][] {
+  const pts: [number, number][] = [];
+  const dLat = radiusMi / 69;
+  const dLng = radiusMi / (69 * Math.cos((lat * Math.PI) / 180));
+  for (let i = 0; i <= 64; i++) {
+    const a = (i / 64) * 2 * Math.PI;
+    pts.push([lng + Math.cos(a) * dLng, lat + Math.sin(a) * dLat]);
+  }
+  return pts;
+}
+
 function drawHalo(map: MapboxMap, ring: [number, number][]) {
   try {
     const data = { type: "Feature" as const, geometry: { type: "Polygon" as const, coordinates: [ring] }, properties: {} };
@@ -121,16 +116,31 @@ export function CourtsMap({
   const haloAnimRef = useRef<number | null>(null);
   const haloRadiusRef = useRef<number>(radiusMi);
   const [ready, setReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [satellite, setSatellite] = useState(false);
   const [callout, setCallout] = useState<{ x: number; y: number; court: FinderCourt } | null>(null);
 
-  // ── init ────────────────────────────────────────────────────────────────
+  // ── init: a failure must be VISIBLE, never a silent blank canvas ─────────
   useEffect(() => {
     if (!token || !containerRef.current) return;
     let cancelled = false;
     let resizeObserver: ResizeObserver | null = null;
+    const watchdog = setTimeout(() => {
+      if (!cancelled) {
+        setReady((r) => {
+          if (!r) setMapError((e) => e ?? "The map didn't finish loading — check the Mapbox token's scopes and URL restrictions.");
+          return r;
+        });
+      }
+    }, 8000);
     (async () => {
-      const mapboxgl = (await import("mapbox-gl")).default;
+      let mapboxgl: (typeof import("mapbox-gl"))["default"];
+      try {
+        mapboxgl = (await import("mapbox-gl")).default;
+      } catch {
+        if (!cancelled) setMapError("The map library failed to load.");
+        return;
+      }
       if (cancelled || !containerRef.current) return;
       mbRef.current = mapboxgl;
       mapboxgl.accessToken = token;
@@ -141,14 +151,20 @@ export function CourtsMap({
           style: "mapbox://styles/mapbox/light-v11",
           center: origin ? [origin.lng, origin.lat] : FALLBACK,
           zoom: 11,
-          attributionControl: false,
+          attributionControl: true,
         });
       } catch (err) {
-        console.warn("[courts map] init failed", err);
+        if (!cancelled) setMapError(err instanceof Error ? err.message : "The map couldn't start.");
         return;
       }
       map.on("error", (e: { error?: { status?: number; message?: string } }) => {
-        console.warn("[courts map] tile/style error", e?.error?.status ?? "", e?.error?.message ?? "");
+        const msg = e?.error?.message ?? "";
+        const status = e?.error?.status;
+        console.warn("[courts map] error", status ?? "", msg);
+        // Auth/style failures blank the canvas — surface them on screen.
+        if (status === 401 || status === 403 || /token|unauthorized|forbidden|style/i.test(msg)) {
+          setMapError(`Map error${status ? ` (${status})` : ""}: ${msg || "the Mapbox token was rejected."}`);
+        }
       });
       map.on("style.load", () => {
         applyDaylight(map);
@@ -159,6 +175,7 @@ export function CourtsMap({
         if (cancelled) return;
         mapRef.current = map;
         setReady(true);
+        setMapError(null);
         map.resize();
         requestAnimationFrame(() => map.resize());
       });
@@ -170,18 +187,19 @@ export function CourtsMap({
     const markers = markersRef.current;
     return () => {
       cancelled = true;
+      clearTimeout(watchdog);
       resizeObserver?.disconnect();
       if (haloAnimRef.current) cancelAnimationFrame(haloAnimRef.current);
       markers.forEach((m) => m.marker.remove());
       markers.clear();
       originMarkerRef.current?.remove();
+      originMarkerRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
       setReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
-
 
   // ── radius halo (tweened) + origin dot ─────────────────────────────────
   useEffect(() => {
@@ -223,7 +241,8 @@ export function CourtsMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, origin?.lat, origin?.lng, radiusMi, satellite]);
 
-  // ── numbered pins ───────────────────────────────────────────────────────
+  // ── numbered pins: the marker ROOT belongs to Mapbox (width/height/cursor
+  //    only) — every visual lives on the inner wrapper ─────────────────────
   useEffect(() => {
     const map = mapRef.current;
     const mapboxgl = mbRef.current;
@@ -236,9 +255,6 @@ export function CourtsMap({
     if (origin) bounds.extend([origin.lng, origin.lat]);
 
     courts.forEach((c, i) => {
-      // Mapbox positions the ROOT via inline transform every frame — the root
-      // must stay untouched (no position/transform/transition overrides, ever;
-      // that exact mistake once piled every pin on the container's left edge).
       const el = document.createElement("div");
       el.setAttribute("role", "button");
       el.setAttribute("aria-label", `${i + 1}. ${c.name}`);
@@ -250,7 +266,7 @@ export function CourtsMap({
         `<path d="M15 37C15 37 28 22.5 28 14A13 13 0 1 0 2 14C2 22.5 15 37 15 37Z" fill="#1E1A14" stroke="#fff" stroke-width="2.5"/></svg>` +
         `<span style="position:absolute;top:4.5px;left:0;right:0;text-align:center;font:700 12px 'JetBrains Mono',ui-monospace,monospace;color:#fff">${i + 1}</span>` +
         (c.liveQueue
-          ? `<span style="position:absolute;right:-1px;top:-1px;width:9px;height:9px;border-radius:9999px;background:#2FA44F;border:2px solid #fff;animation:pulse 2s infinite"></span>`
+          ? `<span style="position:absolute;right:-1px;top:-1px;width:9px;height:9px;border-radius:9999px;background:#2FA44F;border:2px solid #fff"></span>`
           : "");
       el.appendChild(inner);
       el.addEventListener("click", (e) => {
@@ -271,7 +287,7 @@ export function CourtsMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courts, ready, origin?.lat, origin?.lng]);
 
-  // ── cross-highlight + selected callout ─────────────────────────────────
+  // ── cross-highlight: scale the INNER; z-index is the only safe root write ─
   useEffect(() => {
     markersRef.current.forEach(({ el, inner }, id) => {
       const lift = id === selectedId || id === hoveredId;
@@ -280,6 +296,7 @@ export function CourtsMap({
     });
   }, [selectedId, hoveredId]);
 
+  // ── selected callout: re-projects on every move; pans off-screen pins in ─
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
@@ -305,7 +322,7 @@ export function CourtsMap({
 
   if (!token) {
     return (
-      <div className="grid h-[560px] place-items-center rounded-2xl border border-dashed border-rule bg-surface text-center min-[900px]:h-[652px]">
+      <div className="grid h-[520px] place-items-center rounded-2xl border border-dashed border-rule bg-surface text-center min-[900px]:h-[652px]">
         <div className="px-6">
           <div className="text-sm font-semibold text-ink">Map view</div>
           <p className="mx-auto mt-1 max-w-xs text-xs text-mute">The interactive map turns on once a Mapbox token is added. The court list works either way.</p>
@@ -315,15 +332,21 @@ export function CourtsMap({
   }
 
   return (
-    <div className="relative h-[520px] overflow-hidden rounded-2xl border border-rule shadow-e1 min-[900px]:h-[652px]">
+    <div className="relative h-[520px] overflow-hidden rounded-2xl border border-[#E3E5D8] shadow-e1 min-[900px]:h-[652px]">
       <div ref={containerRef} className="absolute inset-0" />
 
+      {mapError ? (
+        <div className="pointer-events-none absolute inset-x-4 top-4 z-20 rounded-xl border border-danger/30 bg-[#FDECEA]/95 px-3.5 py-2.5 text-center">
+          <p className="text-xs font-semibold text-danger">{mapError}</p>
+        </div>
+      ) : null}
+
       {/* controls */}
-      <div className="absolute right-3 top-3 flex flex-col gap-1.5">
-        <button type="button" title="Zoom in" onClick={() => mapRef.current?.zoomIn()} className="press grid h-9 w-9 place-items-center rounded-[10px] border border-rule-2 bg-surface text-sm font-bold text-ink shadow-e1 hover:bg-hover">
+      <div className="absolute right-3 top-3 z-10 flex flex-col gap-1.5">
+        <button type="button" title="Zoom in" onClick={() => mapRef.current?.zoomIn()} className="press grid h-9 w-9 place-items-center rounded-[10px] border border-rule-2 bg-surface/95 text-sm font-bold text-ink shadow-e1 backdrop-blur hover:bg-hover">
           +
         </button>
-        <button type="button" title="Zoom out" onClick={() => mapRef.current?.zoomOut()} className="press grid h-9 w-9 place-items-center rounded-[10px] border border-rule-2 bg-surface text-sm font-bold text-ink shadow-e1 hover:bg-hover">
+        <button type="button" title="Zoom out" onClick={() => mapRef.current?.zoomOut()} className="press grid h-9 w-9 place-items-center rounded-[10px] border border-rule-2 bg-surface/95 text-sm font-bold text-ink shadow-e1 backdrop-blur hover:bg-hover">
           −
         </button>
         <button
@@ -332,7 +355,7 @@ export function CourtsMap({
           onClick={() => {
             if (origin) mapRef.current?.flyTo({ center: [origin.lng, origin.lat], zoom: 11.5 });
           }}
-          className="press grid h-9 w-9 place-items-center rounded-[10px] border border-rule-2 bg-surface text-sm font-bold text-ink shadow-e1 hover:bg-hover"
+          className="press grid h-9 w-9 place-items-center rounded-[10px] border border-rule-2 bg-surface/95 text-sm font-bold text-brand shadow-e1 backdrop-blur hover:bg-hover"
         >
           ◎
         </button>
@@ -346,23 +369,11 @@ export function CourtsMap({
             setSatellite(next);
             map.setStyle(next ? "mapbox://styles/mapbox/satellite-streets-v12" : "mapbox://styles/mapbox/light-v11");
           }}
-          className="press grid h-9 w-9 place-items-center rounded-[10px] border border-rule-2 bg-surface text-sm font-bold text-ink shadow-e1 hover:bg-hover"
+          className="press grid h-9 w-9 place-items-center rounded-[10px] border border-rule-2 bg-surface/95 text-sm font-bold text-ink shadow-e1 backdrop-blur hover:bg-hover"
         >
           ▤
         </button>
       </div>
-
-      {/* legend + radius badge */}
-      <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-ink" /> COURT</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2FA44F]" /> LIVE QUEUE</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#3B82C4]" /> YOU</span>
-      </div>
-      {origin ? (
-        <div className="pointer-events-none absolute bottom-3 right-3 rounded-[10px] border border-rule-2 bg-surface/95 px-2.5 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1">
-          {radiusMi} MI RADIUS{originLabel ? ` · ${originLabel.toUpperCase()}` : ""}
-        </div>
-      ) : null}
 
       {/* selected callout */}
       {callout ? (
@@ -378,11 +389,35 @@ export function CourtsMap({
               ? ` · ★ ${(callout.court.memberRating ?? callout.court.googleRating)!.toFixed(1)}`
               : ""}
           </p>
-          <span className="pointer-events-auto mt-1.5 inline-block">
-            <a href={`/courts/${callout.court.id}`} className="text-[11px] font-bold text-brand-deep">View court →</a>
-          </span>
+          <div className="pointer-events-auto mt-2 flex items-center gap-1.5">
+            <Link
+              href={`/courts/${callout.court.id}`}
+              className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white hover:bg-[#E23E0D]"
+            >
+              View court
+            </Link>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${callout.court.lat},${callout.court.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Directions"
+              className="press grid h-7 w-8 place-items-center rounded-lg border border-rule-2 bg-surface text-ink hover:bg-hover"
+            >
+              <Navigation size={12} />
+            </a>
+          </div>
         </div>
       ) : null}
+
+      {/* legend + radius badge */}
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-3 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-ink" /> COURT</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2FA44F]" /> LIVE QUEUE</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2E77C9]" /> YOU</span>
+      </div>
+      <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
+        {radiusMi} MI RADIUS · {originLabel}
+      </div>
     </div>
   );
 }

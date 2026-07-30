@@ -1123,6 +1123,8 @@ export interface Database {
           location_lng: number | null;
           location_place_id: string | null;
           location_url: string | null;
+          location_pin_source: string | null;
+          location_pin_at: string | null;
           registration_opens_at: string | null;
           registration_deadline: string | null;
           capacity: number | null;
@@ -1141,6 +1143,8 @@ export interface Database {
           updated_at: string;
          host_agreed_at: string | null; venue_attested_at: string | null; };
         Insert: {
+          location_pin_source?: string | null;
+          location_pin_at?: string | null;
           id?: string;
           owner_id: string;
           code: string;
@@ -1180,6 +1184,8 @@ export interface Database {
           updated_at?: string;
          host_agreed_at?: string | null; venue_attested_at?: string | null; };
         Update: {
+          location_pin_source?: string | null;
+          location_pin_at?: string | null;
           title?: string;
           sport_key?: string;
           queue_enabled?: boolean;
@@ -1354,6 +1360,9 @@ export interface Database {
           lng: number | null;
           amenities: string[];
           google_place_id: string | null;
+          facts_inference: Json | null;
+          facts_inferred: string[];
+          facts_inferred_at: string | null;
           rating: number | null;
           rating_count: number | null;
           is_private: boolean;
@@ -1367,6 +1376,9 @@ export interface Database {
           created_at: string;
         };
         Insert: {
+          facts_inference?: Json | null;
+          facts_inferred?: string[];
+          facts_inferred_at?: string | null;
           indoor?: boolean;
           lights?: boolean | null;
           free?: boolean | null;
@@ -1392,6 +1404,9 @@ export interface Database {
           created_at?: string;
         };
         Update: {
+          facts_inference?: Json | null;
+          facts_inferred?: string[];
+          facts_inferred_at?: string | null;
           indoor?: boolean;
           lights?: boolean | null;
           free?: boolean | null;

@@ -10,6 +10,8 @@ import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInp
 import { normalizeGallery, type GalleryItem } from "@/lib/tournament";
 import { computePoolStandings, isRegistrationOpen, isSignupFormReady, poolSizes } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveEventPin } from "@/lib/maps-url";
+import { getAdminRole } from "@/lib/admin";
 import { rateLimit } from "@/lib/ratelimit";
 import { withinRecoverWindow } from "@/lib/recover";
 import { placementPoints, bracketPlaces, RESERVE_FACTOR } from "@/lib/ranking";
@@ -216,6 +218,10 @@ export async function createTournamentFromWizard(
   if (patch.registration_deadline !== undefined) row.registration_deadline = patch.registration_deadline;
   if (patch.format_config !== undefined) row.format_config = patch.format_config as Json;
 
+  if (row.location_lat != null) {
+    row.location_pin_source = "zip";
+    row.location_pin_at = new Date().toISOString();
+  }
   const { data: created, error } = await supabase.from("tournaments").insert({ ...row, host_agreed_at: new Date().toISOString(), venue_attested_at: new Date().toISOString() }).select("id").single();
   if (error || !created) {
     console.error("[tournaments] create-from-wizard failed", error?.code, error?.message);
@@ -433,7 +439,7 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   // same numbers must be a no-op, never a schedule reset).
   const { data: prevRow } = await supabase
     .from("tournaments")
-    .select("starts_at, code, capacity, entry_type, format_config")
+    .select("starts_at, code, capacity, entry_type, format_config, location_url, location_address, location_name, location_lat, location_place_id")
     .eq("id", id)
     .maybeSingle();
   const prev = prevRow ?? null;
@@ -473,6 +479,36 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
     const { data: cur } = await supabase.from("tournaments").select("format_config").eq("id", id).maybeSingle();
     const base = (cur?.format_config ?? {}) as Record<string, unknown>;
     u.format_config = { ...base, ...(patch.format_config as Record<string, unknown>) } as Json;
+  }
+
+  // Pin resolution (0149): when the location changed, resolve the organizer's
+  // Maps link server-side and persist — the page never re-resolves per render.
+  // A resolved LINK is the precision source of truth and overwrites the zip
+  // centroid; the Places picker ('place') is equally final.
+  const locTouched =
+    patch.location_url !== undefined ||
+    patch.location_name !== undefined ||
+    patch.location_address !== undefined ||
+    !!(patch.zip && /^\d{5}$/.test(patch.zip));
+  if (locTouched) {
+    const url = (u.location_url !== undefined ? u.location_url : prev?.location_url) ?? null;
+    const venue =
+      (u.location_address !== undefined ? u.location_address : prev?.location_address) ??
+      (u.location_name !== undefined ? u.location_name : prev?.location_name) ??
+      null;
+    const pin = await resolveEventPin({ locationUrl: url, description: null, venueText: venue });
+    if (pin && pin.source === "link") {
+      u.location_lat = pin.point.lat;
+      u.location_lng = pin.point.lng;
+      u.location_pin_source = "link";
+    } else if (u.location_lat !== undefined) {
+      u.location_pin_source = "zip";
+    } else if (pin && prev?.location_lat == null && !prev?.location_place_id) {
+      u.location_lat = pin.point.lat;
+      u.location_lng = pin.point.lng;
+      u.location_pin_source = pin.source;
+    }
+    u.location_pin_at = new Date().toISOString();
   }
 
   const { error } = await supabase.from("tournaments").update(u).eq("id", id);
@@ -2333,4 +2369,54 @@ export async function setTournamentCourtClosed(formData: FormData) {
   await admin.from("queue_courts").update({ closed_at: closed ? new Date().toISOString() : null }).eq("id", courtId);
   revalidatePath(`/tournament/${tournamentId}`);
   revalidatePath(`/queue/${court.session_id}`);
+}
+
+/** Organizer tool: re-run the pin ladder for a tournament and return the
+ *  trace — same observability as events. Link/place pins are final; a link
+ *  result always wins; a venue result only fills an empty slot. */
+export async function recheckTournamentPin(tournamentId: string): Promise<{
+  ok: boolean;
+  source: string | null;
+  lat: number | null;
+  lng: number | null;
+  trace: string[];
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, source: null, lat: null, lng: null, trace: ["Sign in first."] };
+  const { data: t } = await supabase
+    .from("tournaments")
+    .select("id, code, owner_id, description, location_url, location_address, location_name, location_lat, location_lng, location_place_id, location_pin_source")
+    .eq("id", tournamentId)
+    .maybeSingle();
+  if (!t) return { ok: false, source: null, lat: null, lng: null, trace: ["Tournament not found."] };
+  const role = await getAdminRole();
+  if (t.owner_id !== user.id && !role) {
+    return { ok: false, source: null, lat: null, lng: null, trace: ["Only the organizer can re-check the pin."] };
+  }
+  const trace: string[] = [];
+  const pin = await resolveEventPin(
+    { locationUrl: t.location_url, description: t.description, venueText: t.location_address ?? t.location_name },
+    trace,
+  );
+  const isFinal = t.location_pin_source === "place";
+  const write =
+    pin && pin.source === "link"
+      ? { location_lat: pin.point.lat, location_lng: pin.point.lng, location_pin_source: "link", location_pin_at: new Date().toISOString() }
+      : pin && t.location_lat == null && !isFinal
+        ? { location_lat: pin.point.lat, location_lng: pin.point.lng, location_pin_source: pin.source, location_pin_at: new Date().toISOString() }
+        : { location_pin_at: new Date().toISOString() };
+  const admin = createAdminClient();
+  await admin.from("tournaments").update(write).eq("id", tournamentId);
+  revalidatePath(`/e/${t.code}`);
+  const wrote = "location_lat" in write;
+  return {
+    ok: !!pin && (wrote || isFinal || t.location_lat != null),
+    source: wrote ? (write as { location_pin_source: string }).location_pin_source : t.location_pin_source,
+    lat: wrote ? (write as { location_lat: number }).location_lat : t.location_lat,
+    lng: wrote ? (write as { location_lng: number }).location_lng : t.location_lng,
+    trace,
+  };
 }

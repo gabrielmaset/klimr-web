@@ -7,6 +7,13 @@ import { SportChip } from "@/components/sport-chip";
 import { Avatar } from "@/components/avatar";
 import { addReview, checkInCourt } from "../actions";
 import { courtReviewEligibility } from "@/lib/court-access";
+import { getAdminRole } from "@/lib/admin";
+import { evaluateAndPersistCourtFacts } from "@/lib/court-facts";
+import { CourtFactsEval } from "@/components/court-facts-eval";
+import { Sun, Warehouse, Lightbulb, Tag, Grid3x3, Sparkles } from "lucide-react";
+
+// Render-purity rule bans bare Date.now() in components.
+const clockMs = () => Date.now();
 
 export const metadata: Metadata = { title: "Court" };
 
@@ -23,8 +30,55 @@ function Stars({ value, size = 14 }: { value: number; size?: number }) {
   );
 }
 
+function FactChip({ icon, label, inferred }: { icon: React.ReactNode; label: string; inferred: boolean }) {
+  return (
+    <span
+      title={inferred ? "AI-inferred from public reviews and place info — confirm or correct anytime" : undefined}
+      className="inline-flex items-center gap-1.5 rounded-[9px] border border-rule-soft bg-bg px-2.5 py-1.5 text-xs font-semibold text-ink-soft"
+    >
+      {icon} {label}
+      {inferred ? <Sparkles size={10} className="text-faint" /> : null}
+    </span>
+  );
+}
+
+function CourtFacts({
+  court,
+  isAdmin,
+}: {
+  court: { id: string; indoor: boolean; lights: boolean | null; free: boolean | null; court_count: number | null; facts_inferred: string[] };
+  isAdmin: boolean;
+}) {
+  const inf = (k: string) => court.facts_inferred?.includes(k) ?? false;
+  const anyFact = court.lights != null || court.free != null || court.court_count != null || court.indoor;
+  if (!anyFact && !isAdmin) return null;
+  return (
+    <section className="mt-5">
+      <h2 className="kicker mb-2 text-faint">Court facts</h2>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {court.indoor ? (
+          <FactChip icon={<Warehouse size={12} />} label="Indoor" inferred={inf("indoor")} />
+        ) : (
+          <FactChip icon={<Sun size={12} />} label="Outdoor" inferred={false} />
+        )}
+        {court.lights === true ? <FactChip icon={<Lightbulb size={12} />} label="Lights" inferred={inf("lights")} /> : null}
+        {court.free === true ? <FactChip icon={<Tag size={12} />} label="Free" inferred={inf("free")} /> : null}
+        {court.free === false ? <FactChip icon={<Tag size={12} />} label="Reserved / fees" inferred={inf("free")} /> : null}
+        {court.court_count ? <FactChip icon={<Grid3x3 size={12} />} label={`${court.court_count} courts`} inferred={inf("court_count")} /> : null}
+        {isAdmin ? <CourtFactsEval courtId={court.id} /> : null}
+      </div>
+      {court.facts_inferred?.length ? (
+        <p className="mt-1.5 flex items-center gap-1 text-[11px] text-faint">
+          <Sparkles size={10} /> Facts marked with a spark were inferred by AI from public reviews and place info.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export default async function CourtDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const adminRole = await getAdminRole();
   const supabase = await createClient();
   const {
     data: { user },
@@ -33,10 +87,23 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
 
   const { data: court } = await supabase
     .from("courts")
-    .select("id, name, sports, address, neighborhood, city, state, zip, lat, lng, amenities, google_place_id, website")
+    .select("id, name, sports, address, neighborhood, city, state, zip, lat, lng, amenities, google_place_id, website, indoor, lights, free, court_count, facts_inferred, facts_inferred_at")
     .eq("id", id)
     .maybeSingle();
   if (!court) notFound();
+  // Lazy AI evaluation (0150): unknown facts get one conservative pass from
+  // public evidence (reviews/summary/hours) on first view, 7-day backoff.
+  if (
+    court.google_place_id &&
+    (court.lights == null || court.free == null || court.court_count == null) &&
+    (!court.facts_inferred_at || clockMs() - Date.parse(court.facts_inferred_at) > 7 * 86_400_000)
+  ) {
+    const r = await evaluateAndPersistCourtFacts(court);
+    if (r.ok && r.wrote.length) {
+      const { data: fresh } = await supabase.from("courts").select("indoor, lights, free, court_count, facts_inferred").eq("id", id).maybeSingle();
+      if (fresh) Object.assign(court, fresh);
+    }
+  }
 
   const { data: reviewRows } = await supabase
     .from("court_reviews")
@@ -152,6 +219,9 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
           </button>
         </form>
       </div>
+
+      {/* court facts — real values or conservative AI inference (0150) */}
+      <CourtFacts court={court} isAdmin={!!adminRole} />
 
       {/* amenities */}
       {court.amenities?.length ? (

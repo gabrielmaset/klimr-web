@@ -50,6 +50,18 @@ export function parseLatLngFromMapsUrl(raw: string | null | undefined): LatLng |
     if (validLatLng(lat, lng)) return { lat, lng };
   }
 
+  // Old-style goo.gl short links expand to a PATH-coordinate search URL:
+  //   /maps/search/34.021018,+-118.510259?shorturl=1
+  // — comma-PLUS separator (a literal '+', which decodeURIComponent never
+  // touches). Found via the organizer re-check trace on a real event after
+  // three blind fixes missed it; the coordinates were in the URL all along.
+  const path = s.match(/\/maps\/(?:search|dir|place)\/(-?\d{1,2}(?:\.\d+)?),[+\s]*(-?\d{1,3}(?:\.\d+)?)(?=[/?,&]|$)/);
+  if (path) {
+    const lat = parseFloat(path[1]);
+    const lng = parseFloat(path[2]);
+    if (validLatLng(lat, lng)) return { lat, lng };
+  }
+
   return null;
 }
 

@@ -579,7 +579,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             <Link href={`/events/${e.id}/edit`} className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-ink-soft">
               <Pencil size={14} /> Edit event details
             </Link>
-            <EventPinRecheck eventId={e.id} />
+            <EventPinRecheck kind="event" targetId={e.id} />
             {isOwner ? (
               <DangerConfirm
                 word="CANCEL"

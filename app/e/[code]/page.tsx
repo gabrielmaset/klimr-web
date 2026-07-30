@@ -9,7 +9,9 @@ import { isRegistrationOpen, type TournamentFormatConfig,
   normalizeGallery, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventLocationMap } from "@/components/event-location-map";
-import { mapsPointFromUrl } from "@/lib/maps-url";
+import { resolveEventPin } from "@/lib/maps-url";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { EventPinRecheck } from "@/components/event-pin-recheck";
 import { reopenTournament } from "@/app/tournaments/actions";
 import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
 import { JoinWaitlistDialog } from "@/components/join-waitlist-dialog";
@@ -129,7 +131,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // means "no such (visible) event" → 404. The page needs no account to view.
   const { data: t } = await supabase
     .from("tournaments")
-    .select("id, code, title, sport_key, status, owner_id, cancelled_at, entry_type, summary, description, starts_at, location_name, location_address, location_url, location_zip, location_lat, location_lng, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
+    .select("id, code, title, sport_key, status, owner_id, cancelled_at, entry_type, summary, description, starts_at, location_name, location_address, location_url, location_zip, location_lat, location_lng, location_pin_source, location_pin_at, timezone, weather_enabled, capacity, registration_opens_at, registration_deadline, format_config")
     .eq("code", code)
     .maybeSingle();
   if (!t) notFound();
@@ -177,8 +179,30 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   // Status row is up to three columns: registration · venue map · weather. The map
   // shows when we have a location; registration widens to fill any empty columns.
   const hasMap = !!(t.location_url || t.location_address || t.location_name || (t.location_lat != null && t.location_lng != null));
-  // The organizer's pasted Google Maps link is the source of truth for the pin.
-  const mapPoint = hasMap ? await mapsPointFromUrl(t.location_url) : null;
+  // Stored pin first — resolved ONCE at save (0149), never per render. Pins
+  // from the Places picker or a resolved link are FINAL; zip-centroid and
+  // venue-geocoded pins are provisional: while a Maps link exists they retry
+  // daily (24h backoff) and upgrade in place.
+  const storedPoint = t.location_lat != null && t.location_lng != null ? { lat: t.location_lat, lng: t.location_lng } : null;
+  const pinFinal = t.location_pin_source === "link" || t.location_pin_source === "place";
+  let mapPoint = storedPoint;
+  if (hasMap && !pinFinal && (t.location_url || t.location_address || t.location_name)) {
+    const lastTry = t.location_pin_at ? Date.parse(t.location_pin_at) : 0;
+    // eslint-disable-next-line react-hooks/purity -- server component; backoff vs current time is intentional
+    if (Date.now() - lastTry > 86_400_000) {
+      const healed = await resolveEventPin({ locationUrl: t.location_url, description: t.description, venueText: t.location_address ?? t.location_name });
+      const upgrade = !!healed && (healed.source === "link" || !storedPoint);
+      await createAdminClient()
+        .from("tournaments")
+        .update(
+          upgrade && healed
+            ? { location_lat: healed.point.lat, location_lng: healed.point.lng, location_pin_source: healed.source, location_pin_at: new Date().toISOString() }
+            : { location_pin_at: new Date().toISOString() },
+        )
+        .eq("id", t.id);
+      if (upgrade && healed) mapPoint = healed.point;
+    }
+  }
   // Weather applies to a future, geolocated event with weather turned on. If we
   // have no forecast yet (still beyond the ~16-day horizon), keep the slot with a
   // "coming soon" placeholder rather than dropping it.
@@ -651,6 +675,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           ) : null}
 
           {hasMap ? <EventLocationMap name={t.location_name} address={t.location_address} zip={t.location_zip} lat={t.location_lat} lng={t.location_lng} point={mapPoint} href={t.location_url ?? undefined} className="rounded-[22px]" /> : null}
+          {hasMap && user && t.owner_id === user.id ? <EventPinRecheck kind="tournament" targetId={t.id} /> : null}
 
           {premiumSponsors.length ? (() => {
             const s = premiumSponsors[0];

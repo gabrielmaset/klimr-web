@@ -414,7 +414,7 @@ export function CourtsFinder({
             </label>
           </div>
 
-          <div ref={listRef} className="flex h-[596px] flex-col gap-3 overflow-y-auto rounded-2xl border border-rule bg-well p-3">
+          <div ref={listRef} className="flex h-[596px] flex-col gap-2.5 overflow-y-auto rounded-[18px] border border-[#EFE9DC] bg-[#FDFBF7] p-3 [overscroll-behavior:contain] [scrollbar-width:thin] [scrollbar-color:#E4DCCB_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#E4DCCB] [&::-webkit-scrollbar-track]:bg-transparent">
             {!origin ? (
               <div className="grid flex-1 place-items-center rounded-xl border border-dashed border-rule bg-surface p-8 text-center">
                 <div>
@@ -497,15 +497,15 @@ function CourtCard({
       onMouseEnter={() => onHover(c.id)}
       onMouseLeave={() => onHover(null)}
       onClick={onSelect}
-      className={`cursor-pointer rounded-2xl border bg-surface p-4 shadow-e1 transition-all ${
+      className={`cursor-pointer rounded-[15px] border bg-surface p-4 shadow-[0_1px_2px_rgba(80,60,30,.04)] transition-all ${
         selected ? "border-brand ring-4 ring-brand/10" : hovered ? "-translate-y-px border-rule-2 shadow-e2" : "border-rule"
       }`}
     >
       <div className="flex items-start gap-3">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink font-mono text-[11.5px] font-bold text-white">{index}</span>
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[9px] bg-ink font-mono text-[11.5px] font-bold text-white">{index}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[15px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
+            <h3 className="text-[14.5px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
             {c.liveQueue ? (
               <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#217A34]">
                 <span aria-hidden className="h-1 w-1 animate-pulse rounded-full bg-[#2FA44F]" /> LIVE QUEUE
@@ -569,16 +569,16 @@ function CourtCard({
         ) : null}
       </div>
 
-      <div className="mt-3 flex items-center gap-2 border-t border-rule-soft pt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-rule-soft pt-3">
         {c.activePlayers > 0 ? (
           <span className="flex items-center gap-2">
             {c.recent.length ? (
-              <span className="flex -space-x-1.5">
+              <span className="flex -space-x-[7px]">
                 {c.recent.map((p) => (
                   <span
                     key={p.id}
                     title={p.name}
-                    className="grid h-6 w-6 place-items-center rounded-full border-2 border-surface text-[8.5px] font-bold text-white"
+                    className="grid h-[22px] w-[22px] place-items-center rounded-full border-2 border-white text-[8px] font-bold text-white"
                     style={{ background: disc(p.hue) }}
                   >
                     {initialsOf(p.name)}
@@ -586,12 +586,12 @@ function CourtCard({
                 ))}
               </span>
             ) : null}
-            <span className="text-xs font-semibold text-mute">
+            <span className="min-w-[118px] flex-[1_1_130px] truncate text-xs font-semibold text-mute">
               {c.activePlayers} Klimr {c.activePlayers === 1 ? "player plays" : "players play"} here
             </span>
           </span>
         ) : null}
-        <span className="flex-1" />
+        <span className="ml-auto flex items-center gap-2">
         <a
           href={`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`}
           target="_blank"
@@ -608,6 +608,7 @@ function CourtCard({
         >
           View court <ArrowRight size={12} />
         </Link>
+        </span>
       </div>
     </article>
   );

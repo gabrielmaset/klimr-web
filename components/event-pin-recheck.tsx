@@ -4,12 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Loader2, ChevronDown } from "lucide-react";
 import { recheckEventPin } from "@/app/events/actions";
+import { recheckTournamentPin } from "@/app/tournaments/actions";
 
 /** Organizer tool: re-run the pin resolution ladder on demand and SHOW the
  *  step-by-step trace — which link was walked, what Google answered, which
  *  rung finally produced coordinates. Turns "the map is wrong" into an exact,
  *  reportable diagnosis. */
-export function EventPinRecheck({ eventId }: { eventId: string }) {
+export function EventPinRecheck({ kind, targetId }: { kind: "event" | "tournament"; targetId: string }) {
   const [result, setResult] = useState<{ ok: boolean; source: string | null; lat: number | null; lng: number | null; trace: string[] } | null>(null);
   const [showTrace, setShowTrace] = useState(false);
   const [pending, start] = useTransition();
@@ -18,15 +19,23 @@ export function EventPinRecheck({ eventId }: { eventId: string }) {
   const run = () => {
     if (pending) return;
     start(async () => {
-      const res = await recheckEventPin(eventId);
+      const res = kind === "tournament" ? await recheckTournamentPin(targetId) : await recheckEventPin(targetId);
       setResult(res);
-      setShowTrace(!res.ok || res.source === "venue");
+      setShowTrace(!res.ok || res.source === "venue" || res.source === "zip");
       if (res.ok) router.refresh();
     });
   };
 
   const sourceLabel =
-    result?.source === "link" ? "your Google Maps link (exact pin)" : result?.source === "venue" ? "the venue text (approximate)" : null;
+    result?.source === "link"
+      ? "your Google Maps link (exact pin)"
+      : result?.source === "place"
+        ? "the venue picker (exact pin)"
+        : result?.source === "zip"
+          ? "the ZIP centroid (approximate)"
+          : result?.source === "venue"
+            ? "the venue text (approximate)"
+            : null;
 
   return (
     <div className="min-w-0">

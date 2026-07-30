@@ -1,5 +1,8 @@
 "use server";
 
+import { getAdminRole } from "@/lib/admin";
+import { evaluateAndPersistCourtFacts } from "@/lib/court-facts";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -48,4 +51,23 @@ export async function checkInCourt(formData: FormData) {
   if (!(await accountActive(supabase, user.id))) return;
   await supabase.from("court_checkins").insert({ court_id: courtId, user_id: user.id });
   revalidatePath(`/courts/${courtId}`);
+}
+
+/** Admin tool: run the AI facts evaluator for a court right now. The
+ *  evaluator only fills NULL fields (per-field confidence >= 0.7) and marks
+ *  them AI-inferred; human confirmations always win. */
+export async function aiEvaluateCourtFacts(courtId: string): Promise<{ ok: boolean; wrote: string[]; note: string }> {
+  const role = await getAdminRole();
+  if (!role) return { ok: false, wrote: [], note: "Admins only." };
+  const admin = createAdminClient();
+  const { data: c } = await admin
+    .from("courts")
+    .select("id, name, sports, google_place_id, lights, free, indoor, court_count, facts_inferred")
+    .eq("id", courtId)
+    .maybeSingle();
+  if (!c) return { ok: false, wrote: [], note: "Court not found." };
+  const result = await evaluateAndPersistCourtFacts(c);
+  revalidatePath(`/courts/${courtId}`);
+  revalidatePath("/courts");
+  return result;
 }

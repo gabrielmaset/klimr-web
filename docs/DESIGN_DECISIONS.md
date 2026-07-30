@@ -166,6 +166,98 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — AI-evaluated court facts (0150): inference is not faking
+
+Gabriel's call: when lights/free/court_count are unknown, let AI evaluate
+from the court's real evidence. The principle that makes this compatible
+with hide-when-null: the rule bans FAKING, not INFERENCE from evidence — so
+the evaluator is built conservative and honest. Evidence = Google Place
+Details (Places API New: up to 5 review texts, editorial summary, opening
+hours — a park open past 20:00 implies lights). Judge = claude-haiku with a
+strict-JSON, injection-hardened prompt whose rules DEMAND null on weak
+evidence (lights=true needs night-play/lit-courts/late outdoor hours;
+free=false needs fees/permits mentioned; court_count only when a number is
+stated). Writes are triple-guarded: per-field confidence >= 0.7, ONLY
+currently-null columns (a human value is never overwritten; indoor's
+not-null default false counts as unknown, and an inferred indoor=true
+cascades lights via the existing DB trigger), and every written field lands
+in facts_inferred[] with the full verdict + evidence quotes archived in
+facts_inference jsonb. Disclosure: the court page's new Court-facts section
+marks inferred chips with a spark + tooltip and a one-line explainer.
+Triggers: lazy on first court-page view when facts are unknown (7-day
+backoff via facts_inferred_at, one model call per court ever in practice) +
+an admin "Evaluate facts with AI" button that reports exactly what was
+written. Cost bound: cached-by-timestamp, never in list views. Follow-ups
+logged: surface the spark marker on finder cards (needs the RPC to return
+facts_inferred), and a member confirm/correct flow that clears the inferred
+marker per field.
+
+### 2026-07-30 — Courts map rebuilt with VISIBLE failure states + card parity pass
+
+Production round two: the map pane rendered React chrome (controls, legend)
+over a completely blank canvas — no tiles, no attribution, meaning the GL
+Map never attached or its style/tiles failed auth. Root cause invisible from
+the sandbox AND from production (errors went to console.warn only;
+attributionControl was even set false, hiding the one signal that proves
+attachment). courts-map.tsx is REBUILT clean on the proven skeleton with a
+hard rule: A MAP FAILURE MUST BE VISIBLE. Now: attribution on; an on-map
+error banner surfaces 401/403/token/style errors with status + message; an
+8-second watchdog reports "didn't finish loading — check the Mapbox token's
+scopes and URL restrictions" if load never fires; the dynamic-import and
+Map-constructor paths each report their own failure. If the canvas is ever
+blank again, the screen says WHY — likely candidates in prod: token URL
+restrictions not covering klimr.com, or a secret (sk.) token where a public
+(pk.) one is required. Everything else preserved: root/inner marker pattern,
+per-layer recolor, ref-driven halo redraw on style.load, callout with
+pan-into-view. CARD PARITY vs the reference: the number badge is the spec's
+dark rounded-SQUARE (we'd shipped a circle), title 14.5/700, card radius 15,
+footer gains the spec's wrap rules (social line flex:1 1 130px min-118px
+truncate; actions ml-auto so buttons drop to a second row instead of
+truncating the line), avatars 22px with −7px overlap and white rings, and
+the well gets its exact framing (#FDFBF7 on #EFE9DC, radius 18, gap 10) plus
+the slim custom scrollbar. Remaining visual deltas vs the reference sample
+(busy bands, player stacks, court counts, lights/free chips) are EMPTY-DATA,
+not code — the hide-when-null rule the handoff itself mandates.
+
+### 2026-07-30 — Pin architecture extended to tournaments (0149); every maps surface audited
+
+Gabriel: make the fix work everywhere. Audit of every location surface:
+EVENTS ✓ (0146). TOURNAMENTS — the public page (/e/[code] IS the tournament
+page) re-resolved the organizer's Maps link on EVERY render (up to 6.5s per
+view on a dead link), ignored the stored lat/lng for the pin, and persisted
+nothing. Tournaments already had lat/lng columns — but filled from ZIP
+CENTROIDS (approximate) or the Places picker (precise), with no record of
+which. 0149 adds location_pin_source ('link'|'place'|'zip'|'venue') +
+location_pin_at, backfills provenance (place_id ⇒ 'place' final, else
+'zip' provisional). Save path (updateTournamentDraft) resolves the link
+whenever the location changes: a resolved LINK overwrites the zip centroid;
+'place' is equally final; create marks zip provenance. The page reads the
+stored pin first and provisional pins heal daily with the same
+upgrade-in-place rules as events. The recheck button is generalized
+(kind="event"|"tournament") with recheckTournamentPin (owner/admin), source
+labels covering all four tiers, and sits under the tournament map for the
+owner. CLASSES — audited, no change: Places-picker coordinates only, no URL
+field, nothing to resolve. COURTS — geocodes ZIP origins only, unrelated.
+The /maps/search/LAT,+LNG parser fix from this morning benefits every
+caller automatically since the ladder is shared.
+
+### 2026-07-30 — THE event-pin culprit, caught by the trace: /maps/search/LAT,+LNG
+
+The organizer re-check trace paid off on its first production click. Gabriel's
+goo.gl link 302s to `google.com/maps/search/34.021018,+-118.510259?shorturl=1`
+— the coordinates were IN THE REDIRECT URL the whole time, in a shape none of
+the three parser patterns matched: PATH-based coordinates with a comma-PLUS
+separator (a literal '+', which decodeURIComponent never converts — it only
+means space in query strings). The walk behaved perfectly: followed the 302,
+refused the search-page body per the Hampshire rule, then dropped gold on the
+floor. Fix: a fourth pattern in parseLatLngFromMapsUrl for
+/maps/(search|dir|place)/LAT,[+ ]LNG with range validation and a boundary
+lookahead so place-name searches ("/maps/search/tennis+courts") can't false-
+hit. Unit battery includes Gabriel's exact URL. With venue pins provisional
+(previous entry), the stored city-centroid pin upgrades to the exact spot on
+the next re-check or daily heal. Three blind fixes missed this; one trace
+found it — observability beats speculation, every time.
+
 ### 2026-07-30 — Event pin: the sticky-venue-pin flaw + traced resolution + organizer re-check
 
 Gabriel: the event map STILL shows the wrong pin. Two findings. (1) THE
