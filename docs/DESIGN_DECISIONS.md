@@ -166,6 +166,28 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — The debug panel's paradox: healthy log, blank canvas ⇒ geometry probe
+
+Gabriel's ?mapdebug=1 screenshot delivered the strangest possible answer:
+token pk. (public ✓), importing→loaded→constructed→style loaded→map
+ready→idle FIRST FULL RENDER COMPLETE in ~650ms, ZERO errors — the map
+believes it rendered perfectly, yet the canvas is visually blank AND the
+numbered pins (plain DOM elements!) are invisible too. That combination
+eliminates network/token/style entirely and leaves one family: CSS/size.
+Checked from the sandbox: globals.css has no canvas/mapboxgl rules; both
+pane wrappers use the identical hidden/min-[900px]:block pattern and the
+LIST pane renders (so variant generation works); the grid columns apply.
+Remaining suspects: the canvas at 0×0 (Mapbox fires load/idle happily into
+a zero-size canvas), a computed display/visibility surprise, or the
+recolored map rendering at such low contrast it reads as blank (though
+absent BLACK teardrop markers argue against pure contrast). The idle probe
+now logs the conclusive numbers: canvas attribute size vs CSS bounding box,
+computed display/visibility/opacity, container clientWidth×Height, whether
+map.getContainer() is our ref'd node, and the live marker count. The
+container div also gains explicit h-full w-full as a belt. One more
+screenshot decides between "canvas is 0×0/invisible → CSS fix" and "canvas
+full-size with markers → paint/contrast investigation."
+
 ### 2026-07-30 — Map still blank in prod; CSP exonerated; ?mapdebug=1 ships
 
 Round three on the blank courts map — and this time the ABSENCE of the new

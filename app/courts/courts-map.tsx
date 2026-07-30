@@ -193,7 +193,19 @@ export function CourtsMap({
       map.on("load", () => {
         if (cancelled) return;
         log("map ready");
-        map.once("idle", () => log("idle — first full render complete"));
+        map.once("idle", () => {
+          log("idle — first full render complete");
+          try {
+            const cv = map.getCanvas();
+            const cs = window.getComputedStyle(cv);
+            const box = cv.getBoundingClientRect();
+            const cont = containerRef.current;
+            log(`canvas attr ${cv.width}×${cv.height} · css ${Math.round(box.width)}×${Math.round(box.height)} · display:${cs.display} vis:${cs.visibility} op:${cs.opacity}`);
+            log(`container ${cont?.clientWidth ?? "?"}×${cont?.clientHeight ?? "?"} · sameNode:${map.getContainer() === cont} · markers:${markersRef.current.size}`);
+          } catch (e) {
+            log(`geometry probe failed: ${e instanceof Error ? e.message : "?"}`);
+          }
+        });
         mapRef.current = map;
         readyRef.current = true;
         setReady(true);
@@ -355,7 +367,7 @@ export function CourtsMap({
 
   return (
     <div className="relative h-[520px] overflow-hidden rounded-2xl border border-[#E3E5D8] shadow-e1 min-[900px]:h-[652px]">
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="absolute inset-0 h-full w-full" />
 
       {debugOn ? (
         <div className="absolute inset-x-3 bottom-14 z-30 max-h-44 overflow-y-auto rounded-lg bg-ink/90 p-2.5 font-mono text-[9.5px] leading-relaxed text-white/90">
