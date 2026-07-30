@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { MapPin, Star, ShieldCheck, UserCheck, Flame, Clock, BadgeCheck } from "lucide-react";
+import { MapPin, Star, ShieldCheck, UserCheck, Flame, Clock, BadgeCheck, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SportChip } from "@/components/sport-chip";
 import { Avatar } from "@/components/avatar";
@@ -150,6 +150,13 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
 
+      <nav className="mb-3 flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
+        <Link href="/courts" className="press inline-flex items-center gap-1 text-mute hover:text-ink">
+          <ArrowLeft size={11} /> Courts
+        </Link>
+        <span aria-hidden>/</span>
+        <span className="truncate">{court.name}</span>
+      </nav>
       <h1 className="font-display text-3xl leading-tight text-ink sm:text-4xl">{court.name}</h1>
       <p className="mt-1 flex items-center gap-1.5 text-sm text-mute">
         <MapPin size={14} /> {[court.neighborhood, court.city, court.state].filter(Boolean).join(", ")}

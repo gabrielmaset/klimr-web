@@ -168,8 +168,13 @@ export function CourtsMap({
           style: "mapbox://styles/mapbox/light-v11",
           center: origin ? [origin.lng, origin.lat] : FALLBACK,
           zoom: 11,
-          attributionControl: true,
+          // Mapbox ToS requires attribution + wordmark; the compliant minimum
+          // is the compact ⓘ control. Both live bottom-right, away from our
+          // legend, under the raised radius chip.
+          attributionControl: false,
+          logoPosition: "bottom-right",
         });
+        map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
         log("map constructed — loading style");
       } catch (err) {
         if (!cancelled) setMapError(err instanceof Error ? err.message : "The map couldn't start.");
@@ -466,7 +471,7 @@ export function CourtsMap({
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2FA44F]" /> LIVE QUEUE</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2E77C9]" /> YOU</span>
       </div>
-      <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
+      <div className="pointer-events-none absolute bottom-10 right-3 z-10 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
         {radiusMi} MI RADIUS · {originLabel}
       </div>
     </div>

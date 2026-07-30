@@ -585,3 +585,59 @@ export async function reverseToZip(input: { lat: number; lng: number }): Promise
   }
   return { zip: null };
 }
+
+type ScanItem = {
+  placeId?: string | null;
+  name: string;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  rating?: number | null;
+  ratingCount?: number | null;
+  private?: boolean;
+  website?: string | null;
+};
+
+/** Coverage gap-fill (0151): scan Google Places for a zip+sport and ingest
+ *  anything the courts table is missing. One scan per zip+sport per 30 days
+ *  (courts_scan_log) — a bounded, cached cost that closes coverage holes the
+ *  moment a member searches an area, at any scale. */
+export async function scanZipForCourts(zip: string, sports: string[], radiusMi: number): Promise<number> {
+  if (!/^\d{5}$/.test(zip)) return 0;
+  const list = [...new Set(sports.filter((s) => SPORT_KEYS.includes(s)))].slice(0, 3);
+  if (!list.length) return 0;
+  const admin = createAdminClient();
+  const { data: logs } = await admin.from("courts_scan_log").select("sport, scanned_at").eq("zip", zip).in("sport", list);
+  const fresh = new Set(
+    (logs ?? []).filter((l) => Date.parse(l.scanned_at) > Date.now() - 30 * 86_400_000).map((l) => l.sport),
+  );
+  let added = 0;
+  for (const sport of list) {
+    if (fresh.has(sport)) continue;
+    try {
+      const res = await searchCourts({ locationKey: zip, radiusKm: Math.max(5, Math.min(40, Math.round(radiusMi * 1.609))), sport });
+      if (res.status === "ok") {
+        for (const c of res.courts as ScanItem[]) {
+          if (!c.placeId) continue;
+          const r = await upsertGoogleCourt({
+            placeId: c.placeId,
+            name: c.name,
+            sport,
+            address: c.address ?? null,
+            lat: typeof c.lat === "number" ? c.lat : undefined,
+            lng: typeof c.lng === "number" ? c.lng : undefined,
+            rating: typeof c.rating === "number" ? c.rating : undefined,
+            ratingCount: typeof c.ratingCount === "number" ? c.ratingCount : undefined,
+            private: c.private === true,
+            website: c.website ?? undefined,
+          });
+          if (r.courtId) added++;
+        }
+      }
+      await admin.from("courts_scan_log").upsert({ zip, sport, scanned_at: new Date().toISOString() });
+    } catch {
+      /* one sport's scan failing must not sink the search */
+    }
+  }
+  return added;
+}

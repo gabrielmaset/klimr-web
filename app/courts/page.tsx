@@ -1,3 +1,7 @@
+import { scanZipForCourts } from "./search-actions";
+
+const nowMs = () => Date.now();
+import { SPORT_KEYS } from "@/lib/sports";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -34,11 +38,14 @@ export default async function CourtsPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("home_zip")
+    .select("home_zip, primary_sport")
     .eq("id", user.id)
     .maybeSingle();
 
   const rawQuery = (one("zip") ?? profile?.home_zip ?? "").trim();
+  // The finder opens on the player's own sport, not "All sports".
+  const defaultSport = profile?.primary_sport && SPORT_KEYS.includes(profile.primary_sport) ? profile.primary_sport : "all";
+  const sportParam = one("sport") ?? defaultSport;
   const radius = RADII.includes(Number(one("radius"))) ? Number(one("radius")) : 10;
 
   // Origin: 5-digit ZIP through the local table (instant, free); anything else
@@ -57,14 +64,14 @@ export default async function CourtsPage({
     }
   }
 
-  let courts: FinderCourt[] = [];
-  if (origin) {
+  const loadCourts = async (): Promise<FinderCourt[]> => {
+    if (!origin) return [];
     const { data } = await supabase.rpc("courts_finder", {
       p_lat: origin.lat,
       p_lng: origin.lng,
       p_radius_mi: radius,
     });
-    courts = (data ?? []).map((r) => {
+    return (data ?? []).map((r) => {
       // Both rating sources travel to the card — Klimr reviews lead, Google
       // fills the gap; the card renders whichever exist (or neither).
       const recent = Array.isArray(r.recent_players)
@@ -92,20 +99,34 @@ export default async function CourtsPage({
         distanceMi: Math.round(r.distance_mi * 10) / 10,
       };
     });
+  };
+  let courts = await loadCourts();
+
+  // Coverage gap-fill (0151): the first search for a zip+sport in 30 days
+  // also scans Google Places and ingests what the table is missing — real
+  // places like Westwood Rec appear on this search, not next quarter.
+  if (origin && zipHit) {
+    const scanSports =
+      sportParam !== "all"
+        ? [sportParam]
+        : [defaultSport !== "all" ? defaultSport : "tennis", "pickleball"].slice(0, 2);
+    const added = await scanZipForCourts(rawQuery, scanSports, radius);
+    if (added > 0) courts = await loadCourts();
   }
 
   // Header pulse: open Live Queue sessions right now, platform-wide.
   const { count: liveNow } = await createAdminClient()
     .from("court_sessions")
     .select("id", { count: "exact", head: true })
-    .is("ended_at", null);
+    .is("ended_at", null)
+    .gt("activated_at", new Date(nowMs() - 12 * 3_600_000).toISOString());
 
   return (
     <CourtsFinder
       initial={{
         zip: rawQuery,
         radius,
-        sport: one("sport") ?? "all",
+        sport: sportParam,
         venue: one("venue") === "indoor" || one("venue") === "outdoor" ? (one("venue") as "indoor" | "outdoor") : "any",
         lights: one("lights") === "1",
         free: one("free") === "1",

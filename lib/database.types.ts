@@ -1346,6 +1346,12 @@ export interface Database {
         Update: { lat?: number; lng?: number; fetched_at?: string };
         Relationships: [];
       };
+      courts_scan_log: {
+        Row: { zip: string; sport: string; scanned_at: string };
+        Insert: { zip: string; sport: string; scanned_at?: string };
+        Update: { zip?: string; sport?: string; scanned_at?: string };
+        Relationships: [];
+      };
       courts: {
         Row: {
           id: string;
@@ -1363,6 +1369,7 @@ export interface Database {
           facts_inference: Json | null;
           facts_inferred: string[];
           facts_inferred_at: string | null;
+          is_active: boolean;
           rating: number | null;
           rating_count: number | null;
           is_private: boolean;
@@ -1376,6 +1383,7 @@ export interface Database {
           created_at: string;
         };
         Insert: {
+          is_active?: boolean;
           facts_inference?: Json | null;
           facts_inferred?: string[];
           facts_inferred_at?: string | null;
@@ -1404,6 +1412,7 @@ export interface Database {
           created_at?: string;
         };
         Update: {
+          is_active?: boolean;
           facts_inference?: Json | null;
           facts_inferred?: string[];
           facts_inferred_at?: string | null;

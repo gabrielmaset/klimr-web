@@ -502,7 +502,7 @@ function CourtCard({
       }`}
     >
       <div className="flex items-start gap-3">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[9px] bg-ink font-mono text-[11.5px] font-bold text-white">{index}</span>
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[9px] bg-brand font-mono text-[11.5px] font-bold text-white">{index}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[14.5px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
@@ -604,7 +604,7 @@ function CourtCard({
         <Link
           href={`/courts/${c.id}`}
           onClick={(e) => e.stopPropagation()}
-          className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-ink px-3.5 text-xs font-bold text-white hover:bg-[#2A2622]"
+          className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-brand px-3.5 text-xs font-bold text-white hover:bg-brand-deep"
         >
           View court <ArrowRight size={12} />
         </Link>

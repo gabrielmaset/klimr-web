@@ -166,6 +166,33 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — Screening gate (0151): fake courts, stale LIVE, coverage gap-fill + finder polish
+
+Gabriel caught a phantom "Mar Vista Recreation Center" at #1 — wrong pin,
+no rating, duplicating the real Google-backed #3. ROOT CAUSE: migrations
+0015/0028 hand-seeded courts in early development (approximate coords, no
+google_place_id, never player-confirmed). The footnote has always promised
+"every listing is confirmed by a Klimr player before it appears" — 0151
+finally ENFORCES it in the database: courts.is_active gates the finder;
+unscreened rows (no place backing AND no confirmation) are deactivated
+platform-wide, killing every phantom and dupe in one comprehensive pass,
+not just this zip. STALE LIVE PILL: a never-ended test session lit "1 LIVE
+QUEUE NOW"; live now requires activation within 12 hours (RPC + header
+count), while busy-history keeps all ages via queue_matches. COVERAGE
+GAP-FILL: the reason Westwood Rec (racquetball) was missing is table
+coverage, not filtering — the first search for a zip+sport in 30 days now
+also scans Google Places and ingests what's missing via the existing
+upsert (sports-merge on place_id), logged in courts_scan_log, so holes
+close the moment a member searches an area — bounded cost, any scale.
+DEFAULTS: the sport filter opens on profiles.primary_sport, not "All
+sports". POLISH: card number badges + View-court buttons moved to brand
+orange (cards were reading black-and-white against the orange map — noted:
+proactively audit color warmth, not just structure); court pages gain a
+Courts / {name} breadcrumb with back link; the Mapbox wordmark +
+attribution moved to compact form bottom-right (full removal violates
+Mapbox ToS — the compliant minimum ships), radius chip raised clear of it,
+legend overlap resolved.
+
 ### 2026-07-30 — MAP RESOLVED (stale deploy) + the haze root-caused + brand pins
 
 Case closed on the blank map: probe v2's screenshot shows a fully rendering
