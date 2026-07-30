@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, Star, Lock, ExternalLink, Loader2, ShieldCheck, CalendarPlus, Check, Globe } from "lucide-react";
 import { SPORTS, sportMeta } from "@/lib/sports";
-import { CourtsMap } from "./courts-map";
+import { LegacyCourtsMap } from "./legacy-map";
 import { searchCourts, suggestCities, checkZip, type CourtResult, type SearchResponse, type CitySuggestion } from "./search-actions";
 
 const KM_PER_MI = 1.60934;
@@ -337,7 +337,7 @@ export function CourtsExplorer({
 
       {/* RIGHT — tall map, top-aligned with the search card */}
       <div className="lg:sticky lg:top-6">
-        <CourtsMap token={mapboxToken} courts={mapCourts} tall />
+        <LegacyCourtsMap token={mapboxToken} courts={mapCourts} tall />
       </div>
     </div>
   );

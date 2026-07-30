@@ -11,7 +11,7 @@ import { RichTextEditor, linkifyHtml } from "@/components/rich-text-editor";
 import { DateTimeField } from "@/components/date-time-field";
 import { EventLocationMap } from "@/components/event-location-map";
 import { parseLatLngFromMapsUrl, isMapsShortLink, type LatLng } from "@/lib/maps-url";
-import { resolveMapsPoint } from "@/app/events/maps-actions";
+import { resolveEventPinPreview } from "@/app/events/maps-actions";
 import {
   createEvent,
   updateEvent,
@@ -91,10 +91,24 @@ export function EventForm({ initial }: { initial?: Initial }) {
   const [locationUrl, setLocationUrl] = useState(initial?.location_url ?? "");
   const [revealRsvp, setRevealRsvp] = useState(initial?.location_reveal === "rsvp");
   const [resolvedPoint, setResolvedPoint] = useState<LatLng | null>(null);
+  const [resolvedSource, setResolvedSource] = useState<"link" | "address" | "venue" | null>(null);
   const [resolveState, setResolveState] = useState<"idle" | "resolving" | "failed">("idle");
 
   // Short links carry no coordinates in the URL itself — resolve them on the
   // server (redirect follow) so the preview pin is exact.
+  const [capacity, setCapacity] = useState(initial?.capacity != null ? String(initial.capacity) : "");
+  const [cost, setCost] = useState(initial?.cost_text ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [whatsapp, setWhatsapp] = useState(initial?.whatsapp_url ?? "");
+  const [joinPolicy, setJoinPolicy] = useState(initial?.join_policy === "approval" ? "approval" : "open");
+  const [hostAck, setHostAck] = useState(false);
+
+  // Latest venue/description via ref so the resolver reads fresh values without
+  // re-firing on every keystroke — only the Maps link retriggers resolution.
+  const previewCtx = useRef({ location: "", description: "" });
+  useEffect(() => {
+    previewCtx.current = { location, description };
+  }, [location, description]);
   useEffect(() => {
     const url = locationUrl.trim();
     const needsResolve = !!url && !parseLatLngFromMapsUrl(url) && isMapsShortLink(url);
@@ -106,18 +120,13 @@ export function EventForm({ initial }: { initial?: Initial }) {
       }
       setResolvedPoint(null);
       setResolveState("resolving");
-      const pt = await resolveMapsPoint(url);
-      setResolvedPoint(pt);
+      const pt = await resolveEventPinPreview({ url, venue: previewCtx.current.location, description: previewCtx.current.description });
+      setResolvedSource(pt?.source ?? null);
+      setResolvedPoint(pt?.point ?? null);
       setResolveState(pt ? "idle" : "failed");
     }, needsResolve ? 600 : 0);
     return () => clearTimeout(t);
   }, [locationUrl]);
-  const [capacity, setCapacity] = useState(initial?.capacity != null ? String(initial.capacity) : "");
-  const [cost, setCost] = useState(initial?.cost_text ?? "");
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [whatsapp, setWhatsapp] = useState(initial?.whatsapp_url ?? "");
-  const [joinPolicy, setJoinPolicy] = useState(initial?.join_policy === "approval" ? "approval" : "open");
-  const [hostAck, setHostAck] = useState(false);
   const [recurrence, setRecurrence] = useState(initial?.recurrence ?? "none");
   const [recurDays, setRecurDays] = useState<string[]>(initial?.recurrence_days ?? []);
   const [queueEnabled, setQueueEnabled] = useState(!!initial?.queue_enabled);
@@ -352,13 +361,15 @@ export function EventForm({ initial }: { initial?: Initial }) {
                 className="h-[190px]"
               />
               <p className="mt-1 text-[11px] text-faint">
-                {parseLatLngFromMapsUrl(locationUrl) || resolvedPoint
+                {parseLatLngFromMapsUrl(locationUrl) || (resolvedPoint && resolvedSource === "link")
                   ? "Pinned from your Google Maps link — this exact spot shows on the event page."
-                  : resolveState === "resolving"
-                    ? "Resolving your link for the exact spot…"
-                    : resolveState === "failed"
-                      ? "Couldn't resolve this short link — open it in your browser and paste the full maps.google.com URL for an exact pin."
-                      : "Showing the venue text — paste a Google Maps link above for an exact pin."}
+                  : resolvedPoint && resolvedSource === "venue"
+                      ? "Pinned from your venue text."
+                      : resolveState === "resolving"
+                        ? "Finding the exact spot…"
+                        : resolveState === "failed"
+                          ? "Couldn't resolve that link — open it in your browser and paste the full maps.google.com URL for the exact pin. Until then the map uses your venue text."
+                          : "Showing the venue text — paste a Google Maps link above for an exact pin."}
               </p>
             </div>
           ) : null}

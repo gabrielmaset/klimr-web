@@ -166,6 +166,182 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — Side-nav scrollbar hidden (the affordance already existed) + 0147 chat-paste drift bit production
+
+Two small items with one big lesson. (1) The side nav's scroll-affordance
+machinery (moreBelow state, fade gradient, listeners) was fully built — but
+the `scrollbar-hidden` class it relied on was never DEFINED anywhere, so the
+native scrollbar painted over the design. Fixed with self-contained Tailwind
+arbitrary properties on the scroll container ([scrollbar-width:none] +
+[&::-webkit-scrollbar]:hidden); no globals touched. Lesson: a class name that
+compiles is not a class that exists — grep the definition.
+(2) THE DRIFT SHIPPED: the 0147 SQL pasted into chat was the
+summary-reconstructed version (s.started_at) rather than the verified repo
+file (qm.started_at) — Gabriel ran it and hit the exact error the harness had
+caught for 0148. Supabase rolled back cleanly. New rule, absolute: migration
+SQL delivered in chat is COPIED FROM THE REPO FILE via cat at reply time,
+never re-typed, never from summary.
+
+### 2026-07-29 — Dual ratings on court cards + courtside↔court venue link (0148)
+
+Two refinements on Gabriel's review of the finder. (1) DUAL RATINGS replace
+the fallback precedence: cards now show BOTH sources — the Klimr member row
+leads (gold star, "N KLIMR REVIEWS") with a muted Google row beneath (G
+badge, rating · count). Each row renders only when its count > 0; a court
+with neither shows nothing. More information beats an either/or. Sort-by-
+rated uses member ?? google. (2) VENUE LINK (0148): court_sessions gains
+court_id → courts (the VENUE — deliberately distinct from queue_courts, the
+session's internal playing surfaces). Event-spawned sessions INHERIT the
+event's court automatically; standalone sessions get a search picker in
+setup ("Court / venue (optional)", debounced type-ahead over name/city, chip
+with clear). The organizer's explicit pick wins over event inheritance.
+Existing sessions backfilled from their events; courts_finder() recreated
+with the DIRECT link checked first, event + 0.15mi-proximity inference kept
+as fallbacks for old rows. Harness: linked→LIVE, unlinked neighbor→dark,
+ended→dark. TWO PROCESS LESSONS, earned the hard way this session: (a) the
+scratch harness's court_sessions mock carried a started_at column the real
+schema doesn't have (real: activated_at) — 0147 survived only because it
+reads queue_matches.started_at, which IS real; mocks must be built from
+lib/database.types.ts, never from memory. (b) 0148's RPC was first re-typed
+from the session summary and drifted from the repo's 0147 (return-shape
+error, wrong signal source); the fix that shipped REBUILDS the function
+verbatim from the repo file with a one-line join edit. The repo is the
+source of truth; summaries are not.
+
+### 2026-07-29 — Courts finder rebuilt (0147): map-based, DB-first, honest signals
+
+Full rebuild per KLIMR-COURTS-HANDOFF.md. THE SPLIT: /courts is now the
+FINDER — it reads ONLY the confirmed courts table; the old Google-search
+explorer (which UPSERTS Places results into courts) moved intact to
+/courts/suggest as the ingestion flow behind the "Suggest a court" button and
+the shield-check promise ("confirmed by a Klimr player before it appears").
+Two different jobs, two different pages.
+
+DATA (0147): courts gains indoor (trigger FORCES lights=true — physics),
+tri-state lights/free (null = unknown → the chip is HIDDEN, never faked),
+court_count, confirmed_at/by. One SECURITY DEFINER RPC, courts_finder(lat,
+lng, radius_mi), does the whole read in a single pass: haversine distance,
+member-review aggregates (Google ratings kept as FALLBACK when no member
+reviews exist — a deliberate deviation from the handoff's member-only rule,
+justified because real Google ratings beat an empty star block; precedence
+member > Google, and zero-review courts hide the block), live-queue linkage
+(court_sessions has no court_id — linked via event_id→events.court_id OR
+session center within 0.15 mi), distinct check-in players over 90d with the
+3 most recent for the avatar stack, and BUSY derived per the handoff's
+percentile spec: 8 weeks of hour-of-week activity, per-slot distribution
+including zero-slots, current slot ≥p70 → BUSY, ≤p30 → QUIET, under 12 total
+signals → null and the chip is OMITTED. Harness-probed end to end.
+
+UI: two-pane workspace — 596px internally-scrolling well (page height is
+constant at any result count) beside a sticky Mapbox map restyled to the
+Daylight palette (light-v11 + a style.load recolor pass: water/parks/roads/
+labels per §6; tile-label fonts stay Mapbox-served — JetBrains lives in the
+HTML overlays, a glyph-server constraint). Numbered teardrop pins match row
+badges with two-way hover/selection cross-highlighting; selected callout via
+map.project; dashed flame radius halo tweened over 300ms (instant under
+reduced-motion); blue you-dot; custom glass controls incl. satellite toggle;
+searchable Sport dropdown (the scalable pattern — survives 30 sports);
+Venue Any/Outdoor/Indoor with Indoor auto-satisfying Lights (AUTO tag);
+zip/radius/sport/venue/lights/free/queue/sort ALL in URL searchParams
+(zip+radius reload the server query; the rest narrow client-side). Mobile
+<900px: List/Map segmented switch, never both panes half-height. The legacy
+explorer got its own minimal legacy-map.tsx (the new map's contract is
+finder-specific). React-compiler lessons logged again: selection is DERIVED
+from visibility, not synced in an effect; refs read only inside recognized
+event handlers; helpers hoisted to module scope. Follow-ups: row
+virtualization at scale, court-page confirm/report flow, court_count
+backfill UI.
+
+### 2026-07-29 — business_publication flag removed: the Business system ships unconditional
+
+Gabriel's call, hours after the flag-gated Settings card fix: no kill switch
+for this surface — the Business system exists like every other feature. All
+ten checks removed across eight files: the /business index, /business/new,
+the portal layout (which keeps its REAL gate — roster membership), the public
+/b/[slug] page, the Settings card (reverted to unconditional), AppShell's
+lower-menu membership fetch (always runs now), and the sponsor surfaces on
+event/team pages — which keep their own separate `sponsorship_discovery`
+flag for the public strips, untouched, while organizer-facing sponsorship
+requests are now ungated. Doc comments claiming darkness were rewritten, not
+left to lie. The feature_flags ROW is now inert; deleting it is optional
+housekeeping. Zero grep hits remain for the key outside generated types.
+Design note for the record: dark-launch flags earned their keep during the
+multi-deploy build of this system, but carrying one into steady state was
+operator overhead Gabriel explicitly didn't want — the activation step
+itself (a SQL statement never handed over as a copy-paste block) is what
+caused two rounds of 404 confusion. Flags die when the launch ends.
+
+### 2026-07-29 — Pin ladder revised on Gabriel's review; precision setting retired; Business card gated
+
+Three corrections from production review, same day. (1) STREET-ADDRESS RUNG
+REMOVED from the pin ladder — Gabriel's call, and the right one: a prose
+address in the description may describe a DIFFERENT place (the after-party,
+the parking structure), so reading it risks a semantically-wrong pin. The
+extractor and its regex are deleted, not just bypassed. The organizer's LINK
+is the source of truth. (2) THE ACTUAL SHORT-LINK BUG: Gabriel confirmed the
+goo.gl link works in a browser — so the failure is client-differential
+serving: browsers get the 302, unfamiliar server agents get a 200
+interstitial. resolveMapsShortLink now sends a browser-grade UA
+(+accept/accept-language) and, when a SHORT-LINK host answers 200, mines the
+HTML for the continuation URL (meta-refresh, JS location hop, canonical,
+maps href — verified against all four shapes) and keeps walking. The
+Hampshire rule is intact: URLs only from bodies, never coordinates. Ladder:
+link coords → expanded short link → Maps LINK in description → geocoded
+venue text. (3) LOCATION PRECISION RETIRED hours after shipping —
+neighborhood≈city in the launch geography, so the tier control was a setting
+nobody needed. Display rule is now flat: other members see CITY, STATE,
+period (helper simplified; match-intel keeps neighborhood for SCORING —
+locality weight is real signal — but the reason string says "Same
+neighborhood" without naming it, and the output field is nulled). 0145's
+columns/trigger stay harmlessly dormant; the migration is skippable if not
+yet run. Lesson logged: ask before building a privacy TIER when the product
+answer might be a single sane default. (4) The Settings "Business accounts"
+card rendered unconditionally while /business dark-404s behind
+business_publication — a guaranteed dead end. The card is now gated on the
+same flag, so the entry point appears only when the feature is live.
+
+### 2026-07-29 — The event pin, definitively (0146) + opt-in description translation
+
+THE PIN. Recurring bug, root-caused at last: Google retired consumer goo.gl
+links in 2025, so the resolver's redirect walk correctly refuses the
+interstitial junk (the "pin in Hampshire" guards) and fell through to
+geocoding the venue text — "Santa Monica, CA" → city-center pin. Every prior
+fix tried to resurrect the link; the definitive fix stops depending on it.
+Architecture: resolve ONCE, persist, render from storage. events gains
+location_lat/lng (+range CHECKs), location_pin_source
+('link'|'address'|'venue'|'court'), location_pin_at. The resolution LADDER
+(lib/maps-url.ts resolveEventPin): coordinates in the pasted link → resolved
+short link → a Maps link inside the description → a STREET ADDRESS extracted
+from the description (new extractStreetAddress — suffix-anchored regex,
+ZIP-bearing matches win; verified against the real production description:
+"772-798 Pacific Coast Hwy, Santa Monica, CA 90403") → geocoded venue text.
+Street addresses can't link-rot. createEvent/updateEvent run the ladder at
+save and persist; the event page reads the STORED pin first, then the court
+coordinate, and lazy-heals older rows on first view (writes the result back;
+24h backoff between failed attempts via location_pin_at — no per-render
+refetch loops). The edit form's preview now runs the SAME ladder server-side
+(resolveEventPinPreview, latest venue/description via an effect-synced ref so
+only link changes retrigger) with source-specific copy, and the failure
+message finally tells the truth: Google retired old goo.gl links — paste the
+full URL or just include the street address. Two lint battles worth
+recording: react-hooks/purity bans bare Date.now() in render (module-level
+nowMs helper, per house rule) and react-hooks/refs bans ref writes during
+render (sync moved into an effect).
+
+TRANSLATION. Non-English descriptions (Klimr's LA community posts in
+Portuguese and Spanish) get a DISCREET "Translate to English" button — never
+automatic; the original stays one tap away. lib/lang.ts looksNonEnglish is a
+conservative dependency-free heuristic (English-stopword ratio +
+accented-letter density; <12 words never triggers) — false negatives just
+hide the button. translateEventDescription fetches the description
+server-side (never trusts client text), calls claude-haiku with an
+injection-hardened system prompt (content is data to translate, never
+instructions; HTML/URLs/prices preserved verbatim), SANITIZES the model
+output through the same sanitizeRichText pipeline as organizer input, and
+caches on events.description_en — cleared by updateEvent on every edit, so
+one model call per edit, ever. UI: components/event-description.tsx with
+Show-original toggle and a mono TRANSLATED BY AI marker.
+
 ### 2026-07-29 — Cosmetic-settings audit: notifications enforced, location precision built (0145)
 
 Follow-through on the invite-privacy finding: a full sweep of every user

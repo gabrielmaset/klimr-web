@@ -50,14 +50,16 @@ export interface Database {
           tournament_id: string | null;
           team_name_mode: string;
           activated_at: string;
-          display_code: string | null; created_at: string; ended_at: string | null };
-        Insert: { id?: string; code: string; event_id?: string | null; organizer_id: string; title?: string; sport_key: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean;
+          display_code: string | null; court_id: string | null; created_at: string; ended_at: string | null };
+        Insert: {
+          court_id?: string | null; id?: string; code: string; event_id?: string | null; organizer_id: string; title?: string; sport_key: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean;
           paused_by?: string | null;
           tournament_id?: string | null;
           team_name_mode?: string;
           activated_at?: string;
           display_code?: string | null; created_at?: string; ended_at?: string | null };
-        Update: { id?: string; code?: string; event_id?: string | null; organizer_id?: string; title?: string; sport_key?: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean;
+        Update: {
+          court_id?: string | null; id?: string; code?: string; event_id?: string | null; organizer_id?: string; title?: string; sport_key?: string; status?: string; win_cap?: number; center_lat?: number | null; center_lng?: number | null; radius_m?: number; allow_guests?: boolean; require_location?: boolean; event_only?: boolean; require_approval?: boolean; allow_full_teams?: boolean; paused?: boolean;
           paused_by?: string | null;
           tournament_id?: string | null;
           team_name_mode?: string;
@@ -1355,10 +1357,22 @@ export interface Database {
           rating: number | null;
           rating_count: number | null;
           is_private: boolean;
+          indoor: boolean;
+          lights: boolean | null;
+          free: boolean | null;
+          court_count: number | null;
+          confirmed_at: string | null;
+          confirmed_by: string | null;
           website: string | null;
           created_at: string;
         };
         Insert: {
+          indoor?: boolean;
+          lights?: boolean | null;
+          free?: boolean | null;
+          court_count?: number | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
           id?: string;
           name: string;
           sports?: string[];
@@ -1378,6 +1392,12 @@ export interface Database {
           created_at?: string;
         };
         Update: {
+          indoor?: boolean;
+          lights?: boolean | null;
+          free?: boolean | null;
+          court_count?: number | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
           name?: string;
           sports?: string[];
           amenities?: string[];
@@ -1477,8 +1497,14 @@ export interface Database {
           join_policy: string;
           recurrence: string;
           recurrence_days: string[];
-         host_ack_at: string | null;  location_reveal: string;           liveness_status: string;           liveness_shadow: string;           empty_streak: number;           last_alive_at: string | null;           dormant_at: string | null;           organizer_state: string;           paused_until: string | null;           liveness_rule_version: number; };
+         host_ack_at: string | null;  location_reveal: string;           liveness_status: string;           liveness_shadow: string;           empty_streak: number;           last_alive_at: string | null;           dormant_at: string | null;           organizer_state: string;           paused_until: string | null;           liveness_rule_version: number; location_lat: number | null; location_lng: number | null; location_pin_source: string | null; location_pin_at: string | null; description_en: string | null; description_en_at: string | null; };
         Insert: {
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_pin_source?: string | null;
+          location_pin_at?: string | null;
+          description_en?: string | null;
+          description_en_at?: string | null;
           id?: string;
           title: string;
           sport_key: string;
@@ -1504,6 +1530,12 @@ export interface Database {
           recurrence_days?: string[];
          host_ack_at?: string | null;  location_reveal?: string;           liveness_status?: string;           liveness_shadow?: string;           empty_streak?: number;           last_alive_at?: string | null;           dormant_at?: string | null;           organizer_state?: string;           paused_until?: string | null;           liveness_rule_version?: number; };
         Update: {
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_pin_source?: string | null;
+          location_pin_at?: string | null;
+          description_en?: string | null;
+          description_en_at?: string | null;
           title?: string;
           sport_key?: string;
           kind?: string;
@@ -1861,6 +1893,18 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      courts_finder: {
+        Args: { p_lat: number; p_lng: number; p_radius_mi: number };
+        Returns: {
+          id: string; name: string; area: string | null; city: string | null;
+          lat: number; lng: number; sports: string[]; court_count: number | null;
+          indoor: boolean; lights: boolean | null; free: boolean | null;
+          google_rating: number | null; google_rating_count: number | null;
+          member_rating: number | null; member_review_count: number;
+          live_queue: boolean; active_player_count: number; recent_players: Json;
+          busy: string | null; distance_mi: number;
+        }[];
+      };
       create_match_post: {
         Args: { p_match_id: string; p_opponent: string; p_score: string; p_court: string; p_note?: string };
         Returns: string;

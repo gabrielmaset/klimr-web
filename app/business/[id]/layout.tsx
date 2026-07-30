@@ -11,7 +11,7 @@ import { getTopBarData } from "@/lib/chrome-data";
  *  exactly the tournament-workspace contract. Any member may enter (staff
  *  read-mostly; writes stay manager-gated by RLS and the actions); everyone
  *  else is sent to the public page when one is visible. The whole portal
- *  stays dark behind `business_publication`. */
+ *  is member-gated: only people on the business roster get in. */
 export default async function BusinessPortalLayout({
   children,
   params,
@@ -26,9 +26,7 @@ export default async function BusinessPortalLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/business/${id}`);
 
-  const { data: flag } = await supabase.from("feature_flags").select("enabled").eq("key", "business_publication").maybeSingle();
-  if (!flag?.enabled) notFound();
-
+  
   const { data: b } = await supabase
     .from("business_accounts")
     .select("id, slug, name, kind, verification_level, status")

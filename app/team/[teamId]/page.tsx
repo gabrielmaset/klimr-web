@@ -44,11 +44,11 @@ export default async function TeamHome({ params }: { params: Promise<{ teamId: s
   const { data: flagRows } = await supabase
     .from("feature_flags")
     .select("key, enabled")
-    .in("key", ["business_publication", "sponsorship_discovery"]);
+    .eq("key", "sponsorship_discovery");
   const flagOn = new Map(((flagRows ?? []) as { key: string; enabled: boolean }[]).map((f) => [f.key, f.enabled]));
   let teamSponsorRequests: SponsorshipRequestItem[] = [];
   let teamSponsors: SponsorStripItem[] = [];
-  if (flagOn.get("business_publication")) {
+  {
     const wanted = canManage ? ["pending", "active"] : ["active"];
     const { data: spons } = await supabase
       .from("sponsorships")

@@ -110,7 +110,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
       sportKey: p.primary_sport ?? null,
       sportName: m?.name ?? null,
       sportEmoji: m?.emoji ?? null,
-      place: [p.location_precision === "city" ? null : p.neighborhood, p.city].filter(Boolean).join(", ") || null,
+      place: p.city || null,
       addedAt,
       playedTogether: playedWith.get(id) ?? 0,
       isFriend: friendStatusById.get(id) === "friends",

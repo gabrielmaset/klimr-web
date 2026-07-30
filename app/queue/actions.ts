@@ -69,11 +69,13 @@ export async function createSession(formData: FormData): Promise<void> {
   let sportKey = String(formData.get("sport") || "");
   let title = String(formData.get("title") || "").trim();
 
+  let eventCourtId: string | null = null;
   if (eventId) {
-    const { data: ev } = await admin.from("events").select("title, sport_key").eq("id", eventId).maybeSingle();
+    const { data: ev } = await admin.from("events").select("title, sport_key, court_id").eq("id", eventId).maybeSingle();
     if (ev) {
       if (!title) title = ev.title;
       if (!SPORT_KEYS.includes(sportKey)) sportKey = ev.sport_key;
+      eventCourtId = ev.court_id ?? null;
     }
   }
   if (!SPORT_KEYS.includes(sportKey)) sportKey = "beach_volleyball";
@@ -90,6 +92,15 @@ export async function createSession(formData: FormData): Promise<void> {
   const requireApproval = formData.get("requireApproval") != null;
   const eventOnly = formData.get("eventOnly") != null && !!eventId;
   const allowFullTeams = formData.get("allowFullTeams") != null;
+  // Venue link (0148): the organizer's explicit pick wins; sessions spun up
+  // from an event inherit the event's court automatically.
+  const venueRaw = String(formData.get("venueCourtId") || "").trim();
+  let venueCourtId: string | null = null;
+  if (/^[0-9a-f-]{36}$/i.test(venueRaw)) {
+    const { data: vc } = await admin.from("courts").select("id").eq("id", venueRaw).maybeSingle();
+    venueCourtId = vc?.id ?? null;
+  }
+  const linkedCourtId = venueCourtId ?? eventCourtId;
   const centerLat = parseFloat(String(formData.get("centerLat") || ""));
   const centerLng = parseFloat(String(formData.get("centerLng") || ""));
   const hasCenter = requireLocation && Number.isFinite(centerLat) && Number.isFinite(centerLng);
@@ -106,7 +117,7 @@ export async function createSession(formData: FormData): Promise<void> {
   let sessionId = "";
   for (let attempt = 0; attempt < 6 && !sessionId; attempt++) {
     const code = genCode();
-    const base = { code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, ...(teamNameMode !== "letters" ? { team_name_mode: teamNameMode } : {}), allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null };
+    const base = { code, event_id: eventId, organizer_id: user.id, title, sport_key: sportKey, win_cap: winCap, court_id: linkedCourtId, ...(teamNameMode !== "letters" ? { team_name_mode: teamNameMode } : {}), allow_guests: allowGuests, require_location: requireLocation, event_only: eventOnly, require_approval: requireApproval, allow_full_teams: allowFullTeams, center_lat: hasCenter ? centerLat : null, center_lng: hasCenter ? centerLng : null };
     let { data, error } = await admin
       .from("court_sessions")
       .insert({ ...base, display_code: genCode() })
@@ -911,4 +922,25 @@ export async function cancelRequest(formData: FormData): Promise<Result> {
   await admin.from("queue_join_requests").delete().eq("id", requestId);
   revalidatePath(`/queue/${req.session_id}`);
   return { ok: true };
+}
+
+/** Venue-court search for the session setup picker — links the courtside app
+ *  to a real court so the Courts map shows the queue LIVE. */
+export async function searchVenueCourts(q: string): Promise<{ id: string; name: string; area: string | null }[]> {
+  const userId = await currentUserId();
+  if (!userId) return [];
+  const term = q.trim();
+  if (term.length < 2) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("courts")
+    .select("id, name, neighborhood, city")
+    .or(`name.ilike.%${term.replace(/[%,()]/g, "")}%,city.ilike.%${term.replace(/[%,()]/g, "")}%`)
+    .order("name")
+    .limit(8);
+  return ((data ?? []) as { id: string; name: string; neighborhood: string | null; city: string | null }[]).map((c) => ({
+    id: c.id,
+    name: c.name,
+    area: c.neighborhood ?? c.city,
+  }));
 }

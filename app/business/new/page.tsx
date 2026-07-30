@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { SportIcon } from "@/components/sport-icons";
@@ -18,9 +18,7 @@ export default async function NewBusiness() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/business/new");
-  const { data: flag } = await supabase.from("feature_flags").select("enabled").eq("key", "business_publication").maybeSingle();
-  if (!flag?.enabled) notFound();
-
+  
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <PageHeader

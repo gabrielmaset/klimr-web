@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Loader2, MapPin } from "lucide-react";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
 import { LEVELS, formationsFor, formationLabel } from "@/lib/queue";
-import { createSession } from "@/app/queue/actions";
+import { createSession, searchVenueCourts } from "@/app/queue/actions";
 
 function getCoords(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((resolve) => {
@@ -43,6 +43,10 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
   const [winCap, setWinCap] = useState("1");
   const [teamNameMode, setTeamNameMode] = useState("letters");
   const [courtLabel, setCourtLabel] = useState("");
+  const [venueQuery, setVenueQuery] = useState("");
+  const [venueResults, setVenueResults] = useState<{ id: string; name: string; area: string | null }[]>([]);
+  const [venueCourt, setVenueCourt] = useState<{ id: string; name: string; area: string | null } | null>(null);
+  const venueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [levels, setLevels] = useState<string[]>([]);
   const [allowGuests, setAllowGuests] = useState(true);
   const [requireLocation, setRequireLocation] = useState(false);
@@ -51,6 +55,19 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
   const [eventOnly, setEventOnly] = useState(false);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+
+  const onVenueQuery = (q: string) => {
+    setVenueQuery(q);
+    if (venueTimer.current) clearTimeout(venueTimer.current);
+    if (q.trim().length < 2) {
+      setVenueResults([]);
+      return;
+    }
+    venueTimer.current = setTimeout(async () => {
+      const rows = await searchVenueCourts(q);
+      setVenueResults(rows);
+    }, 350);
+  };
 
   const changeSport = (s: string) => {
     setSport(s);
@@ -108,6 +125,62 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
             );
           })}
         </select>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-semibold text-ink">Court / venue (optional)</label>
+        {venueCourt ? (
+          <div className="flex items-center justify-between gap-2 rounded-[10px] border border-rule-2 bg-white px-3 py-2.5">
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-ink">{venueCourt.name}</span>
+              {venueCourt.area ? <span className="block truncate text-xs text-faint">{venueCourt.area}</span> : null}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setVenueCourt(null);
+                setVenueQuery("");
+                setVenueResults([]);
+              }}
+              aria-label="Remove linked court"
+              className="press grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-rule-2 text-mute hover:bg-hover"
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <div className="relative">
+            <input
+              value={venueQuery}
+              onChange={(e) => onVenueQuery(e.target.value)}
+              placeholder="Search courts by name or city…"
+              className="w-full rounded-[10px] border border-rule-2 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+            />
+            {venueResults.length > 0 ? (
+              <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-rule-2 bg-white shadow-e2">
+                {venueResults.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setVenueCourt(c);
+                      setVenueResults([]);
+                    }}
+                    className="block w-full border-b border-rule-soft px-3 py-2 text-left last:border-b-0 hover:bg-hover"
+                  >
+                    <span className="block text-sm font-semibold text-ink">{c.name}</span>
+                    {c.area ? <span className="block text-xs text-faint">{c.area}</span> : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
+        <input type="hidden" name="venueCourtId" value={venueCourt?.id ?? ""} />
+        <p className="mt-1 text-xs text-faint">
+          Links this queue to a real court — it shows LIVE on the Courts map.
+          {eventId ? " Event sessions inherit the event's court automatically." : ""}
+        </p>
       </div>
 
       <div>

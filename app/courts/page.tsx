@@ -1,38 +1,122 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SPORT_KEYS } from "@/lib/sports";
-import { CourtsExplorer } from "./courts-explorer";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { lookupZip } from "@/lib/us-places";
+import { geocodeAddress } from "@/lib/maps-url";
+import { CourtsFinder, type FinderCourt } from "./courts-finder";
 
 export const metadata: Metadata = { title: "Courts" };
 
-export default async function CourtsPage() {
+const RADII = [3, 5, 10, 25];
+
+/** Courts — the map-based finder. Server side: read every filter from the URL,
+ *  geocode the origin (local ZIP table first, Google for city text), run ONE
+ *  set-based courts_finder() pass, and hand the radius set to the client. All
+ *  narrowing (sport/venue/amenities/sort) happens client-side over that set so
+ *  the controls feel instant while the URL stays canonical and shareable. */
+export default async function CourtsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/courts");
 
+  const sp = await searchParams;
+  const one = (k: string) => {
+    const v = sp[k];
+    return Array.isArray(v) ? v[0] : v;
+  };
+
   const { data: profile } = await supabase
     .from("profiles")
-    .select("home_zip, primary_sport")
+    .select("home_zip")
     .eq("id", user.id)
     .maybeSingle();
 
-  const defaultZip = (profile?.home_zip ?? "").replace(/[^0-9]/g, "").slice(0, 5);
-  const defaultSport = profile?.primary_sport && SPORT_KEYS.includes(profile.primary_sport) ? profile.primary_sport : "tennis";
-  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null;
+  const rawQuery = (one("zip") ?? profile?.home_zip ?? "").trim();
+  const radius = RADII.includes(Number(one("radius"))) ? Number(one("radius")) : 10;
+
+  // Origin: 5-digit ZIP through the local table (instant, free); anything else
+  // through geocoding. No origin → the finder renders its search-first state.
+  let origin: { lat: number; lng: number } | null = null;
+  let originLabel = rawQuery;
+  const zipHit = /^\d{5}$/.test(rawQuery) ? lookupZip(rawQuery) : null;
+  if (zipHit) {
+    origin = { lat: zipHit.lat, lng: zipHit.lng };
+    originLabel = rawQuery;
+  } else if (rawQuery.length >= 3) {
+    const g = await geocodeAddress(rawQuery);
+    if (g) {
+      origin = g;
+      originLabel = rawQuery;
+    }
+  }
+
+  let courts: FinderCourt[] = [];
+  if (origin) {
+    const { data } = await supabase.rpc("courts_finder", {
+      p_lat: origin.lat,
+      p_lng: origin.lng,
+      p_radius_mi: radius,
+    });
+    courts = (data ?? []).map((r) => {
+      // Both rating sources travel to the card — Klimr reviews lead, Google
+      // fills the gap; the card renders whichever exist (or neither).
+      const recent = Array.isArray(r.recent_players)
+        ? (r.recent_players as { id: string; name: string; hue: number }[]).slice(0, 3)
+        : [];
+      return {
+        id: r.id,
+        name: r.name,
+        area: r.area ?? r.city ?? "",
+        lat: r.lat,
+        lng: r.lng,
+        sports: r.sports ?? [],
+        courtCount: r.court_count,
+        indoor: r.indoor,
+        lights: r.lights,
+        free: r.free,
+        memberRating: (r.member_review_count ?? 0) > 0 && r.member_rating != null ? Number(r.member_rating) : null,
+        memberReviewCount: r.member_review_count ?? 0,
+        googleRating: (r.google_rating_count ?? 0) > 0 && r.google_rating != null ? Number(r.google_rating) : null,
+        googleRatingCount: r.google_rating_count ?? 0,
+        liveQueue: r.live_queue,
+        activePlayers: r.active_player_count ?? 0,
+        recent,
+        busy: r.busy === "BUSY" || r.busy === "MODERATE" || r.busy === "QUIET" ? r.busy : null,
+        distanceMi: Math.round(r.distance_mi * 10) / 10,
+      };
+    });
+  }
+
+  // Header pulse: open Live Queue sessions right now, platform-wide.
+  const { count: liveNow } = await createAdminClient()
+    .from("court_sessions")
+    .select("id", { count: "exact", head: true })
+    .is("ended_at", null);
 
   return (
-    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <div className="mb-5">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Discover — Courts</p>
-        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Courts</h1>
-        <p className="mt-1 text-sm text-mute">
-          Find courts anywhere by ZIP or city — screened by Klimr so you get real, active places to play.
-        </p>
-      </div>
-      <CourtsExplorer defaultZip={defaultZip} defaultSport={defaultSport} mapboxToken={mapboxToken} />
-    </div>
+    <CourtsFinder
+      initial={{
+        zip: rawQuery,
+        radius,
+        sport: one("sport") ?? "all",
+        venue: one("venue") === "indoor" || one("venue") === "outdoor" ? (one("venue") as "indoor" | "outdoor") : "any",
+        lights: one("lights") === "1",
+        free: one("free") === "1",
+        queue: one("queue") === "1",
+        sort: ["active", "rated", "courts"].includes(one("sort") ?? "") ? (one("sort") as "active" | "rated" | "courts") : "nearest",
+      }}
+      courts={courts}
+      origin={origin}
+      originLabel={originLabel}
+      liveQueuesNow={liveNow ?? 0}
+      mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null}
+    />
   );
 }

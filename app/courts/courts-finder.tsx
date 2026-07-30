@@ -1,0 +1,603 @@
+"use client";
+
+import { useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
+import {
+  MapPin, LocateFixed, Search, Globe, Sun, Warehouse, Lightbulb, Tag, ListOrdered,
+  Star, Navigation, ArrowRight, ChevronDown, Check, Plus, ShieldCheck, List, Map as MapIcon,
+} from "lucide-react";
+import { SPORTS } from "@/lib/sports";
+import { SportIcon } from "@/components/sport-icons";
+import { CourtsMap } from "./courts-map";
+import { reverseToZip } from "./search-actions";
+
+export type FinderCourt = {
+  id: string;
+  name: string;
+  area: string;
+  lat: number;
+  lng: number;
+  sports: string[];
+  courtCount: number | null;
+  indoor: boolean;
+  lights: boolean | null;
+  free: boolean | null;
+  memberRating: number | null;
+  memberReviewCount: number;
+  googleRating: number | null;
+  googleRatingCount: number;
+  liveQueue: boolean;
+  activePlayers: number;
+  recent: { id: string; name: string; hue: number }[];
+  busy: "BUSY" | "MODERATE" | "QUIET" | null;
+  distanceMi: number;
+};
+
+type Filters = {
+  zip: string;
+  radius: number;
+  sport: string;
+  venue: "any" | "outdoor" | "indoor";
+  lights: boolean;
+  free: boolean;
+  queue: boolean;
+  sort: "nearest" | "active" | "rated" | "courts";
+};
+
+const RADII = [3, 5, 10, 25];
+const BUSY_STYLE: Record<string, string> = {
+  BUSY: "bg-[#FDECEC] text-[#B42318]",
+  MODERATE: "bg-[#FDF3DD] text-[#B45309]",
+  QUIET: "bg-[#EAF6EC] text-[#217A34]",
+};
+const disc = (h: number) => `linear-gradient(145deg, hsl(${h},70%,52%), hsl(${(h + 24) % 360},66%,42%))`;
+const initialsOf = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "K";
+
+export function CourtsFinder({
+  initial,
+  courts,
+  origin,
+  originLabel,
+  liveQueuesNow,
+  mapboxToken,
+}: {
+  initial: Filters;
+  courts: FinderCourt[];
+  origin: { lat: number; lng: number } | null;
+  originLabel: string;
+  liveQueuesNow: number;
+  mapboxToken: string | null;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [zipDraft, setZipDraft] = useState(initial.zip);
+  const [f, setF] = useState<Filters>(initial);
+  const [sportOpen, setSportOpen] = useState(false);
+  const [sportQuery, setSportQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [pane, setPane] = useState<"list" | "map">("list");
+  const [locating, setLocating] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // URL is canonical: origin/radius changes reload the data server-side;
+  // everything else narrows client-side but still lands in the URL.
+  const pushUrl = (next: Filters, reload: boolean) => {
+    setSelectedId(null); // spec: any filter/sort change clears the selection
+    const q = new URLSearchParams();
+    if (next.zip) q.set("zip", next.zip);
+    if (next.radius !== 10) q.set("radius", String(next.radius));
+    if (next.sport !== "all") q.set("sport", next.sport);
+    if (next.venue !== "any") q.set("venue", next.venue);
+    if (next.lights) q.set("lights", "1");
+    if (next.free) q.set("free", "1");
+    if (next.queue) q.set("queue", "1");
+    if (next.sort !== "nearest") q.set("sort", next.sort);
+    const url = `${pathname}?${q.toString()}`;
+    if (reload) startTransition(() => router.push(url, { scroll: false }));
+    else window.history.replaceState(null, "", url);
+  };
+  const set = (patch: Partial<Filters>, reload = false) => {
+    const next = { ...f, ...patch };
+    // Indoor implies lights in reality — reflect it in the controls (AUTO).
+    setF(next);
+    pushUrl(next, reload);
+  };
+
+  const findCourts = () => set({ zip: zipDraft.trim() }, true);
+  const useMyLocation = () => {
+    if (!navigator.geolocation || locating) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { zip } = await reverseToZip({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating(false);
+        if (zip) {
+          setZipDraft(zip);
+          set({ zip }, true);
+        }
+      },
+      () => setLocating(false),
+      { timeout: 8000 },
+    );
+  };
+
+  // ── Client-side narrowing over the radius set ──────────────────────────────
+  const lightsOn = f.lights || f.venue === "indoor";
+  const passesNonSport = (c: FinderCourt) =>
+    (f.venue === "any" || (f.venue === "indoor" ? c.indoor : !c.indoor)) &&
+    (!lightsOn || c.lights === true) &&
+    (!f.free || c.free === true) &&
+    (!f.queue || c.liveQueue);
+
+  const sportCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    let all = 0;
+    for (const c of courts) {
+      if (!passesNonSport(c)) continue;
+      all += 1;
+      for (const s of c.sports) counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return { counts, all };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courts, f.venue, f.lights, f.free, f.queue]);
+
+  const visible = useMemo(() => {
+    const rows = courts.filter((c) => passesNonSport(c) && (f.sport === "all" || c.sports.includes(f.sport)));
+    const by: Record<Filters["sort"], (a: FinderCourt, b: FinderCourt) => number> = {
+      nearest: (a, b) => a.distanceMi - b.distanceMi,
+      active: (a, b) => b.activePlayers - a.activePlayers || a.distanceMi - b.distanceMi,
+      rated: (a, b) => ((b.memberRating ?? b.googleRating ?? -1) - (a.memberRating ?? a.googleRating ?? -1)) || a.distanceMi - b.distanceMi,
+      courts: (a, b) => (b.courtCount ?? 0) - (a.courtCount ?? 0) || a.distanceMi - b.distanceMi,
+    };
+    return [...rows].sort(by[f.sort]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courts, f]);
+
+  // Derived, not synced: a selection only counts while its court is visible —
+  // any filter change that removes the row clears the selection for free.
+  const effectiveSelectedId = selectedId !== null && visible.some((c) => c.id === selectedId) ? selectedId : null;
+
+  const selectFromMap = (id: string) => {
+    setSelectedId(id);
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-court="${id}"]`);
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  };
+
+  const sportName = f.sport === "all" ? "All sports" : SPORTS.find((s) => s.key === f.sport)?.name ?? f.sport;
+  const filteredSports = SPORTS.filter((s) => s.name.toLowerCase().includes(sportQuery.trim().toLowerCase()));
+
+  return (
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-end justify-between gap-3.5">
+        <div>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Discover — Courts</p>
+          <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Courts</h1>
+          <p className="mt-1 text-sm text-mute">Real, playable places — screened by Klimr, ranked by how busy they actually are.</p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          {liveQueuesNow > 0 ? (
+            <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#EAF6EC] px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.12em] text-[#217A34]">
+              <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2FA44F]" /> {liveQueuesNow} LIVE {liveQueuesNow === 1 ? "QUEUE" : "QUEUES"} NOW
+            </span>
+          ) : null}
+          <Link
+            href="/courts/suggest"
+            className="press inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-rule-2 bg-surface px-3.5 text-[13px] font-semibold text-ink hover:bg-hover"
+          >
+            <Plus size={14} /> Suggest a court
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Filter bar ─────────────────────────────────────────────────────── */}
+      <div className="mt-5 rounded-2xl border border-rule bg-surface p-3.5 shadow-e1">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex h-11 min-w-[220px] flex-1 items-center gap-2 rounded-[11px] border border-rule-2 bg-ink/[0.03] px-3.5 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/10">
+            <MapPin size={15} className="shrink-0 text-brand-deep" />
+            <input
+              value={zipDraft}
+              onChange={(e) => setZipDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") findCourts();
+              }}
+              placeholder="ZIP or city"
+              aria-label="ZIP or city"
+              className="h-full min-w-0 flex-1 bg-transparent text-[15px] font-bold tracking-wide text-ink outline-none placeholder:font-medium placeholder:text-faint"
+            />
+            <button
+              type="button"
+              onClick={useMyLocation}
+              className="press hidden shrink-0 items-center gap-1.5 rounded-[9px] border border-rule-2 bg-surface px-2.5 py-1.5 text-[11.5px] font-semibold text-mute hover:text-ink sm:inline-flex"
+            >
+              <LocateFixed size={12} className={locating ? "animate-spin" : ""} /> Use my location
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden font-mono text-[9.5px] font-semibold tracking-[0.14em] text-faint md:inline">WITHIN</span>
+            <div className="inline-flex gap-0.5 rounded-[11px] bg-ink/5 p-[3px]">
+              {RADII.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => set({ radius: r }, true)}
+                  className={`press h-8 rounded-lg border px-3 font-mono text-[11px] font-bold transition-colors ${
+                    f.radius === r ? "border-rule-2 bg-surface text-ink shadow-[0_1px_2px_rgba(80,60,30,.08)]" : "border-transparent text-mute hover:text-ink"
+                  }`}
+                >
+                  {r} mi
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={findCourts}
+            disabled={pending}
+            className="press inline-flex h-11 items-center gap-2 rounded-[11px] bg-brand px-5 text-sm font-bold text-white shadow-[0_4px_14px_-6px_rgba(214,58,15,.5)] hover:bg-[#E23E0D]"
+          >
+            <Search size={15} /> Find courts
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2.5 border-t border-rule-soft pt-3">
+          {/* Sport dropdown — searchable, scales to any roster */}
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <span className="mr-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Sport</span>
+            <button
+              type="button"
+              onClick={() => {
+                setSportOpen((o) => !o);
+                setSportQuery("");
+              }}
+              aria-haspopup="listbox"
+              aria-expanded={sportOpen}
+              className="press inline-flex h-[34px] items-center gap-2 rounded-[10px] border border-[#DCEBC0] bg-[#F1F8E3] px-3 text-[12.5px] font-bold text-[#4D7C0F]"
+            >
+              {f.sport !== "all" ? <SportIcon sport={f.sport} variant="glyph" size={14} /> : <Globe size={13} />}
+              {sportName}
+              <span className="rounded-md bg-white/70 px-1.5 font-mono text-[10px] font-semibold">
+                {f.sport === "all" ? sportCounts.all : sportCounts.counts.get(f.sport) ?? 0}
+              </span>
+              <ChevronDown size={13} />
+            </button>
+            {sportOpen ? (
+              <div role="listbox" className="absolute left-0 top-11 z-30 w-64 rounded-xl border border-rule-2 bg-surface p-1.5 shadow-e3">
+                <input
+                  autoFocus
+                  value={sportQuery}
+                  onChange={(e) => setSportQuery(e.target.value)}
+                  placeholder="Search sports…"
+                  className="mb-1 h-8 w-full rounded-[9px] border border-rule-2 bg-ink/[0.03] px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand"
+                />
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={f.sport === "all"}
+                  onClick={() => {
+                    set({ sport: "all" });
+                    setSportOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-ink hover:bg-hover"
+                >
+                  <Globe size={14} className="text-mute" /> All sports
+                  <span className="ml-auto font-mono text-[10px] text-faint">{sportCounts.all}</span>
+                  {f.sport === "all" ? <Check size={13} className="text-brand-deep" /> : null}
+                </button>
+                <div className="max-h-56 overflow-y-auto">
+                  {filteredSports.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      role="option"
+                      aria-selected={f.sport === s.key}
+                      onClick={() => {
+                        set({ sport: s.key });
+                        setSportOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-ink hover:bg-hover"
+                    >
+                      <SportIcon sport={s.key} variant="glyph" size={15} /> {s.name}
+                      <span className="ml-auto font-mono text-[10px] text-faint">{sportCounts.counts.get(s.key) ?? 0}</span>
+                      {f.sport === s.key ? <Check size={13} className="text-brand-deep" /> : null}
+                    </button>
+                  ))}
+                  {filteredSports.length === 0 ? <p className="px-2.5 py-2 text-xs text-faint">No sport matches.</p> : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Venue */}
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Venue</span>
+            <div className="inline-flex gap-0.5 rounded-[11px] bg-ink/5 p-[3px]">
+              {(
+                [
+                  { key: "any", label: "Any", Icon: Globe },
+                  { key: "outdoor", label: "Outdoor", Icon: Sun },
+                  { key: "indoor", label: "Indoor", Icon: Warehouse },
+                ] as const
+              ).map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => set({ venue: key })}
+                  className={`press inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors ${
+                    f.venue === key ? "border-rule-2 bg-surface text-ink shadow-[0_1px_2px_rgba(80,60,30,.08)]" : "border-transparent text-mute hover:text-ink"
+                  }`}
+                >
+                  <Icon size={12.5} /> {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <span className="flex-1" />
+
+          {/* Amenities */}
+          <div className="flex items-center gap-1.5">
+            {(
+              [
+                { key: "lights" as const, label: "Lights", Icon: Lightbulb, on: lightsOn, auto: f.venue === "indoor" && !f.lights },
+                { key: "free" as const, label: "Free", Icon: Tag, on: f.free, auto: false },
+                { key: "queue" as const, label: "Live Queue", Icon: ListOrdered, on: f.queue, auto: false },
+              ]
+            ).map(({ key, label, Icon, on, auto }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  if (key === "lights" && f.venue === "indoor") return; // implied
+                  set({ [key]: !f[key] } as Partial<Filters>);
+                }}
+                className={`press inline-flex h-[34px] items-center gap-1.5 rounded-[10px] border px-3 text-[12.5px] font-semibold transition-colors ${
+                  on ? "border-[#FFD4BC] bg-tint-brand text-brand-deep" : "border-rule-2 bg-surface text-mute hover:border-faint"
+                } ${auto ? "opacity-90" : ""}`}
+                title={auto ? "Indoor courts always have lights" : undefined}
+              >
+                <Icon size={13} /> {label}
+                {auto ? <span className="rounded bg-white/70 px-1 font-mono text-[8.5px] font-bold tracking-[0.08em]">AUTO</span> : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile pane switch ─────────────────────────────────────────────── */}
+      <div className="mt-4 flex min-[900px]:hidden">
+        <div className="inline-flex gap-0.5 rounded-[11px] bg-ink/5 p-[3px]">
+          {(
+            [
+              { key: "list" as const, label: "List", Icon: List },
+              { key: "map" as const, label: "Map", Icon: MapIcon },
+            ]
+          ).map(({ key, label, Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setPane(key)}
+              className={`press inline-flex h-8 items-center gap-1.5 rounded-lg border px-4 text-xs font-semibold ${
+                pane === key ? "border-rule-2 bg-surface text-ink" : "border-transparent text-mute"
+              }`}
+            >
+              <Icon size={13} /> {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Results + map ──────────────────────────────────────────────────── */}
+      <div className="mt-4 grid items-start gap-[18px] min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,52%)]">
+        <div className={pane === "map" ? "hidden min-[900px]:block" : ""}>
+          <div className="mb-2.5 flex items-center gap-3">
+            <span className="font-mono text-[10px] font-bold tracking-[0.14em] text-faint">
+              {visible.length} {visible.length === 1 ? "COURT" : "COURTS"} WITHIN {f.radius} MI{originLabel ? ` OF ${originLabel.toUpperCase()}` : ""}
+            </span>
+            <span className="flex-1" />
+            <label className="flex items-center gap-2">
+              <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Sort</span>
+              <select
+                value={f.sort}
+                onChange={(e) => set({ sort: e.target.value as Filters["sort"] })}
+                className="h-8 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs font-semibold text-ink outline-none focus:border-brand"
+              >
+                <option value="nearest">Nearest first</option>
+                <option value="active">Most active</option>
+                <option value="rated">Highest rated</option>
+                <option value="courts">Most courts</option>
+              </select>
+            </label>
+          </div>
+
+          <div ref={listRef} className="flex h-[596px] flex-col gap-3 overflow-y-auto rounded-2xl border border-rule bg-well p-3">
+            {!origin ? (
+              <div className="grid flex-1 place-items-center rounded-xl border border-dashed border-rule bg-surface p-8 text-center">
+                <div>
+                  <p className="text-sm font-bold text-ink">Where do you want to play?</p>
+                  <p className="mt-1 text-xs text-mute">Enter a ZIP or city above and hit Find courts.</p>
+                </div>
+              </div>
+            ) : visible.length === 0 ? (
+              <div className="grid flex-1 place-items-center rounded-xl border border-dashed border-rule bg-surface p-8 text-center">
+                <div>
+                  <p className="text-sm font-bold text-ink">No courts match these filters.</p>
+                  <p className="mt-1 text-xs text-mute">Widen the radius or clear a filter — or add the spot you play.</p>
+                  <Link href="/courts/suggest" className="press mt-3 inline-flex items-center gap-1.5 rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-xs font-bold text-ink hover:bg-hover">
+                    <Plus size={13} /> Suggest a court
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              visible.map((c, i) => (
+                <CourtCard
+                  key={c.id}
+                  court={c}
+                  index={i + 1}
+                  selected={effectiveSelectedId === c.id}
+                  hovered={hoveredId === c.id}
+                  onSelect={() => setSelectedId(effectiveSelectedId === c.id ? null : c.id)}
+                  onHover={setHoveredId}
+                />
+              ))
+            )}
+          </div>
+
+          <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-snug text-faint">
+            <ShieldCheck size={13} className="mt-px shrink-0" />
+            Every listing is confirmed by a Klimr player before it appears. Report anything closed or wrong from the court page.
+          </p>
+        </div>
+
+        <div className={pane === "list" ? "hidden min-[900px]:block" : ""}>
+          <CourtsMap
+            token={mapboxToken}
+            courts={visible}
+            origin={origin}
+            radiusMi={f.radius}
+            originLabel={originLabel}
+            selectedId={effectiveSelectedId}
+            hoveredId={hoveredId}
+            onSelect={selectFromMap}
+            onHover={setHoveredId}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CourtCard({
+  court: c,
+  index,
+  selected,
+  hovered,
+  onSelect,
+  onHover,
+}: {
+  court: FinderCourt;
+  index: number;
+  selected: boolean;
+  hovered: boolean;
+  onSelect: () => void;
+  onHover: (id: string | null) => void;
+}) {
+  const meta = [
+    `${c.distanceMi} MI`,
+    c.area ? c.area.toUpperCase() : null,
+    c.courtCount ? `${c.courtCount} ${c.courtCount === 1 ? "COURT" : "COURTS"}` : null,
+  ].filter(Boolean);
+  return (
+    <article
+      data-court={c.id}
+      onMouseEnter={() => onHover(c.id)}
+      onMouseLeave={() => onHover(null)}
+      onClick={onSelect}
+      className={`cursor-pointer rounded-2xl border bg-surface p-4 shadow-e1 transition-all ${
+        selected ? "border-brand ring-4 ring-brand/10" : hovered ? "-translate-y-px border-rule-2 shadow-e2" : "border-rule"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink font-mono text-[11.5px] font-bold text-white">{index}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-[15px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
+            {c.liveQueue ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#217A34]">
+                <span aria-hidden className="h-1 w-1 animate-pulse rounded-full bg-[#2FA44F]" /> LIVE QUEUE
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-0.5 font-mono text-[9.5px] tracking-[0.1em] text-faint">{meta.join(" · ")}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          {c.memberRating != null ? (
+            <>
+              <p className="inline-flex items-center gap-1 text-sm font-bold text-ink">
+                <Star size={13} className="fill-[#D9A70B] text-[#D9A70B]" /> {c.memberRating.toFixed(1)}
+              </p>
+              <p className="font-mono text-[9px] tracking-[0.1em] text-faint">
+                {c.memberReviewCount} KLIMR {c.memberReviewCount === 1 ? "REVIEW" : "REVIEWS"}
+              </p>
+            </>
+          ) : null}
+          {c.googleRating != null ? (
+            <p className="mt-0.5 inline-flex items-center gap-1 font-mono text-[9.5px] tracking-[0.06em] text-faint" title={`${c.googleRatingCount} Google reviews`}>
+              <span aria-hidden className="grid h-3.5 w-3.5 place-items-center rounded-[4px] border border-rule-2 bg-surface text-[8px] font-bold text-mute">G</span>
+              {c.googleRating.toFixed(1)} · {c.googleRatingCount}
+            </p>
+          ) : null}
+          {c.busy ? (
+            <span className={`mt-1 inline-block rounded-md px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] ${BUSY_STYLE[c.busy]}`}>{c.busy}</span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        {c.sports.map((s) => (
+          <span key={s} className="inline-flex items-center gap-1 rounded-[9px] border border-rule-soft bg-bg px-2 py-1 text-[11px] font-bold text-ink-soft">
+            <SportIcon sport={s} variant="glyph" size={12} /> {SPORTS.find((x) => x.key === s)?.name ?? s}
+          </span>
+        ))}
+        {c.indoor ? (
+          <span className="inline-flex items-center gap-1 rounded-[9px] border border-rule-soft bg-bg px-2 py-1 text-[11px] font-semibold text-mute"><Warehouse size={11} /> Indoor</span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-[9px] border border-rule-soft bg-bg px-2 py-1 text-[11px] font-semibold text-mute"><Sun size={11} /> Outdoor</span>
+        )}
+        {c.lights === true ? (
+          <span className="inline-flex items-center gap-1 rounded-[9px] border border-rule-soft bg-bg px-2 py-1 text-[11px] font-semibold text-mute"><Lightbulb size={11} /> Lights</span>
+        ) : null}
+        {c.free === true ? (
+          <span className="inline-flex items-center gap-1 rounded-[9px] border border-rule-soft bg-bg px-2 py-1 text-[11px] font-semibold text-mute"><Tag size={11} /> Free</span>
+        ) : c.free === false ? (
+          <span className="inline-flex items-center gap-1 rounded-[9px] border border-rule-soft bg-bg px-2 py-1 text-[11px] font-semibold text-mute"><Tag size={11} /> Reserved</span>
+        ) : null}
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 border-t border-rule-soft pt-3">
+        {c.activePlayers > 0 ? (
+          <span className="flex items-center gap-2">
+            {c.recent.length ? (
+              <span className="flex -space-x-1.5">
+                {c.recent.map((p) => (
+                  <span
+                    key={p.id}
+                    title={p.name}
+                    className="grid h-6 w-6 place-items-center rounded-full border-2 border-surface text-[8.5px] font-bold text-white"
+                    style={{ background: disc(p.hue) }}
+                  >
+                    {initialsOf(p.name)}
+                  </span>
+                ))}
+              </span>
+            ) : null}
+            <span className="text-xs font-semibold text-mute">
+              {c.activePlayers} Klimr {c.activePlayers === 1 ? "player plays" : "players play"} here
+            </span>
+          </span>
+        ) : null}
+        <span className="flex-1" />
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] border border-rule-2 bg-surface px-3 text-xs font-bold text-ink hover:bg-hover"
+        >
+          <Navigation size={12} /> Directions
+        </a>
+        <Link
+          href={`/courts/${c.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-ink px-3.5 text-xs font-bold text-white hover:bg-[#2A2622]"
+        >
+          View court <ArrowRight size={12} />
+        </Link>
+      </div>
+    </article>
+  );
+}

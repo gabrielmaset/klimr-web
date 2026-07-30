@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Briefcase, ChevronRight, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
@@ -8,8 +8,7 @@ import { kindLabel, TIER_LABEL, BUSINESS_STATUS_LABEL } from "@/lib/business";
 export const metadata = { title: "Your businesses · Klimr" };
 export const dynamic = "force-dynamic";
 
-/** Console index — dark behind `business_publication`: one flag lights the
- *  console and the public pages together, no half-visible states. */
+/** Console index — the businesses linked to the signed-in member. */
 export default async function BusinessIndex() {
   const supabase = await createClient();
   const {
@@ -17,9 +16,7 @@ export default async function BusinessIndex() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/business");
 
-  const { data: flag } = await supabase.from("feature_flags").select("enabled").eq("key", "business_publication").maybeSingle();
-  if (!flag?.enabled) notFound();
-
+  
   const { data: memberships } = await supabase
     .from("business_members")
     .select("business_id, role")

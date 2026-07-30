@@ -53,6 +53,12 @@ export function parseLatLngFromMapsUrl(raw: string | null | undefined): LatLng |
   return null;
 }
 
+// Google serves short-link redirects differently by client: browsers get the
+// 302, unfamiliar agents often get a 200 interstitial with a meta-refresh or
+// JS hop. A browser-grade UA gets the honest redirect chain.
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
 const SHORT_HOSTS = new Set(["goo.gl", "maps.app.goo.gl", "app.goo.gl", "g.co"]);
 
 // Is this one of Google's shortened share links (which carry no coordinates until
@@ -91,7 +97,7 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
       const res = await fetch(current, {
         redirect: "manual",
         signal: controller.signal,
-        headers: { "user-agent": "Mozilla/5.0 (compatible; KlimrBot/1.0; +https://klimr.com)" },
+        headers: { "user-agent": BROWSER_UA, "accept": "text/html,application/xhtml+xml", "accept-language": "en-US,en;q=0.9" },
         cache: "no-store",
       });
       const loc = res.headers.get("location");
@@ -102,6 +108,17 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
         const p = parseLatLngFromMapsUrl(current);
         if (p) return p;
         continue;
+      }
+      // Short-link hosts sometimes 200 with an HTML hop instead of a 3xx.
+      if (res.status === 200 && isMapsShortLink(current)) {
+        const body = (await res.text()).slice(0, 300_000);
+        const next = extractContinuationUrl(body, current);
+        if (next) {
+          current = next;
+          const p = parseLatLngFromMapsUrl(current);
+          if (p) return p;
+          continue;
+        }
       }
       finalRes = res;
       break;
@@ -125,7 +142,7 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
     // Last resort: let the platform follow the whole chain and read ONLY the
     // final URL (never a body) — catches redirect shapes the manual walk missed.
     try {
-      const followed = await fetch(raw, { redirect: "follow", signal: controller.signal, cache: "no-store", headers: { "user-agent": "Mozilla/5.0 (compatible; KlimrBot/1.0; +https://klimr.com)" } });
+      const followed = await fetch(raw, { redirect: "follow", signal: controller.signal, cache: "no-store", headers: { "user-agent": BROWSER_UA, "accept": "text/html,application/xhtml+xml", "accept-language": "en-US,en;q=0.9" } });
       const p2 = parseLatLngFromMapsUrl(followed.url);
       if (p2) return p2;
       const place2 = placeTextFromMapsUrl(followed.url);
@@ -143,6 +160,28 @@ export async function resolveMapsShortLink(raw: string | null | undefined): Prom
   } finally {
     clearTimeout(timer);
   }
+}
+
+// When a SHORT-LINK host answers 200 instead of 3xx, the real destination is
+// usually inside the HTML: a meta-refresh, a JS location hop, or a canonical
+// maps.google link. Extract that URL and keep walking — this pulls a URL to
+// continue the redirect chain, never a coordinate from page markup.
+function extractContinuationUrl(body: string, baseUrl: string): string | null {
+  const meta = body.match(/http-equiv=["']refresh["'][^>]*url=([^"'>\s]+)/i)
+    ?? body.match(/content=["']\d+;\s*url=([^"']+)["']/i);
+  const js = body.match(/location(?:\.href)?\s*(?:=|\.replace\()\s*["']([^"']+)["']/i);
+  const canonical = body.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
+  const mapsHref = body.match(/href=["'](https:\/\/(?:www\.)?google\.[a-z.]+\/maps[^"']*)["']/i);
+  for (const cand of [meta?.[1], js?.[1], canonical?.[1], mapsHref?.[1]]) {
+    if (!cand) continue;
+    try {
+      const abs = new URL(cand.replace(/&amp;/g, "&"), baseUrl).toString();
+      if (/^https?:\/\//i.test(abs) && abs !== baseUrl) return abs;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
 }
 
 function isGoogleMapsPlacePage(u: string): boolean {
@@ -265,4 +304,38 @@ export async function geocodeAddress(address: string | null | undefined): Promis
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ── The definitive pin ladder (0146) ─────────────────────────────────────────
+// Google retired consumer goo.gl links in 2025, so a dead short link must never
+// be the end of the road. Organizers almost always write the real street
+// address in the description ("772-798 Pacific Coast Hwy, Santa Monica, CA
+// 90403") — a source that can't rot. Resolution runs ONCE at save (and as a
+// lazy heal for older events), and the result persists on the events row.
+
+
+export type ResolvedPin = { point: LatLng; source: "link" | "address" | "venue" };
+
+/** Server-only. The pin ladder — the organizer's LINK is the source of truth:
+ *  link coords → resolved short link → a Maps LINK inside the description →
+ *  geocoded venue text. Prose addresses are deliberately NOT read (an address
+ *  in the description may describe a different place). Fails soft to null. */
+export async function resolveEventPin(input: {
+  locationUrl: string | null | undefined;
+  description: string | null | undefined;
+  venueText: string | null | undefined;
+}): Promise<ResolvedPin | null> {
+  const fromLink = await mapsPointFromUrl(input.locationUrl);
+  if (fromLink) return { point: fromLink, source: "link" };
+  const descUrl = firstMapsUrlInText((input.description ?? "").replace(/<[^>]+>/g, " "));
+  if (descUrl && descUrl !== input.locationUrl) {
+    const fromDescLink = await mapsPointFromUrl(descUrl);
+    if (fromDescLink) return { point: fromDescLink, source: "link" };
+  }
+  const venue = (input.venueText ?? "").trim();
+  if (venue) {
+    const g = await geocodeAddress(venue);
+    if (g) return { point: g, source: "venue" };
+  }
+  return null;
 }

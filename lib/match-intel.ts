@@ -66,9 +66,6 @@ export async function suggestedOpponents(supabase: SB, meId: string, sportKey: s
     const p = profById.get(c.user_id);
     if (!p) continue;
     if (p.account_status && p.account_status !== "active") continue;
-    // Location precision (0145): city-tier players never expose neighborhood —
-    // masked before scoring so reasons and output both inherit it.
-    if (p.location_precision === "city") p.neighborhood = null;
 
     const reasons: string[] = [];
     let locPts = 0;
@@ -79,7 +76,7 @@ export async function suggestedOpponents(supabase: SB, meId: string, sportKey: s
     // location — Klimr's geographic wedge gets the most weight (max 35)
     if (me?.neighborhood && p.neighborhood && me.neighborhood.toLowerCase() === p.neighborhood.toLowerCase()) {
       locPts = 35;
-      reasons.push(`Plays in ${p.neighborhood}`);
+      reasons.push("Same neighborhood"); // locality scores, but never names the place
     } else if (me?.city && p.city && me.city.toLowerCase() === p.city.toLowerCase()) {
       locPts = 25;
       reasons.push(`Both in ${p.city}`);
@@ -122,7 +119,7 @@ export async function suggestedOpponents(supabase: SB, meId: string, sportKey: s
       displayName: p.display_name || "Player",
       avatarHue: p.avatar_hue ?? 200,
       avatarPath: p.avatar_path ?? null,
-      neighborhood: p.neighborhood ?? null,
+      neighborhood: null, // display rule: other members see city-level only
       city: p.city ?? null,
       skillLevel: c.skill_level ?? null,
       score,

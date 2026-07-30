@@ -42,9 +42,7 @@ export default async function PublicBusinessPage({ params }: { params: Promise<{
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/b/${slug}`);
 
-  const { data: flag } = await supabase.from("feature_flags").select("enabled").eq("key", "business_publication").maybeSingle();
-  if (!flag?.enabled) notFound();
-
+  
   const { data: b } = await supabase
     .from("business_accounts")
     .select("id, kind, name, slug, headline, bio, website, contact_email, phone, area_text, sports, verification_level, status, published")

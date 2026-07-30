@@ -74,12 +74,7 @@ let businesses: { id: string; name: string }[] = [];
     // Admin role drives the SideNav admin link (not part of the shared bar).
     const { data: r } = await supabase.rpc("current_admin_role");
     adminRole = typeof r === "string" ? r : null;
-    const { data: bizFlag } = await supabase
-      .from("feature_flags")
-      .select("enabled")
-      .eq("key", "business_publication")
-      .maybeSingle();
-    if (bizFlag?.enabled) {
+    {
       const { data: memberRows } = await supabase
         .from("business_members")
         .select("business_id")

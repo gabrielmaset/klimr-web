@@ -190,7 +190,7 @@ export function SideNav({
         </Link>
 
         <div className="relative mt-3.5 min-h-0 flex-1">
-        <div ref={scrollRef} className="h-full space-y-2 overflow-y-auto scrollbar-hidden">
+        <div ref={scrollRef} className="h-full space-y-2 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {GROUPS.map((g) => {
             if (!g.header) {
               return (

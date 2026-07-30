@@ -72,7 +72,7 @@ export default async function SettingsPage() {
   const [{ data: prefRow }, { data: blocks }, { data: profile }] = await Promise.all([
     supabase.from("user_preferences").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("blocks").select("blocked_id").eq("blocker_id", user.id),
-    supabase.from("profiles").select("display_name, avatar_hue, avatar_path, verification_status, city, neighborhood").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("display_name, avatar_hue, avatar_path, verification_status, city, neighborhood").eq("id", user.id).maybeSingle()
   ]);
 
   const prefs: Prefs = prefRow

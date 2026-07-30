@@ -39,7 +39,12 @@ import { Avatar } from "@/components/avatar";
 import { rsvp, cancelRsvp, approveMember, denyMember } from "../actions";
 import { rsvpCycleStartMs } from "@/lib/event-schedule";
 import { eventKindLabel } from "@/lib/event-kinds";
-import { mapsPointFromUrl, firstMapsUrlInText, geocodeAddress } from "@/lib/maps-url";
+import { firstMapsUrlInText, resolveEventPin } from "@/lib/maps-url";
+import { looksNonEnglish } from "@/lib/lang";
+import { EventDescription } from "@/components/event-description";
+
+// Module-level clock — render-purity rule bans bare Date.now() in components.
+const nowMs = () => Date.now();
 import { createAdminClient } from "@/lib/supabase/admin";
 import { retireSessionIfStale } from "@/lib/queue-state";
 import { DangerConfirm } from "@/components/danger-confirm";
@@ -91,7 +96,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const { data: e } = await supabase
     .from("events")
-    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at, location_reveal, organizer_state, paused_until")
+    .select("id, title, sport_key, kind, description, court_id, location_text, location_url, starts_at, ends_at, capacity, cost_text, status, created_by, cover_path, whatsapp_url, join_policy, recurrence, recurrence_days, queue_enabled, cancelled_at, location_reveal, organizer_state, paused_until, location_lat, location_lng, location_pin_at")
     .eq("id", id)
     .maybeSingle();
   if (!e) notFound();
@@ -137,13 +142,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const { data: flagRows } = await supabase
     .from("feature_flags")
     .select("key, enabled")
-    .in("key", ["attendance_strip_public", "business_publication", "sponsorship_discovery"]);
+    .in("key", ["attendance_strip_public", "sponsorship_discovery"]);
   const flagOn = new Map(((flagRows ?? []) as { key: string; enabled: boolean }[]).map((f) => [f.key, f.enabled]));
 
   // Pending sponsorship proposals targeting this event (organizer consent).
   let sponsorshipRequests: SponsorshipRequestItem[] = [];
   if (isAdmin) {
-    if (flagOn.get("business_publication")) {
+    {
       const { data: reqs } = await supabase
         .from("sponsorships")
         .select("id, business_id, label, amount_cents, description")
@@ -169,7 +174,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   // Public "Sponsored by" strip (discovery flag; targets consented by definition).
   let eventSponsors: SponsorStripItem[] = [];
-  if (flagOn.get("business_publication") && flagOn.get("sponsorship_discovery")) {
+  if (flagOn.get("sponsorship_discovery")) {
     const { data: act } = await supabase
       .from("sponsorships")
       .select("id, business_id, label")
@@ -323,14 +328,30 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   // Embed pin, most precise first: the court's stored coordinate → the
   // coordinate dug out of the organizer's link → server-side geocode of the
   // venue text (the keyless embed's own text geocoding is unreliable).
+  // Persisted pin first (resolved once at save — 0146), then the court's
+  // stored coordinate. Older events lazy-heal on first view: run the full
+  // ladder, WRITE the result back, and back off 24h between failed attempts.
   let mapPoint =
-    courtData?.lat != null && courtData?.lng != null
-      ? { lat: courtData.lat, lng: courtData.lng }
-      : await mapsPointFromUrl(pinUrl);
-  if (!mapPoint && !locationLocked && (mapsQuery || e.location_text)) {
-    mapPoint = await geocodeAddress(mapsQuery || e.location_text);
-    if (!mapPoint) {
-      console.error("[maps] unresolved event pin", { eventId: e.id, hasKey: !!process.env.GOOGLE_MAPS_API_KEY, pinUrl });
+    e.location_lat != null && e.location_lng != null
+      ? { lat: e.location_lat, lng: e.location_lng }
+      : courtData?.lat != null && courtData?.lng != null
+        ? { lat: courtData.lat, lng: courtData.lng }
+        : null;
+  if (!mapPoint && !locationLocked) {
+    const lastTry = e.location_pin_at ? Date.parse(e.location_pin_at) : 0;
+    if (nowMs() - lastTry > 86_400_000) {
+      const healed = await resolveEventPin({ locationUrl: pinUrl, description: e.description, venueText: mapsQuery || e.location_text });
+      await createAdminClient()
+        .from("events")
+        .update({
+          location_lat: healed?.point.lat ?? null,
+          location_lng: healed?.point.lng ?? null,
+          location_pin_source: healed?.source ?? null,
+          location_pin_at: new Date().toISOString(),
+        })
+        .eq("id", e.id);
+      if (healed) mapPoint = healed.point;
+      else console.error("[maps] unresolved event pin", { eventId: e.id, hasKey: !!process.env.GOOGLE_MAPS_API_KEY, pinUrl });
     }
   }
 
@@ -529,9 +550,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       {/* description + map */}
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
         {descHtml || plainDesc ? (
-          <section className="rounded-3xl border-l-4 border-l-brand border-y border-r border-rule bg-gradient-to-r from-bg/60 to-surface p-5 sm:p-6">
-            {descHtml ? <div className="rich-text" dangerouslySetInnerHTML={{ __html: descHtml }} /> : <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">{plainDesc}</p>}
-          </section>
+          <EventDescription eventId={e.id} html={descHtml} plain={plainDesc} offerTranslate={looksNonEnglish(e.description)} />
         ) : (
           <div />
         )}

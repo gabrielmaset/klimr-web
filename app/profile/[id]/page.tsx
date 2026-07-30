@@ -437,7 +437,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   ) : null}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mute">
-                  <span className="inline-flex items-center gap-1"><MapPin size={12} /> {publicLocationLabel(profile, isSelf)}</span>
+                  <span className="inline-flex items-center gap-1"><MapPin size={12} /> {publicLocationLabel(profile)}</span>
                   {age ? <span>{age}</span> : null}
                   {profile.reliability >= 85 ? (
                     <span className="inline-flex items-center gap-1 rounded-full border border-[#CFE8D5] bg-[#EFF8F0] px-2 py-0.5 font-semibold text-[#217A34]">

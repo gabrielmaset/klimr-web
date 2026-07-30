@@ -80,8 +80,7 @@ export async function updateBusiness(formData: FormData): Promise<void> {
   revalidatePath(`/business/${id}`);
 }
 
-/** Publish toggle — takes real effect only once the business is active
- *  AND the platform `business_publication` flag is on. */
+/** Publish toggle — takes real effect once the business is active. */
 export async function setBusinessPublished(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const {

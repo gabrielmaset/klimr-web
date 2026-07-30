@@ -564,3 +564,24 @@ export async function upsertGoogleCourt(input: GoogleCourtInput): Promise<{ cour
   }
   return { courtId: inserted.id };
 }
+
+/** Reverse-geocode the browser's coordinates into a ZIP for the finder's
+ *  "Use my location" — graceful null when the key is absent or Google finds
+ *  no postal code. */
+export async function reverseToZip(input: { lat: number; lng: number }): Promise<{ zip: string | null }> {
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key || !Number.isFinite(input.lat) || !Number.isFinite(input.lng)) return { zip: null };
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${input.lat},${input.lng}&result_type=postal_code&key=${key}`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return { zip: null };
+    const data = (await res.json()) as { results?: { address_components?: { types: string[]; short_name: string }[] }[] };
+    for (const r of data.results ?? []) {
+      const pc = (r.address_components ?? []).find((c) => c.types.includes("postal_code"));
+      if (pc?.short_name && /^\d{5}$/.test(pc.short_name)) return { zip: pc.short_name };
+    }
+  } catch {
+    /* fall through */
+  }
+  return { zip: null };
+}
