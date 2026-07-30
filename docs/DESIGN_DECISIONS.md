@@ -166,6 +166,25 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — MAP RESOLVED (stale deploy) + the haze root-caused + brand pins
+
+Case closed on the blank map: probe v2's screenshot shows a fully rendering
+map — canvas 593×650, display:block, visible, markers:14, tiles + labels +
+you-dot all present. The blank-canvas saga was a STALE DEPLOY serving old
+bundles; the underlying map had been fixed builds ago. The build-identity
+header earns permanent-fixture status. Aesthetic pass on Gabriel's notes:
+(1) THE "HAZY OVERLAY" root cause — the radius halo's 8%-opacity orange
+FILL covered essentially the whole viewport at city-scale radii, washing
+every color into flat beige. The fill layer is deleted; the halo is now the
+dashed ring alone, and the palette reads true. (2) PINS are brand orange
+(#FF4E1B, the --color-brand token) with white ring + white number — no
+more black teardrops; the legend's COURT dot follows. (3) Palette enriched
+for "clear and in color": water #BFD9EE / waterway #A9C9E4, parks #DCE8CB,
+land #F6F1E4, buildings #EFE9DA, ALL streets white with highways #F5C98A,
+labels #7A7160 on cream halo. Lesson repeated in one line: half this
+investigation was a deployment-pipeline illusion — build identity in debug
+output is now mandatory practice.
+
 ### 2026-07-30 — Probe v2: build-identity marker + three-point geometry + self-heal
 
 Gabriel's next screenshot showed the SAME six lines ending at idle with the

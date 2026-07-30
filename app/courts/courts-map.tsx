@@ -21,32 +21,32 @@ function applyDaylight(map: MapboxMap) {
         continue;
       }
       if (layer.type === "background") {
-        map.setPaintProperty(id, "background-color", "#F5F1E6");
+        map.setPaintProperty(id, "background-color", "#F6F1E4");
         continue;
       }
       if (layer.type === "fill" && /water|ocean|sea/.test(id)) {
-        map.setPaintProperty(id, "fill-color", "#CFE3F2");
+        map.setPaintProperty(id, "fill-color", "#BFD9EE");
         continue;
       }
       if (layer.type === "line" && /waterway|shoreline/.test(id)) {
-        map.setPaintProperty(id, "line-color", "#B9D3E8");
+        map.setPaintProperty(id, "line-color", "#A9C9E4");
         continue;
       }
       if (layer.type === "fill" && /landuse|landcover|park|pitch|grass|golf|cemetery/.test(id)) {
-        map.setPaintProperty(id, "fill-color", "#E1EBD6");
+        map.setPaintProperty(id, "fill-color", "#DCE8CB");
         continue;
       }
       if (layer.type === "fill" && /land-structure|building/.test(id)) {
-        map.setPaintProperty(id, "fill-color", "#EDE8DB");
+        map.setPaintProperty(id, "fill-color", "#EFE9DA");
         continue;
       }
       if (layer.type === "line" && /road|street|bridge|tunnel/.test(id)) {
-        const warm = /motorway|trunk|major/.test(id) ? "#F2C98C" : /primary|secondary|arterial/.test(id) ? "#FFFFFF" : "#EDE7D9";
+        const warm = /motorway|trunk|major/.test(id) ? "#F5C98A" : "#FFFFFF";
         map.setPaintProperty(id, "line-color", warm);
       }
       if (layer.type === "symbol" && /label|place|settlement/.test(id)) {
-        map.setPaintProperty(id, "text-color", "#8A8069");
-        map.setPaintProperty(id, "text-halo-color", "#F5F1E6");
+        map.setPaintProperty(id, "text-color", "#7A7160");
+        map.setPaintProperty(id, "text-halo-color", "#F6F1E4");
       }
     } catch {
       /* this layer's schema differs — skip it, keep going */
@@ -72,12 +72,11 @@ function drawHalo(map: MapboxMap, ring: [number, number][]) {
     if (src?.setData) src.setData(data);
     else {
       map.addSource("radius-halo", { type: "geojson", data });
-      map.addLayer({ id: "radius-halo-fill", type: "fill", source: "radius-halo", paint: { "fill-color": "#E8935E", "fill-opacity": 0.08 } });
       map.addLayer({
         id: "radius-halo-line",
         type: "line",
         source: "radius-halo",
-        paint: { "line-color": "#D97E45", "line-opacity": 0.55, "line-width": 1.5, "line-dasharray": [2, 2] },
+        paint: { "line-color": "#D97E45", "line-opacity": 0.6, "line-width": 1.5, "line-dasharray": [2, 2] },
       });
     }
   } catch {
@@ -306,7 +305,7 @@ export function CourtsMap({
       inner.style.cssText = "position:absolute;inset:0;transform-origin:50% 100%;transition:transform .15s ease";
       inner.innerHTML =
         `<svg width="30" height="38" viewBox="0 0 30 38" style="position:absolute;inset:0;filter:drop-shadow(0 2px 4px rgba(30,26,20,.35))">` +
-        `<path d="M15 37C15 37 28 22.5 28 14A13 13 0 1 0 2 14C2 22.5 15 37 15 37Z" fill="#1E1A14" stroke="#fff" stroke-width="2.5"/></svg>` +
+        `<path d="M15 37C15 37 28 22.5 28 14A13 13 0 1 0 2 14C2 22.5 15 37 15 37Z" fill="#FF4E1B" stroke="#fff" stroke-width="2.5"/></svg>` +
         `<span style="position:absolute;top:4.5px;left:0;right:0;text-align:center;font:700 12px 'JetBrains Mono',ui-monospace,monospace;color:#fff">${i + 1}</span>` +
         (c.liveQueue
           ? `<span style="position:absolute;right:-1px;top:-1px;width:9px;height:9px;border-radius:9999px;background:#2FA44F;border:2px solid #fff"></span>`
@@ -463,7 +462,7 @@ export function CourtsMap({
 
       {/* legend + radius badge */}
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-3 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-ink" /> COURT</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#FF4E1B]" /> COURT</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2FA44F]" /> LIVE QUEUE</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2E77C9]" /> YOU</span>
       </div>
