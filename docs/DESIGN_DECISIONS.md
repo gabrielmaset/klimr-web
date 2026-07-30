@@ -166,6 +166,28 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — Gap-fill scan shipped broken: wrong id contract + cache poisoning
+
+The screening gate worked exactly as designed and exposed the truth: the
+table held only TWO Google-backed courts — so a 25-mile All-sports search
+returned two results, and the gap-fill scan that should have filled the
+area ingested nothing. TWO BUGS, one compounding the other: (1) the scan
+read `c.placeId` but CourtResult carries the Google place id in `id` (the
+Places mapping sets id: String(p.id)) — every candidate failed the guard
+and zero rows ingested; (2) the scan-log was written UNCONDITIONALLY, so
+the empty outcome was cached for 30 days per zip+sport Gabriel tried —
+retries were silently blocked. Fixes: placeId: c.id with a uuid-shape belt
+(never re-ingest table rows); the log is written only for REAL answers
+("ok"/"empty") while capped/not_configured/error outcomes retry on the
+next search; a console breadcrumb ([courts scan] zip sport status
+candidates:N) makes every scan visible in Vercel logs. OPERATIONAL REPAIR
+required in prod: `delete from public.courts_scan_log;` to flush the
+poisoned rows before re-searching. LESSON, again the same shape as the
+0147 drift: I wrote against an assumed field name instead of the actual
+type ten lines up in the same file. Contracts get READ, not remembered.
+Note: the "All sports 2" badge is the RESULTS count by design (it read 14
+earlier because 14 courts existed) — not a sports-list regression.
+
 ### 2026-07-30 — Screening gate (0151): fake courts, stale LIVE, coverage gap-fill + finder polish
 
 Gabriel caught a phantom "Mar Vista Recreation Center" at #1 — wrong pin,

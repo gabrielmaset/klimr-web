@@ -586,22 +586,12 @@ export async function reverseToZip(input: { lat: number; lng: number }): Promise
   return { zip: null };
 }
 
-type ScanItem = {
-  placeId?: string | null;
-  name: string;
-  address?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  rating?: number | null;
-  ratingCount?: number | null;
-  private?: boolean;
-  website?: string | null;
-};
-
 /** Coverage gap-fill (0151): scan Google Places for a zip+sport and ingest
- *  anything the courts table is missing. One scan per zip+sport per 30 days
- *  (courts_scan_log) — a bounded, cached cost that closes coverage holes the
- *  moment a member searches an area, at any scale. */
+ *  anything the courts table is missing. CourtResult.id IS the Google place
+ *  id (the search maps Places results directly). A scan is logged — and its
+ *  30-day cache honored — only for REAL answers ("ok"/"empty"); capped,
+ *  unconfigured, and error outcomes retry on the next search instead of
+ *  poisoning the cache. */
 export async function scanZipForCourts(zip: string, sports: string[], radiusMi: number): Promise<number> {
   if (!/^\d{5}$/.test(zip)) return 0;
   const list = [...new Set(sports.filter((s) => SPORT_KEYS.includes(s)))].slice(0, 3);
@@ -616,27 +606,31 @@ export async function scanZipForCourts(zip: string, sports: string[], radiusMi: 
     if (fresh.has(sport)) continue;
     try {
       const res = await searchCourts({ locationKey: zip, radiusKm: Math.max(5, Math.min(40, Math.round(radiusMi * 1.609))), sport });
+      console.error("[courts scan]", zip, sport, res.status, `candidates:${res.courts.length}`);
       if (res.status === "ok") {
-        for (const c of res.courts as ScanItem[]) {
-          if (!c.placeId) continue;
+        for (const c of res.courts) {
+          // Belt: never re-ingest a table-sourced row (uuid-shaped id).
+          if (!c.id || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c.id)) continue;
           const r = await upsertGoogleCourt({
-            placeId: c.placeId,
+            placeId: c.id,
             name: c.name,
             sport,
             address: c.address ?? null,
-            lat: typeof c.lat === "number" ? c.lat : undefined,
-            lng: typeof c.lng === "number" ? c.lng : undefined,
-            rating: typeof c.rating === "number" ? c.rating : undefined,
-            ratingCount: typeof c.ratingCount === "number" ? c.ratingCount : undefined,
+            lat: c.lat,
+            lng: c.lng,
+            rating: c.rating ?? undefined,
+            ratingCount: c.ratingCount ?? undefined,
             private: c.private === true,
             website: c.website ?? undefined,
           });
           if (r.courtId) added++;
         }
       }
-      await admin.from("courts_scan_log").upsert({ zip, sport, scanned_at: new Date().toISOString() });
-    } catch {
-      /* one sport's scan failing must not sink the search */
+      if (res.status === "ok" || res.status === "empty") {
+        await admin.from("courts_scan_log").upsert({ zip, sport, scanned_at: new Date().toISOString() });
+      }
+    } catch (err) {
+      console.error("[courts scan] failed", zip, sport, err instanceof Error ? err.message : err);
     }
   }
   return added;
