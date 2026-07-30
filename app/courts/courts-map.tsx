@@ -193,19 +193,28 @@ export function CourtsMap({
       map.on("load", () => {
         if (cancelled) return;
         log("map ready");
-        map.once("idle", () => {
-          log("idle — first full render complete");
+        const probeGeometry = (tag: string) => {
           try {
             const cv = map.getCanvas();
             const cs = window.getComputedStyle(cv);
             const box = cv.getBoundingClientRect();
             const cont = containerRef.current;
-            log(`canvas attr ${cv.width}×${cv.height} · css ${Math.round(box.width)}×${Math.round(box.height)} · display:${cs.display} vis:${cs.visibility} op:${cs.opacity}`);
-            log(`container ${cont?.clientWidth ?? "?"}×${cont?.clientHeight ?? "?"} · sameNode:${map.getContainer() === cont} · markers:${markersRef.current.size}`);
+            log(`[${tag}] canvas attr ${cv.width}×${cv.height} · css ${Math.round(box.width)}×${Math.round(box.height)} · display:${cs.display} vis:${cs.visibility} op:${cs.opacity}`);
+            log(`[${tag}] container ${cont?.clientWidth ?? "?"}×${cont?.clientHeight ?? "?"} · sameNode:${map.getContainer() === cont} · markers:${markersRef.current.size}`);
+            if (box.width < 10 || box.height < 10) {
+              log(`[${tag}] canvas degenerate — forcing resize`);
+              map.resize();
+            }
           } catch (e) {
-            log(`geometry probe failed: ${e instanceof Error ? e.message : "?"}`);
+            log(`[${tag}] geometry probe failed: ${e instanceof Error ? e.message : "?"}`);
           }
+        };
+        probeGeometry("ready");
+        map.once("idle", () => {
+          log("idle — first full render complete");
+          probeGeometry("idle");
         });
+        setTimeout(() => probeGeometry("t+2.5s"), 2500);
         mapRef.current = map;
         readyRef.current = true;
         setReady(true);
@@ -371,7 +380,7 @@ export function CourtsMap({
 
       {debugOn ? (
         <div className="absolute inset-x-3 bottom-14 z-30 max-h-44 overflow-y-auto rounded-lg bg-ink/90 p-2.5 font-mono text-[9.5px] leading-relaxed text-white/90">
-          <p className="mb-1 font-bold text-white">MAP DEBUG — token {token ? `${token.slice(0, 6)}…${token.slice(-4)} (${token.startsWith("pk.") ? "public ✓" : "NOT a pk. public token ✗"})` : "MISSING"}</p>
+          <p className="mb-1 font-bold text-white">MAP DEBUG v2 (geometry probe) — token {token ? `${token.slice(0, 6)}…${token.slice(-4)} (${token.startsWith("pk.") ? "public ✓" : "NOT a pk. public token ✗"})` : "MISSING"}</p>
           {logLines.map((l, i) => (
             <p key={i} className="break-all">{l}</p>
           ))}

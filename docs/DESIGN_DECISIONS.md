@@ -166,6 +166,21 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — Probe v2: build-identity marker + three-point geometry + self-heal
+
+Gabriel's next screenshot showed the SAME six lines ending at idle with the
+geometry lines absent — impossible on the new bundle (the probe path
+guarantees geometry lines or a failure message after idle), therefore
+production was still serving the previous build. Lesson worth keeping: when
+debugging via user screenshots, the debug output must carry a BUILD
+IDENTITY, or a stale deploy silently masquerades as a negative result. The
+header now reads "MAP DEBUG v2 (geometry probe)" — one glance at any future
+screenshot proves which bundle is live. Also hardened while here: the probe
+runs at THREE points (map ready, first idle, t+2.5s) to catch late canvas
+collapse, and if the canvas measures degenerate (<10px either axis) it logs
+that verdict and immediately attempts self-heal via map.resize(). Deploy
+instruction: confirm the v2 header appears, then screenshot.
+
 ### 2026-07-30 — The debug panel's paradox: healthy log, blank canvas ⇒ geometry probe
 
 Gabriel's ?mapdebug=1 screenshot delivered the strangest possible answer:
