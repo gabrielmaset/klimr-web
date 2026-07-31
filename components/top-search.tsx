@@ -90,6 +90,7 @@ function TopSearchInner() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
+  const [settledFor, setSettledFor] = useState("");
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
   const [isMac, setIsMac] = useState(true);
@@ -143,6 +144,7 @@ function TopSearchInner() {
             setResults([]);
             setActive(0);
             setLoading(false);
+            setSettledFor(term);
           }
           return;
         }
@@ -152,6 +154,7 @@ function TopSearchInner() {
           setResults([...pageHits(term), ...r]);
           setActive(0);
           setLoading(false);
+          setSettledFor(term);
         }
       },
       term.length < 2 ? 0 : 180,
@@ -312,7 +315,7 @@ function TopSearchInner() {
             ) : null}
             {loading && results.length === 0 && !aiActive ? (
               <p className="px-3 py-8 text-center text-sm text-mute">Searching…</p>
-            ) : flat.length === 0 && !(aiActive && ai.state === "done") ? (
+            ) : flat.length === 0 && settledFor === term && !(aiActive && (ai.state === "done" || ai.state === "loading")) ? (
               <p className="px-3 py-8 text-center text-sm text-mute">No matches for &ldquo;{term}&rdquo;.</p>
             ) : (
               sections.map((section, si) => (

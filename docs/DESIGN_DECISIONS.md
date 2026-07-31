@@ -166,6 +166,27 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-31 — No-matches flash killed; the events umbrella encoded (0159)
+
+Gabriel's screenshot, four defects. (1) THE FLASH: during the 180ms
+debounce gap (before setLoading fires) the empty state saw stale-empty
+results and flashed "No matches" — a settledFor state now records which
+term the results actually answer; the empty state renders ONLY when
+settledFor === term and the AI isn't loading/done. Searching states can
+lie optimistically; empty states may not. (2) THE UMBRELLA, encoded:
+Gabriel defined "events" as including tournaments — now structural in
+BOTH layers: quick-path kindHints.has(event) auto-adds tournament (one-
+way; "tournaments" stays specific), so browse-intent lists both and the
+Santa Monica Open appears; the AI prompt gains EVENT UMBRELLA (query
+search_events AND search_tournaments). (3) RAW sport keys
+(beach_volleyball) in subtitles: sportMeta(...).name everywhere — browse
+subtitles, RPC-path via a prettySport() wrapper at the push site, and
+all three AI tool subtitles (events/tournaments/teams). (4) YEARS on
+event dates in every layer: browse + AI fmtWhen + 0159 (global_search
+re-created from 0154 VERBATIM by deriving the migration from the 0154
+file programmatically — single to_char 'Mon DD, YYYY' change, zero
+drift risk; harness probe: year_in_subtitle=true). Staged; build held.
+
 ### 2026-07-31 — Events sport filter + color map; the entity-criteria doctrine
 
 Three Gabriel items. (1) EVENTS SPORT FILTER existed all along but hid

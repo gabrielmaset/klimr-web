@@ -1,5 +1,7 @@
 "use server";
 
+import { sportMeta, SPORT_KEYS } from "@/lib/sports";
+
 const nowMs = () => Date.now();
 
 import { createClient } from "@/lib/supabase/server";
@@ -57,6 +59,9 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
     const k = KIND_HINTS[w.toLowerCase()];
     if (k) kindHints.add(k);
   }
+  // Gabriel's definition, encoded: "events" is an UMBRELLA — it includes
+  // tournaments. The reverse is not true (tournaments stays specific).
+  if (kindHints.has("event")) kindHints.add("tournament");
   const informative = words.filter((w) => {
     const lw = w.toLowerCase();
     return !STOP.has(lw) && !KIND_HINTS[lw];
@@ -77,7 +82,7 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
         .gte("starts_at", new Date(nowMs() - 86_400_000).toISOString())
         .order("starts_at", { ascending: true })
         .limit(6);
-      for (const e of evs ?? []) out.push({ type: "event", id: e.id, title: e.title, subtitle: `${e.sport_key} · ${new Date(e.starts_at ?? 0).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`, href: `/events/${e.id}` });
+      for (const e of evs ?? []) out.push({ type: "event", id: e.id, title: e.title, subtitle: `${sportMeta(e.sport_key).name} · ${new Date(e.starts_at ?? 0).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, href: `/events/${e.id}` });
     }
     if (kindHints.has("tournament")) {
       const { data: ts } = await supabase
@@ -88,12 +93,14 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
         .gte("starts_at", new Date(nowMs() - 86_400_000).toISOString())
         .order("starts_at", { ascending: true })
         .limit(6);
-      for (const t of ts ?? []) out.push({ type: "tournament", id: t.code, title: t.title, subtitle: `${t.sport_key} · ${new Date(t.starts_at ?? 0).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`, href: `/e/${t.code}` });
+      for (const t of ts ?? []) out.push({ type: "tournament", id: t.code, title: t.title, subtitle: `${sportMeta(t.sport_key).name} · ${new Date(t.starts_at ?? 0).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, href: `/e/${t.code}` });
     }
     if (out.length) return out;
   }
 
   const { data: rows } = await supabase.rpc("global_search", { p_q: condensed || q, p_limit: 30 });
+  const prettySport = (s: string | null): string | null =>
+    s && (SPORT_KEYS as string[]).includes(s) ? sportMeta(s).name : s;
   const KIND_OF_RPC: Record<string, SearchResultType> = {
     player: "player", court: "court", team: "team", event: "event",
     tournament: "tournament", listing: "listing", class: "class", provider: "class",
@@ -140,7 +147,7 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
       const href = HREF[r.kind]?.(r.id);
       if (!href) continue;
       const type = (r.kind === "provider" ? "class" : r.kind) as SearchResult["type"];
-      out.push({ type, id: r.id, title: r.title, subtitle: r.subtitle, href });
+      out.push({ type, id: r.id, title: r.title, subtitle: prettySport(r.subtitle), href });
     }
   }
   return out.slice(0, 26);
