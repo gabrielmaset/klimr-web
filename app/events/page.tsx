@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getUserSportKeys } from "@/lib/user-sports";
 import { EventsBrowser, type CardEvent } from "@/components/events-browser";
 import { parseLatLngFromMapsUrl } from "@/lib/maps-url";
 import { suggestCities, lookupZip } from "@/lib/us-places";
@@ -43,6 +44,7 @@ export default async function EventsPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/events");
+  const mySportKeys = await getUserSportKeys(supabase, user.id);
 
   const [{ data: eData }, { data: mgr }] = await Promise.all([
     supabase.from("events").select(CARD_COLS).eq("status", "active").gte("starts_at", nowIso()).order("starts_at").limit(60),
@@ -146,7 +148,7 @@ export default async function EventsPage() {
         </Link>
       </div>
 
-      <EventsBrowser events={cards} myEvents={myCards} nowMs={nowMs()} mapboxToken={mapboxToken} />
+      <EventsBrowser events={cards} myEvents={myCards} nowMs={nowMs()} mapboxToken={mapboxToken} availableSports={mySportKeys} />
     </div>
   );
 }

@@ -166,6 +166,78 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-31 — Events sport filter + color map; the entity-criteria doctrine
+
+Three Gabriel items. (1) EVENTS SPORT FILTER existed all along but hid
+itself: sportChips derived from LOADED events and the card rendered only
+when >1 distinct sport was present — one event, no filter. Now the chips
+come from the MEMBER's sports (availableSports prop ← getUserSportKeys,
+the sitewide accessor), so the card shows the member's world regardless
+of what happens to be loaded (loaded-sports remain the fallback when the
+prop is absent). Another surface off the scoping sweep list. (2) EVENTS
+MAP: light-v11 → streets-v12, full color, matching the Courts feel. (3)
+THE TEAMS SCENARIO ("teams that need two players") generalized into
+doctrine: ENTITY CRITERIA — when a request states criteria about
+entities, the model MUST return matching entities, never just page
+links. search_teams upgraded: open_spots_min arg; select embeds
+team_members(count) (typegen lacks the relationship → cast via unknown,
+FK real); openings = max_size − members, unknown-cap teams excluded when
+openings were requested (can't prove spots); no sport named → the
+member's active sports (the rule, everywhere); >6 kept → items end with
+a "See all N teams" row linking /teams. Prompt doctrine instructs
+structured criteria args + preserving the See-all row last. Tool also
+gained the missing deleted_at guard (parity). Verification pre-deploy:
+static — types green, filter parity vs pages confirmed by grep, arg
+plumbing typechecked; the scenario's runtime behavior rides the same
+tool path the harness can't LLM-drive, so the deploy checklist carries
+the live probe. Staged; build held.
+
+### 2026-07-31 — Why the AI "wasn't smart": it was blind (status-filter drift)
+
+Gabriel asked the right diagnostic question — model, access, or
+implementation? VERDICT WITH RECEIPTS: implementation. The AI events tool
+filtered status = 'published' while live Klimr events are status
+'active' (events page + actions agree) — the model received an EMPTY
+result set for every events query since the tool was written. No model at
+any capability level can surface a row it was never shown; the earlier
+phrase-ilike bug and this status drift STACKED, which is why fixing
+tokenization alone still produced empty AI groups. Fixed: both events
+paths (keyword + semantic-broaden) now use in('active','published'). The
+audit also caught: (a) a third 'published' belongs to CLASSES where it is
+CORRECT — the exact-count assert aborted before touching it (the
+abort-pre-write pattern earning its keep); (b) tournaments had NO
+status/visibility/cancellation filter at all — RLS capped leakage, but
+the tool now applies browse parity (public, not cancelled, ACTIVE_PUBLIC
+lifecycle). DOCTRINE, now written into the tool file: AI tool filters
+MUST mirror the page queries exactly — an LLM search is precisely as
+smart as its retrieval layer, and Haiku's judgment was never the
+bottleneck. The deterministic browse-intent path (previous entry) covers
+this query class instantly regardless; the AI layer now sees the same
+reality it refines. Staged; build held.
+
+### 2026-07-31 — Search browse intent + AI dedupe; sports editor labeled & ordered
+
+Gabriel's two screenshots. (1) DUPLICATE "Events": the deterministic page
+hit and the AI's page group both surfaced /events under different section
+labels — the earlier "dedupe" was only loading-state guards (owned in
+chat). Real fix: aiGroups is now a useMemo that drops every AI item whose
+href the deterministic layer (results + page hits) already shows, and
+empties vanish — deterministic wins, AI adds only what's novel. (First
+attempt used a render-time IIFE; react-hooks/refs rejected it — the memo
+is the idiomatic form.) (2) "Events next month" listing NO events: intent
+routing stripped the kind word and the date words, leaving zero
+informative words, so the matcher fell back to the raw phrase and matched
+nothing. A kind word with no keywords is a BROWSE intent — globalSearch
+short-circuits: hinted kind + empty condensed → list that kind's upcoming
+directly (events active/published from yesterday, soonest-first, 6;
+tournaments public, same shape) before touching the text matcher. (3)
+SPORTS EDITOR: visible micro-labels on every control (LEVEL / FORMAT —
+SINGLES / DOUBLES / {SYSTEM} RATING — OPTIONAL) so a collapsed "Both" is
+never opaque; ordering is DELIBERATE and documented — the member's active
+sports first (server truth), then A→Z — and STABLE while editing (useMemo
+from initial, never live toggles, so rows don't jump mid-edit; the
+post-save remount re-sorts on new truth). Staged; build held.
+
 ### 2026-07-31 — Home IS the Feed: nav truth, honest promises, real next dates
 
 Gabriel's screenshot exposed two truths at once. (1) THE NAV LIE: lib/nav

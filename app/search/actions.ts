@@ -1,5 +1,7 @@
 "use server";
 
+const nowMs = () => Date.now();
+
 import { createClient } from "@/lib/supabase/server";
 import type { SearchResult, SearchResultType } from "./types";
 import { blockSetsFor } from "@/lib/social-server";
@@ -59,8 +61,39 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
     const lw = w.toLowerCase();
     return !STOP.has(lw) && !KIND_HINTS[lw];
   });
-  const condensed = informative.slice(0, 4).join(" ") || q;
-  const { data: rows } = await supabase.rpc("global_search", { p_q: condensed, p_limit: 30 });
+  const condensed = informative.slice(0, 4).join(" ");
+
+  // BROWSE INTENT: a kind word with zero informative words ("events next
+  // month", "tournaments") is a request to SEE that kind — not a text
+  // match. List the kind's upcoming items directly; falling back to the
+  // raw phrase would match nothing (the screenshot bug).
+  if (kindHints.size > 0 && condensed === "") {
+    const out: SearchResult[] = [];
+    if (kindHints.has("event")) {
+      const { data: evs } = await supabase
+        .from("events")
+        .select("id, title, sport_key, starts_at")
+        .in("status", ["active", "published"])
+        .gte("starts_at", new Date(nowMs() - 86_400_000).toISOString())
+        .order("starts_at", { ascending: true })
+        .limit(6);
+      for (const e of evs ?? []) out.push({ type: "event", id: e.id, title: e.title, subtitle: `${e.sport_key} · ${new Date(e.starts_at ?? 0).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`, href: `/events/${e.id}` });
+    }
+    if (kindHints.has("tournament")) {
+      const { data: ts } = await supabase
+        .from("tournaments")
+        .select("code, title, sport_key, starts_at")
+        .eq("visibility", "public")
+        .is("cancelled_at", null)
+        .gte("starts_at", new Date(nowMs() - 86_400_000).toISOString())
+        .order("starts_at", { ascending: true })
+        .limit(6);
+      for (const t of ts ?? []) out.push({ type: "tournament", id: t.code, title: t.title, subtitle: `${t.sport_key} · ${new Date(t.starts_at ?? 0).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`, href: `/e/${t.code}` });
+    }
+    if (out.length) return out;
+  }
+
+  const { data: rows } = await supabase.rpc("global_search", { p_q: condensed || q, p_limit: 30 });
   const KIND_OF_RPC: Record<string, SearchResultType> = {
     player: "player", court: "court", team: "team", event: "event",
     tournament: "tournament", listing: "listing", class: "class", provider: "class",

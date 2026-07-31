@@ -102,6 +102,15 @@ function TopSearchInner() {
   const hasQuery = term.length >= 2;
   const showDropdown = open && hasQuery;
   const aiActive = ai.state !== "idle" && ai.query === term;
+  // AI results merge only what's NOVEL: anything whose href the
+  // deterministic layer already shows is dropped (the duplicate-Events fix).
+  const aiGroups = useMemo(() => {
+    if (!(ai.state === "done" && ai.query === term && ai.result)) return [];
+    const seen = new Set<string>([...results.map((r) => r.href ?? ""), ...pageHits(term).map((p) => p.href)]);
+    return ai.result.groups
+      .map((g) => ({ ...g, items: g.items.filter((it) => !seen.has(it.href)) }))
+      .filter((g) => g.items.length > 0);
+  }, [ai.state, ai.query, ai.result, results, term]);
   // Natural-language queries auto-run the AI (debounced) — no button, no
   // separate panel: its groups merge into the dropdown as ordinary sections.
   const looksNatural = useMemo(() => {
@@ -277,7 +286,7 @@ function TopSearchInner() {
                     ))}
                   </ol>
                 ) : null}
-                {ai.result.groups.map((g) => (
+                {aiGroups.map((g) => (
                   <div key={g.kind + g.label}>
                     <p className="kicker px-2.5 pb-1 pt-1.5 text-faint">{g.label}</p>
                     {g.items.map((item) => (

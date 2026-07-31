@@ -12,7 +12,7 @@ const SKILL_SYSTEM: Record<string, string | null> = {
   beach_volleyball: null,
 };
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { sportMeta, SPORT_KEYS } from "@/lib/sports";
@@ -33,6 +33,18 @@ export type SportsInitial = { sports: Record<string, SportState>; primary: strin
 const selCls = "rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink";
 
 export function SportsEditor({ initial }: { initial: SportsInitial }) {
+  // Order is deliberate: your sports first (server truth), then the rest
+  // alphabetically — and STABLE while editing, so rows never jump as you
+  // toggle. Recomputed only after a save (the editor remounts on truth).
+  const orderedKeys = useMemo(() => {
+    const name = (k: string) => sportMeta(k).name;
+    return [...SPORT_KEYS].sort((a, b) => {
+      const ao = initial.sports[a]?.on ? 0 : 1;
+      const bo = initial.sports[b]?.on ? 0 : 1;
+      return ao - bo || name(a).localeCompare(name(b));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [state, action, pending] = useActionState<EditState, FormData>(saveSports, undefined);
   const [sports, setSports] = useState<Record<string, SportState>>(initial.sports);
   const [primary, setPrimary] = useState<string>(initial.primary);
@@ -55,7 +67,7 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
       <input type="hidden" name="sports_json" value={JSON.stringify(picked)} />
 
       <div className="space-y-3">
-        {SPORT_KEYS.map((k) => {
+        {orderedKeys.map((k) => {
           const meta = sportMeta(k);
           const s = sports[k];
           const on = s?.on;
@@ -77,19 +89,27 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
 
               {on ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2 pl-7">
-                  <select value={s.level} onChange={(e) => set(k, { level: e.target.value })} className={selCls} aria-label="Skill level">
-                    {LEVELS.map((l) => (
-                      <option key={l.value} value={l.value}>{l.label}</option>
-                    ))}
-                  </select>
-                  <select value={s.format} onChange={(e) => set(k, { format: e.target.value })} className={selCls} aria-label="Format" disabled={sportFormats(k).length === 1}>
+                  <label className="flex flex-col gap-1">
+                    <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Level</span>
+                    <select value={s.level} onChange={(e) => set(k, { level: e.target.value })} className={selCls} aria-label="Skill level">
+                      {LEVELS.map((l) => (
+                        <option key={l.value} value={l.value}>{l.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Format — singles / doubles</span>
+                    <select value={s.format} onChange={(e) => set(k, { format: e.target.value })} className={selCls} aria-label="Format" disabled={sportFormats(k).length === 1}>
                     {sportFormats(k).map((f) => (
                       <option key={f.value} value={f.value}>{f.label}</option>
                     ))}
                     {sportFormats(k).some((f) => f.value === s.format) ? null : <option value={s.format}>{s.format}</option>}
                   </select>
+                  </label>
                   {hasRatingSystem(SKILL_SYSTEM[k] ?? null) ? (
-                    <input
+                    <label className="flex flex-col gap-1">
+                      <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">{SKILL_SYSTEM[k]} rating — optional</span>
+                      <input
                       value={s.rating}
                       onChange={(e) => set(k, { rating: e.target.value })}
                       placeholder={`${SKILL_SYSTEM[k] ?? "Rating"} (e.g. 4.0)`}
@@ -97,6 +117,7 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
                       className={`${selCls} w-36 placeholder:text-faint`}
                       aria-label={`${SKILL_SYSTEM[k] ?? "Skill"} rating`}
                     />
+                    </label>
                   ) : null}
                   {k !== effPrimary ? (
                     <button type="button" onClick={() => setPrimary(k)} className="press ml-auto text-xs font-semibold text-brand-deep hover:underline">

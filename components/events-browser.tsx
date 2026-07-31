@@ -62,7 +62,7 @@ function ClearLink({ n, onClear }: { n: number; onClear: () => void }) {
   );
 }
 
-export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null }: { events: CardEvent[]; myEvents?: CardEvent[]; nowMs: number; mapboxToken?: string | null }) {
+export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null, availableSports }: { events: CardEvent[]; myEvents?: CardEvent[]; nowMs: number; mapboxToken?: string | null; availableSports?: string[] }) {
   const [mode, setMode] = useState<"browse" | "mine">("browse");
   const [q, setQ] = useState("");
   const [sports, setSports] = useState<Set<string>>(new Set());
@@ -183,7 +183,9 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
     });
   }, [base, q, sports, kinds, price, minP, maxP, when, nowMs, nearMi, geo]);
 
-  const sportChips: Chip[] = allSports.map((s) => ({
+  // Sitewide sport scoping: the filter offers the MEMBER's sports (the
+  // accessor's list), not whichever sports happen to be in the loaded page.
+  const sportChips: Chip[] = (availableSports?.length ? availableSports : allSports).map((s) => ({
     value: s,
     label: (
       <span className="inline-flex items-center gap-1.5">
