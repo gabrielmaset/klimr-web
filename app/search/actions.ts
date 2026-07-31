@@ -22,53 +22,57 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const like = `%${q.replace(/[%_\\]/g, "")}%`;
-
   // Blocked pairs never meet in search — either direction. "Who blocked me" is
   // invisible to the viewer's RLS, so the set comes through the service role.
   const { all: blockedIds } = await blockSetsFor(user.id);
 
-  const [players, courts, teams, events] = await Promise.all([
-    supabase
+  // ONE engine call (0153): tsvector + trigram over every kind, RLS-scoped
+  // because the RPC runs with INVOKER rights on this user's client.
+  const { data: rows } = await supabase.rpc("global_search", { p_q: q, p_limit: 30 });
+  const list = rows ?? [];
+
+  // Players need avatar + location hydration and the account/block screens.
+  const playerIds = list
+    .filter((r) => r.kind === "player" && r.id !== user.id && !blockedIds.has(r.id))
+    .map((r) => r.id);
+  const players = new Map<string, { url: string | null; hue: number; loc: string | null }>();
+  if (playerIds.length) {
+    const { data: ps } = await supabase
       .from("profiles")
-      .select("id, display_name, neighborhood, city, avatar_path, avatar_hue")
-      .ilike("display_name", like)
-      .eq("account_status", "active")
-      .neq("id", user.id)
-      .limit(8),
-    supabase.from("courts").select("id, name, neighborhood, city").ilike("name", like).limit(4),
-    supabase.from("teams").select("id, name, city").ilike("name", like).limit(3),
-    supabase.from("events").select("id, title, starts_at").ilike("title", like).eq("status", "active").limit(3),
-  ]);
+      .select("id, avatar_path, avatar_hue, neighborhood, city, account_status")
+      .in("id", playerIds);
+    for (const p of ps ?? []) {
+      if (p.account_status !== "active") continue;
+      players.set(p.id, {
+        url: p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null,
+        hue: p.avatar_hue ?? 200,
+        loc: joinLoc(p.neighborhood, p.city),
+      });
+    }
+  }
+
+  const HREF: Record<string, (id: string) => string> = {
+    court: (id) => `/courts/${id}`,
+    team: (id) => `/teams/${id}`,
+    event: (id) => `/events/${id}`,
+    tournament: (id) => `/e/${id}`,
+    listing: (id) => `/marketplace/${id}`,
+    class: (id) => `/classes/${id}`,
+    provider: (id) => `/profile/${id}`,
+  };
 
   const out: SearchResult[] = [];
-
-  for (const p of (players.data ?? []).filter((p) => !blockedIds.has(p.id)).slice(0, 5)) {
-    out.push({
-      type: "player",
-      id: p.id,
-      title: p.display_name || "Player",
-      subtitle: joinLoc(p.neighborhood, p.city),
-      href: `/profile/${p.id}`,
-      avatarUrl: p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null,
-      hue: p.avatar_hue ?? 200,
-    });
+  for (const r of list) {
+    if (r.kind === "player") {
+      const p = players.get(r.id);
+      if (!p) continue;
+      out.push({ type: "player", id: r.id, title: r.title || "Player", subtitle: p.loc ?? r.subtitle, href: `/profile/${r.id}`, avatarUrl: p.url, hue: p.hue });
+    } else {
+      const href = HREF[r.kind]?.(r.id);
+      if (!href) continue;
+      const type = (r.kind === "provider" ? "class" : r.kind) as SearchResult["type"];
+      out.push({ type, id: r.id, title: r.title, subtitle: r.subtitle, href });
+    }
   }
-  for (const c of courts.data ?? []) {
-    out.push({ type: "court", id: c.id, title: c.name, subtitle: joinLoc(c.neighborhood, c.city), href: `/courts/${c.id}` });
-  }
-  for (const t of teams.data ?? []) {
-    out.push({ type: "team", id: t.id, title: t.name, subtitle: t.city ?? null, href: `/teams/${t.id}` });
-  }
-  for (const e of events.data ?? []) {
-    out.push({
-      type: "event",
-      id: e.id,
-      title: e.title,
-      subtitle: e.starts_at ? new Date(e.starts_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null,
-      href: `/events/${e.id}`,
-    });
-  }
-
-  return out;
+  return out.slice(0, 26);
 }

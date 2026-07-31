@@ -1917,6 +1917,10 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      global_search: {
+        Args: { p_q: string; p_limit?: number };
+        Returns: { kind: string; id: string; title: string; subtitle: string | null; rank: number }[];
+      };
       courts_finder: {
         Args: { p_lat: number; p_lng: number; p_radius_mi: number };
         Returns: {

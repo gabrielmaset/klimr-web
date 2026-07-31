@@ -166,6 +166,93 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-30 — The search ENGINE (0153): self-indexing Postgres FTS under RLS
+
+Gabriel's mandate after Live Queue: research the most advanced, reliable
+way to keep the whole site indexed automatically. THE RESEARCH VERDICT,
+recorded: external engines (Algolia/Typesense/Elastic) index data OUTSIDE
+Postgres and would force re-implementing RLS as app-layer filter tokens —
+the exact security class Klimr bans; a vendor, a sync pipeline, and a
+visibility footgun. The professional fit is Postgres's OWN engine, which is
+also Supabase's recommendation: tsvector GENERATED COLUMNS — the index
+maintains ITSELF on every insert/update, no triggers, no jobs, forever
+("keeps our site indexed automatically", literally) — GIN indexes for
+millions-of-rows scale, pg_trgm for typo tolerance ('chevoit hills' finds
+Cheviot Hills, probe-verified), and ONE global_search RPC with INVOKER
+rights so every branch runs as the caller under RLS. Eight kinds in one
+round trip (players, courts[is_active,!private], teams, events, tournaments,
+listings[active], classes[published], providers[approved]), blended
+ts_rank+similarity ranking, prefix matching, per-kind caps. The app's
+globalSearch collapsed from four parallel ilike queries + emitters into one
+RPC call + a player hydration pass (avatars/location/account screen/block
+screen preserved; provider results map into Classes & coaching, href
+/profile). PAGES: the duplicate hand list that forgot Live Queue is DEAD —
+top-search's PAGES now derives from lib/site-index.ts (sections annotated
+there, keyword-aware matching), so a page declared once is findable in
+quick search, the AI's find_pages, everywhere. FUTURE TABLE CONTRACT: one
+generated column + two indexes + one UNION branch. Auto-index probe:
+generated column populated on bare INSERT with zero application code.
+
+### 2026-07-30 — The full taxonomy: every page sectioned, every kind emitted
+
+Gabriel ratified the deterministic-sections pattern and asked to categorize
+EVERYTHING now so future features slot into an established taxonomy. Two
+halves, because categories must not be empty theater: (1) PAGES gained an
+explicit section field mirroring the side-nav's own groups — primary
+(Navigate), compete, community, discover, account — replacing the ad-hoc
+account-id set; Live Queue was discovered MISSING from the quick-search
+page list entirely and added. (2) globalSearch now EMITS the kinds the
+taxonomy names: tournaments (→ /e/{code}), active marketplace listings
+(with price subtitle), and published classes — same RLS-scoped client,
+same wildcard-stripped ilike, capped at 3 each. The SearchResultType union
+grew to seven; the typed Record icon maps in BOTH surfaces forced
+completion at compile time (Trophy / ShoppingBag / GraduationCap). Final
+SECTION_ORDER: Navigate, Compete, Community, Discover, Settings & account,
+Players, Courts, Teams, Events, Tournaments, Marketplace, Classes &
+coaching — with the "More" net still underneath for anything future. THE
+CONTRACT, restated for every future feature: one PAGES line (+section),
+optionally one globalSearch emitter + one SECTION_ORDER row, one
+site-index line, optionally one registry entry. Four one-liners, total
+searchability.
+
+### 2026-07-30 — Sectioned quick results: deterministic by kind, never by AI
+
+Gabriel asked for organized dropdown sections and floated AI-classification
+while deferring to industry practice. The research answer is unambiguous:
+Linear, GitHub, Notion, Spotlight — every serious typeahead groups results
+DETERMINISTICALLY BY SOURCE TYPE. Each result already carries a perfect
+category signal (r.type); AI classification would add latency, cost, and
+nondeterminism to an interaction that must feel instant. AI stays where
+judgment lives (the Ask path); quick results get engineering. Shipped in
+top-search: a SECTION_ORDER table — fixed order (Pages & features,
+Settings & account, Players, Courts, Teams, Events), per-section caps,
+kicker headers — with pages split into features vs account by id set, and
+a visible "More" catch-all so any FUTURE result type appears labeled
+instead of vanishing (the extensibility clause). Keyboard navigation and
+aria walk the flattened section list, so arrows/Enter behave exactly as
+before across section boundaries. Adding a category later = one line in
+SECTION_ORDER.
+
+### 2026-07-30 — AI wired into the bar users actually use + shared panel
+
+Gabriel: "the search bar doesn't seem to have updated." Diagnosis: Klimr
+has TWO search surfaces — the inline top-bar search (components/
+top-search.tsx, its own dropdown, ⌘K focuses it) and the command palette
+(mounted in app-chrome but competing for the same ⌘K). The AI shipped only
+into the palette; users live in the inline bar — the feature was invisible.
+Fix, drift-proof: the AI affordance is EXTRACTED into one shared module
+(components/ai-search-panel.tsx — useAiSearch hook + AiAskRow + AiPanel;
+onMouseDown preventDefault so blur can't eat clicks) and wired into the
+inline bar: a Sparkles "Ask Klimr AI" row leads every typed dropdown,
+⌘/Ctrl+↵ runs it, the panel (summary + steps + grouped links) takes over
+the dropdown while answering, and it's bound to the exact term (typing
+derives it away — no reset effects). The palette keeps its inline copy and
+MIGRATES to the shared pieces on next touch (noted). Also per Gabriel: the
+bar is ~50% longer (max-w 290→435, flex-basis 180→270) and the placeholder
+now advertises the capability: "Search or ask Klimr AI — players, courts,
+anything…". Lesson: shipping a feature into a surface nobody looks at is
+indistinguishable from not shipping it — find where the users are FIRST.
+
 ### 2026-07-30 — AI search made TOTAL: the registry + the site map
 
 Gabriel's correction: the tool list must cover EVERYTHING — Health &

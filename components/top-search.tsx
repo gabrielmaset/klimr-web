@@ -1,42 +1,69 @@
 "use client";
 
+import { SITE_INDEX, type PageSection } from "@/lib/site-index";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X } from "lucide-react";
+import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X, Trophy, ShoppingBag, GraduationCap } from "lucide-react";
 import { globalSearch } from "@/app/search/actions";
+import { useAiSearch, AiAskRow, AiPanel } from "@/components/ai-search-panel";
 import type { SearchResult, SearchResultType } from "@/app/search/types";
 import { Compass } from "lucide-react";
 
-type PageResult = { type: "page"; id: string; title: string; subtitle?: string; href: string };
+type PageResult = { type: "page"; id: string; title: string; subtitle?: string; href: string; section: PageSection };
 type Result = SearchResult | PageResult;
 
-const PAGES: PageResult[] = [
-  { type: "page", id: "feed", title: "Home", subtitle: "Your feed", href: "/feed" },
-  { type: "page", id: "play", title: "Play", subtitle: "Find or organize a match", href: "/play" },
-  { type: "page", id: "rankings", title: "Rankings", subtitle: "The Mountain", href: "/rankings" },
-  { type: "page", id: "tournaments", title: "Tournaments", subtitle: "Compete", href: "/tournaments" },
-  { type: "page", id: "challenges", title: "Challenges", subtitle: "Turf wars", href: "/challenges" },
-  { type: "page", id: "events", title: "Events", subtitle: "Compete", href: "/events" },
-  { type: "page", id: "network", title: "Network", subtitle: "Community", href: "/network" },
-  { type: "page", id: "chats", title: "Chats", subtitle: "Courtside", href: "/chats" },
-  { type: "page", id: "teams", title: "Teams", subtitle: "Community", href: "/teams" },
-  { type: "page", id: "invites", title: "Invites", subtitle: "Community", href: "/invites" },
-  { type: "page", id: "discover", title: "Players", subtitle: "Match Lab", href: "/discover" },
-  { type: "page", id: "courts", title: "Courts", subtitle: "Discover", href: "/courts" },
-  { type: "page", id: "marketplace", title: "Marketplace", subtitle: "Discover", href: "/marketplace" },
-  { type: "page", id: "classes", title: "Classes & Coaching", subtitle: "Discover", href: "/classes" },
-  { type: "page", id: "health", title: "Health & Nutrition", subtitle: "Discover", href: "/health" },
-  { type: "page", id: "sponsorships", title: "Sponsorships", subtitle: "Discover", href: "/sponsorships" },
-  { type: "page", id: "resources", title: "Playbook", subtitle: "Rules & guides", href: "/resources" },
-  { type: "page", id: "calendar", title: "Calendar", subtitle: "Your schedule", href: "/calendar" },
-  { type: "page", id: "notifications", title: "Notifications", subtitle: "Your account", href: "/notifications" },
-  { type: "page", id: "me", title: "My profile", subtitle: "Your account", href: "/me" },
-  { type: "page", id: "settings", title: "Settings", subtitle: "Your account", href: "/settings" },
-  { type: "page", id: "account", title: "Account", subtitle: "Sign-in & security", href: "/account" },
-  { type: "page", id: "invite", title: "Invite friends", subtitle: "Your account", href: "/invite" },
+// ONE source of truth (lib/site-index.ts): a page added there is instantly
+// findable here, in the AI's find_pages tool, everywhere. The hand list that
+// forgot Live Queue is dead.
+const PAGES: PageResult[] = SITE_INDEX.map((e) => ({
+  type: "page",
+  id: e.href.replace(/^\//, "").replace(/\//g, "-") || "home",
+  title: e.title,
+  subtitle: e.description,
+  href: e.href,
+  section: e.section,
+}));
+const SITE_BY_HREF = new Map(SITE_INDEX.map((e) => [e.href, e]));
+const pageHits = (qRaw: string) => {
+  const q = qRaw.toLowerCase();
+  return PAGES.filter((pg) => {
+    if (pg.title.toLowerCase().includes(q)) return true;
+    const entry = SITE_BY_HREF.get(pg.href);
+    return !!entry && (entry.keywords.some((k) => k.includes(q) || q.includes(k)) || entry.description.toLowerCase().includes(q));
+  }).slice(0, 6);
+};
+
+// Section grouping — deterministic by source type (the industry pattern for
+// typeahead: Linear/GitHub/Notion group by KIND, never by AI classification —
+// instant, stable, and every result already knows its type). Fixed order,
+// per-section caps; the keyboard walks the flattened list.
+const pageSec = (k: PageSection) => (r: Result) => r.type === "page" && r.section === k;
+const SECTION_ORDER: { key: string; label: string; max: number; pick: (r: Result) => boolean }[] = [
+  { key: "primary", label: "Navigate", max: 3, pick: pageSec("primary") },
+  { key: "compete", label: "Compete", max: 3, pick: pageSec("compete") },
+  { key: "community", label: "Community", max: 3, pick: pageSec("community") },
+  { key: "discover", label: "Discover", max: 4, pick: pageSec("discover") },
+  { key: "account", label: "Settings & account", max: 3, pick: pageSec("account") },
+  { key: "player", label: "Players", max: 5, pick: (r) => r.type === "player" },
+  { key: "court", label: "Courts", max: 5, pick: (r) => r.type === "court" },
+  { key: "team", label: "Teams", max: 4, pick: (r) => r.type === "team" },
+  { key: "event", label: "Events", max: 4, pick: (r) => r.type === "event" },
+  { key: "tournament", label: "Tournaments", max: 4, pick: (r) => r.type === "tournament" },
+  { key: "listing", label: "Marketplace", max: 4, pick: (r) => r.type === "listing" },
+  { key: "class", label: "Classes & coaching", max: 3, pick: (r) => r.type === "class" },
 ];
-const pageHits = (q: string) =>
-  PAGES.filter((pg) => pg.title.toLowerCase().includes(q.toLowerCase()) || (pg.subtitle ?? "").toLowerCase().includes(q.toLowerCase())).slice(0, 5);
+function sectionize(results: Result[]) {
+  const used = new Set<Result>();
+  const sections = SECTION_ORDER.map((s) => {
+    const items = results.filter((r) => !used.has(r) && s.pick(r)).slice(0, s.max);
+    for (const r of items) used.add(r);
+    return { key: s.key, label: s.label, items };
+  }).filter((s) => s.items.length > 0);
+  // Anything a future type adds falls into a visible catch-all, never vanishes.
+  const rest = results.filter((r) => !used.has(r)).slice(0, 4);
+  if (rest.length) sections.push({ key: "other", label: "More", items: rest });
+  return { sections, flat: sections.flatMap((s) => s.items) };
+}
 import { Avatar } from "@/components/avatar";
 
 const TYPE_ICON: Record<SearchResultType, typeof User> = {
@@ -44,6 +71,9 @@ const TYPE_ICON: Record<SearchResultType, typeof User> = {
   court: MapPin,
   team: Users,
   event: CalendarDays,
+  tournament: Trophy,
+  listing: ShoppingBag,
+  class: GraduationCap,
 };
 
 export function TopSearch() {
@@ -57,11 +87,14 @@ export function TopSearch() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const reqId = useRef(0);
+  const { ai, runAi, resetAi } = useAiSearch();
 
   const term = query.trim();
   const hasQuery = term.length >= 2;
   const showDropdown = open && hasQuery;
-  const activeClamped = results.length ? Math.min(active, results.length - 1) : 0;
+  const aiActive = ai.state !== "idle" && ai.query === term;
+  const { sections, flat } = sectionize(results);
+  const activeClamped = flat.length ? Math.min(active, flat.length - 1) : 0;
 
   useEffect(() => {
     const p = navigator.userAgent || navigator.platform || "";
@@ -145,19 +178,22 @@ export function TopSearch() {
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       setOpen(true);
-      setActive((a) => Math.min(a + 1, Math.max(results.length - 1, 0)));
+      setActive((a) => Math.min(a + 1, Math.max(flat.length - 1, 0)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
+    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      runAi(term);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const item = results[activeClamped];
+      const item = flat[activeClamped];
       if (item) go(item.href);
     }
   }
 
   return (
-    <div ref={wrapRef} className="relative min-w-[120px] max-w-[290px] flex-[1_1_180px]">
+    <div ref={wrapRef} className="relative min-w-[120px] max-w-[435px] flex-[1_1_270px]">
       <div className="flex h-[34px] items-center gap-2 rounded-[10px] border border-rule-2 bg-[rgba(32,27,18,0.03)] px-3 transition-colors focus-within:border-brand focus-within:bg-surface">
         <Search size={16} className="shrink-0 text-faint" />
         <input
@@ -171,7 +207,7 @@ export function TopSearch() {
             if (hasQuery) setOpen(true);
           }}
           onKeyDown={onInputKey}
-          placeholder="Search Klimr — pages, players, courts…"
+          placeholder="Search or ask Klimr AI — players, courts, anything…"
           className="h-full w-full bg-transparent text-sm text-ink outline-none placeholder:text-faint"
           autoComplete="off"
           spellCheck={false}
@@ -179,7 +215,7 @@ export function TopSearch() {
           aria-expanded={showDropdown}
           aria-controls="top-search-list"
           aria-autocomplete="list"
-          aria-activedescendant={showDropdown && results.length ? `top-opt-${activeClamped}` : undefined}
+          aria-activedescendant={showDropdown && flat.length ? `top-opt-${activeClamped}` : undefined}
         />
         {loading && hasQuery ? (
           <Loader2 size={14} className="shrink-0 animate-spin text-faint" />
@@ -203,12 +239,21 @@ export function TopSearch() {
           className="absolute left-0 top-full z-40 mt-2 w-full min-w-[19rem] animate-[fade_0.12s_ease-out] overflow-hidden rounded-2xl border border-rule bg-surface shadow-[0_18px_50px_-12px_rgba(10,10,11,0.4)]"
         >
           <div className="max-h-[60vh] overflow-y-auto p-1.5">
-            {loading && results.length === 0 ? (
+            {aiActive ? (
+              <AiPanel ai={ai} onBack={resetAi} go={go} />
+            ) : (
+              <AiAskRow query={term} hint={isMac ? "⌘↵" : "Ctrl↵"} onRun={() => runAi(term)} />
+            )}
+            {aiActive ? null : loading && results.length === 0 ? (
               <p className="px-3 py-8 text-center text-sm text-mute">Searching…</p>
-            ) : results.length === 0 ? (
+            ) : flat.length === 0 ? (
               <p className="px-3 py-8 text-center text-sm text-mute">No matches for &ldquo;{term}&rdquo;.</p>
             ) : (
-              results.map((r, i) => {
+              sections.map((section, si) => (
+                <div key={section.key}>
+                  <p className={`kicker px-2.5 pb-1 ${si === 0 ? "pt-1.5" : "pt-3"} text-faint`}>{section.label}</p>
+                  {section.items.map((r) => {
+                    const i = flat.indexOf(r);
                 const sel = i === activeClamped;
                 const Icon = r.type === "page" ? Compass : TYPE_ICON[r.type];
                 return (
@@ -236,7 +281,9 @@ export function TopSearch() {
                     <CornerDownLeft size={14} className={`shrink-0 text-faint transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
                   </button>
                 );
-              })
+              })}
+                </div>
+              ))
             )}
           </div>
         </div>

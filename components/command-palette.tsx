@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, User, MapPin, Users, CalendarDays, Plus, Trophy, CornerDownLeft, Loader2, Sparkles, ArrowUpRight } from "lucide-react";
+import { Search, User, MapPin, Users, CalendarDays, Plus, Trophy, CornerDownLeft, Loader2, Sparkles, ArrowUpRight, ShoppingBag, GraduationCap } from "lucide-react";
 import { globalSearch } from "@/app/search/actions";
 import { aiSearch } from "@/app/search/ai-actions";
 import type { AiSearchResult } from "@/lib/ai-search";
@@ -14,12 +14,18 @@ const TYPE_ICON: Record<SearchResultType, typeof User> = {
   court: MapPin,
   team: Users,
   event: CalendarDays,
+  tournament: Trophy,
+  listing: ShoppingBag,
+  class: GraduationCap,
 };
 const TYPE_LABEL: Record<SearchResultType, string> = {
   player: "Player",
   court: "Court",
   team: "Team",
   event: "Event",
+  tournament: "Tournament",
+  listing: "Listing",
+  class: "Class",
 };
 
 type QuickAction = { label: string; href: string; Icon: typeof Plus };

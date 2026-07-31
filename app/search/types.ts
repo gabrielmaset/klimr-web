@@ -1,4 +1,4 @@
-export type SearchResultType = "player" | "court" | "team" | "event";
+export type SearchResultType = "player" | "court" | "team" | "event" | "tournament" | "listing" | "class";
 
 export type SearchResult = {
   type: SearchResultType;
