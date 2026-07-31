@@ -1,11 +1,11 @@
 "use client";
 
 import { SITE_INDEX, type PageSection } from "@/lib/site-index";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X, Trophy, ShoppingBag, GraduationCap } from "lucide-react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X, Trophy, ShoppingBag, GraduationCap , ArrowUpRight } from "lucide-react";
 import { globalSearch } from "@/app/search/actions";
-import { useAiSearch, AiAskRow, AiPanel } from "@/components/ai-search-panel";
+import { useAiSearch } from "@/components/ai-search-panel";
 import type { SearchResult, SearchResultType } from "@/app/search/types";
 import { Compass } from "lucide-react";
 
@@ -24,13 +24,22 @@ const PAGES: PageResult[] = SITE_INDEX.map((e) => ({
   section: e.section,
 }));
 const SITE_BY_HREF = new Map(SITE_INDEX.map((e) => [e.href, e]));
+// WORD-based matching only: a keyword matches when a typed WORD starts with
+// it (or vice versa, >=3 chars) — never via free substring, which once made
+// "name" match inside "tournaMEnts".
+const wordMatch = (qWords: string[], k: string) => {
+  const kws = k.toLowerCase().split(/\s+/);
+  return kws.every((kw) => qWords.some((w) => w.startsWith(kw) || (kw.length >= 3 && kw.startsWith(w) && w.length >= 3)));
+};
 const pageHits = (qRaw: string) => {
   const q = qRaw.toLowerCase();
+  const qWords = q.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   return PAGES.filter((pg) => {
-    if (pg.title.toLowerCase().includes(q)) return true;
+    const title = pg.title.toLowerCase();
+    if (title.includes(q) || qWords.some((w) => w.length >= 3 && title.includes(w))) return true;
     const entry = SITE_BY_HREF.get(pg.href);
-    return !!entry && (entry.keywords.some((k) => k.includes(q) || q.includes(k)) || entry.description.toLowerCase().includes(q));
-  }).slice(0, 6);
+    return !!entry && entry.keywords.some((k) => wordMatch(qWords, k));
+  }).slice(0, 5);
 };
 
 // Section grouping — deterministic by source type (the industry pattern for
@@ -76,7 +85,7 @@ const TYPE_ICON: Record<SearchResultType, typeof User> = {
   class: GraduationCap,
 };
 
-export function TopSearch() {
+function TopSearchInner() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
@@ -87,12 +96,25 @@ export function TopSearch() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const reqId = useRef(0);
-  const { ai, runAi, resetAi } = useAiSearch();
+  const { ai, runAi } = useAiSearch();
 
   const term = query.trim();
   const hasQuery = term.length >= 2;
   const showDropdown = open && hasQuery;
   const aiActive = ai.state !== "idle" && ai.query === term;
+  // Natural-language queries auto-run the AI (debounced) — no button, no
+  // separate panel: its groups merge into the dropdown as ordinary sections.
+  const looksNatural = useMemo(() => {
+    const w = term.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    return term.includes("?") || w.length >= 3;
+  }, [term]);
+  useEffect(() => {
+    if (!open || !looksNatural || term.length < 6) return;
+    if (ai.state !== "idle" && ai.query === term) return;
+    const h = setTimeout(() => runAi(term), 700);
+    return () => clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [term, open, looksNatural]);
   const { sections, flat } = sectionize(results);
   const activeClamped = flat.length ? Math.min(active, flat.length - 1) : 0;
 
@@ -239,14 +261,49 @@ export function TopSearch() {
           className="absolute left-0 top-full z-40 mt-2 w-full min-w-[19rem] animate-[fade_0.12s_ease-out] overflow-hidden rounded-2xl border border-rule bg-surface shadow-[0_18px_50px_-12px_rgba(10,10,11,0.4)]"
         >
           <div className="max-h-[60vh] overflow-y-auto p-1.5">
-            {aiActive ? (
-              <AiPanel ai={ai} onBack={resetAi} go={go} />
-            ) : (
-              <AiAskRow query={term} hint={isMac ? "⌘↵" : "Ctrl↵"} onRun={() => runAi(term)} />
-            )}
-            {aiActive ? null : loading && results.length === 0 ? (
+            {aiActive && ai.state === "loading" ? (
+              <p className="flex items-center gap-2 px-2.5 py-1.5 font-mono text-[10px] font-semibold tracking-[0.12em] text-faint">
+                <Loader2 size={11} className="animate-spin" /> CHECKING EVERYTHING…
+              </p>
+            ) : null}
+            {aiActive && ai.state === "done" && ai.result ? (
+              <div className="mb-1">
+                {ai.result.steps?.length ? (
+                  <ol className="mx-1 mb-2 space-y-1 rounded-xl border border-rule-soft bg-bg px-3.5 py-3">
+                    {ai.result.steps.map((s, i) => (
+                      <li key={i} className="flex gap-2 text-[13px] text-ink-soft">
+                        <span className="font-mono text-[11px] font-bold text-brand">{i + 1}.</span> {s}
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+                {ai.result.groups.map((g) => (
+                  <div key={g.kind + g.label}>
+                    <p className="kicker px-2.5 pb-1 pt-1.5 text-faint">{g.label}</p>
+                    {g.items.map((item) => (
+                      <button
+                        key={item.href + item.title}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => go(item.href)}
+                        className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-tint-brand"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-ink">{item.title}</span>
+                          {item.subtitle || item.meta ? (
+                            <span className="block truncate text-xs text-mute">{[item.subtitle, item.meta].filter(Boolean).join(" · ")}</span>
+                          ) : null}
+                        </span>
+                        <ArrowUpRight size={14} className="shrink-0 text-faint" />
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {loading && results.length === 0 && !aiActive ? (
               <p className="px-3 py-8 text-center text-sm text-mute">Searching…</p>
-            ) : flat.length === 0 ? (
+            ) : flat.length === 0 && !(aiActive && ai.state === "done") ? (
               <p className="px-3 py-8 text-center text-sm text-mute">No matches for &ldquo;{term}&rdquo;.</p>
             ) : (
               sections.map((section, si) => (
@@ -290,4 +347,12 @@ export function TopSearch() {
       ) : null}
     </div>
   );
+}
+
+/** Navigation clears the query (Gabriel's spec): remounting by pathname
+ *  resets term + AI state with zero effects — refreshes land on an already
+ *  fresh mount, so nothing is lost there either. */
+export function TopSearch() {
+  const pathname = usePathname();
+  return <TopSearchInner key={pathname} />;
 }

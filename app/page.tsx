@@ -3,7 +3,6 @@ import Image from "next/image";
 import { BadgeCheck, CheckCheck, Fingerprint, ShieldX } from "lucide-react";
 import { KlimrMark } from "@/components/logo";
 import { createClient } from "@/lib/supabase/server";
-import { SignedInHome } from "@/components/signed-in-home";
 import { redirect } from "next/navigation";
 import { hasGate } from "@/lib/gate";
 
@@ -170,7 +169,10 @@ export default async function Home() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) return <SignedInHome />;
+  // IA consolidation (Gabriel): the nav's primary destination is the Feed;
+  // the old signed-in dashboard overlapped My Profile. Signed-in lands on
+  // the feed; "/" remains the public marketing page for visitors.
+  if (user) redirect("/feed");
 
   // Anonymous visitors must pass the invite-code portal before seeing the site.
   if (!(await hasGate("site"))) redirect("/gate");

@@ -251,7 +251,7 @@ function MonthGrid({ events, cursor, now, onOpenDay }: { events: Ev[]; cursor: D
               </button>
               <div className="mt-1 space-y-0.5">
                 {shown.map((ev) => (
-                  <MonthChip key={ev.key} ev={ev} />
+                  <MonthChip key={ev.key} ev={ev} past={ev.e < startOfDay(now)} />
                 ))}
                 {extra > 0 ? (
                   <button type="button" onClick={() => onOpenDay(d)} className="w-full truncate rounded px-1.5 py-0.5 text-left text-[11px] font-semibold text-mute hover:bg-bg">
@@ -267,10 +267,10 @@ function MonthGrid({ events, cursor, now, onOpenDay }: { events: Ev[]; cursor: D
   );
 }
 
-function MonthChip({ ev }: { ev: Ev }) {
+function MonthChip({ ev, past = false }: { ev: Ev; past?: boolean }) {
   const k = KIND[ev.kind];
   return (
-    <Link href={ev.href} title={ev.title} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] leading-tight transition-colors hover:bg-bg">
+    <Link href={ev.href} title={ev.title} className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] leading-tight transition-colors hover:bg-bg ${past ? "opacity-45 grayscale" : ""}`}>
       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: k.dot }} />
       <span className="hidden min-w-0 items-center gap-1 sm:flex">
         {!ev.allDay ? <span className="shrink-0 tabular-nums text-mute">{fmtTime(ev.s)}</span> : null}

@@ -241,6 +241,7 @@ export async function saveSports(_prev: EditState, formData: FormData): Promise<
       skill_rating: ratings.get(s.key),
       preferred_format: fmts.get(s.key) ?? "both",
       handedness: hands.get(s.key) ?? null,
+      active: true,
     })),
     { onConflict: "user_id,sport_key" },
   );
@@ -248,6 +249,17 @@ export async function saveSports(_prev: EditState, formData: FormData): Promise<
     console.error("[settings] sports save failed", sErr.code, sErr.message);
     return { error: `Couldn't save${sErr.code ? ` (${sErr.code})` : ""}. Please try again.` };
   }
+
+  // Reconciliation: every sport NOT picked is deactivated — unchecking is a
+  // real removal, and the accessor/algorithm see it immediately.
+  const pickedKeys = picked.map((s) => s.key);
+  const { error: dErr } = await supabase
+    .from("player_sports")
+    .update({ active: false })
+    .eq("user_id", user.id)
+    .not("sport_key", "in", `(${pickedKeys.map((k) => `"${k}"`).join(",")})`);
+  if (dErr) console.error("[settings] sports deactivate failed", dErr.code, dErr.message);
+
 
   // Preserve stats when a sport is removed: instead of deleting the row (which
   // would drop points, record, and skill), flip an `active` flag. De-selected

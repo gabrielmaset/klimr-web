@@ -15,11 +15,11 @@ const SKILL_SYSTEM: Record<string, string | null> = {
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, SPORT_KEYS } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { saveSports, type EditState } from "../actions";
 
-const SPORT_KEYS = ["tennis", "pickleball", "padel", "racquetball"];
+
 const LEVELS = [
   { value: "new", label: "New to it" },
   { value: "casual", label: "Casual" },
@@ -88,14 +88,14 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
                     ))}
                     {sportFormats(k).some((f) => f.value === s.format) ? null : <option value={s.format}>{s.format}</option>}
                   </select>
-                  {hasRatingSystem(SKILL_SYSTEM[k]) ? (
+                  {hasRatingSystem(SKILL_SYSTEM[k] ?? null) ? (
                     <input
                       value={s.rating}
                       onChange={(e) => set(k, { rating: e.target.value })}
-                      placeholder={`${SKILL_SYSTEM[k]} (e.g. 4.0)`}
+                      placeholder={`${SKILL_SYSTEM[k] ?? "Rating"} (e.g. 4.0)`}
                       inputMode="decimal"
                       className={`${selCls} w-36 placeholder:text-faint`}
-                      aria-label={`${SKILL_SYSTEM[k]} rating`}
+                      aria-label={`${SKILL_SYSTEM[k] ?? "Skill"} rating`}
                     />
                   ) : null}
                   {k !== effPrimary ? (

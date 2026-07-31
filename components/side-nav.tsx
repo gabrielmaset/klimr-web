@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, ShieldCheck, LogOut, User, Gift, ChevronsUpDown, IdCard, ChevronDown, ChevronLeft, ChevronRight, MessageSquare, HelpCircle, Briefcase } from "lucide-react";
+import { Settings, ShieldCheck, LogOut, Gift, ChevronsUpDown, IdCard, ChevronDown, ChevronLeft, ChevronRight, MessageSquare, HelpCircle, Briefcase } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
 import { NAV_GROUPS, type NavItem } from "@/lib/nav";
 import { KlimrLogo } from "@/components/logo";
@@ -266,9 +266,6 @@ export function SideNav({
                   {email ? <p className="truncate text-xs text-faint">{email}</p> : null}
                 </div>
                 <div className="py-1">
-                  <Link href="/account" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
-                    <User size={15} className="text-mute" /> Your account
-                  </Link>
                   <Link href="/settings" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
                     <Settings size={15} className="text-mute" /> Settings
                   </Link>

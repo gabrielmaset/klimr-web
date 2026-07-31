@@ -767,3 +767,19 @@ export async function decideTierApplication(formData: FormData): Promise<void> {
   revalidatePath(`/business/${app.business_id}`);
 }
 
+/** Court-suggestion review (0158): superadmin marks a member submission
+ *  reviewed or rejected; the court itself is added through the normal
+ *  finder ingestion once verified. */
+export async function updateSuggestionStatus(formData: FormData): Promise<void> {
+  const { userId } = await requireAdmin();
+  const id = String(formData.get("id") || "");
+  const status = String(formData.get("status") || "");
+  if (!id || !["reviewed", "rejected"].includes(status)) return;
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("court_suggestions")
+    .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: userId })
+    .eq("id", id);
+  if (error) console.error("[admin] suggestion status failed", error.code, error.message);
+  revalidatePath("/admin/court-suggestions");
+}

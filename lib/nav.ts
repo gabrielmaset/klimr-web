@@ -11,7 +11,7 @@ export type NavItem = { href: string; label: string; Icon: LucideIcon };
 export const NAV_GROUPS: { header?: string; items: NavItem[] }[] = [
   {
     items: [
-      { href: "/feed", label: "Home", Icon: Newspaper },
+      { href: "/feed", label: "Feed", Icon: Newspaper },
       { href: "/play", label: "Play", Icon: Swords },
       { href: "/queue", label: "Live Queue", Icon: ListOrdered },
       { href: "/rankings", label: "Rankings", Icon: Trophy },

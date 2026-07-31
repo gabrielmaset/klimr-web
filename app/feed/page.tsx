@@ -527,8 +527,8 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
           <div className="rounded-2xl border border-rule bg-surface px-4 pb-2 pt-4 shadow-e1">
             <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-faint">This feed&apos;s promise</p>
             {[
-              { Icon: Clock, title: "Chronological, always", sub: "Newest first — no algorithm deciding for you." },
-              { Icon: MapPin, title: "Your courts only", sub: "Nearby and your circle. No suggested strangers." },
+              { Icon: Clock, title: "Ranked for you, honestly", sub: "Your sports, your people, recency — friends float up. No engagement bait." },
+              { Icon: MapPin, title: "Your sports & your circle", sub: "Posts from sports you play, plus everyone you follow — a friend always shows." },
               { Icon: Flag, title: "It ends", sub: "Caught up means caught up — no infinite filler." },
               { Icon: Megaphone, title: "No ads between posts", sub: "Sponsors get one labeled slot, never your feed." },
             ].map(({ Icon, title, sub }) => (

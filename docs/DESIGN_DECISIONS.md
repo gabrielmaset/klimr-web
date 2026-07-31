@@ -166,6 +166,101 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-31 — Home IS the Feed: nav truth, honest promises, real next dates
+
+Gabriel's screenshot exposed two truths at once. (1) THE NAV LIE: lib/nav
+line 14 — the sidebar item labeled "Home" pointed at /feed all along,
+while an actual dashboard (SignedInHome) lived at "/" reachable only via
+the logo click, overlapping My Profile. Consolidated: the nav item now
+says FEED; "/" redirects signed-in members to /feed (public marketing
+page unchanged for visitors); SignedInHome retired from the signed-in
+flow; site-index's "/" dashboard entry replaced by the Feed entry. My
+prior "they're different pages" claim was technically true and
+experientially wrong — the label made Home=feed for every user. (2) THE
+PROMISE PANEL was false advertising after 0157: "Chronological, always —
+no algorithm" and "No suggested strangers" replaced with honest ones —
+"Ranked for you, honestly" (your sports, your people, recency; no
+engagement bait) and "Your sports & your circle" (sport-matched posts
+plus everyone you follow). "It ends" and "No ads" stay true. Feed
+integrity means the promise card tells the truth about the ranking. (3)
+RECURRING DATES: play cards now compute nextOccurrenceMs (weekly /
+biweekly / monthly rolled forward past a 2h grace) — the card shows the
+NEXT meeting plus "repeats weekly/every 2 weeks/monthly", never the
+stale original date, and the list sorts by effective date. (4) SUGGEST-A-
+COURT gains a required sports multi-select (chips from lib SPORTS,
+validated ⊆ SPORT_KEYS in the action, text[] column added to 0158
+idempotently for both ran/unran worlds, chips shown in the admin queue).
+Build + zip still HELD.
+
+### 2026-07-31 — Seven-front reliability pass (0158) — staged, build held
+
+Gabriel's screenshot batch. (1) AI SEMANTIC LAYER: search_events now
+broadens on a keyword miss — returns the full upcoming list WITH 140-char
+descriptions flagged _broad_list, and the prompt's SEMANTIC JUDGMENT
+doctrine makes the model select by MEANING (themes/cultures count), so
+"brazilian" matches a Brazilian-themed event even with zero word overlap.
+Keyword search is an optimization, never a wall. (2) SEARCH SELF-CLEAR:
+TopSearch is now a propless wrapper keyed by usePathname() around
+TopSearchInner — any navigation remounts it (term + AI state reset, zero
+effects, refresh-safe). (3) PLAY RELIABILITY BELT: whatever the PostgREST
+wire filter admits, a JS belt drops past non-recurring matches; recurring
+matches with a stale scheduled_at display "Recurring" instead of a June
+date (the screenshot's Jun 27 card = recurring template). (4) NAV IA
+(LinkedIn model): "Your account" menu item DELETED — identity = My
+profile, configuration = Settings (the /account route stays reachable via
+the Settings hub). Home NOT renamed to Feed: they are different pages
+(Home = dashboard; /feed = the ranked social feed) — explained to Gabriel
+rather than silently merged. (5) SPORTS SETTINGS, three real bugs: the
+page AND the editor each had their own hardcoded 4-sport list (Beach
+Volleyball unfindable, growth impossible) — both dead, lib SPORT_KEYS is
+the single catalog; the save upsert omitted active:true (re-adding a
+removed sport could never re-enable it); no deactivation for unpicked
+sports — saveSports now reconciles (picked→active true, others→active
+false) and the editor remounts on server truth via
+key={JSON.stringify(initial.sports)}, killing the padel-revert ghost.
+PLUS 0158 seeds the sports TABLE with the full FIVE-sport lib catalog
+(save validation reads that table; it held only the racquet four — a
+caught near-miss: the first seed draft invented 3 phantom sports from a
+bad grep count; lib/sports.ts is the catalog truth). (6) SUGGEST-A-COURT
+REWORKED: the Google-explorer page is replaced by a structured FloatField
+form (name/address required; phone/website/maps/notes optional; rate
+limit 5/day) into court_suggestions (0158, RLS insert-own/select-own) +
+/admin/court-suggestions review queue (status tabs, one-click maps
+verification, mark reviewed/rejected) + admin card. Auto-Google coverage
+remains the background scan's job. (7) CALENDAR: month chips grey
+(opacity-45 grayscale) once the event has ended before today —
+startOfDay(now) comparison, render-pure. Build + zip HELD per Gabriel.
+
+### 2026-07-31 — Search made trustworthy: intent routing, word-match, seamless AI
+
+Gabriel's three screenshots, three defects, one demand: avionics-grade
+reliability. ROOT CAUSES, each found exactly: (1) "brazilian events next
+month" AI-missed a real Aug 16 event because the events tool ran a
+PHRASE-ilike ("%brazilian events%") against a title containing only
+"Brazilian" — fixed with orTokens(): tokenized OR matching across title
+AND description on events/tournaments/marketplace, plus a prompt ACCURACY
+DOCTRINE: the model MUST retry with widened dates and without text before
+ANY "nothing found", and even then must say what IS upcoming. (2)
+"tournaments next month" quick results showed Settings·Profile because
+keyword "name" is a SUBSTRING of "tournaMEnts" — substring matching is
+structurally dead: pageHits now matches whole typed WORDS against keyword
+words (prefix >=3 both ways). Also every word of that query was a stopword
+so the condenser fell back to the raw phrase and matched nothing — kind
+words now become INTENT instead of noise. (3) courts appearing for
+"…events…": deterministic INTENT ROUTING in globalSearch — a KIND_HINTS
+table maps type words (events/tournaments/courts/coach/dietitian/…) to
+result kinds; hinted queries return ONLY those kinds, and kind+date words
+are stripped before the matcher ("beach volleyball events in August" →
+kinds:{event}, matcher:"beach volleyball"). THE ARCHITECTURE ANSWER to
+"AI should not be secondary": the avionics pattern is a DETERMINISTIC hot
+path (instant, provable — primary instruments) with AI as the async
+augmenter (advisory layer): natural-language queries (>=3 words or "?",
+>=6 chars) auto-run the AI after a 700ms debounce — the Ask row is DELETED
+— and its groups render as ordinary sections in the same dropdown (steps
+included for how-tos), with a quiet CHECKING EVERYTHING… chip while in
+flight; ⌘↵ stays as the manual trigger. Deterministic results never wait
+on the model; the model can only add.
+
 ### 2026-07-31 —0157 prod failure: mocked from assumption, not from types
 
 Gabriel's prod run of 0157 failed at the bootstrap: post_comments has NO

@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { SearchResult } from "./types";
+import type { SearchResult, SearchResultType } from "./types";
 import { blockSetsFor } from "@/lib/social-server";
 
 const joinLoc = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(", ") || null;
@@ -31,14 +31,41 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
   // Question-shaped queries ("Any weekly beach volleyball events in Santa
   // Monica?") drown the AND-matcher in stopwords. Quick results condense to
   // the salient terms; the full question remains the Ask-AI path's job.
-  const STOP = new Set(["any","all","some","the","a","an","in","on","at","for","to","of","with","near","me","my","our","is","are","there","what","when","where","which","who","how","do","does","can","i","you","we","next","this","week","weekly","month","monthly","today","tomorrow","upcoming","events","event","find","show","looking","want"]);
+  // INTENT ROUTING (deterministic — the hot path stays provable): kind
+  // words in the query select which sections belong; generic/date words
+  // never reach the matcher. "beach volleyball events in August" → kinds:
+  // {event}, matcher input: "beach volleyball" — no court noise, and the
+  // "name"⊂"tournaments" substring class of bug is structurally dead.
+  const KIND_HINTS: Record<string, SearchResultType> = {
+    event: "event", events: "event", meetup: "event", meetups: "event",
+    tournament: "tournament", tournaments: "tournament", bracket: "tournament",
+    court: "court", courts: "court", venue: "court", venues: "court",
+    player: "player", players: "player", people: "player",
+    team: "team", teams: "team",
+    listing: "listing", listings: "listing", marketplace: "listing", gear: "listing",
+    class: "class", classes: "class", coach: "class", coaches: "class",
+    lesson: "class", lessons: "class", coaching: "class",
+    dietitian: "class", dietitians: "class", nutritionist: "class",
+    physio: "class", trainer: "class", instructor: "class",
+  };
+  const STOP = new Set(["any","all","some","the","a","an","in","on","at","for","to","of","with","near","me","my","our","is","are","there","what","when","where","which","who","how","do","does","can","i","you","we","next","this","week","weekly","month","monthly","today","tomorrow","upcoming","find","show","looking","want","january","february","march","april","may","june","july","august","september","october","november","december"]);
   const words = q.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-  const isQuestion = q.includes("?") || words.length > 4;
-  const condensed = isQuestion
-    ? words.filter((w) => !STOP.has(w.toLowerCase())).slice(0, 4).join(" ") || q
-    : q;
+  const kindHints = new Set<SearchResultType>();
+  for (const w of words) {
+    const k = KIND_HINTS[w.toLowerCase()];
+    if (k) kindHints.add(k);
+  }
+  const informative = words.filter((w) => {
+    const lw = w.toLowerCase();
+    return !STOP.has(lw) && !KIND_HINTS[lw];
+  });
+  const condensed = informative.slice(0, 4).join(" ") || q;
   const { data: rows } = await supabase.rpc("global_search", { p_q: condensed, p_limit: 30 });
-  const list = rows ?? [];
+  const KIND_OF_RPC: Record<string, SearchResultType> = {
+    player: "player", court: "court", team: "team", event: "event",
+    tournament: "tournament", listing: "listing", class: "class", provider: "class",
+  };
+  const list = (rows ?? []).filter((r) => kindHints.size === 0 || kindHints.has(KIND_OF_RPC[r.kind] ?? "event"));
 
   // Players need avatar + location hydration and the account/block screens.
   const playerIds = list

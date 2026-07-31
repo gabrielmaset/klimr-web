@@ -18,6 +18,22 @@ export const metadata: Metadata = { title: "Play" };
 type Org = { id: string; display_name: string; avatar_hue: number };
 type Part = { match_id: string; user_id: string };
 
+/** Next meeting of a recurring match (weekly / biweekly / monthly),
+ *  rolled forward from the original date until it's upcoming. */
+function nextOccurrenceMs(iso: string, recurrence: string | null): number {
+  const floor = nowMs() - 2 * 3_600_000;
+  const t = Date.parse(iso);
+  if (t >= floor) return t;
+  if (recurrence === "monthly") {
+    const d = new Date(iso);
+    while (d.getTime() < floor) d.setMonth(d.getMonth() + 1);
+    return d.getTime();
+  }
+  const step = (recurrence === "biweekly" ? 14 : 7) * 86_400_000;
+  return t + Math.ceil((floor - t) / step) * step;
+}
+const REPEAT_LABEL: Record<string, string> = { weekly: "repeats weekly", biweekly: "repeats every 2 weeks", monthly: "repeats monthly" };
+
 function whenLabel(scheduledAt: string | null) {
   if (!scheduledAt) return "Open — anytime";
   return new Date(scheduledAt).toLocaleString("en-US", {
@@ -54,7 +70,19 @@ export default async function PlayPage({
     .order("scheduled_at", { ascending: true, nullsFirst: false });
   const activeSport = sport && mySports.some((s) => s.key === sport) ? sport : null;
   const { data: matches } = await query;
-  const all = matches ?? [];
+  // Reliability belt: whatever the wire filter admits, PAST non-recurring
+  // matches never render. Deterministic, in one place.
+  const all = (matches ?? [])
+    .filter((m) => m.recurring || !m.scheduled_at || Date.parse(m.scheduled_at) >= nowMs() - 2 * 3_600_000)
+    .map((m) => ({
+      ...m,
+      effective_at: m.scheduled_at
+        ? m.recurring
+          ? new Date(nextOccurrenceMs(m.scheduled_at, m.recurrence)).toISOString()
+          : m.scheduled_at
+        : null,
+    }))
+    .sort((a, b) => (a.effective_at ? Date.parse(a.effective_at) : Infinity) - (b.effective_at ? Date.parse(b.effective_at) : Infinity));
   const sportCounts = new Map<string, number>();
   for (const m of all) sportCounts.set(m.sport_key, (sportCounts.get(m.sport_key) ?? 0) + 1);
   const list = activeSport ? all.filter((m) => m.sport_key === activeSport) : all;
@@ -224,7 +252,7 @@ export default async function PlayPage({
                   {meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}
                 </h3>
                 <div className="mt-3 space-y-1.5 text-sm text-mute">
-                  <div className="flex items-center gap-2"><CalendarClock size={14} className="shrink-0 text-faint" /> {whenLabel(m.scheduled_at)}</div>
+                  <div className="flex items-center gap-2"><CalendarClock size={14} className="shrink-0 text-faint" /> {whenLabel(m.effective_at)}{m.recurring && m.recurrence ? ` · ${REPEAT_LABEL[m.recurrence] ?? "repeats"}` : ""}</div>
                   {placeLabel ? (
                     <div className="flex items-center gap-2"><MapPin size={14} className="shrink-0 text-faint" /> <span className="truncate">{placeLabel}{placeNote ? ` · ${placeNote}` : ""}</span></div>
                   ) : null}

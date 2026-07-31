@@ -1364,6 +1364,12 @@ export interface Database {
         Update: { user_id?: string; author_id?: string; score?: number; updated_at?: string };
         Relationships: [];
       };
+      court_suggestions: {
+        Row: { id: string; user_id: string; name: string; address: string; phone: string | null; website_url: string | null; maps_url: string | null; notes: string | null; sports: string[]; status: string; admin_note: string | null; created_at: string; reviewed_at: string | null; reviewed_by: string | null };
+        Insert: { id?: string; user_id: string; name: string; address: string; phone?: string | null; website_url?: string | null; maps_url?: string | null; notes?: string | null; sports?: string[]; status?: string; admin_note?: string | null; created_at?: string; reviewed_at?: string | null; reviewed_by?: string | null };
+        Update: { status?: string; admin_note?: string | null; reviewed_at?: string | null; reviewed_by?: string | null };
+        Relationships: [];
+      };
       courts: {
         Row: {
           id: string;

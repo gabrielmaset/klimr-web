@@ -10,7 +10,7 @@ export type PageSection = "primary" | "compete" | "community" | "discover" | "ac
 export type SiteEntry = { title: string; href: string; keywords: string[]; description: string; section: PageSection };
 
 export const SITE_INDEX: SiteEntry[] = [
-  { title: "Home", href: "/", keywords: ["home", "dashboard", "start"], description: "Your Klimr home — standing, matches, around you.", section: "primary" },
+  { title: "Feed", href: "/feed", keywords: ["home", "feed", "dashboard", "start", "posts", "timeline"], description: "Your feed — posts from your sports and your people.", section: "primary" },
   { title: "Play", href: "/play", keywords: ["play", "find match", "players", "matchmaking"], description: "Find a match and browse players near you.", section: "primary" },
   { title: "Live Queue", href: "/queue", keywords: ["live queue", "courtside", "session", "queue"], description: "Run or join a courtside rotation queue.", section: "primary" },
   { title: "Rankings", href: "/rankings", keywords: ["rankings", "leaderboard", "ladder", "standings"], description: "ZIP-to-world leaderboards for every sport.", section: "primary" },

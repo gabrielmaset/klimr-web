@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { SPORT_KEYS } from "@/lib/sports";
 import { SportsEditor, type SportState, type SportsInitial } from "./sports-editor";
 
 export const metadata: Metadata = { title: "Sports & skill · Settings" };
 
-const SPORT_KEYS = ["tennis", "pickleball", "padel", "racquetball"];
 
 export default async function SportsPage() {
   const supabase = await createClient();
@@ -33,7 +33,7 @@ export default async function SportsPage() {
   }
   const primary = profile?.primary_sport && sports[profile.primary_sport]?.on
     ? profile.primary_sport
-    : SPORT_KEYS.find((k) => sports[k].on) ?? "tennis";
+    : SPORT_KEYS.find((k) => sports[k].on) ?? SPORT_KEYS[0];
 
   const initial: SportsInitial = { sports, primary };
 
@@ -44,7 +44,7 @@ export default async function SportsPage() {
       <p className="mt-2 text-sm text-mute">Pick the sports you play, set your level in each, and choose your default sport.</p>
 
       <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
-        <SportsEditor initial={initial} />
+        <SportsEditor key={JSON.stringify(initial.sports)} initial={initial} />
       </div>
     </div>
   );
