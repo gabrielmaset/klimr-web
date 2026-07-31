@@ -6,7 +6,7 @@ import { Segmented } from "@/components/form-kit";
 import { saveDivisions } from "@/app/tournaments/actions";
 import { formatFee, type DivisionRow } from "@/lib/tournament";
 
-type Row = { id?: string; name: string; description: string; fee: string; basis: "per_team" | "per_player"; capacity: string };
+type Row = { id?: string; name: string; description: string; fee: string; basis: "per_team" | "per_player"; capacity: string; teamSize: string };
 
 const inputCls = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand";
 
@@ -18,10 +18,11 @@ function toRow(d: DivisionRow): Row {
     fee: d.fee_cents ? String(d.fee_cents / 100) : "",
     basis: d.fee_basis === "per_player" ? "per_player" : "per_team",
     capacity: d.capacity != null ? String(d.capacity) : "",
+    teamSize: d.team_size != null ? String(d.team_size) : "",
   };
 }
 
-const blank = (entryType: "team" | "individual"): Row => ({ name: "", description: "", fee: "", basis: entryType === "individual" ? "per_player" : "per_team", capacity: "" });
+const blank = (entryType: "team" | "individual"): Row => ({ name: "", description: "", fee: "", basis: entryType === "individual" ? "per_player" : "per_team", capacity: "", teamSize: "" });
 
 export function DivisionsEditor({
   tournamentId,
@@ -75,6 +76,7 @@ export function DivisionsEditor({
           fee_cents: Math.max(Math.round((parseFloat(r.fee) || 0) * 100), 0),
           fee_basis: entryType === "individual" ? "per_player" : r.basis,
           capacity: r.capacity.trim() === "" ? null : Math.max(parseInt(r.capacity, 10) || 0, 0),
+          team_size: r.teamSize.trim() === "" ? null : Math.min(Math.max(parseInt(r.teamSize, 10) || 0, 1), 12),
           sort_order: i,
         }));
       const res = await saveDivisions(tournamentId, payload);
@@ -153,6 +155,12 @@ export function DivisionsEditor({
                       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-faint">Division capacity</p>
                       <div className="flex items-center gap-2">
                         <input type="number" min={0} className={`${inputCls} w-28`} placeholder="Unlimited" value={r.capacity} onChange={(e) => update(i, { capacity: e.target.value })} aria-label={`Division capacity in ${unitLabel}`} />
+                        {entryType === "team" ? (
+                          <label className="flex flex-col gap-1">
+                            <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
+                            <input type="number" min={1} max={12} className={`${inputCls} w-24`} placeholder="Any" value={r.teamSize} onChange={(e) => update(i, { teamSize: e.target.value })} aria-label="Required players per team" />
+                          </label>
+                        ) : null}
                         <span className="rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{unitLabel}</span>
                       </div>
                       <p className="mt-2 text-xs text-mute">Counted in {unitLabel} — the unit is set in Format &amp; eligibility.</p>

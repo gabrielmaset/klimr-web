@@ -142,6 +142,8 @@ export function publicBgHex(key?: string | null): string {
 
 // Whitelisted set of editable fields the setup wizard can patch.
 export type TournamentDraftPatch = {
+  roster_lock_policy?: string | null;
+  roster_lock_custom?: string | null;
   title?: string;
   summary?: string | null;
   description?: string | null;
@@ -187,6 +189,7 @@ export type DivisionRow = {
   fee_cents: number;
   fee_basis: string;
   capacity: number | null;
+  team_size: number | null;
   sort_order: number;
 };
 
@@ -198,6 +201,7 @@ export type DivisionInput = {
   fee_basis: string;
   capacity?: number | null;
   sort_order: number;
+  team_size?: number | null;
 };
 
 export function formatFee(feeCents: number, basis: string): string {
@@ -377,4 +381,15 @@ export function normalizeGalleryItem(raw: unknown): GalleryItem | null {
 export function normalizeGallery(raw: unknown): GalleryItem[] {
   if (!Array.isArray(raw)) return [];
   return raw.map(normalizeGalleryItem).filter((g): g is GalleryItem => g !== null).slice(0, 10);
+}
+
+/** When roster substitutions lock for a tournament, per its policy.
+ *  null = no lock configured (defaults to the event start when it exists). */
+export function rosterLockAt(t: { starts_at: string | null; roster_lock_policy?: string | null; roster_lock_custom?: string | null }): Date | null {
+  if (t.roster_lock_policy === "custom") return t.roster_lock_custom ? new Date(t.roster_lock_custom) : null;
+  if (!t.starts_at) return null;
+  const start = new Date(t.starts_at).getTime();
+  const back: Record<string, number> = { "14d": 14 * 864e5, "7d": 7 * 864e5, "3d": 3 * 864e5, "24h": 864e5, at_start: 0 };
+  const ms = back[t.roster_lock_policy ?? "at_start"] ?? 0;
+  return new Date(start - ms);
 }

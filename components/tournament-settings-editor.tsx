@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, MapPin, Globe, Lock, Rocket } from "lucide-react";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Toggle, Segmented, OptionCards } from "@/components/form-kit";
 import { SettingsShell, type SettingsSection } from "@/components/settings-shell";
 import { SPORTS, sportMeta } from "@/lib/sports";
@@ -24,6 +25,8 @@ export type SettingsInit = {
   entry_type: "individual" | "team";
   visibility: "public" | "unlisted";
   starts_at: string | null;
+  roster_lock_policy?: string | null;
+  roster_lock_custom?: string | null;
   ends_at: string | null;
   timezone: string | null;
   location_name: string | null;
@@ -74,6 +77,7 @@ function SectionCard({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [dirty, setDirty] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
   const clearMsg = () => setMsg(null);
@@ -89,6 +93,7 @@ function SectionCard({
       if (r?.promoted) parts.push(`${r.promoted} promoted from waitlist`);
       if (r?.scheduleReset) parts.push("schedule reset — rebuild the day plan");
       setMsg({ ok: true, text: parts.length ? `Saved · ${parts.join(" · ")}` : "Saved" });
+      setDirty(false);
       if (flashTimer.current) clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setMsg(null), parts.length ? 8000 : 3000);
       router.refresh();
@@ -107,18 +112,34 @@ function SectionCard({
           {desc ? <p className="mt-0.5 text-sm text-mute">{desc}</p> : null}
         </div>
       </div>
-      <div className="mt-5 grid gap-5" onInput={clearMsg} onClickCapture={clearMsg}>{children}</div>
-      <div className="mt-5 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handle}
-          disabled={busy}
-          className="press inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition hover:bg-ink-soft disabled:opacity-50"
-        >
-          {busy ? <Loader2 size={15} className="animate-spin" /> : null} Save changes
-        </button>
-        {msg ? <span className={`text-sm font-semibold ${msg.ok ? "text-success" : "text-brand-deep"}`}>{msg.text}</span> : null}
+      <div
+        className="mt-5 grid gap-5"
+        onInput={() => {
+          clearMsg();
+          setDirty(true);
+        }}
+        onClickCapture={() => {
+          clearMsg();
+          setDirty(true);
+        }}
+      >
+        {children}
       </div>
+      {dirty || msg ? (
+        <div className="mt-5 flex items-center gap-3">
+          {dirty ? (
+            <button
+              type="button"
+              onClick={handle}
+              disabled={busy}
+              className="press inline-flex items-center gap-2 rounded-[10px] bg-ink px-4 py-2.5 text-sm font-bold text-surface transition hover:bg-ink-soft disabled:opacity-50"
+            >
+              {busy ? <Loader2 size={15} className="animate-spin" /> : null} Save changes
+            </button>
+          ) : null}
+          {msg ? <span className={`text-sm font-semibold ${msg.ok ? "text-success" : "text-brand-deep"}`}>{msg.text}</span> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -169,7 +190,18 @@ function VisibilityRow({ init }: { init: SettingsInit }) {
 
 export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dangerSlot, liveContext }: { init: SettingsInit; divisionsSlot?: ReactNode; gallerySlot?: ReactNode; dangerSlot?: ReactNode; liveContext?: { entries: number; scheduled: boolean } }) {
   const router = useRouter();
-  const save = (patch: TournamentDraftPatch) => updateTournamentDraft(init.id, patch);
+  const save = (patch: TournamentDraftPatch) => {
+    // Date sanity on EVERY save that touches either bound (Gabriel's rule:
+    // checked whenever the start changes or the end is entered).
+    if (patch.starts_at !== undefined || patch.ends_at !== undefined) {
+      const s = patch.starts_at !== undefined ? patch.starts_at : init.starts_at;
+      const en = patch.ends_at !== undefined ? patch.ends_at : init.ends_at;
+      if (s && en && en < s) {
+        return Promise.resolve({ ok: false as const, error: "The end date can't be before the start date." });
+      }
+    }
+    return updateTournamentDraft(init.id, patch);
+  };
 
   // Details
   const [title, setTitle] = useState(init.title);
@@ -181,6 +213,8 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
   // Date & location
   const [startsAt, setStartsAt] = useState(isoToLocalInput(init.starts_at));
   const [endsAt, setEndsAt] = useState(isoToLocalInput(init.ends_at));
+  const [rosterPolicy, setRosterPolicy] = useState<string>(init.roster_lock_policy ?? "at_start");
+  const [rosterCustom, setRosterCustom] = useState<string>(isoToLocalInput(init.roster_lock_custom ?? null));
   const [locName, setLocName] = useState(init.location_name ?? "");
   const [locAddr, setLocAddr] = useState(init.location_address ?? "");
   const [locUrl, setLocUrl] = useState(init.location_url ?? "");
@@ -255,7 +289,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
         id="details"
         title="Event details"
         desc="Name, sport, and what players see."
-        onSave={() => save({ title: title.trim(), summary: summary.trim() || null, description: description.trim() || null, sport_key: sport, entry_type: entry })}
+        onSave={() => save({ title: title.trim(), summary: summary.trim() || null, description: description.trim() || null, sport_key: sport, entry_type: entry, format_config: { legal: { waiver_text: waiver.trim(), rules_text: rules.trim(), require_waiver: reqWaiver, require_rules: reqRules } } })}
       >
         <div>
           <label className={labelCls}>Tournament name</label>
@@ -291,8 +325,14 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
         </div>
         <div>
           <label className={labelCls}>About</label>
-          <textarea className={`${inputCls} min-h-32 resize-y`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Format, what to bring, prizes, schedule overview…" />
+          <RichTextEditor value={description} onChange={setDescription} placeholder="Format, what to bring, prizes, schedule overview…" />
         </div>
+        <div>
+          <label className={labelCls}>Rules &amp; format</label>
+          <RichTextEditor value={rules} onChange={setRules} placeholder="Event rules, format details, conduct…" />
+          <p className="mt-1 text-xs text-faint">Shown with About on the public page; players acknowledge these at sign-up when required below.</p>
+        </div>
+        <Toggle checked={reqRules} onChange={setReqRules} label="Require rules acknowledgement" description="Each participant must acknowledge the rules before they're confirmed." />
       </SectionCard>
       ),
     },
@@ -360,6 +400,71 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
           </div>
         </div>
         <Toggle checked={weather} onChange={setWeather} label="Show a weather forecast" description="Display the venue's forecast on the public page, powered by Open-Meteo." />
+      </SectionCard>
+      ),
+    },
+    {
+      key: "roster",
+      label: "Roster changes",
+      content: (
+        <SectionCard
+          id="roster"
+          title="Roster changes"
+          desc="Until when registered teams may substitute players. Applies per tournament; teams not registered here are never restricted."
+          onSave={() => save({ roster_lock_policy: rosterPolicy, roster_lock_custom: rosterPolicy === "custom" ? localInputToIso(rosterCustom) : null })}
+        >
+          <div>
+            <label className={labelCls}>Substitutions allowed until</label>
+            <select className={inputCls} value={rosterPolicy} onChange={(ev) => setRosterPolicy(ev.target.value)}>
+              <option value="14d">14 days before the event</option>
+              <option value="7d">7 days before the event</option>
+              <option value="3d">3 days before the event</option>
+              <option value="24h">24 hours before the event</option>
+              <option value="at_start">Until the event start</option>
+              <option value="custom">Custom date &amp; time</option>
+            </select>
+          </div>
+          {rosterPolicy === "custom" ? (
+            <div>
+              <label className={labelCls}>Custom cutoff</label>
+              <input type="datetime-local" className={inputCls} value={rosterCustom} onChange={(ev) => setRosterCustom(ev.target.value)} />
+            </div>
+          ) : null}
+          <p className="text-xs text-faint">Each registration keeps its own roster snapshot — changes to a team elsewhere never touch a locked entry here.</p>
+        </SectionCard>
+      ),
+    },
+    {
+      key: "registration",
+      label: "Registration window",
+      content: (
+      <SectionCard
+        id="registration"
+        title="Registration window"
+        desc="When sign-ups open and close."
+        onSave={() => save({ registration_opens_at: localInputToIso(regOpens), registration_deadline: localInputToIso(regDeadline) })}
+      >
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Registration opens</label>
+            <DateTimeField value={regOpens} onChange={setRegOpens} optional ariaLabel="Registration opens" />
+          </div>
+          <div>
+            <label className={labelCls}>Registration deadline</label>
+            <DateTimeField value={regDeadline} onChange={setRegDeadline} optional ariaLabel="Registration deadline" />
+          </div>
+        </div>
+        <div className="rounded-2xl border border-dashed border-rule bg-bg/40 p-4 text-sm text-mute">
+          Entry categories &amp; fees live in{" "}
+          <Link href="#divisions" className="font-semibold text-brand-deep hover:underline">
+            Divisions &amp; fees
+          </Link>
+          ; custom sign-up questions live in{" "}
+          <Link href={`/tournament/${init.id}/form`} className="font-semibold text-brand-deep hover:underline">
+            Sign-up form
+          </Link>
+          .
+        </div>
       </SectionCard>
       ),
     },
@@ -507,47 +612,13 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
       ),
     },
     {
-      key: "registration",
-      label: "Registration window",
-      content: (
-      <SectionCard
-        id="registration"
-        title="Registration window"
-        desc="When sign-ups open and close."
-        onSave={() => save({ registration_opens_at: localInputToIso(regOpens), registration_deadline: localInputToIso(regDeadline) })}
-      >
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>Registration opens</label>
-            <DateTimeField value={regOpens} onChange={setRegOpens} optional ariaLabel="Registration opens" />
-          </div>
-          <div>
-            <label className={labelCls}>Registration deadline</label>
-            <DateTimeField value={regDeadline} onChange={setRegDeadline} optional ariaLabel="Registration deadline" />
-          </div>
-        </div>
-        <div className="rounded-2xl border border-dashed border-rule bg-bg/40 p-4 text-sm text-mute">
-          Entry categories &amp; fees live in{" "}
-          <Link href="#divisions" className="font-semibold text-brand-deep hover:underline">
-            Divisions &amp; fees
-          </Link>
-          ; custom sign-up questions live in{" "}
-          <Link href={`/tournament/${init.id}/form`} className="font-semibold text-brand-deep hover:underline">
-            Sign-up form
-          </Link>
-          .
-        </div>
-      </SectionCard>
-      ),
-    },
-    {
       key: "legal",
       label: "Legal",
       content: (
       <SectionCard
         id="legal"
         title="Legal"
-        desc="Waiver and rules players agree to."
+        desc="The liability waiver players agree to. Rules & format live under Event details."
         onSave={() => save({ format_config: { legal: { waiver_text: waiver.trim(), rules_text: rules.trim(), require_waiver: reqWaiver, require_rules: reqRules } } })}
       >
         <div>
@@ -555,11 +626,6 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
           <textarea className={`${inputCls} min-h-32 resize-y`} value={waiver} onChange={(e) => setWaiver(e.target.value)} placeholder="Liability waiver text…" />
         </div>
         <Toggle checked={reqWaiver} onChange={setReqWaiver} label="Require waiver acceptance" description="Each participant must accept the waiver before they're confirmed." />
-        <div>
-          <label className={labelCls}>Rules</label>
-          <textarea className={`${inputCls} min-h-32 resize-y`} value={rules} onChange={(e) => setRules(e.target.value)} placeholder="Event rules, format details, conduct…" />
-        </div>
-        <Toggle checked={reqRules} onChange={setReqRules} label="Require rules acknowledgement" description="Each participant must acknowledge the rules before they're confirmed." />
       </SectionCard>
       ),
     },
@@ -661,7 +727,11 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
     const fi = sections.findIndex((s) => s.key === "format");
     sections.splice(fi >= 0 ? fi + 1 : sections.length, 0, { key: "divisions", label: "Divisions & fees", content: divisionsSlot });
   }
-  if (gallerySlot) sections.push({ key: "photos", label: "Event photos", content: gallerySlot });
+  if (gallerySlot) {
+    // Gabriel's order: Event photos directly below Event details.
+    const di = sections.findIndex((s) => s.key === "details" || s.label === "Event details");
+    sections.splice(di >= 0 ? di + 1 : sections.length, 0, { key: "photos", label: "Event photos", content: gallerySlot });
+  }
   if (dangerSlot) sections.push({ key: "danger", label: "Danger zone", content: dangerSlot });
 
   return <SettingsShell sections={sections} ariaLabel="Tournament settings" />;

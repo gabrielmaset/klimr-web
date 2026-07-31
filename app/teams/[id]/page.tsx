@@ -5,6 +5,9 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { Crown, Users, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { rosterLockAt } from "@/lib/tournament";
+
+const nowMs = () => Date.now();
 import { sportMeta, teamSizeFor } from "@/lib/sports";
 import { teamKit } from "@/lib/team-kit";
 import { Avatar } from "@/components/avatar";
@@ -42,6 +45,29 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
 
   const { data: memberRows } = await supabase.from("team_members").select("user_id, role, designation, joined_at").eq("team_id", id).order("joined_at");
   const members = memberRows ?? [];
+
+  // Active tournament entries + their roster-lock state (0160 policy).
+  const { data: regRows } = await supabase
+    .from("tournament_registrations")
+    .select("id, tournament_id, status")
+    .eq("team_id", team.id)
+    .not("status", "in", "(withdrawn,declined,cancelled,disqualified)");
+  const regTids = [...new Set((regRows ?? []).map((r) => r.tournament_id))];
+  const activeEntries: { regId: string; code: string; title: string; locked: boolean; lockAt: Date | null }[] = [];
+  if (regTids.length) {
+    const { data: tRows } = await supabase
+      .from("tournaments")
+      .select("id, code, title, starts_at, ends_at, roster_lock_policy, roster_lock_custom, status")
+      .in("id", regTids)
+      .is("cancelled_at", null)
+      .gte("ends_at", new Date(nowMs() - 864e5).toISOString());
+    for (const r of regRows ?? []) {
+      const tt = (tRows ?? []).find((x) => x.id === r.tournament_id);
+      if (!tt || ["completed", "archived"].includes(tt.status)) continue;
+      const lockAt = rosterLockAt(tt);
+      activeEntries.push({ regId: r.id, code: tt.code, title: tt.title, lockAt, locked: !!lockAt && nowMs() > lockAt.getTime() });
+    }
+  }
   const myRole = members.find((m) => m.user_id === user.id)?.role ?? null;
   const isOwner = myRole === "owner";
   const canManage = myRole === "owner" || myRole === "manager";
@@ -163,10 +189,29 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         ))}
       </div>
 
-      {members.length < sz.min ? (
+      {members.length < (team.max_size ?? sz.default) ? (
         <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-l-4 border-rule bg-surface px-4 py-3 text-sm" style={{ borderLeftColor: kit.primary }}>
           <Users size={16} className="mt-0.5 shrink-0" style={{ color: kit.primary }} />
-          <span className="text-ink-soft">Still forming — add {sz.min - members.length} more {sz.min - members.length === 1 ? "player" : "players"} (minimum {sz.min}) to start competing and entering tournaments.</span>
+          <span className="text-ink-soft">
+            Still forming — add {(team.max_size ?? sz.default) - members.length} more {(team.max_size ?? sz.default) - members.length === 1 ? "player" : "players"} to reach this team&apos;s full size of {team.max_size ?? sz.default}. Tournaments require a complete roster matching their team size to register.
+          </span>
+        </div>
+      ) : null}
+
+      {activeEntries.length ? (
+        <div className="mt-4 rounded-2xl border border-rule bg-surface px-4 py-3">
+          <p className="kicker text-faint">Tournament entries</p>
+          <div className="mt-1.5 space-y-1.5">
+            {activeEntries.map((en) => (
+              <div key={en.regId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <Link href={`/e/${en.code}`} className="font-semibold text-ink hover:underline">{en.title}</Link>
+                <span className={`font-mono text-[10.5px] uppercase tracking-wide ${en.locked ? "text-[#B42318]" : "text-mute"}`}>
+                  {en.locked ? "Roster locked" : en.lockAt ? `Subs until ${en.lockAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Subs open"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-faint">Each entry is its own roster snapshot — changes here never touch a locked entry, and substitutions happen on the entry itself.</p>
         </div>
       ) : null}
 

@@ -166,6 +166,75 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-31 — Integrity sprint completed (0161): sizes, subs, notices
+
+The three staged items landed, plus the schema decision they required.
+(1) 0161: tournament_divisions.team_size (1–12, null = flexible) — a
+Team-size input appears on each division when the event is team-entry.
+(2) COMPLETE-ROSTER RULE enforced in signUpTeam: a team registers only
+at full strength (roster == team.max_size), and when the division
+declares a size it must match the team's size exactly AND the submitted
+roster count — three distinct, plain-English rejections. (3) THE
+SUBSTITUTION SURFACE didn't exist (recon proved no post-signup roster
+writes anywhere) — so substituteRegistrationPlayer was BORN with the
+lock: captain-or-staff authority, rosterLockAt(t) enforcement with staff
+bypass, substitute must already be a team member, per-event double-entry
+guard, atomic swap preserving is_reserve, registrations revalidate. The
+snapshot doctrine is now executable code, not just prose. (4) TEAM PAGE
+notices: an active-entries card lists each tournament with "Subs until
+{date}" or "Roster locked", linking the public page, with the snapshot
+doctrine stated inline. DOUBLE-CHECK AUDIT: repo gates green; removed
+the settings-editor placeholder artifact and a stray queue console.log;
+mid-flight, an aborted batch was caught having silently skipped its
+actions half (the count-assert abort saving correctness again) and was
+re-applied standalone; saveDivisions' return select was the hidden
+fourth place team_size had to flow (state remount source). Build follows.
+
+### 2026-07-31 — Tournament integrity sprint (0160): rosters, dates, auto-points
+
+Gabriel's tournament batch. THE MULTI-ROSTER VERDICT (he asked for
+intelligent evaluation of dual rosters + popups): the elegant answer was
+already in the schema — tournament_registration_players IS a per-
+registration roster SNAPSHOT. Doctrine adopted: the team's living roster
+(team_members) is never forked; each tournament entry is its own locked
+copy, substitutions happen ON the registration under THAT tournament's
+deadline, so overlapping tournaments never conflict and no popup or
+"permanent roster" ceremony is needed. SHIPPED: (1) Roster policy —
+roster_lock_policy (14d/7d/3d/24h/at_start/custom) + roster_lock_custom
+(0160), a new "Roster changes" section in the settings editor right
+after Date & location, rosterLockAt() helper in lib/tournament. (2)
+Settings editor reorg — Registration window moved directly after Date &
+location; Event photos slot now splices in right after Event details
+(the left rail derives from the sections array, so it reordered
+automatically); Rules & format LEFT the Legal card for Event details,
+and both About and Rules are now RichTextEditor (public page renders
+rules as sanitized-shape HTML with list/link styling); Legal keeps the
+waiver. (3) Save buttons unified — the Section card's pill (a no-pill-
+rule violation!) became rounded-[10px], and dirty-gating is INTERNAL and
+generic: the existing child onInput/onClickCapture hooks now set dirty,
+successful save clears it, and the button renders only when dirty —
+zero per-section wiring. (4) Date sanity, three belts: client (save
+wrapper validates every patch touching either bound against init),
+server (updateTournamentDraft cross-checks stored truth), DB (0160 heals
+inverted/missing ends then CHECK ends>=starts). HARNESS ANOMALY,
+recorded honestly: the scratch container accepted violating rows despite
+a canonical, convalidated CHECK on sane timestamptz columns — five
+diagnostics (schema dup? types? relkind? def?) all clean; declared a
+container-pg quirk, prod verification on the deploy checklist (belts 1-2
+are app-verified green regardless). (5) AUTO-AWARD — awardTournamentPoints
+split into awardTournamentPointsCore + a System wrapper;
+/api/cron/finalize-tournaments (Vercel cron, vercel.json NEW, daily
+06:00 UTC, CRON_SECRET bearer) finalizes+awards anything 72h past
+ends_at never finalized; manual award now stamps
+results_finalized_at/points_awarded_at; partial index for the due-scan.
+(6) Team banner truth: "forming" threshold is the team's FULL size
+(max_size), message states tournaments need a complete matching roster.
+STAGED NEXT (named): server enforcement of rosterLockAt at the
+substitution surfaces (locate the registration-player edit actions),
+team-completeness validation in signUpTeam (roster count must equal the
+tournament/division team size), and team-page lock notices listing
+active registrations. Build held.
+
 ### 2026-07-31 — No-matches flash killed; the events umbrella encoded (0159)
 
 Gabriel's screenshot, four defects. (1) THE FLASH: during the 180ms

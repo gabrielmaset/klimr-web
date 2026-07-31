@@ -7,7 +7,7 @@ import { lookupZip, tzFromStateLng } from "@/lib/us-places";
 import { SPORT_KEYS } from "@/lib/sports";
 import type { Database, Json } from "@/lib/database.types";
 import type { TournamentDraftPatch, DivisionInput, CustomFieldInput, PlanItemInput, TournamentFormatConfig, PublishedResults, Sponsor, Prize, Announcement } from "@/lib/tournament";
-import { normalizeGallery, type GalleryItem } from "@/lib/tournament";
+import { normalizeGallery, rosterLockAt, type GalleryItem } from "@/lib/tournament";
 import { computePoolStandings, isRegistrationOpen, isSignupFormReady, poolSizes } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveEventPin } from "@/lib/maps-url";
@@ -426,6 +426,15 @@ export async function reconcileTournamentStructure(
 }
 
 export async function updateTournamentDraft(id: string, patch: TournamentDraftPatch) {
+  // Server-side date sanity (mirrors the client): whenever either bound is
+  // in the patch, the pair must satisfy ends >= starts against stored truth.
+  if (patch.starts_at !== undefined || patch.ends_at !== undefined) {
+    const supa = await createClient();
+    const { data: cur } = await supa.from("tournaments").select("starts_at, ends_at").eq("id", id).maybeSingle();
+    const s = patch.starts_at !== undefined ? patch.starts_at : cur?.starts_at ?? null;
+    const en = patch.ends_at !== undefined ? patch.ends_at : cur?.ends_at ?? null;
+    if (s && en && en < s) return { ok: false as const, error: "The end date can't be before the start date." };
+  }
   const supabase = await createClient();
   const {
     data: { user },
@@ -452,6 +461,8 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   if (patch.visibility === "public" || patch.visibility === "unlisted") u.visibility = patch.visibility;
   if (patch.starts_at !== undefined) u.starts_at = patch.starts_at;
   if (patch.ends_at !== undefined) u.ends_at = patch.ends_at;
+  if (patch.roster_lock_policy !== undefined) u.roster_lock_policy = patch.roster_lock_policy;
+  if (patch.roster_lock_custom !== undefined) u.roster_lock_custom = patch.roster_lock_custom;
   if (patch.timezone !== undefined) u.timezone = patch.timezone;
   if (patch.location_name !== undefined) u.location_name = patch.location_name;
   if (patch.location_address !== undefined) u.location_address = patch.location_address;
@@ -605,9 +616,9 @@ export async function saveDivisions(tournamentId: string, divisions: DivisionInp
     if (d.id && existingIds.has(d.id)) {
       keepIds.add(d.id);
       if ((oldCaps.get(d.id) ?? null) !== capacity) capsChanged = true;
-      await supabase.from("tournament_divisions").update({ name, description, fee_cents, fee_basis, capacity, sort_order: d.sort_order, updated_at: new Date().toISOString() }).eq("id", d.id);
+      await supabase.from("tournament_divisions").update({ name, description, fee_cents, fee_basis, capacity, team_size: d.team_size ?? null, sort_order: d.sort_order, updated_at: new Date().toISOString() }).eq("id", d.id);
     } else {
-      const { data: ins } = await supabase.from("tournament_divisions").insert({ tournament_id: tournamentId, name, description, fee_cents, fee_basis, capacity, sort_order: d.sort_order }).select("id").single();
+      const { data: ins } = await supabase.from("tournament_divisions").insert({ tournament_id: tournamentId, name, description, fee_cents, fee_basis, capacity, team_size: d.team_size ?? null, sort_order: d.sort_order }).select("id").single();
       if (ins) {
         keepIds.add(ins.id);
         insertedAny = true;
@@ -636,7 +647,7 @@ export async function saveDivisions(tournamentId: string, divisions: DivisionInp
 
   const { data: fresh } = await supabase
     .from("tournament_divisions")
-    .select("id, name, description, fee_cents, fee_basis, capacity, sort_order")
+    .select("id, name, description, fee_cents, fee_basis, capacity, sort_order, team_size")
     .eq("tournament_id", tournamentId)
     .order("sort_order");
 
@@ -1026,7 +1037,7 @@ export async function signUpTeam(
   if (t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now()) return { ok: false as const, error: "Registration has closed." };
   if (!isRegistrationOpen(t)) return { ok: false as const, error: "Registration isn't open." };
 
-  const { data: team } = await supabase.from("teams").select("id, sport_key, name").eq("id", input.teamId).maybeSingle();
+  const { data: team } = await supabase.from("teams").select("id, sport_key, name, max_size").eq("id", input.teamId).maybeSingle();
   if (!team) return { ok: false as const, error: "Team not found." };
   if (team.sport_key !== t.sport_key) return { ok: false as const, error: "That team plays a different sport." };
 
@@ -1049,6 +1060,26 @@ export async function signUpTeam(
     const women = (profs ?? []).filter((p) => p.gender === "woman").length;
     const men = (profs ?? []).filter((p) => p.gender === "man").length;
     if (women < (t.min_women ?? 0) || men < (t.min_men ?? 0)) return { ok: false as const, error: "This team doesn't meet the event's gender requirements." };
+  }
+
+  // ── Complete-roster rule (Gabriel): a team enters only at FULL strength,
+  // and when the division declares a team size, sizes must match exactly —
+  // no under-filled entries, no mismatched formats.
+  const fullSize = team.max_size ?? null;
+  if (fullSize != null && roster.length < fullSize) {
+    return { ok: false as const, error: `Complete your team first — ${roster.length} of ${fullSize} rostered. Tournaments require a full roster.` };
+  }
+  if (input.divisionId) {
+    const { data: dv } = await supabase.from("tournament_divisions").select("team_size").eq("id", input.divisionId).maybeSingle();
+    const requiredSize = dv?.team_size ?? null;
+    if (requiredSize != null) {
+      if (fullSize != null && fullSize !== requiredSize) {
+        return { ok: false as const, error: `This division is for teams of ${requiredSize}; ${team.name} is a ${fullSize}-player team.` };
+      }
+      if (roster.length !== requiredSize) {
+        return { ok: false as const, error: `This division requires exactly ${requiredSize} rostered players.` };
+      }
+    }
   }
 
   const { data: dupTeam } = await supabase.from("tournament_registrations").select("id").eq("tournament_id", tournamentId).eq("team_id", team.id).not("status", "in", "(withdrawn,declined,cancelled,disqualified)").maybeSingle();
@@ -1095,6 +1126,91 @@ export async function signUpTeam(
 
 /** A rostered player confirms their own spot: accepts the waiver/rules and answers
  *  their per-player questions. Updates only their own player row (RLS-enforced). */
+/** Captain-side substitution on a SINGLE tournament entry. The team's living
+ *  roster is untouched — each registration is its own snapshot, so entries in
+ *  other tournaments never move (the multi-tournament doctrine). Locked once
+ *  the tournament's roster policy says so; organizers/managers bypass. */
+export async function substituteRegistrationPlayer(
+  tournamentId: string,
+  input: { registrationId: string; removeUserId: string; addUserId: string },
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: t } = await supabase
+    .from("tournaments")
+    .select("id, owner_id, status, starts_at, ends_at, roster_lock_policy, roster_lock_custom")
+    .eq("id", tournamentId)
+    .maybeSingle();
+  if (!t) return { ok: false as const, error: "Event not found." };
+  if (["completed", "cancelled", "archived"].includes(t.status)) return { ok: false as const, error: "This event is closed." };
+
+  const { data: reg } = await supabase
+    .from("tournament_registrations")
+    .select("id, team_id, registrant_id, status")
+    .eq("id", input.registrationId)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle();
+  if (!reg) return { ok: false as const, error: "Entry not found." };
+  if (["withdrawn", "declined", "cancelled", "disqualified"].includes(reg.status)) return { ok: false as const, error: "This entry isn't active." };
+
+  let staff = t.owner_id === user.id;
+  if (!staff) {
+    const { data: mgr } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!mgr;
+  }
+  let captain = reg.registrant_id === user.id;
+  if (!captain && reg.team_id) {
+    const { data: tm } = await supabase.from("teams").select("created_by").eq("id", reg.team_id).maybeSingle();
+    captain = tm?.created_by === user.id;
+  }
+  if (!staff && !captain) return { ok: false as const, error: "Only the team captain or event staff can substitute players." };
+
+  if (!staff) {
+    const lockAt = rosterLockAt(t);
+    if (lockAt && Date.now() > lockAt.getTime()) {
+      return { ok: false as const, error: `Roster changes for this event closed ${lockAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.` };
+    }
+  }
+
+  if (reg.team_id) {
+    const { data: member } = await supabase.from("team_members").select("user_id").eq("team_id", reg.team_id).eq("user_id", input.addUserId).maybeSingle();
+    if (!member) return { ok: false as const, error: "Substitutes must already be on the team's roster." };
+  }
+  const { data: outRow } = await supabase
+    .from("tournament_registration_players")
+    .select("id, is_reserve")
+    .eq("registration_id", input.registrationId)
+    .eq("user_id", input.removeUserId)
+    .maybeSingle();
+  if (!outRow) return { ok: false as const, error: "That player isn't on this entry." };
+  const { data: dupe } = await supabase
+    .from("tournament_registration_players")
+    .select("id")
+    .eq("tournament_id", tournamentId)
+    .eq("user_id", input.addUserId)
+    .maybeSingle();
+  if (dupe) return { ok: false as const, error: "That player is already on an entry in this event." };
+
+  const { error: delErr } = await supabase.from("tournament_registration_players").delete().eq("id", outRow.id);
+  if (delErr) return { ok: false as const, error: "Couldn't complete the substitution." };
+  const { error: insErr } = await supabase.from("tournament_registration_players").insert({
+    registration_id: input.registrationId,
+    tournament_id: tournamentId,
+    user_id: input.addUserId,
+    is_reserve: outRow.is_reserve,
+  });
+  if (insErr) {
+    console.error("[tournaments] substitution insert failed", insErr.code, insErr.message);
+    return { ok: false as const, error: "Couldn't complete the substitution." };
+  }
+  revalidatePath(`/tournament/${tournamentId}/registrations`);
+  return { ok: true as const };
+}
+
 export async function confirmMembership(
   tournamentId: string,
   input: { answers: Record<string, string | string[]>; acceptWaiver: boolean; acceptRules: boolean },
@@ -1992,22 +2108,7 @@ export async function setMatchSchedule(matchId: string, scheduledAt: string | nu
  *  place + field size into points (lib/ranking — no organizer multipliers), writes the
  *  points ledger, then recomputes every affected player's per-sport points as a rolling
  *  best-N over the last year. Safe to re-run as more results come in. Staff-only. */
-export async function awardTournamentPoints(tournamentId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not signed in." };
-
-  const { data: to } = await supabase.from("tournaments").select("owner_id, sport_key, format_config").eq("id", tournamentId).maybeSingle();
-  if (!to) return { ok: false as const, error: "Tournament not found." };
-  let staff = to.owner_id === user.id;
-  if (!staff) {
-    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
-    staff = !!m;
-  }
-  if (!staff) return { ok: false as const, error: "Not allowed." };
-
+async function awardTournamentPointsCore(tournamentId: string, to: { sport_key: string; format_config: unknown }) {
   const admin = createAdminClient();
   const sport = to.sport_key;
   const fc = (to.format_config ?? {}) as TournamentFormatConfig;
@@ -2127,6 +2228,49 @@ async function galleryStaffGuard(tournamentId: string) {
 
 /** Mint a single-use signed upload URL for an event gallery photo. Staff-only;
  *  the path is built server-side and the upload runs through the service role. */
+export async function awardTournamentPoints(tournamentId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not signed in." };
+
+  const { data: to } = await supabase.from("tournaments").select("owner_id, sport_key, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Tournament not found." };
+  let staff = to.owner_id === user.id;
+  if (!staff) {
+    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", tournamentId).eq("user_id", user.id).maybeSingle();
+    staff = !!m;
+  }
+  if (!staff) return { ok: false as const, error: "Not allowed." };
+
+  const res = await awardTournamentPointsCore(tournamentId, to);
+  if (res.ok) {
+    await createAdminClient()
+      .from("tournaments")
+      .update({ results_finalized_at: new Date().toISOString(), points_awarded_at: new Date().toISOString() })
+      .eq("id", tournamentId)
+      .is("results_finalized_at", null);
+  }
+  return res;
+}
+
+/** System path (Vercel cron): same math, admin context, no session. Called
+ *  for tournaments 72h past their end that were never finalized manually. */
+export async function awardTournamentPointsSystem(tournamentId: string) {
+  const admin = createAdminClient();
+  const { data: to } = await admin.from("tournaments").select("sport_key, format_config").eq("id", tournamentId).maybeSingle();
+  if (!to) return { ok: false as const, error: "Tournament not found." };
+  const res = await awardTournamentPointsCore(tournamentId, to);
+  if (res.ok) {
+    await admin
+      .from("tournaments")
+      .update({ results_finalized_at: new Date().toISOString(), points_awarded_at: new Date().toISOString() })
+      .eq("id", tournamentId)
+      .is("results_finalized_at", null);
+  }
+  return res;
+}
 export async function createGalleryUploadUrl(tournamentId: string, contentType: string) {
   if (!GALLERY_TYPES.has(contentType)) return { ok: false as const, error: "Use a JPG, PNG, or WebP image." };
   const guard = await galleryStaffGuard(tournamentId);
@@ -2318,7 +2462,6 @@ export async function setTournamentQueueEnabled(formData: FormData): Promise<{ e
         console.error("[queue] tournament turn-on readback mismatch", { tournamentId, readback });
         return { error: `Turn-on wrote but the database read back wrong (${readback}). Send this message to support.` };
       }
-      console.log("[queue] turn-on verified", { tournamentId, sessionId: res.id });
     } else {
       const { data: s } = await admin.from("court_sessions").select("id").eq("tournament_id", tournamentId).order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (s) {

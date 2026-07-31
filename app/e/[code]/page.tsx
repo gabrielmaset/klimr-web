@@ -557,7 +557,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           {rulesText ? (
             <Panel id="rules">
               <Heading>Rules &amp; format</Heading>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#3F423A]">{rulesText}</p>
+              <div className="text-sm leading-relaxed text-[#3F423A] [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2" dangerouslySetInnerHTML={{ __html: rulesText }} />
             </Panel>
           ) : null}
 

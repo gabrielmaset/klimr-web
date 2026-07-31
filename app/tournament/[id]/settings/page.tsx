@@ -28,7 +28,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
   const signupFormReady = isSignupFormReady(fc, cfCount ?? 0);
   const { data: divs } = await supabase
     .from("tournament_divisions")
-    .select("id, name, description, fee_cents, fee_basis, capacity, sort_order")
+    .select("id, name, description, fee_cents, fee_basis, capacity, sort_order, team_size")
     .eq("tournament_id", id)
     .order("sort_order");
   const entryType = t.entry_type === "individual" ? "individual" : "team";
@@ -44,6 +44,8 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
     entry_type: t.entry_type === "individual" ? "individual" : "team",
     visibility: t.visibility === "unlisted" ? "unlisted" : "public",
     starts_at: t.starts_at,
+    roster_lock_policy: t.roster_lock_policy,
+    roster_lock_custom: t.roster_lock_custom,
     ends_at: t.ends_at,
     timezone: t.timezone,
     location_name: t.location_name,

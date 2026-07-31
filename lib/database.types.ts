@@ -1114,7 +1114,7 @@ export interface Database {
           summary: string | null;
           description: string | null;
           starts_at: string | null;
-          ends_at: string | null;
+          ends_at: string | null; roster_lock_policy: string | null; roster_lock_custom: string | null; results_finalized_at: string | null; points_awarded_at: string | null;
           timezone: string | null;
           location_name: string | null;
           location_address: string | null;
@@ -1157,7 +1157,7 @@ export interface Database {
           summary?: string | null;
           description?: string | null;
           starts_at?: string | null;
-          ends_at?: string | null;
+          ends_at?: string | null; roster_lock_policy?: string | null; roster_lock_custom?: string | null; results_finalized_at?: string | null; points_awarded_at?: string | null;
           timezone?: string | null;
           location_name?: string | null;
           location_address?: string | null;
@@ -1196,7 +1196,7 @@ export interface Database {
           summary?: string | null;
           description?: string | null;
           starts_at?: string | null;
-          ends_at?: string | null;
+          ends_at?: string | null; roster_lock_policy?: string | null; roster_lock_custom?: string | null; results_finalized_at?: string | null; points_awarded_at?: string | null;
           timezone?: string | null;
           location_name?: string | null;
           location_address?: string | null;
@@ -1263,9 +1263,9 @@ export interface Database {
         Relationships: [];
       };
       tournament_divisions: {
-        Row: { id: string; tournament_id: string; name: string; description: string | null; fee_cents: number; fee_basis: string; capacity: number | null; group_count: number | null; group_size: number | null; group_extra: number; group_extra_mode: string; sort_order: number; created_at: string; updated_at: string };
-        Insert: { id?: string; tournament_id: string; name: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; group_count?: number | null; group_size?: number | null; group_extra?: number; group_extra_mode?: string; sort_order?: number; created_at?: string; updated_at?: string };
-        Update: { name?: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; group_count?: number | null; group_size?: number | null; group_extra?: number; group_extra_mode?: string; sort_order?: number; updated_at?: string };
+        Row: { id: string; tournament_id: string; name: string; description: string | null; fee_cents: number; fee_basis: string; capacity: number | null; team_size: number | null; group_count: number | null; group_size: number | null; group_extra: number; group_extra_mode: string; sort_order: number; created_at: string; updated_at: string };
+        Insert: { id?: string; tournament_id: string; name: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; team_size?: number | null; group_count?: number | null; group_size?: number | null; group_extra?: number; group_extra_mode?: string; sort_order?: number; created_at?: string; updated_at?: string };
+        Update: { name?: string; description?: string | null; fee_cents?: number; fee_basis?: string; capacity?: number | null; team_size?: number | null; group_count?: number | null; group_size?: number | null; group_extra?: number; group_extra_mode?: string; sort_order?: number; updated_at?: string };
         Relationships: [];
       };
       tournament_groups: {
