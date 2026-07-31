@@ -26,6 +26,7 @@ export default async function AdminHome() {
   const stats = [
     { label: "Open reports", value: openReports.count ?? 0, href: "/admin/reports", accent: (openReports.count ?? 0) > 0 },
     { label: "Players", value: users.count ?? 0, href: "/admin/users" },
+    { label: "Expired content", value: "Kept forever", href: "/admin/expired" },
     { label: "Event Pulse (shadow)", value: "\u2192", href: "/admin/liveness" },
     { label: "Moderation queue", value: modQueue, href: "/admin/moderation", accent: modQueue > 0 },
     { label: "Business reviews", value: draftBiz.count ?? 0, href: "/admin/businesses", accent: (draftBiz.count ?? 0) > 0 },

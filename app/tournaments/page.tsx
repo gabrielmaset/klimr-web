@@ -1,3 +1,5 @@
+const nowMs = () => Date.now();
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -195,8 +197,8 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
 
   const COLS = "id, code, title, sport_key, status, summary, starts_at, location_name, location_address, location_lat, location_lng, promoted, cover_path, logo_path, format_config";
   const [{ data: pub }, { data: promo }, { data: mine }] = await Promise.all([
-    supabase.from("tournaments").select(COLS).eq("visibility", "public").is("cancelled_at", null).in("status", ACTIVE_PUBLIC).not("location_lat", "is", null).limit(150),
-    supabase.from("tournaments").select(COLS).eq("visibility", "public").eq("promoted", true).is("cancelled_at", null).in("status", ACTIVE_PUBLIC).order("starts_at", { ascending: true }).limit(12),
+    supabase.from("tournaments").select(COLS).eq("visibility", "public").is("cancelled_at", null).in("status", ACTIVE_PUBLIC).or(`ends_at.gte.${new Date(nowMs() - 2 * 3_600_000).toISOString()},and(ends_at.is.null,starts_at.gte.${new Date(nowMs() - 86_400_000).toISOString()})`).not("location_lat", "is", null).limit(150),
+    supabase.from("tournaments").select(COLS).eq("visibility", "public").eq("promoted", true).is("cancelled_at", null).in("status", ACTIVE_PUBLIC).or(`ends_at.gte.${new Date(nowMs() - 2 * 3_600_000).toISOString()},and(ends_at.is.null,starts_at.gte.${new Date(nowMs() - 86_400_000).toISOString()})`).order("starts_at", { ascending: true }).limit(12),
     supabase.from("tournaments").select("id, code, title, sport_key, status, starts_at, location_name, cover_path, logo_path, cancelled_at, format_config").eq("owner_id", user.id).order("created_at", { ascending: false }),
   ]);
 

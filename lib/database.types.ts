@@ -1352,6 +1352,18 @@ export interface Database {
         Update: { zip?: string; sport?: string; scanned_at?: string };
         Relationships: [];
       };
+      user_sport_affinity: {
+        Row: { user_id: string; sport_key: string; score: number; updated_at: string };
+        Insert: { user_id: string; sport_key: string; score?: number; updated_at?: string };
+        Update: { user_id?: string; sport_key?: string; score?: number; updated_at?: string };
+        Relationships: [];
+      };
+      user_author_affinity: {
+        Row: { user_id: string; author_id: string; score: number; updated_at: string };
+        Insert: { user_id: string; author_id: string; score?: number; updated_at?: string };
+        Update: { user_id?: string; author_id?: string; score?: number; updated_at?: string };
+        Relationships: [];
+      };
       courts: {
         Row: {
           id: string;
@@ -1917,6 +1929,14 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      get_ranked_feed: {
+        Args: { p_scope?: string; p_limit?: number };
+        Returns: { id: string; score: number }[];
+      };
+      refresh_feed_affinities: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
       global_search: {
         Args: { p_q: string; p_limit?: number };
         Returns: { kind: string; id: string; title: string; subtitle: string | null; rank: number }[];

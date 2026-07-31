@@ -3,6 +3,7 @@ import { scanZipForCourts } from "./search-actions";
 
 const nowMs = () => Date.now();
 import { SPORT_KEYS } from "@/lib/sports";
+import { getUserSportKeys } from "@/lib/user-sports";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -43,7 +44,8 @@ export default async function CourtsPage({
     .eq("id", user.id)
     .maybeSingle();
 
-  const rawQuery = (one("zip") ?? profile?.home_zip ?? "").trim();
+    const mySportKeys = await getUserSportKeys(supabase, user.id);
+const rawQuery = (one("zip") ?? profile?.home_zip ?? "").trim();
   // The finder opens on the player's own sport, not "All sports".
   const defaultSport = profile?.primary_sport && SPORT_KEYS.includes(profile.primary_sport) ? profile.primary_sport : "all";
   const sportParam = one("sport") ?? defaultSport;
@@ -160,6 +162,7 @@ export default async function CourtsPage({
       originLabel={originLabel}
       liveQueuesNow={liveNow ?? 0}
       scanKicked={scanKicked}
+      availableSports={mySportKeys}
       mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null}
     />
   );

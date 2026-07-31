@@ -166,6 +166,181 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-31 —0157 prod failure: mocked from assumption, not from types
+
+Gabriel's prod run of 0157 failed at the bootstrap: post_comments has NO
+user_id — the commenter column is AUTHOR_ID (post_likes does use user_id;
+the two tables differ). Root cause is the standing 0147-class lesson,
+violated again: the scratch mock was written from assumption instead of
+reading lib/database.types.ts, so the harness validated against a schema
+production doesn't have. Fixed pc.user_id→pc.author_id in the comments
+branch; scratch mock renamed to match prod; probes re-green including a
+new author-affinity-from-comment probe. 0157 never completed in prod, so
+the file was amended in place (an unfinished migration is amendable; a
+completed one is reversed forward). Gabriel re-runs the WHOLE corrected
+0157 — every statement is idempotent, so it converges whether Supabase's
+editor rolled the failed run back fully or left partial state. NEW RULE,
+absolute: scratch mocks are written by COPYING column lists out of
+database.types.ts, never from memory — the types file IS production.
+
+### 2026-07-31 —0157 prod failure: mocked from assumption, not from types
+
+Gabriel's prod run of 0157 failed at the bootstrap: post_comments has NO
+user_id — the commenter column is AUTHOR_ID (post_likes does use user_id;
+the two tables differ). Root cause is the standing 0147-class lesson,
+violated again: the scratch mock was written from assumption instead of
+reading lib/database.types.ts, so the harness validated against a schema
+production doesn't have. Fixed pc.user_id→pc.author_id in the comments
+branch; scratch mock renamed to match prod; probes re-green including a
+new author-affinity-from-comment probe. 0157 never completed in prod, so
+the file was amended in place (an unfinished migration is amendable; a
+completed one is reversed forward). Gabriel re-runs the WHOLE corrected
+0157 — every statement is idempotent, so it converges whether Supabase's
+editor rolled the failed run back fully or left partial state. NEW RULE,
+absolute: scratch mocks are written by COPYING column lists out of
+database.types.ts, never from memory — the types file IS production.
+
+### 2026-07-30 — THE FEED ALGORITHM (0157) + sitewide sport scoping begins
+
+Gabriel's mandate: research how IG/FB/LinkedIn/TikTok rank, build Klimr's
+algorithm on those principles, and scope every filter sitewide to the
+member's sports. RESEARCH VERDICT (cited in chat): the industry converged
+on candidates → per-user scoring → diversity re-rank; IG's Feed weighs
+RELATIONSHIP strength above all; TikTok's defining choice is the INTEREST
+graph (engagement over follow graph) with an explicit similarity check for
+variety. KLIMR'S EDGE: our interest graph is EXPLICIT — player_sports
+already holds matches_played/active per sport; nothing inferred from watch
+time. THE ENGINE (0157, all set-based/indexed/RLS-governed):
+user_sport_affinity (play habits + selection + aces + RSVPs, normalized)
+and user_author_affinity (aces given ×1, comments ×2, follows ×1.5,
+friendships ×2.5, top-300/user) refreshed NIGHTLY via pg_cron 04:15;
+get_ranked_feed(p_scope,p_limit) INVOKER (posts audience-RLS still decides
+VISIBILITY, the RPC decides ORDER): 500-candidate window (21d, partial
+index) → score = 1.8·recency(36h) + 1.6·sport + graph(2.2/1.2) +
+1.4·author + 0.6·ln(1+aces+2·comments) + milestone nudge → −0.35/slot
+author-diversity penalty. ELIGIBILITY = sports you play + general posts +
+your graph regardless of sport (the IG behavior). HARNESS: stranger's
+off-sport post hidden; friend's off-sport post visible; FRIEND'S POST
+RANKED #1 over fresher same-sport strangers — relationship dominating,
+exactly as researched. Feed page: chronological query replaced by the RPC
+(fetch-by-ids preserving rank; audience/type/blocked belts intact).
+SPORT SCOPING: lib/user-sports.ts is the single source of truth —
+getUserSportKeys/Options, React cache() dedupe (one indexed query per
+request, whole RSC tree), player_sports(active) driven, full-list fallback
+so zero-sport accounts never brick. WIRED: Play (chips + valid-set), the
+Courts finder dropdown (availableSports prop). SWEEP REMAINING (next
+session, same accessor pattern): events filters, rankings, discover
+players (shared-sport constraint), marketplace, tournament/match create
+forms, feed composer chips. HARNESS LESSONS x2: psql multi-statement -c is
+ONE transaction (a late error rolls back earlier fixtures); mid-file role
+grants + ON_ERROR_STOP abort scratch applies — apply scratch WITHOUT the
+stop flag and grep non-role errors instead.
+
+### 2026-07-30 — Retention FINAL: retain indefinitely (0156 reverses 0155)
+
+Gabriel's decision after the cost analysis: scrap purging entirely — a
+member's complete history is a permanent product feature, and the math
+made the trade obvious (tens of millions of archived rows ≈ single-digit
+GB ≈ ~$3/month at Supabase's $0.125/GB past the included 8GB). 0156 is the
+reversal, done the professional way: shipped SQL is never rewritten, it's
+reversed FORWARD — 0155 stays in the ledger, 0156 unschedules the nightly
+cron job (guarded: works whether pg_cron/the job ever existed) and drops
+purge_expired_content. The GDPR storage-limitation purpose is documented
+in the migration itself: permanent play history is the product basis
+(the Strava precedent); ONLY account deletion removes data — and the
+pre-existing account-lifecycle purge (30-day archive→recover→delete flow
+in admin actions) is explicitly NOT part of this reversal; it's the
+mechanism the policy depends on. The 0155 date INDEXES remain — they
+serve the admin archive explorer and browse upcoming-filters, not
+purging. Code cleanup verified by token: zero purge_expired_content
+references anywhere; /admin/expired is now purely the archive explorer
+("kept indefinitely — a member's history is permanent"), the admin card
+reads "Kept forever", the RPC left the type system. Harness: function
+gone, data intact. LESSON from the cleanup grep: assert on the EXACT
+token you removed, not a broad word — "purge" also matches the unrelated
+account-deletion feature that must survive.
+
+### 2026-07-30 — Retention v2: purge is POLICY, not a button (0155 rewritten)
+
+Gabriel's correction: admins must have NO purge capability — he'd asked how
+long to wait before purging AUTOMATICALLY, and the answer is 24 months for
+everything, tournaments included. 0155 v2: the manual trigger and its
+server action are DELETED; the Admin expired page keeps only informational
+dry-run counts ("queued"), with copy stating plainly that no one, admins
+included, can trigger or alter a purge from there. AUTOMATION: a pg_cron
+job runs purge_expired_content(false) nightly at 03:30 UTC — scheduled in
+a defensive DO block that raises a NOTICE (and still succeeds) if pg_cron
+isn't enabled, so the migration can never fail on a plan gap. SCHEDULE:
+24 months for matches/events/class sessions AND tournaments; the one
+carve-out kept from the tax research — tournaments WITH payment records
+hold 7 years (financial-record class) and then auto-purge on the same
+nightly job. Tournament deletion now cleans 13 child tables via a temp-id
+set (registration_players carries tournament_id directly — no join
+needed). Harness matrix: 30-month free cup + 8-year paid cup deleted with
+ZERO child orphans; 30-month PAID cup survives its 7-year window; fresh
+cup untouched. 0154 unchanged.
+
+### 2026-07-30 — Expired content: browse expiry, admin archive, retention law (0155)
+
+Gabriel's screenshot: June/July matches still listed on Play (July 30).
+ROOT CAUSE: the matches browse filtered by STATUS only — no date guard;
+tournaments trusted status the same way (events already filtered
+correctly). COMPETITOR RESEARCH (recorded): Eventbrite's public search
+returns upcoming events only — past events leave discovery but remain
+reachable to organizers and via direct links; archive pages with
+relative-date limits are the CMS norm. Klimr now matches: Play hides
+matches whose scheduled_at passed >2h ago (recurring templates and
+unscheduled matches always show); tournaments' two public browse queries
+require ends_at within 2h grace OR (no end date AND starts within a day);
+detail pages and owner/history views untouched. LEGAL RESEARCH (recorded
+w/ citations in chat): GDPR Art. 5(1)(e) and CCPA set NO minimum for
+activity content — they impose storage LIMITATION with a documented
+schedule; fixed minimums exist for financial/tax records (5–7 years).
+POLICY (0155, codified in SQL comments): activity content (matches,
+events, class sessions) purges 24 MONTHS after its date — generous beyond
+the zero legal floor, preserves year-over-year seasons, caps storage;
+payment-linked tournaments retained 7 YEARS (tax class), REPORTED never
+auto-purged; paymentless tournaments reported for manual decision.
+MECHANICS: purge_expired_content(p_dry_run default TRUE), SECURITY
+DEFINER, service_role-only, child-row cleanup (invites/participants/
+rsvps/occurrences/managers/enrollments), GET DIAGNOSTICS counts; harness:
+dry counts w/o deletion, real run deletes exactly the 30-month fixtures,
+recurring + recent survive, zero enrollment orphans. ADMIN: /admin/expired
+— the archive explorer (type / expired-date range / organizer-name
+filters, 100-row pages, links into each item) + retention panel showing
+live dry-run counts + an explicit red purge button (superadmin gate).
+Indexes added on every date column the explorer filters. PER GABRIEL:
+build + zip intentionally HELD this turn — code staged, tsc+eslint green,
+migrations delivered for paste; rebuild on his word.
+
+### 2026-07-30 — Search quality pass (0154): stemming, recency, roles + AI hardening
+
+Gabriel's three screenshots, three root causes, all fixed and probe-proven.
+(1) QUICK RESULTS listed PAST events and missed the upcoming one, and
+'dietitians' couldn't reach 'dietitian': the 'simple' FTS config doesn't
+stem. 0154 rebuilds every search_tsv generated column on the 'english'
+stemmer (probe: 'volleyball events' finds 'Volleyball event'), adds
+provider ROLES to the index via an IMMUTABLE array_to_string wrapper
+(array_to_string is only STABLE — the standard generated-column fix; probe:
+'dietitians' finds a roles-only dietitian with a null headline), and gives
+the events branch an upcoming-only filter with soonest-first tiebreak
+(probe: the Jul clinic hidden, the Aug event returned) while tournaments
+order upcoming-first WITHOUT hiding history. (2) QUESTION-SHAPED queries
+drowned the AND-matcher in stopwords — the action now condenses queries
+with '?' or >4 words to their salient terms for the quick path (the full
+question remains Ask-AI's job). (3) THE AI FAILED OUTRIGHT on 'Any
+brazilian events next month?': hardened with max_tokens 1400→2000, ONE
+corrective retry round when the final answer isn't parseable JSON, and
+console.error breadcrumbs for API status/body — failures are now visible
+in Vercel logs instead of silent. Plus the QUALITY BAR Gabriel set for
+results shape: the system prompt now instructs hub 'Explore' groups (via
+find_pages) whenever results belong to a hub — dietitian answers end with
+the Health & Nutrition page — and precise relative-date resolution. Site
+index vocabulary enriched (dietitian/physio/athletic trainer/mental
+performance…). HARNESS NOTE: probe fixtures vanished once between psql
+sessions mid-diagnosis; fixtures+probes now always run in ONE atomic
+session — a pattern worth keeping.
+
 ### 2026-07-30 — The search ENGINE (0153): self-indexing Postgres FTS under RLS
 
 Gabriel's mandate after Live Queue: research the most advanced, reliable

@@ -335,15 +335,31 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     const d = Math.round(h / 24);
     return d <= 1 ? "YESTERDAY" : `${d}D AGO`;
   };
-  const { data: v2Rows, error: v2Err } = await supabase
-    .from("posts")
-    .select("id, author_id, body, sport_key, post_type, media_path, media_duration_seconds, milestone, match_summary, audience, moderation_status, created_at")
-    // Visibility is fully governed by RLS (0140/0142): approved posts per
-    // audience + blocks, plus the author's own posts in any status.
-    .is("repost_of", null)
-    .order("created_at", { ascending: false })
-    .limit(60);
-  if (v2Err) console.error("[feed] posts query failed", v2Err.message);
+  // The ranked feed (0157): candidates → affinity scoring → diversity, in
+  // ONE set-based RPC. INVOKER rights: posts RLS (audience 0140/0142) still
+  // decides visibility; the RPC decides ORDER — sport interest, relationship
+  // strength, engagement, recency, author diversity.
+  const { data: ranked, error: v2Err } = await supabase.rpc("get_ranked_feed", {
+    p_scope: lane === "circle" ? "circle" : "all",
+    p_limit: 60,
+  });
+  if (v2Err) console.error("[feed] ranked feed failed", v2Err.message);
+  const rankedIds = (ranked ?? []).map((r) => r.id);
+  const rankPos = new Map(rankedIds.map((id, i) => [id, i] as const));
+  let v2Rows: {
+    id: string; author_id: string; body: string | null; sport_key: string | null; post_type: string;
+    media_path: string | null; media_duration_seconds: number | null; milestone: unknown;
+    match_summary: unknown; audience: string; moderation_status: string; created_at: string;
+  }[] = [];
+  if (rankedIds.length) {
+    const { data: rowsData } = await supabase
+      .from("posts")
+      .select("id, author_id, body, sport_key, post_type, media_path, media_duration_seconds, milestone, match_summary, audience, moderation_status, created_at")
+      .in("id", rankedIds);
+    v2Rows = ((rowsData ?? []) as typeof v2Rows).sort(
+      (a, b) => (rankPos.get(a.id) ?? 999) - (rankPos.get(b.id) ?? 999),
+    );
+  }
   const scopedPosts = (v2Rows ?? []).filter((p) => {
     if (blocked.has(p.author_id)) return false;
     if (lane === "circle") return p.author_id === user.id || circle.has(p.author_id);

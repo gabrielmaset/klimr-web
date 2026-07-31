@@ -63,6 +63,7 @@ export function CourtsFinder({
   originLabel,
   liveQueuesNow,
   scanKicked = false,
+  availableSports,
   mapboxToken,
 }: {
   initial: Filters;
@@ -71,6 +72,7 @@ export function CourtsFinder({
   originLabel: string;
   liveQueuesNow: number;
   scanKicked?: boolean;
+  availableSports?: string[];
   mapboxToken: string | null;
 }) {
   const router = useRouter();
@@ -178,7 +180,8 @@ export function CourtsFinder({
   };
 
   const sportName = f.sport === "all" ? "All sports" : SPORTS.find((s) => s.key === f.sport)?.name ?? f.sport;
-  const filteredSports = SPORTS.filter((s) => s.name.toLowerCase().includes(sportQuery.trim().toLowerCase()));
+  const scopedSports = availableSports?.length ? SPORTS.filter((s) => availableSports.includes(s.key)) : SPORTS;
+  const filteredSports = scopedSports.filter((s) => s.name.toLowerCase().includes(sportQuery.trim().toLowerCase()));
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">

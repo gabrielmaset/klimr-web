@@ -1,10 +1,13 @@
+const nowMs = () => Date.now();
+
 import type { Metadata } from "next";
 import { SportIcon } from "@/components/sport-icons";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarClock, MapPin, Users, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { SPORTS, sportMeta, sportSlug } from "@/lib/sports";
+import { sportMeta, sportSlug } from "@/lib/sports";
+import { getUserSportOptions } from "@/lib/user-sports";
 import { FilterGroup, FacetLink } from "@/components/filter-chips";
 import { PlayCourtFilter } from "@/components/play-court-filter";
 import { lookupZip } from "@/lib/us-places";
@@ -37,13 +40,19 @@ export default async function PlayPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/play");
+  const mySports = await getUserSportOptions(supabase, user.id);
 
   const query = supabase
     .from("matches")
     .select("*")
     .in("status", ["open", "scheduled"])
+    // Industry pattern (Eventbrite et al.): discovery shows upcoming only.
+    // A 2-hour grace keeps a just-started match joinable; recurring
+    // templates and unscheduled matches always show. Past matches stay
+    // reachable via direct links and history views.
+    .or(`scheduled_at.gte.${new Date(nowMs() - 2 * 3_600_000).toISOString()},scheduled_at.is.null,recurring.eq.true`)
     .order("scheduled_at", { ascending: true, nullsFirst: false });
-  const activeSport = sport && SPORTS.some((s) => s.key === sport) ? sport : null;
+  const activeSport = sport && mySports.some((s) => s.key === sport) ? sport : null;
   const { data: matches } = await query;
   const all = matches ?? [];
   const sportCounts = new Map<string, number>();
@@ -154,7 +163,7 @@ export default async function PlayPage({
             </FacetLink>
           }
         >
-          {SPORTS.map((s) => (
+          {mySports.map((s) => (
             <FacetLink key={s.key} href={`/play${qs(s.key, activeCourt)}`} active={activeSport === s.key} count={sportCounts.get(s.key) ?? 0}>
               <SportIcon sport={s.key} variant="badge" size={14} /> {s.name}
             </FacetLink>

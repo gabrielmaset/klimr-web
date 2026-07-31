@@ -766,3 +766,4 @@ export async function decideTierApplication(formData: FormData): Promise<void> {
   revalidatePath("/admin/businesses");
   revalidatePath(`/business/${app.business_id}`);
 }
+

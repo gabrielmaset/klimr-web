@@ -28,7 +28,16 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
 
   // ONE engine call (0153): tsvector + trigram over every kind, RLS-scoped
   // because the RPC runs with INVOKER rights on this user's client.
-  const { data: rows } = await supabase.rpc("global_search", { p_q: q, p_limit: 30 });
+  // Question-shaped queries ("Any weekly beach volleyball events in Santa
+  // Monica?") drown the AND-matcher in stopwords. Quick results condense to
+  // the salient terms; the full question remains the Ask-AI path's job.
+  const STOP = new Set(["any","all","some","the","a","an","in","on","at","for","to","of","with","near","me","my","our","is","are","there","what","when","where","which","who","how","do","does","can","i","you","we","next","this","week","weekly","month","monthly","today","tomorrow","upcoming","events","event","find","show","looking","want"]);
+  const words = q.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const isQuestion = q.includes("?") || words.length > 4;
+  const condensed = isQuestion
+    ? words.filter((w) => !STOP.has(w.toLowerCase())).slice(0, 4).join(" ") || q
+    : q;
+  const { data: rows } = await supabase.rpc("global_search", { p_q: condensed, p_limit: 30 });
   const list = rows ?? [];
 
   // Players need avatar + location hydration and the account/block screens.
