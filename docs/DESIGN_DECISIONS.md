@@ -166,6 +166,24 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-07-31 — Play cards: court always shown, faces on the card
+
+Gabriel: cards don't show the court (a join-decision fact) and should
+show who's already in (the human pull). Recon twist: the card ALREADY
+rendered the court via courtMap + placeLabel, and CourtPicker +
+createMatch(courtId) exist — the gap is data-side (matches created
+without a court pick) plus a conditional row that vanished when both
+court and free-text were empty. Fixes: (1) the location line ALWAYS
+renders — court name, else free-text, else a muted "Location TBD" — so
+the absence is visible instead of silent. (2) FACES: two batched queries
+for the whole page (match_participants for visible cards →
+profiles id/display_name/avatar_path/avatar_hue; never per-card),
+rendered as an overlapping Avatar stack (22px, ring, cap 4, "+N"
+overflow) right-aligned on the players line. Column truth: profiles uses
+avatar_hue, not hue (typegen caught the guess). Storage URL built the
+same way the feed does (avatars bucket getPublicUrl). Staged; build on
+Gabriel's word.
+
 ### 2026-07-31 — Integrity sprint completed (0161): sizes, subs, notices
 
 The three staged items landed, plus the schema decision they required.

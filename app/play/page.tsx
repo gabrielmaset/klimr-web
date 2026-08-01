@@ -2,6 +2,7 @@ const nowMs = () => Date.now();
 
 import type { Metadata } from "next";
 import { SportIcon } from "@/components/sport-icons";
+import { Avatar } from "@/components/avatar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarClock, MapPin, Users, Plus } from "lucide-react";
@@ -153,6 +154,37 @@ export default async function PlayPage({
       .map(({ c, d }) => ({ id: c.id, name: c.name, city: c.city, state: c.state, zip: c.zip, distanceMi: Math.round(d * 10) / 10 }));
   }
   const shown = activeCourt ? list.filter((m) => m.court_id === activeCourt) : list;
+
+  // Faces on cards: everyone already in each visible match (batched — two
+  // queries for the whole page, never per-card).
+  const shownIds = shown.map((m) => m.id);
+  const facesByMatch = new Map<string, { name: string; url: string | null; hue: number }[]>();
+  if (shownIds.length) {
+    const { data: parts } = await supabase
+      .from("match_participants")
+      .select("match_id, user_id, joined_at")
+      .in("match_id", shownIds)
+      .order("joined_at", { ascending: true });
+    const uids = [...new Set((parts ?? []).map((x) => x.user_id))];
+    if (uids.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_path, avatar_hue")
+        .in("id", uids);
+      const profMap = new Map((profs ?? []).map((pr) => [pr.id, pr]));
+      for (const x of parts ?? []) {
+        const pr = profMap.get(x.user_id);
+        if (!pr) continue;
+        const arr = facesByMatch.get(x.match_id) ?? [];
+        arr.push({
+          name: pr.display_name,
+          url: pr.avatar_path ? supabase.storage.from("avatars").getPublicUrl(pr.avatar_path).data.publicUrl : null,
+          hue: pr.avatar_hue,
+        });
+        facesByMatch.set(x.match_id, arr);
+      }
+    }
+  }
   const qs = (s: string | null, c: string | null) => {
     const parts = [s ? `sport=${s}` : null, c ? `court=${c}` : null].filter(Boolean);
     return parts.length ? `?${parts.join("&")}` : "";
@@ -235,6 +267,7 @@ export default async function PlayPage({
             const mine = mineSet.has(m.id);
             const meta = sportMeta(m.sport_key);
             const court = m.court_id ? courtMap.get(m.court_id) : null;
+            const faces = facesByMatch.get(m.id) ?? [];
             const placeLabel = court ? court.name : m.location_text;
             const placeNote = court && m.location_text ? m.location_text : null;
             return (
@@ -253,10 +286,23 @@ export default async function PlayPage({
                 </h3>
                 <div className="mt-3 space-y-1.5 text-sm text-mute">
                   <div className="flex items-center gap-2"><CalendarClock size={14} className="shrink-0 text-faint" /> {whenLabel(m.effective_at)}{m.recurring && m.recurrence ? ` · ${REPEAT_LABEL[m.recurrence] ?? "repeats"}` : ""}</div>
-                  {placeLabel ? (
-                    <div className="flex items-center gap-2"><MapPin size={14} className="shrink-0 text-faint" /> <span className="truncate">{placeLabel}{placeNote ? ` · ${placeNote}` : ""}</span></div>
-                  ) : null}
-                  <div className="flex items-center gap-2"><Users size={14} className="shrink-0 text-faint" /> {filled}/{m.total_slots} players</div>
+                  <div className="flex items-center gap-2">
+                    <MapPin size={14} className="shrink-0 text-faint" />
+                    <span className={`truncate ${placeLabel ? "" : "text-faint"}`}>{placeLabel ? `${placeLabel}${placeNote ? ` · ${placeNote}` : ""}` : "Location TBD"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users size={14} className="shrink-0 text-faint" /> {filled}/{m.total_slots} players
+                    {faces.length ? (
+                      <span className="ml-auto flex items-center -space-x-2">
+                        {faces.slice(0, 4).map((f, fi) => (
+                          <Avatar key={fi} url={f.url} hue={f.hue} name={f.name} size={22} ring className="border border-surface" />
+                        ))}
+                        {faces.length > 4 ? (
+                          <span className="grid h-[22px] w-[22px] place-items-center rounded-full border border-surface bg-bg font-mono text-[9px] font-bold text-mute">+{faces.length - 4}</span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between border-t border-rule pt-3">
                   <span className="truncate text-xs text-faint">by {org?.display_name ?? "a player"}{mine ? " · you're in" : ""}</span>
