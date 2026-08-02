@@ -219,6 +219,7 @@ export type CustomFieldRow = {
   required: boolean;
   scope: string;
   sort_order: number;
+  reask_on_substitution?: boolean;
 };
 
 export type CustomFieldInput = {
@@ -230,6 +231,9 @@ export type CustomFieldInput = {
   required: boolean;
   scope: string;
   sort_order: number;
+  /** Substitutes must answer this question before accepting a swap (0162).
+   *  Only meaningful for per_player scope; defaults to true on save. */
+  reask_on_substitution?: boolean;
 };
 
 export const FIELD_TYPE_LABEL: Record<string, string> = {

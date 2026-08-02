@@ -8,6 +8,7 @@ import { SportIcon } from "@/components/sport-icons";
 import { TeamCrest } from "@/components/team-crest";
 import { respondTeamInvite, searchTeams } from "./actions";
 import { TeamDiscovery } from "./team-discovery";
+import { readIntParam, readSportParam, readTextParam } from "@/lib/filter-params";
 
 export const metadata: Metadata = { title: "Teams" };
 
@@ -24,15 +25,26 @@ type MyTeam = {
 
 const ROLE_LABEL: Record<string, string> = { owner: "Owner", manager: "Manager", staff: "Staff", member: "Member" };
 
-export default async function TeamsPage() {
+export default async function TeamsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sport?: string; spots?: string; q?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/teams");
 
+  // Deep-link filters (lib/filter-params vocabulary): the AI concierge and
+  // shared links land here pre-filtered — search continues, context intact.
+  const sp = await searchParams;
+  const initialSport = readSportParam(sp.sport);
+  const initialSpots = readIntParam(sp.spots, 1, 12);
+  const initialQ = readTextParam(sp.q);
+
   const [initial, { data: invites }, { data: memberships }] = await Promise.all([
-    searchTeams(""),
+    searchTeams(initialQ ?? "", { sport: initialSport }),
     supabase.from("team_invites").select("id, team_id").eq("invited_user_id", user.id).eq("status", "pending"),
     supabase.from("team_members").select("team_id, role").eq("user_id", user.id),
   ]);
@@ -237,7 +249,7 @@ export default async function TeamsPage() {
       {/* Discovery */}
       <section className="mt-9">
         <h2 className="font-athletic mb-2.5 text-base font-bold uppercase tracking-wide text-ink">Discover teams near you</h2>
-        <TeamDiscovery initial={initial} />
+        <TeamDiscovery initial={initial} initialSport={initialSport} initialSpots={initialSpots} initialQ={initialQ} />
       </section>
     </div>
   );

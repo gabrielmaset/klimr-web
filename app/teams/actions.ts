@@ -33,7 +33,7 @@ async function teamRole(
 const canManageRoster = (role: string | null) => role === "owner" || role === "manager";
 const canInvite = (role: string | null) => role === "owner" || role === "manager" || role === "staff";
 
-type TeamRow = { id: string; name: string; sport_key: string; city: string | null; state: string | null };
+type TeamRow = { id: string; name: string; sport_key: string; city: string | null; state: string | null; max_size: number | null };
 
 /** Add member counts + whether the viewer is already on each team. */
 async function decorate(
@@ -50,7 +50,7 @@ async function decorate(
   const countMap = new Map<string, number>();
   for (const c of counts ?? []) countMap.set(c.team_id, (countMap.get(c.team_id) ?? 0) + 1);
   const joined = new Set((mine ?? []).map((m) => m.team_id));
-  return teams.map((t) => ({ ...t, memberCount: countMap.get(t.id) ?? 0, joined: joined.has(t.id) }));
+  return teams.map((t) => ({ ...t, memberCount: countMap.get(t.id) ?? 0, maxSize: t.max_size, joined: joined.has(t.id) }));
 }
 
 /**
@@ -58,12 +58,17 @@ async function decorate(
  * we have one); with a query, matches name / city / neighborhood. Powers the
  * Teams discovery page. Read-only.
  */
-export async function searchTeams(qRaw: string): Promise<TeamCard[]> {
+export async function searchTeams(qRaw: string, opts?: { sport?: string | null }): Promise<TeamCard[]> {
   const { supabase, user } = await me();
   if (!user) return [];
 
   const q = (qRaw ?? "").trim().replace(/[%_\\(),"']/g, "");
-  let builder = supabase.from("teams").select("id, name, sport_key, city, state");
+  // Parity with the AI teams tool: deleted teams never appear in discovery,
+  // and a sport filter (validated against the catalog) narrows in SQL so the
+  // 24-row window is spent on the sport the user asked for.
+  let builder = supabase.from("teams").select("id, name, sport_key, city, state, max_size").is("deleted_at", null);
+  const sportFilter = opts?.sport && SPORT_KEYS.includes(opts.sport) ? opts.sport : null;
+  if (sportFilter) builder = builder.eq("sport_key", sportFilter);
   if (q.length >= 1) {
     const like = `%${q}%`;
     builder = builder.or(`name.ilike.${like},city.ilike.${like},state.ilike.${like}`);

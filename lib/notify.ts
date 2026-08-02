@@ -11,6 +11,7 @@ export type Kind =
   | "region_challenge"
   | "marketplace"
   | "sponsorship"
+  | "tournament"
   | "system";
 
 /** Future delivery channels attach HERE and only here (single seam):
@@ -41,6 +42,8 @@ const KIND_PREF: Record<Kind, "notif_match_invites" | "notif_ranking_changes" | 
   sponsorship: "notif_marketplace_events",
   friend_request: null,
   friend_accept: null,
+  // Roster/entry operations are operational notices — always delivered.
+  tournament: null,
   system: null,
 };
 export async function createNotification(input: {

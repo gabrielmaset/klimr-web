@@ -15,6 +15,7 @@ import { leaveTeam } from "../actions";
 import { EditTeamForm } from "./EditTeamForm";
 import { InviteSearch } from "./InviteSearch";
 import { MemberControls } from "./MemberControls";
+import { EntrySubstitutions } from "./EntrySubstitutions";
 
 const ROLE_LABEL: Record<string, string> = { owner: "Owner", manager: "Manager", staff: "Staff" };
 const DESIG_LABEL: Record<string, string> = { captain: "Captain", co_captain: "Co-captain", sub: "Sub" };
@@ -53,7 +54,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
     .eq("team_id", team.id)
     .not("status", "in", "(withdrawn,declined,cancelled,disqualified)");
   const regTids = [...new Set((regRows ?? []).map((r) => r.tournament_id))];
-  const activeEntries: { regId: string; code: string; title: string; locked: boolean; lockAt: Date | null }[] = [];
+  const activeEntries: { regId: string; tournamentId: string; code: string; title: string; locked: boolean; lockAt: Date | null }[] = [];
   if (regTids.length) {
     const { data: tRows } = await supabase
       .from("tournaments")
@@ -65,7 +66,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
       const tt = (tRows ?? []).find((x) => x.id === r.tournament_id);
       if (!tt || ["completed", "archived"].includes(tt.status)) continue;
       const lockAt = rosterLockAt(tt);
-      activeEntries.push({ regId: r.id, code: tt.code, title: tt.title, lockAt, locked: !!lockAt && nowMs() > lockAt.getTime() });
+      activeEntries.push({ regId: r.id, tournamentId: tt.id, code: tt.code, title: tt.title, lockAt, locked: !!lockAt && nowMs() > lockAt.getTime() });
     }
   }
   const myRole = members.find((m) => m.user_id === user.id)?.role ?? null;
@@ -80,6 +81,45 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
     const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path").in("id", memberIds);
     for (const p of (profs as Prof[] | null) ?? []) profById.set(p.id, p);
   }
+
+  // Substitution data for the entries card (0162): per-entry rosters, who's
+  // eligible to come in (squad members not already entered in that event),
+  // and any in-flight or recently accepted requests.
+  const regIds = activeEntries.map((e) => e.regId);
+  const entryTids = [...new Set(activeEntries.map((e) => e.tournamentId))];
+  type SubReq = { id: string; registration_id: string; player_out: string; player_in: string; status: string };
+  let entryPlayers: { registration_id: string; user_id: string; is_reserve: boolean; confirmed_at: string | null }[] = [];
+  let subReqs: SubReq[] = [];
+  const enteredByTid = new Map<string, Set<string>>();
+  if (regIds.length) {
+    const [{ data: pl }, { data: reqs }, { data: enteredRows }] = await Promise.all([
+      supabase.from("tournament_registration_players").select("registration_id, user_id, is_reserve, confirmed_at").in("registration_id", regIds),
+      supabase
+        .from("tournament_substitution_requests")
+        .select("id, registration_id, player_out, player_in, status")
+        .in("registration_id", regIds)
+        .in("status", ["pending", "accepted"])
+        .order("created_at", { ascending: false })
+        .limit(60),
+      supabase.from("tournament_registration_players").select("tournament_id, user_id").in("tournament_id", entryTids).in("user_id", memberIds),
+    ]);
+    entryPlayers = pl ?? [];
+    subReqs = (reqs ?? []) as SubReq[];
+    for (const row of enteredRows ?? []) {
+      const s = enteredByTid.get(row.tournament_id) ?? new Set<string>();
+      s.add(row.user_id);
+      enteredByTid.set(row.tournament_id, s);
+    }
+  }
+  // Names beyond the squad (a rostered player may have since left the team).
+  const extraIds = [
+    ...new Set([...entryPlayers.map((pl) => pl.user_id), ...subReqs.flatMap((r) => [r.player_out, r.player_in])]),
+  ].filter((pid) => !profById.has(pid));
+  if (extraIds.length) {
+    const { data: extra } = await supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path").in("id", extraIds);
+    for (const pr of (extra as Prof[] | null) ?? []) profById.set(pr.id, pr);
+  }
+  const displayName = (pid: string) => profById.get(pid)?.display_name ?? "Former member";
   const avatarUrl = (p: Prof | undefined) =>
     p?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null;
 
@@ -202,21 +242,53 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
         <div className="mt-4 rounded-2xl border border-rule bg-surface px-4 py-3">
           <p className="kicker text-faint">Tournament entries</p>
           <div className="mt-1.5 space-y-1.5">
-            {activeEntries.map((en) => (
-              <div key={en.regId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <Link href={`/e/${en.code}`} className="font-semibold text-ink hover:underline">{en.title}</Link>
-                <span className={`font-mono text-[10.5px] uppercase tracking-wide ${en.locked ? "text-[#B42318]" : "text-mute"}`}>
-                  {en.locked ? "Roster locked" : en.lockAt ? `Subs until ${en.lockAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Subs open"}
-                </span>
-              </div>
-            ))}
+            {activeEntries.map((en) => {
+              const rosterRows = entryPlayers
+                .filter((pl) => pl.registration_id === en.regId)
+                .map((pl) => ({ userId: pl.user_id, name: displayName(pl.user_id), isReserve: pl.is_reserve, confirmed: !!pl.confirmed_at }));
+              const entered = enteredByTid.get(en.tournamentId) ?? new Set<string>();
+              const eligible = members.filter((m) => !entered.has(m.user_id)).map((m) => ({ userId: m.user_id, name: displayName(m.user_id) }));
+              const reqsFor = subReqs.filter((r) => r.registration_id === en.regId);
+              const toView = (r: SubReq) => ({ id: r.id, outUserId: r.player_out, inUserId: r.player_in, outName: displayName(r.player_out), inName: displayName(r.player_in) });
+              return (
+                <div key={en.regId} className="border-b border-rule/60 pb-2 last:border-b-0 last:pb-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <Link href={`/e/${en.code}`} className="font-semibold text-ink hover:underline">{en.title}</Link>
+                    <span className={`font-mono text-[10.5px] uppercase tracking-wide ${en.locked ? "text-[#B42318]" : "text-mute"}`}>
+                      {en.locked ? "Roster locked" : en.lockAt ? `Subs until ${en.lockAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Subs open"}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-mute">
+                    {rosterRows.map((rr, i) => (
+                      <span key={rr.userId}>
+                        {i > 0 ? ", " : ""}
+                        {rr.name}
+                        {rr.isReserve ? " (reserve)" : ""}
+                        {!rr.confirmed ? " · unconfirmed" : ""}
+                      </span>
+                    ))}
+                  </p>
+                  <EntrySubstitutions
+                    tournamentId={en.tournamentId}
+                    regId={en.regId}
+                    locked={en.locked}
+                    lockAtIso={en.lockAt ? en.lockAt.toISOString() : null}
+                    roster={rosterRows}
+                    eligible={eligible}
+                    pending={reqsFor.filter((r) => r.status === "pending").map(toView)}
+                    recentAccepted={reqsFor.filter((r) => r.status === "accepted").map(toView).slice(0, 3)}
+                    canManage={canManage}
+                  />
+                </div>
+              );
+            })}
           </div>
           <p className="mt-2 text-xs text-faint">Each entry is its own roster snapshot — changes here never touch a locked entry, and substitutions happen on the entry itself.</p>
         </div>
       ) : null}
 
       {isPro && amMember ? (
-        <Link href={`/team/${team.id}`} className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+        <Link href={`/team/${team.id}`} className="press mt-4 inline-flex items-center gap-1.5 rounded-[11px] bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
           Open team workspace →
         </Link>
       ) : null}

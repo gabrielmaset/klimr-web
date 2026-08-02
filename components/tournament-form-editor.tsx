@@ -16,6 +16,7 @@ type FieldRow = {
   options: string[];
   required: boolean;
   scope: "per_team" | "per_player";
+  reask: boolean;
 };
 
 const inputCls = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand";
@@ -37,10 +38,11 @@ function toRow(f: CustomFieldRow): FieldRow {
     options: Array.isArray(f.options) ? f.options : [],
     required: f.required,
     scope: f.scope === "per_team" ? "per_team" : "per_player",
+    reask: f.reask_on_substitution ?? true,
   };
 }
 
-const blank = (entryType: "team" | "individual"): FieldRow => ({ uid: newUid(), label: "", description: "", type: "short_text", options: ["", ""], required: false, scope: entryType === "individual" ? "per_player" : "per_player" });
+const blank = (entryType: "team" | "individual"): FieldRow => ({ uid: newUid(), label: "", description: "", type: "short_text", options: ["", ""], required: false, scope: entryType === "individual" ? "per_player" : "per_player", reask: true });
 
 function MiniSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -88,6 +90,7 @@ export function CustomFieldsEditor({ tournamentId, entryType, initial }: { tourn
           required: r.required,
           scope: entryType === "individual" ? "per_player" : r.scope,
           sort_order: i,
+          reask_on_substitution: r.reask,
         }));
       const res = await saveCustomFields(tournamentId, payload);
       if (res.ok) {
@@ -225,9 +228,18 @@ export function CustomFieldsEditor({ tournamentId, entryType, initial }: { tourn
                     </div>
                   ) : null}
 
-                  <div className="flex items-center gap-2 pt-0.5">
-                    <MiniSwitch checked={r.required} onChange={(v) => update(i, { required: v })} />
-                    <span className="text-sm font-medium text-ink-soft">Required</span>
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
+                    <span className="flex items-center gap-2">
+                      <MiniSwitch checked={r.required} onChange={(v) => update(i, { required: v })} />
+                      <span className="text-sm font-medium text-ink-soft">Required</span>
+                    </span>
+                    {entryType === "individual" || r.scope === "per_player" ? (
+                      <span className="flex items-center gap-2">
+                        <MiniSwitch checked={r.reask} onChange={(v) => update(i, { reask: v })} />
+                        <span className="text-sm font-medium text-ink-soft">Ask substitutes again</span>
+                        <span className="hidden text-xs text-faint sm:inline">— a swapped-in player answers this before joining</span>
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <button type="button" onClick={() => remove(i)} aria-label="Remove question" className="press grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-rule text-mute hover:border-brand hover:text-brand-deep">

@@ -117,11 +117,11 @@ function LadderCard() {
 
 /* ------------------------------------------------------------------ */
 
+/* Evergreen by design — marketing never enumerates the sport catalog, so
+   adding a sport never requires a copy change (Gabriel's direction). */
 const MARQUEE = [
-  "Tennis",
-  "Pickleball",
-  "Padel",
-  "Racquetball",
+  "Racquet & court sports",
+  "More sports coming",
   "ZIP → world",
   "Verified players",
   "Both sides confirm",
@@ -184,7 +184,7 @@ export default async function Home() {
         <div className="lg:col-span-7">
           <div className="rise flex items-center gap-2">
             <span className="live-dot h-2 w-2 rounded-full bg-brand" aria-hidden />
-            <p className="kicker text-ink">Los Angeles · four sports · pre-launch</p>
+            <p className="kicker text-ink">Los Angeles · pre-launch</p>
           </div>
           <h1
             className="rise mt-5 font-display text-[clamp(2.9rem,8vw,5.6rem)] leading-[0.93] tracking-tight text-ink"
@@ -200,12 +200,13 @@ export default async function Home() {
           >
             Klimr is the social network for sports players. Match with verified
             people nearby, log real results, and watch where you stand — from
-            your ZIP code to the world.
+            your ZIP code to the world. We’re launching with a starting lineup
+            of sports and adding more soon.
           </p>
           <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "270ms" }}>
             <Link
               href="/signup"
-              className="press rounded-full bg-brand px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep"
+              className="press rounded-[11px] bg-brand px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep"
             >
               Claim your spot
             </Link>

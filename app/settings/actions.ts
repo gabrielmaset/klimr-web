@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { lookupZip } from "@/lib/us-places";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ageFromDob } from "@/lib/age";
+import { SPORT_KEYS } from "@/lib/sports";
 
 export type PrefState = { ok?: boolean; error?: string } | undefined;
 export type DeleteState = { error?: string } | undefined;
@@ -265,9 +266,11 @@ export async function saveSports(_prev: EditState, formData: FormData): Promise<
   // would drop points, record, and skill), flip an `active` flag. De-selected
   // sports are hidden from the profile but keep every stat, and re-selecting one
   // restores it intact. player_sports guards stats + has no user DELETE policy, so
-  // the flag flips run on the admin client, scoped to this user and only the
-  // racquet sports this editor manages (never touches beach volleyball).
-  const EDITOR_SPORTS = ["tennis", "pickleball", "padel", "racquetball"];
+  // the flag flips run on the admin client, scoped to this user and to the
+  // sports catalog — lib/sports.ts is the single list (0158 rule), so a new
+  // sport is manageable here the day it ships. (The old four-sport scope made
+  // beach volleyball impossible to deactivate from settings.)
+  const EDITOR_SPORTS = SPORT_KEYS;
   const kept = picked.map((s) => s.key);
   const keptSet = new Set(kept);
   const toHide = EDITOR_SPORTS.filter((k) => !keptSet.has(k));

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { SportIcon } from "@/components/sport-icons";
 import { FilterGroup, FacetRow } from "@/components/filter-chips";
 import { EventsMap } from "@/components/events-map";
@@ -62,10 +63,27 @@ function ClearLink({ n, onClear }: { n: number; onClear: () => void }) {
   );
 }
 
-export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null, availableSports }: { events: CardEvent[]; myEvents?: CardEvent[]; nowMs: number; mapboxToken?: string | null; availableSports?: string[] }) {
+export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null, availableSports, initialSports }: { events: CardEvent[]; myEvents?: CardEvent[]; nowMs: number; mapboxToken?: string | null; availableSports?: string[]; initialSports?: string[] }) {
   const [mode, setMode] = useState<"browse" | "mine">("browse");
   const [q, setQ] = useState("");
-  const [sports, setSports] = useState<Set<string>>(new Set());
+  const [sports, setSports] = useState<Set<string>>(new Set(initialSports ?? []));
+  const router = useRouter();
+  const pathname = usePathname();
+  // URL SYNC (lib/filter-params vocabulary): the sport facet mirrors ?sport=
+  // so AI deep links land pre-filtered and any state here is shareable.
+  const sportsUrlMounted = useRef(false);
+  useEffect(() => {
+    if (!sportsUrlMounted.current) {
+      sportsUrlMounted.current = true;
+      return;
+    }
+    const p = new URLSearchParams(window.location.search);
+    const listKeys = [...sports].sort().join(",");
+    if (listKeys) p.set("sport", listKeys);
+    else p.delete("sport");
+    const qs = p.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [sports, pathname, router]);
   const [kinds, setKinds] = useState<Set<string>>(new Set());
   const [price, setPrice] = useState("all");
   const [minP, setMinP] = useState("");

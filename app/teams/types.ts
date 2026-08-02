@@ -5,5 +5,6 @@ export type TeamCard = {
   city: string | null;
   state: string | null;
   memberCount: number;
+  maxSize: number | null;
   joined: boolean;
 };

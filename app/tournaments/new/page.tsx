@@ -5,6 +5,7 @@ import { ShieldCheck, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { TournamentSetupWizard } from "@/components/tournament-setup-wizard";
 import type { FormatType } from "@/lib/tournament";
+import { SPORT_KEYS } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "Host a tournament" };
 
@@ -20,8 +21,10 @@ export default async function NewTournamentPage() {
   const isTD = provRow?.status === "approved" && Array.isArray(provRow.roles) && provRow.roles.includes("tournament_director");
   if (!isTD) redirect("/tournaments");
 
-  const { data: prof } = await supabase.from("profiles").select("verification_status").eq("id", user.id).maybeSingle();
+  const { data: prof } = await supabase.from("profiles").select("verification_status, primary_sport").eq("id", user.id).maybeSingle();
   const verified = prof?.verification_status === "verified";
+  // Gabriel's rule: creation surfaces start on the member's default sport.
+  const primarySport = prof?.primary_sport && SPORT_KEYS.includes(prof.primary_sport) ? prof.primary_sport : SPORT_KEYS[0];
 
   // A blank draft to seed the create-at-end wizard. Nothing is written to the
   // database until the organizer reaches the end and presses "Create event".
@@ -29,7 +32,7 @@ export default async function NewTournamentPage() {
     title: "",
     summary: "",
     description: "",
-    sport_key: "beach_volleyball",
+    sport_key: primarySport,
     entry_type: "team" as const,
     visibility: "public" as const,
     starts_at: null,

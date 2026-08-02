@@ -7,14 +7,10 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, StatusPill } from "@/components/page-header";
 
 import { SportIcon } from "@/components/sport-icons";
+import { SPORTS } from "@/lib/sports";
 
-/* The four sports. Keys match the DB; the emoji is presentation-only. */
-const SPORTS = [
-  { key: "tennis", name: "Tennis", emoji: "🎾" },
-  { key: "pickleball", name: "Pickleball", emoji: "🏓" },
-  { key: "padel", name: "Padel", emoji: "🟡" },
-  { key: "racquetball", name: "Racquetball", emoji: "🟦" },
-] as const;
+/* Sports come from the single catalog (lib/sports.ts) — a new sport appears
+   here automatically; hardcoded per-page lists are retired (0158 lesson). */
 
 type ScopeKey = "zip" | "city" | "state" | "national" | "world";
 

@@ -76,14 +76,15 @@ function toLocalInput(iso: string | null): string {
 }
 const toIso = (local: string) => (local ? new Date(local).toISOString() : "");
 
-export function EventForm({ initial }: { initial?: Initial }) {
+export function EventForm({ initial, defaultSport }: { initial?: Initial; defaultSport?: string | null }) {
   const router = useRouter();
   const editing = !!initial;
   const bannerFileRef = useRef<HTMLInputElement | null>(null);
   const thumbFileRef = useRef<HTMLInputElement | null>(null);
 
   const [title, setTitle] = useState(initial?.title ?? "");
-  const [sportKey, setSportKey] = useState(initial?.sport_key ?? SPORTS[0].key);
+  // New events start on the member's default sport (validated server-side).
+  const [sportKey, setSportKey] = useState(initial?.sport_key ?? defaultSport ?? SPORTS[0].key);
   const [kind, setKind] = useState(initial?.kind ?? "open_play");
   const [startsLocal, setStartsLocal] = useState(() => toLocalInput(initial?.starts_at ?? null));
   const [endsLocal, setEndsLocal] = useState(() => toLocalInput(initial?.ends_at ?? null));

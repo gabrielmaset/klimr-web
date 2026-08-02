@@ -681,11 +681,13 @@ export async function saveCustomFields(tournamentId: string, fields: CustomField
     const required = !!f.required;
     const hasOpts = field_type === "single_select" || field_type === "multi_select";
     const options = hasOpts ? (f.options ?? []).map((o) => o.toString().trim()).filter(Boolean) : [];
+    // Substitution re-ask (0162): organizer's per-question choice; default on.
+    const reask_on_substitution = f.reask_on_substitution ?? true;
     if (f.id && existingIds.has(f.id)) {
       keepIds.add(f.id);
-      await supabase.from("tournament_custom_fields").update({ label, description, field_type, options, required, scope, sort_order: f.sort_order }).eq("id", f.id);
+      await supabase.from("tournament_custom_fields").update({ label, description, field_type, options, required, scope, sort_order: f.sort_order, reask_on_substitution }).eq("id", f.id);
     } else {
-      const { data: ins } = await supabase.from("tournament_custom_fields").insert({ tournament_id: tournamentId, label, description, field_type, options, required, scope, sort_order: f.sort_order }).select("id").single();
+      const { data: ins } = await supabase.from("tournament_custom_fields").insert({ tournament_id: tournamentId, label, description, field_type, options, required, scope, sort_order: f.sort_order, reask_on_substitution }).select("id").single();
       if (ins) keepIds.add(ins.id);
     }
   }
@@ -705,7 +707,7 @@ export async function saveCustomFields(tournamentId: string, fields: CustomField
 
   const { data: fresh } = await supabase
     .from("tournament_custom_fields")
-    .select("id, label, description, field_type, options, required, scope, sort_order")
+    .select("id, label, description, field_type, options, required, scope, sort_order, reask_on_substitution")
     .eq("tournament_id", tournamentId)
     .order("sort_order");
   return { ok: true as const, fields: fresh ?? [] };

@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getUserSportKeys } from "@/lib/user-sports";
 import { EventsBrowser, type CardEvent } from "@/components/events-browser";
+import { readSportsParam } from "@/lib/filter-params";
 import { parseLatLngFromMapsUrl } from "@/lib/maps-url";
 import { suggestCities, lookupZip } from "@/lib/us-places";
 
@@ -38,7 +39,11 @@ function nowMs() {
   return Date.now();
 }
 
-export default async function EventsPage() {
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sport?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -148,7 +153,7 @@ export default async function EventsPage() {
         </Link>
       </div>
 
-      <EventsBrowser events={cards} myEvents={myCards} nowMs={nowMs()} mapboxToken={mapboxToken} availableSports={mySportKeys} />
+      <EventsBrowser events={cards} myEvents={myCards} nowMs={nowMs()} mapboxToken={mapboxToken} availableSports={mySportKeys} initialSports={readSportsParam((await searchParams).sport)} />
     </div>
   );
 }

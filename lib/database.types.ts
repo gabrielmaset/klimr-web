@@ -1305,9 +1305,9 @@ export interface Database {
         Relationships: [];
       };
       tournament_custom_fields: {
-        Row: { id: string; tournament_id: string; label: string; description: string | null; field_type: string; options: Json; required: boolean; scope: string; sort_order: number; created_at: string };
-        Insert: { id?: string; tournament_id: string; label: string; description?: string | null; field_type?: string; options?: Json; required?: boolean; scope?: string; sort_order?: number; created_at?: string };
-        Update: { label?: string; description?: string | null; field_type?: string; options?: Json; required?: boolean; scope?: string; sort_order?: number };
+        Row: { id: string; tournament_id: string; label: string; description: string | null; field_type: string; options: Json; required: boolean; scope: string; sort_order: number; reask_on_substitution: boolean; created_at: string };
+        Insert: { id?: string; tournament_id: string; label: string; description?: string | null; field_type?: string; options?: Json; required?: boolean; scope?: string; sort_order?: number; reask_on_substitution?: boolean; created_at?: string };
+        Update: { label?: string; description?: string | null; field_type?: string; options?: Json; required?: boolean; scope?: string; sort_order?: number; reask_on_substitution?: boolean };
         Relationships: [];
       };
       tournament_registrations: {
@@ -1320,6 +1320,12 @@ export interface Database {
         Row: { id: string; registration_id: string; tournament_id: string; user_id: string; is_reserve: boolean; played: boolean | null; waiver_accepted_at: string | null; waiver_version: string | null; rules_accepted_at: string | null; rules_version: string | null; player_answers: Json; confirmed_at: string | null; created_at: string };
         Insert: { id?: string; registration_id: string; tournament_id: string; user_id: string; is_reserve?: boolean; played?: boolean | null; waiver_accepted_at?: string | null; waiver_version?: string | null; rules_accepted_at?: string | null; rules_version?: string | null; player_answers?: Json; confirmed_at?: string | null; created_at?: string };
         Update: { is_reserve?: boolean; played?: boolean | null; waiver_accepted_at?: string | null; waiver_version?: string | null; rules_accepted_at?: string | null; rules_version?: string | null; player_answers?: Json; confirmed_at?: string | null };
+        Relationships: [];
+      };
+      tournament_substitution_requests: {
+        Row: { id: string; tournament_id: string; registration_id: string; team_id: string | null; requested_by: string; player_out: string; player_in: string; status: string; note: string | null; expires_at: string | null; decided_at: string | null; created_at: string };
+        Insert: { id?: string; tournament_id: string; registration_id: string; team_id?: string | null; requested_by: string; player_out: string; player_in: string; status?: string; note?: string | null; expires_at?: string | null; decided_at?: string | null; created_at?: string };
+        Update: { status?: string; note?: string | null; expires_at?: string | null; decided_at?: string | null };
         Relationships: [];
       };
       tournament_payments: {
@@ -1946,6 +1952,10 @@ export interface Database {
       global_search: {
         Args: { p_q: string; p_limit?: number };
         Returns: { kind: string; id: string; title: string; subtitle: string | null; rank: number }[];
+      };
+      accept_substitution: {
+        Args: { p_request_id: string; p_answers: Json; p_accept_waiver: boolean; p_accept_rules: boolean };
+        Returns: Json;
       };
       courts_finder: {
         Args: { p_lat: number; p_lng: number; p_radius_mi: number };

@@ -275,7 +275,7 @@ function TopSearchInner() {
           <div className="max-h-[60vh] overflow-y-auto p-1.5">
             {aiActive && ai.state === "loading" ? (
               <p className="flex items-center gap-2 px-2.5 py-1.5 font-mono text-[10px] font-semibold tracking-[0.12em] text-faint">
-                <Loader2 size={11} className="animate-spin" /> CHECKING EVERYTHING…
+                <Loader2 size={11} className="animate-spin" /> Searching…
               </p>
             ) : null}
             {aiActive && ai.state === "done" && ai.result ? (

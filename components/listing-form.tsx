@@ -35,7 +35,7 @@ const field =
   "h-[40px] w-full rounded-[10px] border border-rule-2 bg-surface px-3 text-[13px] text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15";
 const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint";
 
-export function ListingForm({ formMode, initial, defaultZip }: { formMode: "create" | "edit"; initial?: ListingInitial; defaultZip?: string | null }) {
+export function ListingForm({ formMode, initial, defaultZip, defaultSport = null }: { formMode: "create" | "edit"; initial?: ListingInitial; defaultZip?: string | null; defaultSport?: string | null }) {
   const [state, formAction, pending] = useActionState(formMode === "create" ? createListing : updateListing, null);
 
   // ── photos ─────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ export function ListingForm({ formMode, initial, defaultZip }: { formMode: "crea
             </label>
             <label className="block">
               <span className="mb-1 block text-[12px] font-semibold text-ink-soft">Sport</span>
-              <select name="sport" defaultValue={initial?.sport ?? "multi"} className={field}>
+              <select name="sport" defaultValue={initial?.sport ?? defaultSport ?? "multi"} className={field}>
                 {SPORTS.map((s) => (
                   <option key={s.key} value={s.key}>{sportMeta(s.key).emoji} {s.name}</option>
                 ))}

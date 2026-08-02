@@ -2,32 +2,46 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Search, Users, ChevronRight, Loader2, Check } from "lucide-react";
 import { searchTeams } from "./actions";
 import type { TeamCard } from "./types";
 import { SPORTS, sportMeta } from "@/lib/sports";
 import { TeamCrest } from "@/components/team-crest";
 
-export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
-  const [q, setQ] = useState("");
+export function TeamDiscovery({
+  initial,
+  initialSport = null,
+  initialSpots = null,
+  initialQ = null,
+}: {
+  initial: TeamCard[];
+  initialSport?: string | null;
+  initialSpots?: number | null;
+  initialQ?: string | null;
+}) {
+  const [q, setQ] = useState(initialQ ?? "");
   const [list, setList] = useState<TeamCard[]>(initial);
-  const [sport, setSport] = useState<string>("all");
+  const [sport, setSport] = useState<string>(initialSport ?? "all");
+  const [spots, setSpots] = useState<number>(initialSpots ?? 0);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
   const reqId = useRef(0);
   const mounted = useRef(false);
 
   useEffect(() => {
     const term = q.trim();
-    // Don't refetch on mount — the server already gave us the nearby list.
+    // Don't refetch on mount — the server already applied the URL filters.
     if (!mounted.current) {
       mounted.current = true;
-      if (!term) return;
+      return;
     }
     const id = ++reqId.current;
     const t = setTimeout(
       async () => {
         if (id === reqId.current) setLoading(true);
-        const r = await searchTeams(term);
+        const r = await searchTeams(term, { sport: sport === "all" ? null : sport });
         if (id === reqId.current) {
           setList(r);
           setLoading(false);
@@ -36,11 +50,35 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
       term ? 220 : 0,
     );
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, sport]);
 
-  const filtered = sport === "all" ? list : list.filter((t) => t.sport_key === sport);
-  // Only offer filter chips for sports that actually appear in the current list.
-  const presentSports = SPORTS.filter((s) => list.some((t) => t.sport_key === s.key));
+  // URL SYNC (lib/filter-params vocabulary): the address bar always reflects
+  // the active filters, so any moment of this page is shareable and the AI's
+  // deep links and the on-page controls stay one system. /teams owns exactly
+  // sport/spots/q — built fresh each time, replace() keeps history clean.
+  const urlMounted = useRef(false);
+  useEffect(() => {
+    if (!urlMounted.current) {
+      urlMounted.current = true;
+      return;
+    }
+    const p = new URLSearchParams();
+    if (sport !== "all") p.set("sport", sport);
+    if (spots > 0) p.set("spots", String(spots));
+    const term = q.trim();
+    if (term) p.set("q", term);
+    const qs = p.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [q, sport, spots, pathname, router]);
+
+  const openingsOf = (t: TeamCard) => (t.maxSize != null ? Math.max(0, t.maxSize - t.memberCount) : null);
+  const bySport = sport === "all" ? list : list.filter((t) => t.sport_key === sport);
+  // Unknown-cap teams can't prove open spots — excluded only when the user
+  // asked for openings (same rule as the AI teams tool).
+  const filtered = spots > 0 ? bySport.filter((t) => { const o = openingsOf(t); return o != null && o >= spots; }) : bySport;
+  // The full catalog, always: with server-side sport narrowing, deriving chips
+  // from the visible list would hide every other sport after one click.
+  const presentSports = SPORTS;
 
   return (
     <div>
@@ -70,7 +108,7 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
                 key={s.key}
                 type="button"
                 onClick={() => setSport(s.key)}
-                className={`press rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`press rounded-[9px] border px-3 py-1.5 text-xs font-semibold transition-colors ${
                   active ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-mute hover:text-ink"
                 }`}
               >
@@ -81,9 +119,38 @@ export function TeamDiscovery({ initial }: { initial: TeamCard[] }) {
         </div>
       ) : null}
 
+      {/* Open-spots filter — mirrors the AI tool's open_spots_min concept. */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">Open spots</span>
+        {[
+          { v: 0, label: "Any" },
+          { v: 1, label: "1+" },
+          { v: 2, label: "2+" },
+          { v: 3, label: "3+" },
+        ].map((o) => {
+          const active = spots === o.v;
+          return (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => setSpots(o.v)}
+              className={`press rounded-[9px] border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                active ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-mute hover:text-ink"
+              }`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+
       {filtered.length === 0 ? (
         <p className="mt-6 rounded-2xl border border-dashed border-rule bg-bg/40 px-4 py-10 text-center text-sm text-mute">
-          {q.trim() ? `No teams match “${q.trim()}”.` : "No teams near you yet — be the first to start one above."}
+          {q.trim()
+            ? `No teams match “${q.trim()}”.`
+            : spots > 0
+              ? `No teams with ${spots}+ open spot${spots === 1 ? "" : "s"} right now — try Any.`
+              : "No teams near you yet — be the first to start one above."}
         </p>
       ) : (
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

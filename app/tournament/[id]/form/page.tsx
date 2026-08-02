@@ -16,7 +16,7 @@ export default async function SignupFormPage({ params }: { params: Promise<{ id:
 
   const { data: fields } = await supabase
     .from("tournament_custom_fields")
-    .select("id, label, description, field_type, options, required, scope, sort_order")
+    .select("id, label, description, field_type, options, required, scope, sort_order, reask_on_substitution")
     .eq("tournament_id", id)
     .order("sort_order");
   const entryType = t.entry_type === "individual" ? "individual" : "team";
@@ -29,6 +29,7 @@ export default async function SignupFormPage({ params }: { params: Promise<{ id:
     required: f.required,
     scope: f.scope,
     sort_order: f.sort_order,
+    reask_on_substitution: f.reask_on_substitution,
   }));
 
   return (
