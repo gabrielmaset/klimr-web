@@ -55,11 +55,18 @@ const rawQuery = (one("zip") ?? profile?.home_zip ?? "").trim();
   // through geocoding. No origin → the finder renders its search-first state.
   let origin: { lat: number; lng: number } | null = null;
   let originLabel = rawQuery;
+  // "Use my location" carries the browser's precise fix as ?ll= — it wins
+  // over the ZIP centroid (which can sit a mile from the actual person).
+  const llMatch = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec((one("ll") ?? "").trim());
+  const ll = llMatch ? { lat: Number(llMatch[1]), lng: Number(llMatch[2]) } : null;
   const zipHit = /^\d{5}$/.test(rawQuery) ? lookupZip(rawQuery) : null;
-  if (zipHit) {
+  if (ll) {
+    origin = ll;
+    originLabel = "Your location";
+  } else if (zipHit) {
     origin = { lat: zipHit.lat, lng: zipHit.lng };
     originLabel = rawQuery;
-  } else if (rawQuery.length >= 3) {
+  } else if (!origin && rawQuery.length >= 3) {
     const g = await geocodeAddress(rawQuery);
     if (g) {
       origin = g;
@@ -149,6 +156,7 @@ const rawQuery = (one("zip") ?? profile?.home_zip ?? "").trim();
     <CourtsFinder
       initial={{
         zip: rawQuery,
+        ll: ll ? `${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}` : "",
         radius,
         sport: sportParam,
         venue: one("venue") === "indoor" || one("venue") === "outdoor" ? (one("venue") as "indoor" | "outdoor") : "any",

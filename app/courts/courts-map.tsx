@@ -7,6 +7,10 @@ import Link from "next/link";
 import { Navigation } from "lucide-react";
 import type { FinderCourt } from "./courts-finder";
 
+/** Map rows may include live-found venues that have no directory page yet —
+ *  their callout links to the venue's website instead of a dead /courts/id. */
+type MapCourt = FinderCourt & { liveFound?: boolean; website?: string | null };
+
 const FALLBACK: [number, number] = [-118.44, 34.02];
 
 /* ── Daylight recolor: per-layer isolation so one incompatible paint property
@@ -96,7 +100,7 @@ export function CourtsMap({
   onHover,
 }: {
   token: string | null;
-  courts: FinderCourt[];
+  courts: MapCourt[];
   origin: { lat: number; lng: number } | null;
   radiusMi: number;
   originLabel: string;
@@ -121,7 +125,7 @@ export function CourtsMap({
   const [debugOn, setDebugOn] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [satellite, setSatellite] = useState(false);
-  const [callout, setCallout] = useState<{ x: number; y: number; court: FinderCourt } | null>(null);
+  const [callout, setCallout] = useState<{ x: number; y: number; court: MapCourt } | null>(null);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -446,12 +450,32 @@ export function CourtsMap({
               : ""}
           </p>
           <div className="pointer-events-auto mt-2 flex items-center gap-1.5">
-            <Link
-              href={`/courts/${callout.court.id}`}
-              className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white hover:bg-[#E23E0D]"
-            >
-              View court
-            </Link>
+            {callout.court.liveFound ? (
+              callout.court.website ? (
+                <a
+                  href={callout.court.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white hover:bg-[#E23E0D]"
+                >
+                  Website
+                </a>
+              ) : (
+                <Link
+                  href="/courts/suggest"
+                  className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white hover:bg-[#E23E0D]"
+                >
+                  Add to Klimr
+                </Link>
+              )
+            ) : (
+              <Link
+                href={`/courts/${callout.court.id}`}
+                className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white hover:bg-[#E23E0D]"
+              >
+                View court
+              </Link>
+            )}
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${callout.court.lat},${callout.court.lng}`}
               target="_blank"

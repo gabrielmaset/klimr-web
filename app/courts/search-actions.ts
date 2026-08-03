@@ -116,6 +116,7 @@ async function placesSearch(
   lng: number,
   radiusKm: number,
   key: string,
+  rank: "RELEVANCE" | "DISTANCE" = "RELEVANCE",
 ): Promise<RawPlace[]> {
   const resp = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",
@@ -129,6 +130,7 @@ async function placesSearch(
       textQuery: query,
       maxResultCount: 20,
       locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: Math.min(50000, radiusKm * 1000) } },
+      ...(rank === "DISTANCE" ? { rankPreference: "DISTANCE" } : {}),
     }),
   });
   if (!resp.ok) {
@@ -168,13 +170,66 @@ async function placesSearch(
     .slice(0, 20);
 }
 
-/* Claude de-noises the candidates into a reliable, sport-specific list. */
+/** Sport keywords for evidence checks (lowercase substring match). */
+const SPORT_TOKENS: Record<string, string[]> = {
+  tennis: ["tennis"],
+  pickleball: ["pickleball", "pickle ball"],
+  padel: ["padel"],
+  racquetball: ["racquetball", "racquet ball"],
+  beach_volleyball: ["beach volleyball", "sand volleyball", "volleyball"],
+};
+
+export type Evidence = { nameHit: boolean; siteHit: boolean; snippet: string | null };
+
+/** EVIDENCE, not vibes: nameHit = the venue's own name says the sport;
+ *  siteHit = the venue's own website says it (fetched with a hard timeout,
+ *  first ~60KB, snippet captured around the first mention). Text-search
+ *  relevance alone is how a rec center WITHOUT racquetball ends up in a
+ *  racquetball search — this layer is what stops it. */
+async function gatherEvidence(candidates: RawPlace[], sport: string): Promise<Map<string, Evidence>> {
+  const tokens = SPORT_TOKENS[sport] ?? [sportMeta(sport).name.toLowerCase()];
+  const out = new Map<string, Evidence>();
+  for (const c of candidates) {
+    const name = c.name.toLowerCase();
+    out.set(c.id, { nameHit: tokens.some((k) => name.includes(k)), siteHit: false, snippet: null });
+  }
+  // Fetch websites only where the name alone doesn't prove it (cap 12).
+  const toFetch = candidates.filter((c) => !out.get(c.id)!.nameHit && c.website).slice(0, 12);
+  await Promise.all(
+    toFetch.map(async (c) => {
+      try {
+        const resp = await fetch(c.website!, {
+          signal: AbortSignal.timeout(4000),
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; KlimrCourtBot/1.0)" },
+        });
+        if (!resp.ok) return;
+        const html = (await resp.text()).slice(0, 60000).toLowerCase();
+        for (const k of tokens) {
+          const i = html.indexOf(k);
+          if (i >= 0) {
+            const raw = html.slice(Math.max(0, i - 90), i + k.length + 90).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+            const ev = out.get(c.id)!;
+            ev.siteHit = true;
+            ev.snippet = raw.slice(0, 180);
+            break;
+          }
+        }
+      } catch {
+        /* site down or slow — no evidence gained, nothing broken */
+      }
+    }),
+  );
+  return out;
+}
+
+/* Claude judges the EVIDENCE into a reliable, sport-specific list. */
 async function aiFilter(
   candidates: RawPlace[],
   sport: string,
   model: string,
   key: string,
-): Promise<Map<string, { keep: boolean; private: boolean }> | null> {
+  evidence: Map<string, Evidence>,
+): Promise<Map<string, { keep: boolean; private: boolean; name?: string }> | null> {
   const compact = candidates.map((c) => ({
     id: c.id,
     name: c.name,
@@ -185,25 +240,30 @@ async function aiFilter(
     address: c.address,
     lat: Math.round(c.lat * 1e5) / 1e5,
     lng: Math.round(c.lng * 1e5) / 1e5,
+    nameHit: evidence.get(c.id)?.nameHit ?? false,
+    siteHit: evidence.get(c.id)?.siteHit ?? false,
+    siteSnippet: evidence.get(c.id)?.snippet ?? null,
   }));
   const system =
-    `You screen raw map-search results and return only genuine, currently-operating ${sport} courts a player could realistically show up to and play at. ` +
-    `Each candidate has: id, name, primaryType, types, rating, ratingCount, address, lat, lng. For each, decide keep (true/false) and private (true/false).\n\n` +
-    `DROP (keep:false):\n` +
-    `- Not a ${sport} facility: sporting-goods or retail stores, equipment/apparel brands, general gyms or fitness studios with no ${sport} courts, trampoline parks, restaurants, hotels, offices, or anything you wouldn't play ${sport} at.\n` +
-    `- Closed or defunct: names containing "closed", "permanently closed", "temporarily closed", "former", or otherwise clearly not operating.\n` +
-    `- Not a place to play: governing bodies, associations, leagues, academies/coaching or lesson businesses with no actual courts, stringing or pro-shop services, tournament listings.\n` +
+    `You verify EVIDENCE and return only venues PROVEN to have ${sport} — a player must be able to show up and play ${sport} there today. ` +
+    `Each candidate has: id, name, primaryType, types, rating, ratingCount, address, lat, lng, and evidence fields: nameHit (its own name says ${sport}), siteHit (its own website mentions ${sport}), siteSnippet (the exact text found). For each, decide keep (true/false) and private (true/false); optionally return name (a cleaned venue name).\n\n` +
+    `THE EVIDENCE RULE — this outranks everything else:\n` +
+    `- KEEP only with concrete proof: nameHit is true, or siteHit is true with a snippet that genuinely refers to playable ${sport} courts/facilities at THIS venue, or the name unambiguously identifies a dedicated ${sport} venue.\n` +
+    `- A recreation center, park, gym, club, or "sports center" with NO evidence MUST be dropped — map searches rank many such places that do not actually have ${sport}. Plausibility is not proof.\n` +
+    `- A snippet that mentions ${sport} only as merchandise, a class elsewhere, a blog tag, or another location is NOT proof.\n\n` +
+    `ALSO DROP (keep:false):\n` +
+    `- Retail/equipment/apparel, restaurants, hotels, offices, governing bodies, leagues, academies or lesson businesses without courts, pro shops, tournament listings.\n` +
+    `- Closed or defunct: names containing "closed", "permanently closed", "temporarily closed", "former".\n` +
+    `- Wrong sport entirely (e.g. paddle-tennis or squash venues in a ${sport} search) unless evidence shows they ALSO have ${sport}.\n` +
     `- Duplicates of a venue already kept (see DEDUPE).\n\n` +
-    `KEEP (keep:true):\n` +
-    `- Real, playable ${sport} courts: public parks and recreation/community centers that have ${sport} courts, dedicated ${sport} clubs, and school/university courts that are open to the public. Municipal "Recreation Center" facilities that offer ${sport} are premier keeps — never drop one for having a generic name.\n` +
-    `- Membership gyms and athletic clubs (e.g. big-chain fitness clubs) that genuinely have ${sport} courts: keep:true with private:true — for racquetball especially, most real courts live inside gyms and rec centers.\n\n` +
-    `PRIVATE (private:true, but still keep): members-only or private clubs, country clubs, gated-community / HOA / apartment courts.\n\n` +
+    `PRIVATE (private:true, but still keep WHEN EVIDENCED): members-only clubs, membership gyms with proven ${sport} courts, country clubs, gated-community / HOA courts.\n\n` +
+    `NAME (optional): when a kept listing is a sub-amenity of the real venue (e.g. "Westwood Recreation Center pool"), return name as the clean venue name ("Westwood Recreation Center"). Never invent names.\n\n` +
     `DEDUPE — return AT MOST ONE result per physical venue:\n` +
     `- Treat candidates as the same venue when they share an address, sit within ~150 m of each other (compare lat/lng), or when one name is the other plus a qualifier (e.g. "Mar Vista Recreation Center" vs "Mar Vista Recreation Center Tennis Courts").\n` +
     `- Among same-venue candidates keep EXACTLY ONE and set keep:false on the rest. Prefer the entry that most specifically represents the bookable ${sport} courts — a "... ${sport} Courts" / "... Courts" entry over the generic parent park or rec-center. If none is sport-specific, keep the one with the most ratings. The generic parent should be dropped when a court-specific entry for the same place is present.\n` +
     `- Never return two results that point to the same place.\n\n` +
-    `Be decisive but not overly strict: when a candidate is plausibly a real ${sport} court, keep it. ` +
-    `Reply with ONLY a JSON object, no prose: {"results":[{"id":"<id>","keep":true,"private":false}]}. Include every input id exactly once.`;
+    `When evidence is absent, DROP — a shorter true list beats a longer doubtful one. ` +
+    `Reply with ONLY a JSON object, no prose: {"results":[{"id":"<id>","keep":true,"private":false,"name":"optional cleaned name"}]}. Include every input id exactly once.`;
   try {
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -235,9 +295,15 @@ async function aiFilter(
     const end = cleaned.lastIndexOf("}");
     if (start < 0 || end < 0) return null;
     const parsed = JSON.parse(cleaned.slice(start, end + 1));
-    const map = new Map<string, { keep: boolean; private: boolean }>();
+    const map = new Map<string, { keep: boolean; private: boolean; name?: string }>();
     for (const r of parsed?.results ?? []) {
-      if (r && typeof r.id === "string") map.set(r.id, { keep: r.keep !== false, private: r.private === true });
+      if (r && typeof r.id === "string") {
+        map.set(r.id, {
+          keep: r.keep !== false,
+          private: r.private === true,
+          ...(typeof r.name === "string" && r.name.trim().length > 2 ? { name: r.name.trim().slice(0, 80) } : {}),
+        });
+      }
     }
     return map;
   } catch (err) {
@@ -246,7 +312,7 @@ async function aiFilter(
   }
 }
 
-export async function searchCourts(input: { locationKey: string; radiusKm: number; sport: string }): Promise<SearchResponse> {
+export async function searchCourts(input: { locationKey: string; radiusKm: number; sport: string; lat?: number; lng?: number }): Promise<SearchResponse> {
   const sb = await createClient();
   const {
     data: { user },
@@ -260,9 +326,14 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     return { status: "bad_input", courts: [], source: "none", message: "Pick a sport." };
   }
 
-  // Resolve the location (a ZIP or a "city|state" key) to a centroid from the
-  // local US dataset — free, offline, and it validates existence in one step.
-  const place = resolveLocationData(String(input.locationKey ?? ""));
+  // Origin: precise coordinates when provided ("Use my location" sends the
+  // browser's actual fix — never a ZIP-centroid snap a mile away); otherwise
+  // resolve the ZIP/city key from the local US dataset. Coords cache under a
+  // ~1-km bucket so nearby fixes share an envelope.
+  const hasLL = Number.isFinite(input.lat) && Number.isFinite(input.lng);
+  const place = hasLL
+    ? { key: `ll:${input.lat!.toFixed(2)},${input.lng!.toFixed(2)}`, lat: input.lat!, lng: input.lng! }
+    : resolveLocationData(String(input.locationKey ?? ""));
   if (!place) {
     return { status: "bad_input", courts: [], source: "none", message: "That location isn't recognized." };
   }
@@ -326,7 +397,12 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   let candidates: RawPlace[] = [];
   try {
     const queries = QUERY_FOR[sport] ?? [`${sportMeta(sport).name.toLowerCase()} court`];
-    const batches = await Promise.all(queries.map((q) => placesSearch(q, center.lat, center.lng, WIDE_KM, googleKey)));
+    // Relevance passes for each phrasing + one DISTANCE pass on the primary
+    // phrasing: nearby municipal courts must never lose to far, famous clubs.
+    const batches = await Promise.all([
+      ...queries.map((q) => placesSearch(q, center.lat, center.lng, WIDE_KM, googleKey)),
+      placesSearch(queries[0], center.lat, center.lng, WIDE_KM, googleKey, "DISTANCE"),
+    ]);
     const seen = new Set<string>();
     candidates = batches
       .flat()
@@ -342,12 +418,18 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   if (candidates.length === 0) {
     wide = [];
   } else {
-    const verdicts = await aiFilter(candidates, sport, model, anthropicKey);
+    const evidence = await gatherEvidence(candidates, sport);
+    const verdicts = await aiFilter(candidates, sport, model, anthropicKey, evidence);
     wide = candidates
-      .filter((c) => (verdicts ? verdicts.get(c.id)?.keep !== false : true)) // AI down → keep pre-filtered list
+      .filter((c) => {
+        if (verdicts) return verdicts.get(c.id)?.keep !== false;
+        // AI down → the deterministic evidence gate stands in: proof or drop.
+        const ev = evidence.get(c.id);
+        return !!(ev?.nameHit || ev?.siteHit);
+      })
       .map((c) => ({
         id: c.id,
-        name: c.name,
+        name: verdicts?.get(c.id)?.name ?? c.name,
         lat: c.lat,
         lng: c.lng,
         address: c.address,
@@ -407,9 +489,15 @@ export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Prom
   if (all.length && process.env.ANTHROPIC_API_KEY) {
     const seen = new Set<string>();
     const uniq = all.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true))).slice(0, 30);
-    const verdicts = await aiFilter(uniq, sport, process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT, process.env.ANTHROPIC_API_KEY);
-    kept = verdicts ? uniq.filter((c) => verdicts.get(c.id)?.keep !== false).length : uniq.length;
-    report.push(`AI screen: ${verdicts ? `${kept} of ${uniq.length} kept` : "unavailable — pre-filtered list used"}`);
+    const evidence = await gatherEvidence(uniq, sport);
+    const nHits = uniq.filter((c) => evidence.get(c.id)?.nameHit).length;
+    const sHits = uniq.filter((c) => evidence.get(c.id)?.siteHit).length;
+    report.push(`evidence: ${nHits} name-proven, ${sHits} website-proven (of ${uniq.length})`);
+    const verdicts = await aiFilter(uniq, sport, process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT, process.env.ANTHROPIC_API_KEY, evidence);
+    const keptRows = verdicts ? uniq.filter((c) => verdicts.get(c.id)?.keep !== false) : uniq.filter((c) => evidence.get(c.id)?.nameHit || evidence.get(c.id)?.siteHit);
+    kept = keptRows.length;
+    report.push(`AI evidence judge: ${verdicts ? `${kept} of ${uniq.length} kept` : `unavailable — deterministic evidence gate kept ${kept}`}`);
+    if (keptRows.length) report.push(`kept: ${keptRows.slice(0, 6).map((c) => verdicts?.get(c.id)?.name ?? c.name).join(" | ")}`);
   }
   const adminDb = createAdminClient();
   const { data: cacheRow } = await adminDb

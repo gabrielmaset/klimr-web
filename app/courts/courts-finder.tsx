@@ -42,6 +42,8 @@ type Row = FinderCourt & { liveFound?: boolean; website?: string | null; isPriva
 
 type Filters = {
   zip: string;
+  /** Precise "lat,lng" from Use-my-location — beats the ZIP-centroid snap. */
+  ll: string;
   radius: number;
   sport: string;
   venue: "any" | "outdoor" | "indoor";
@@ -106,6 +108,7 @@ export function CourtsFinder({
     setSelectedId(null); // spec: any filter/sort change clears the selection
     const q = new URLSearchParams();
     if (next.zip) q.set("zip", next.zip);
+    if (next.ll) q.set("ll", next.ll);
     if (next.radius !== 10) q.set("radius", String(next.radius));
     if (next.sport !== "all") q.set("sport", next.sport);
     if (next.venue !== "any") q.set("venue", next.venue);
@@ -125,8 +128,16 @@ export function CourtsFinder({
   const [liveBusy, startLiveT] = useTransition();
   const startLiveSearch = (next: Filters) =>
     startLiveT(async () => {
+      const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(next.ll ?? "");
       try {
-        setLive(await searchCourts({ locationKey: next.zip, radiusKm: Math.max(2, Math.round(next.radius * 1.609)), sport: next.sport }));
+        setLive(
+          await searchCourts({
+            locationKey: next.zip,
+            radiusKm: Math.max(2, Math.round(next.radius * 1.609)),
+            sport: next.sport,
+            ...(m ? { lat: Number(m[1]), lng: Number(m[2]) } : {}),
+          }),
+        );
       } catch {
         setLive({ status: "error", courts: [], source: "none", message: "Live search failed — try again in a moment." });
       }
@@ -149,7 +160,7 @@ export function CourtsFinder({
     if (reload || "sport" in patch || "radius" in patch) runLive(next);
   };
 
-  const findCourts = () => set({ zip: zipDraft.trim() }, true);
+  const findCourts = () => set({ zip: zipDraft.trim(), ll: "" }, true);
 
   // Landing with ?sport= in the URL (a deep link or a retry) searches live
   // immediately — no extra click required.
@@ -160,17 +171,19 @@ export function CourtsFinder({
   const useMyLocation = () => {
     if (!navigator.geolocation || locating) return;
     setLocating(true);
+    // High-accuracy fix, and the EXACT coordinates become the origin — the
+    // old flow snapped to the nearest ZIP's centroid, which in a big ZIP put
+    // "your location" a mile away. The ZIP is now display + cache only.
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        const ll = `${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`;
         const { zip } = await reverseToZip({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setLocating(false);
-        if (zip) {
-          setZipDraft(zip);
-          set({ zip }, true);
-        }
+        if (zip) setZipDraft(zip);
+        set({ zip: zip ?? f.zip, ll }, true);
       },
       () => setLocating(false),
-      { timeout: 8000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   };
 
@@ -544,7 +557,7 @@ export function CourtsFinder({
 
           <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-snug text-faint">
             <ShieldCheck size={13} className="mt-px shrink-0" />
-            Every listing is confirmed by a Klimr player before it appears. Report anything closed or wrong from the court page.
+            Every result is screened against real evidence — the venue’s own name and website — before it appears. Spot something wrong? Report it from the court page.
           </p>
         </div>
 
@@ -601,10 +614,7 @@ function CourtCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[14.5px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
-            {c.liveFound ? (
-              <span className="inline-flex items-center rounded-md bg-tint-brand px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-flame-text">FOUND LIVE · UNCONFIRMED</span>
-            ) : null}
-            {c.liveFound && c.isPrivate ? (
+            {c.isPrivate ? (
               <span className="rounded-md bg-bg px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-faint">PRIVATE / MEMBERS</span>
             ) : null}
             {c.liveQueue ? (
