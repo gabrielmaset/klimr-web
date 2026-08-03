@@ -44,15 +44,20 @@ const WHEN_SEGMENTS: { key: WhenKey; label: string }[] = [
   { key: "weekends", label: "Weekends" },
 ];
 
-/** Anytime matches satisfy every window — they're literally "whenever". */
-function inWhen(iso: string | null, when: WhenKey, date: string): boolean {
-  if (!iso) return true;
+/** Local YYYY-MM-DD (not UTC — after 5 PM Pacific the UTC date is tomorrow). */
+const localYMD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Anytime matches satisfy every window — they're literally "whenever".
+ *  `now` is the CLIENT clock, null during SSR/hydration: time filtering
+ *  waits for the browser so the server and client render identical trees
+ *  (the React #418 hydration flood on /play). */
+function inWhen(iso: string | null, when: WhenKey, date: string, now: Date | null): boolean {
+  if (!iso || !now) return true;
   const d = new Date(iso);
   if (when === "date" && date) {
     const [y, mo, da] = date.split("-").map(Number);
     return d.getFullYear() === y && d.getMonth() === mo - 1 && d.getDate() === da;
   }
-  const now = new Date();
   if (when === "today") return d.toDateString() === now.toDateString();
   if (when === "week") {
     const end = new Date(now);
@@ -87,6 +92,16 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
   const sort = sp.get("sort") ?? "soon";
 
   const [menu, setMenu] = useState<null | "sport" | "court" | "date">(null);
+  // Client clock — null until mounted (hydration-safe), then ticking.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const t0 = setTimeout(() => setNow(new Date()), 0);
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(t);
+    };
+  }, []);
   const [sportQ, setSportQ] = useState("");
   const [courtQ, setCourtQ] = useState("");
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -115,7 +130,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
       (m) =>
         (skip === "sport" || !sport || m.sportKey === sport) &&
         (skip === "court" || !court || m.courtId === court) &&
-        inWhen(m.effectiveAt, when, date) &&
+        inWhen(m.effectiveAt, when, date, now) &&
         (!openOnly || m.joinedCount < m.totalSlots),
     );
 
@@ -123,13 +138,13 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
     const c = new Map<string, number>();
     for (const m of base("sport")) c.set(m.sportKey, (c.get(m.sportKey) ?? 0) + 1);
     return c;
-  }, [matches, court, when, date, openOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [matches, court, when, date, openOnly, now]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const courtCounts = useMemo(() => {
     const c = new Map<string, number>();
     for (const m of base("court")) if (m.courtId) c.set(m.courtId, (c.get(m.courtId) ?? 0) + 1);
     return c;
-  }, [matches, sport, when, date, openOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [matches, sport, when, date, openOnly, now]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const results = useMemo(() => {
     const list = base(null);
@@ -140,7 +155,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
       list.sort((a, b) => Math.max(0, b.totalSlots - b.joinedCount) - Math.max(0, a.totalSlots - a.joinedCount) || bySoon(a, b));
     else list.sort(bySoon);
     return list;
-  }, [matches, sport, court, when, date, openOnly, sort]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [matches, sport, court, when, date, openOnly, sort, now]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeSport = SPORTS.find((s) => s.key === sport) ?? null;
   const activeCourt = courts.find((c) => c.id === court) ?? null;
@@ -316,7 +331,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
                     ref={dateInputRef}
                     type="date"
                     value={date}
-                    min={new Date().toISOString().slice(0, 10)}
+                    min={now ? localYMD(now) : undefined}
                     onChange={(e) => set({ date: e.target.value || null, when: null })}
                     aria-label="Show matches on a date"
                     className="w-full rounded-[10px] border border-rule bg-bg px-2.5 py-2 font-mono text-[13px] text-ink outline-none focus:border-brand"
@@ -395,7 +410,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
         ) : (
           <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(330px, 1fr))" }}>
             {results.map((m) => (
-              <MatchCard key={m.id} m={m} viewer={viewer} />
+              <MatchCard key={m.id} m={m} viewer={viewer} now={now} />
             ))}
           </div>
         )}

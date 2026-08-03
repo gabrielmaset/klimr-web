@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
 import { requireAdmin } from "@/lib/admin";
+import { after } from "next/server";
 import { lookupZip, resolveLocation as resolveLocationData, suggestCities as suggestCitiesData } from "@/lib/us-places";
 
 /* ------------------------------------------------------------------ *
@@ -35,6 +36,8 @@ export type CourtResult = {
   private: boolean;
   sport: string;
   website: string | null;
+  /** Klimr source-checked this venue for this sport (court_sport_intel). */
+  verified?: boolean;
 };
 
 export type SearchStatus = "ok" | "empty" | "not_configured" | "capped" | "bad_input" | "no_location" | "error";
@@ -60,12 +63,6 @@ const TYPE_FOR: Record<string, string[]> = {
   tennis: ["tennis_court"],
 };
 
-/** Nearby-Search venue sweep: the Table A types where courts physically
- *  live. This is the RECALL layer text search kept missing — a municipal
- *  "Recreation Center" (community_center) never needs to rank for a text
- *  query to enter the candidate pool; the evidence layer then decides. */
-const SWEEP_TYPES = ["community_center", "sports_complex", "sports_club", "fitness_center", "gym", "athletic_field"];
-
 const QUERY_FOR: Record<string, string[]> = {
   tennis: ["tennis court"],
   pickleball: ["pickleball court"],
@@ -85,7 +82,20 @@ const QUERY_FOR: Record<string, string[]> = {
 // COURTS_AI_MODEL env var in Vercel — no code change needed). And if the model is
 // ever unavailable for any reason, aiFilter() degrades gracefully: Courts still
 // returns the Google-screened list, only without the AI de-noise pass.
-const COURTS_AI_MODEL_DEFAULT = "claude-haiku-4-5-20251001";
+/** Sonnet by default: the screen leans on real-world knowledge of actual
+ *  venues (does THIS rec center have racquetball?), which is exactly where
+ *  the larger model earns its cost — one call per search, cached for days. */
+const COURTS_AI_MODEL_DEFAULT = "claude-sonnet-4-6";
+/** Cheap fast extractor for the post-response website verifier. */
+const COURTS_EXTRACT_MODEL_DEFAULT = "claude-haiku-4-5-20251001";
+/** Verification freshness per verdict — venues change (closures, courts
+ *  converted to other sports), so nothing is trusted forever: expired
+ *  verdicts downgrade to hints and trigger automatic re-verification.
+ *  Unknowns retry soonest (we learned nothing); denials get the longest
+ *  window (facilities appear less often than they disappear). */
+const INTEL_FRESH_DAYS: Record<string, number> = { confirmed: 60, denied: 90, unknown: 14 };
+const intelIsFresh = (verdict: string, checkedAt: string): boolean =>
+  Date.now() - Date.parse(checkedAt) < (INTEL_FRESH_DAYS[verdict] ?? 30) * 86_400_000;
 // The user's chosen radius is LAW: we search it, filter to it, cache per it,
 // and never widen it behind their back (a 32.6-mi result under a 10-mi header
 // is how trust dies). Empty within the radius = say so; the radius chips are
@@ -133,6 +143,7 @@ async function placesNearby(
 ): Promise<RawPlace[]> {
   const resp = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
     method: "POST",
+    signal: AbortSignal.timeout(6000),
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": key,
@@ -166,6 +177,7 @@ async function placesSearch(
 ): Promise<RawPlace[]> {
   const resp = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",
+    signal: AbortSignal.timeout(6000),
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": key,
@@ -230,7 +242,7 @@ function mapPlaces(places: unknown[], lat: number, lng: number, radiusKm: number
   return out.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true))).sort((a, b) => a.distanceKm - b.distanceKm);
 }
 
-/** Sport keywords for evidence checks (lowercase substring match). */
+/** Sport keywords — the deterministic AI-down fallback gate. */
 const SPORT_TOKENS: Record<string, string[]> = {
   tennis: ["tennis"],
   pickleball: ["pickleball", "pickle ball"],
@@ -239,63 +251,139 @@ const SPORT_TOKENS: Record<string, string[]> = {
   beach_volleyball: ["beach volleyball", "sand volleyball", "volleyball"],
 };
 
-export type Evidence = { nameHit: boolean; typeHit: boolean; siteHit: boolean; snippet: string | null };
-
-/** EVIDENCE, not vibes: nameHit = the venue's own name says the sport;
- *  siteHit = the venue's own website says it (fetched with a hard timeout,
- *  first ~60KB, snippet captured around the first mention). Text-search
- *  relevance alone is how a rec center WITHOUT racquetball ends up in a
- *  racquetball search — this layer is what stops it. */
-async function gatherEvidence(candidates: RawPlace[], sport: string): Promise<Map<string, Evidence>> {
-  const tokens = SPORT_TOKENS[sport] ?? [sportMeta(sport).name.toLowerCase()];
-  const typeIds = TYPE_FOR[sport] ?? [];
-  const out = new Map<string, Evidence>();
-  for (const c of candidates) {
-    const name = c.name.toLowerCase();
-    out.set(c.id, {
-      nameHit: tokens.some((k) => name.includes(k)),
-      typeHit: typeIds.length > 0 && c.types.some((tp) => typeIds.includes(tp)),
-      siteHit: false,
-      snippet: null,
+/** Post-response verifier. For up to 5 judge-flagged venues with websites:
+ *  fetch the page (browser UA, 6s cap), strip to text, and have the
+ *  extractor READ it — confirmed only when the page clearly shows the
+ *  sport at THIS venue; denied only when a facilities list plainly omits
+ *  it; unknown otherwise (a failed fetch never becomes a denial).
+ *  Reliability blends verdict source and extractor confidence; verdicts
+ *  persist per (venue, sport) for INTEL_FRESH_DAYS. */
+/** Place Details: editorial summary + up to 5 customer reviews — the
+ *  change-detection source (a venue's site may lag reality; recent reviews
+ *  say what's actually there today). */
+async function placeReviews(placeId: string, key: string): Promise<{ summary: string | null; reviews: { text: string; when: string }[] }> {
+  try {
+    const resp = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+      signal: AbortSignal.timeout(6000),
+      headers: { "X-Goog-Api-Key": key, "X-Goog-FieldMask": "editorialSummary,reviews" },
     });
+    if (!resp.ok) return { summary: null, reviews: [] };
+    const data = await resp.json();
+    const summary = typeof data?.editorialSummary?.text === "string" ? data.editorialSummary.text : null;
+    const reviews = (Array.isArray(data?.reviews) ? data.reviews : [])
+      .map((r: { text?: { text?: string }; relativePublishTimeDescription?: string }) => ({
+        text: typeof r?.text?.text === "string" ? r.text.text.slice(0, 400) : "",
+        when: typeof r?.relativePublishTimeDescription === "string" ? r.relativePublishTimeDescription : "",
+      }))
+      .filter((r: { text: string }) => r.text.length > 0)
+      .slice(0, 5);
+    return { summary, reviews };
+  } catch {
+    return { summary: null, reviews: [] };
   }
-  // Fetch websites only where name/type alone don't prove it (cap 12).
-  const toFetch = candidates.filter((c) => !out.get(c.id)!.nameHit && !out.get(c.id)!.typeHit && c.website).slice(0, 12);
-  await Promise.all(
-    toFetch.map(async (c) => {
-      try {
-        const resp = await fetch(c.website!, {
-          signal: AbortSignal.timeout(4000),
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; KlimrCourtBot/1.0)" },
-        });
-        if (!resp.ok) return;
-        const html = (await resp.text()).slice(0, 60000).toLowerCase();
-        for (const k of tokens) {
-          const i = html.indexOf(k);
-          if (i >= 0) {
-            const raw = html.slice(Math.max(0, i - 90), i + k.length + 90).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-            const ev = out.get(c.id)!;
-            ev.siteHit = true;
-            ev.snippet = raw.slice(0, 180);
-            break;
-          }
-        }
-      } catch {
-        /* site down or slow — no evidence gained, nothing broken */
-      }
-    }),
-  );
-  return out;
 }
 
-/* Claude judges the EVIDENCE into a reliable, sport-specific list. */
+async function verifyVenues(targets: { id: string; name: string; website: string | null }[], sport: string, anthropicKey: string): Promise<void> {
+  try {
+    if (targets.length === 0) return;
+    const googleKey = process.env.GOOGLE_MAPS_API_KEY ?? "";
+    const pages = await Promise.all(
+      targets.map(async (v) => {
+        const [text, details] = await Promise.all([
+          (async (): Promise<string | null> => {
+            if (!v.website) return null;
+            try {
+              const resp = await fetch(v.website, {
+                signal: AbortSignal.timeout(6000),
+                headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36" },
+              });
+              if (!resp.ok) return null;
+              const html = (await resp.text()).slice(0, 120000);
+              const cleaned = html
+                .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                .replace(/<[^>]*>/g, " ")
+                .replace(/\s+/g, " ")
+                .trim()
+                .slice(0, 6000);
+              return cleaned.length > 200 ? cleaned : null;
+            } catch {
+              return null;
+            }
+          })(),
+          googleKey ? placeReviews(v.id, googleKey) : Promise.resolve({ summary: null, reviews: [] }),
+        ]);
+        return { ...v, text, summary: details.summary, reviews: details.reviews };
+      }),
+    );
+    const readable = pages.filter((p) => p.text || p.summary || p.reviews.length > 0);
+    if (readable.length === 0) return;
+    const model = process.env.COURTS_EXTRACT_MODEL || COURTS_EXTRACT_MODEL_DEFAULT;
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: AbortSignal.timeout(15000),
+      headers: { "Content-Type": "application/json", "x-api-key": anthropicKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model,
+        max_tokens: 800,
+        temperature: 0,
+        system:
+          `You verify whether each venue CURRENTLY offers ${sport}, using its webpage text, editorial summary, and customer reviews (with their age). ` +
+          `Source strength: the venue's own page/facilities list is strongest; the editorial summary is moderate; reviews are individually WEAK. ` +
+          `THE CORROBORATION RULE: a single review can NEVER confirm or deny by itself — reviews alone decide only when at least TWO independent reviews clearly agree, and recent reviews outweigh old ones (venues change: courts close, get converted, or get added). ` +
+          `Verdicts: "confirmed" — the page clearly shows ${sport} at this venue, OR ≥2 reviews clearly describe playing ${sport} there. ` +
+          `"denied" — the page's facilities list plainly omits ${sport} where it would belong, OR ≥2 recent reviews clearly state it is gone/closed/converted. ` +
+          `Everything else — a lone review either way, a failed or ambiguous page, mere absence of mention — is "unknown". ` +
+          `Reply ONLY JSON: {"results":[{"id":"<id>","verdict":"confirmed|denied|unknown","confidence":0..1,"evidence":"≤120 chars, note the source (site/summary/reviews)"}]}.`,
+        messages: [{ role: "user", content: JSON.stringify(readable.map((p) => ({ id: p.id, name: p.name, page: p.text, summary: p.summary, reviews: p.reviews }))) }],
+      }),
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const textOut = Array.isArray(data?.content) ? data.content.map((b: { text?: string }) => b?.text ?? "").join("") : "";
+    let parsed: { results?: { id?: string; verdict?: string; confidence?: number; evidence?: string }[] } | null = null;
+    try {
+      parsed = JSON.parse(textOut.replace(/```json|```/g, "").trim());
+    } catch {
+      return;
+    }
+    const admin = createAdminClient();
+    const nowIso = new Date().toISOString();
+    const rows = (parsed?.results ?? [])
+      .filter((r) => r && typeof r.id === "string" && ["confirmed", "denied", "unknown"].includes(r.verdict ?? ""))
+      .map((r) => {
+        const conf = Math.max(0, Math.min(1, Number(r.confidence) || 0));
+        const reliability = r.verdict === "unknown" ? 0.3 : Math.min(0.95, 0.7 + 0.25 * conf);
+        return {
+          place_id: r.id!,
+          sport,
+          verdict: r.verdict!,
+          confidence: conf,
+          reliability,
+          evidence: (r.evidence ?? "").slice(0, 200) || null,
+          source: (() => {
+            const pg = readable.find((x) => x.id === r.id);
+            return [pg?.text ? "venue_website" : null, pg?.summary ? "summary" : null, pg?.reviews.length ? `reviews(${pg.reviews.length})` : null].filter(Boolean).join("+") || "none";
+          })(),
+          checked_at: nowIso,
+        };
+      });
+    if (rows.length) await admin.from("court_sport_intel").upsert(rows, { onConflict: "place_id,sport" });
+  } catch (e) {
+    console.error("[courts] verifyVenues failed", e instanceof Error ? e.message : e);
+  }
+}
+
+/* Claude judges the candidates into a reliable, sport-specific list. */
+type Intel = { verdict: string; confidence: number; evidence: string | null; stale: boolean };
+
 async function aiFilter(
   candidates: RawPlace[],
   sport: string,
   model: string,
   key: string,
-  evidence: Map<string, Evidence>,
-): Promise<Map<string, { keep: boolean; private: boolean; name?: string }> | null> {
+  intel: Map<string, Intel>,
+): Promise<Map<string, { keep: boolean; private: boolean; name?: string; verify?: boolean }> | null> {
   const compact = candidates.map((c) => ({
     id: c.id,
     name: c.name,
@@ -306,34 +394,30 @@ async function aiFilter(
     address: c.address,
     lat: Math.round(c.lat * 1e5) / 1e5,
     lng: Math.round(c.lng * 1e5) / 1e5,
-    nameHit: evidence.get(c.id)?.nameHit ?? false,
-    typeHit: evidence.get(c.id)?.typeHit ?? false,
-    siteHit: evidence.get(c.id)?.siteHit ?? false,
-    siteSnippet: evidence.get(c.id)?.snippet ?? null,
+    distanceKm: Math.round(c.distanceKm * 10) / 10,
+    intel: intel.get(c.id) ?? null,
   }));
   const system =
-    `You verify EVIDENCE and return only venues PROVEN to have ${sport} — a player must be able to show up and play ${sport} there today. ` +
-    `Each candidate has: id, name, primaryType, types, rating, ratingCount, address, lat, lng, and evidence fields: nameHit (its own name says ${sport}), typeHit (Google itself classifies it with a ${sport} place type — decisive proof), siteHit (its own website mentions ${sport}), siteSnippet (the exact text found). For each, decide keep (true/false) and private (true/false); optionally return name (a cleaned venue name).\n\n` +
-    `THE EVIDENCE RULE — this outranks everything else:\n` +
-    `- KEEP only with concrete proof: nameHit is true, or typeHit is true, or siteHit is true with a snippet that genuinely refers to playable ${sport} courts/facilities at THIS venue, or the name unambiguously identifies a dedicated ${sport} venue.\n` +
-    `- A recreation center, park, gym, club, or "sports center" with NO evidence MUST be dropped — map searches rank many such places that do not actually have ${sport}. Plausibility is not proof.\n` +
-    `- A snippet that mentions ${sport} only as merchandise, a class elsewhere, a blog tag, or another location is NOT proof.\n\n` +
+    `You are the screening layer of a courts search engine. Google Places returned candidates for ${sport} near the user; remove the bad results and keep the good ones — the list a knowledgeable local player would hand a friend. ` +
+    `Each candidate has: id, name, primaryType, types, rating, ratingCount, address, lat, lng, distanceKm, and possibly intel: Klimr's PRIOR SOURCE-CHECKED VERIFICATION of this exact venue for ${sport} ({verdict, confidence 0..1, evidence, stale}). FRESH intel (stale:false) is decisive: confirmed → keep (private is still your call); denied → drop. STALE intel is only a hint — lean with it, but set verify:true so it gets re-checked (venues change). For each candidate, decide keep (true/false) and private (true/false); optionally return name (a cleaned venue name); and set verify:true when you are genuinely UNSURE whether the venue offers ${sport} (no intel, and your knowledge doesn't settle it) — Klimr will check that venue's own website after this search.\n\n` +
+    `USE YOUR REAL-WORLD KNOWLEDGE of specific venues whenever you recognize them — including whether a particular recreation center, park, or club actually has ${sport} courts. When you recognize a venue and know it lacks ${sport}, DROP it even if it ranks well. When you don't recognize it, judge from name/type: keep it if it plausibly offers ${sport}; drop it if it's clearly something else.\n\n` +
     `ALSO DROP (keep:false):\n` +
     `- Retail/equipment/apparel, restaurants, hotels, offices, governing bodies, leagues, academies or lesson businesses without courts, pro shops, tournament listings.\n` +
     `- Closed or defunct: names containing "closed", "permanently closed", "temporarily closed", "former".\n` +
     `- Wrong sport entirely (e.g. paddle-tennis or squash venues in a ${sport} search) unless evidence shows they ALSO have ${sport}.\n` +
     `- Duplicates of a venue already kept (see DEDUPE).\n\n` +
-    `PRIVATE (private:true, but still keep WHEN EVIDENCED): members-only clubs, membership gyms with proven ${sport} courts, country clubs, gated-community / HOA courts.\n\n` +
+    `PRIVATE (private:true, but still keep): members-only clubs, membership gyms and athletic clubs with ${sport} courts, country clubs, gated-community / HOA courts.\n\n` +
     `NAME (optional): when a kept listing is a sub-amenity of the real venue (e.g. "Westwood Recreation Center pool"), return name as the clean venue name ("Westwood Recreation Center"). Never invent names.\n\n` +
     `DEDUPE — return AT MOST ONE result per physical venue:\n` +
     `- Treat candidates as the same venue when they share an address, sit within ~150 m of each other (compare lat/lng), or when one name is the other plus a qualifier (e.g. "Mar Vista Recreation Center" vs "Mar Vista Recreation Center Tennis Courts").\n` +
     `- Among same-venue candidates keep EXACTLY ONE and set keep:false on the rest. Prefer the entry that most specifically represents the bookable ${sport} courts — a "... ${sport} Courts" / "... Courts" entry over the generic parent park or rec-center. If none is sport-specific, keep the one with the most ratings. The generic parent should be dropped when a court-specific entry for the same place is present.\n` +
     `- Never return two results that point to the same place.\n\n` +
-    `When evidence is absent, DROP — a shorter true list beats a longer doubtful one. ` +
-    `Reply with ONLY a JSON object, no prose: {"results":[{"id":"<id>","keep":true,"private":false,"name":"optional cleaned name"}]}. Include every input id exactly once.`;
+    `When genuinely unsure, lean keep for public parks/rec centers and lean drop for generic gyms with no ${sport} signal — the list should feel accurate, not padded. ` +
+    `Reply with ONLY a JSON object, no prose: {"results":[{"id":"<id>","keep":true,"private":false,"name":"optional cleaned name","verify":false}]}. Include every input id exactly once.`;
   try {
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: AbortSignal.timeout(12000),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": key,
@@ -362,12 +446,13 @@ async function aiFilter(
     const end = cleaned.lastIndexOf("}");
     if (start < 0 || end < 0) return null;
     const parsed = JSON.parse(cleaned.slice(start, end + 1));
-    const map = new Map<string, { keep: boolean; private: boolean; name?: string }>();
+    const map = new Map<string, { keep: boolean; private: boolean; name?: string; verify?: boolean }>();
     for (const r of parsed?.results ?? []) {
       if (r && typeof r.id === "string") {
         map.set(r.id, {
           keep: r.keep !== false,
           private: r.private === true,
+          verify: r.verify === true,
           ...(typeof r.name === "string" && r.name.trim().length > 2 ? { name: r.name.trim().slice(0, 80) } : {}),
         });
       }
@@ -431,8 +516,14 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   if (cacheRow) {
     const ageMs = Date.now() - new Date(cacheRow.fetched_at).getTime();
     const cached = (cacheRow.results as unknown as CourtResult[]) ?? [];
-    if (ageMs < ttlDays * 86_400_000 && cached.length > 0) {
-      return { status: "ok", courts: cached, source: "cache" };
+    // Non-empty results are good for the full TTL; EMPTY results are held
+    // for 30 minutes — long enough to stop every retry re-burning the live
+    // cap and Google quota, short enough to recover fast.
+    const freshMs = cached.length > 0 ? ttlDays * 86_400_000 : 30 * 60_000;
+    if (ageMs < freshMs) {
+      return cached.length > 0
+        ? { status: "ok", courts: cached, source: "cache" }
+        : { status: "empty", courts: [], source: "cache", message: noneMsg };
     }
   }
 
@@ -462,7 +553,6 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     //  - the text phrasings (bias + hard post-filter) + one DISTANCE pass.
     const batches = await Promise.all([
       ...(typeIds.length ? [placesNearby(typeIds, center.lat, center.lng, requestedKm, googleKey)] : []),
-      placesNearby(SWEEP_TYPES, center.lat, center.lng, requestedKm, googleKey),
       ...queries.map((q) => placesSearch(q, center.lat, center.lng, requestedKm, googleKey)),
       placesSearch(queries[0], center.lat, center.lng, requestedKm, googleKey, "DISTANCE"),
     ]);
@@ -478,21 +568,45 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   }
 
   let wide: CourtResult[];
+  let verifyTargets: { id: string; name: string; website: string | null }[] = [];
   if (candidates.length === 0) {
     wide = [];
   } else {
-    const evidence = await gatherEvidence(candidates, sport);
-    const verdicts = await aiFilter(candidates, sport, model, anthropicKey, evidence);
+    const { data: intelRows } = await admin
+      .from("court_sport_intel")
+      .select("place_id, verdict, confidence, evidence, checked_at")
+      .eq("sport", sport)
+      .in("place_id", candidates.map((c) => c.id));
+    const intel = new Map<string, Intel>(
+      (intelRows ?? []).map((r) => [
+        r.place_id,
+        { verdict: r.verdict, confidence: Number(r.confidence), evidence: r.evidence, stale: !intelIsFresh(r.verdict, r.checked_at) },
+      ]),
+    );
+
+    const verdicts = await aiFilter(candidates, sport, model, anthropicKey, intel);
+    const tokens = SPORT_TOKENS[sport] ?? [sportMeta(sport).name.toLowerCase()];
+    const sportTypes = TYPE_FOR[sport] ?? [];
+    // Judge-flagged unknowns with a website: queued for the post-response
+    // verifier (cap 5 per search; intel already answered the rest).
+    verifyTargets = verdicts
+      ? candidates
+          .filter((c) => verdicts.get(c.id)?.verify === true && (!intel.has(c.id) || intel.get(c.id)!.stale))
+          .slice(0, 5)
+          .map((c) => ({ id: c.id, name: c.name, website: c.website ?? null }))
+      : [];
+
     wide = candidates
       .filter((c) => {
         if (verdicts) return verdicts.get(c.id)?.keep !== false;
-        // AI down → the deterministic evidence gate stands in: proof or drop.
-        const ev = evidence.get(c.id);
-        return !!(ev?.nameHit || ev?.typeHit || ev?.siteHit);
+        // AI down → deterministic stand-in: the name or Google's own type
+        // must say the sport; everything else waits for the judge.
+        return tokens.some((k) => c.name.toLowerCase().includes(k)) || sportTypes.some((tp) => c.types.includes(tp));
       })
       .map((c) => ({
         id: c.id,
         name: verdicts?.get(c.id)?.name ?? c.name,
+        verified: intel.get(c.id)?.verdict === "confirmed",
         lat: c.lat,
         lng: c.lng,
         address: c.address,
@@ -507,18 +621,22 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   }
 
   // 4) Cache the 50-mile envelope (one row per zip+sport).
-  // NEVER cache emptiness — and an empty live result clears any stale row so
-  // the very next attempt retries live instead of inheriting a bad week.
-  if (wide.length > 0) {
-    await admin
-      .from("court_search_cache")
-      .upsert(
-        { zip: locationKey, radius_km: requestedKm, sport, results: wide, fetched_at: new Date().toISOString() },
-        { onConflict: "zip,radius_km,sport" },
-      );
-  } else {
-    await admin.from("court_search_cache").delete().eq("zip", locationKey).eq("radius_km", requestedKm).eq("sport", sport);
-  }
+  // Cache everything: non-empty rows live for the full TTL; empty rows are
+  // served for only 30 minutes at read time (see above), so a bad run can't
+  // pin a week of "no courts" AND retries can't burn the caps.
+  await admin
+    .from("court_search_cache")
+    .upsert(
+      { zip: locationKey, radius_km: requestedKm, sport, results: wide, fetched_at: new Date().toISOString() },
+      { onConflict: "zip,radius_km,sport" },
+    );
+
+  // The thinking half of the feature, without the latency: venues the judge
+  // flagged as UNSURE get verified AFTER this response is already on its way
+  // — their own website is fetched and READ by the extractor, and the
+  // verdict + reliability score persist in court_sport_intel. The next
+  // search over this area starts from knowledge, not guesses.
+  after(() => verifyVenues(verifyTargets, sport, anthropicKey));
 
   return wide.length > 0 ? { status: "ok", courts: wide, source: "live" } : { status: "empty", courts: [], source: "live", message: noneMsg };
 }
@@ -551,13 +669,6 @@ export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Prom
       report.push(`nearby [${typeIds.join(",")}]: THREW ${e instanceof Error ? e.message : "unknown"}`);
     }
   }
-  try {
-    const rows = await placesNearby(SWEEP_TYPES, place.lat, place.lng, probeKm, gKey);
-    all = all.concat(rows);
-    report.push(`nearby sweep [${SWEEP_TYPES.length} types]: ${rows.length} candidates${rows.length ? ` — ${rows.slice(0, 5).map((r) => r.name).join(" | ")}` : ""}`);
-  } catch (e) {
-    report.push(`nearby sweep: THREW ${e instanceof Error ? e.message : "unknown"}`);
-  }
   for (const q of QUERY_FOR[sport] ?? [`${sportMeta(sport).name.toLowerCase()} court`]) {
     try {
       const rows = await placesSearch(q, place.lat, place.lng, probeKm, gKey);
@@ -570,15 +681,30 @@ export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Prom
   if (all.length && process.env.ANTHROPIC_API_KEY) {
     const seen = new Set<string>();
     const uniq = all.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true))).slice(0, 30);
-    const evidence = await gatherEvidence(uniq, sport);
-    const nHits = uniq.filter((c) => evidence.get(c.id)?.nameHit).length;
-    const tHits = uniq.filter((c) => evidence.get(c.id)?.typeHit).length;
-    const sHits = uniq.filter((c) => evidence.get(c.id)?.siteHit).length;
-    report.push(`evidence: ${nHits} name-proven, ${tHits} type-proven, ${sHits} website-proven (of ${uniq.length})`);
-    const verdicts = await aiFilter(uniq, sport, process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT, process.env.ANTHROPIC_API_KEY, evidence);
-    const keptRows = verdicts ? uniq.filter((c) => verdicts.get(c.id)?.keep !== false) : uniq.filter((c) => evidence.get(c.id)?.nameHit || evidence.get(c.id)?.typeHit || evidence.get(c.id)?.siteHit);
+    const adminIntel = createAdminClient();
+    const { data: intelRows } = await adminIntel
+      .from("court_sport_intel")
+      .select("place_id, verdict, confidence, evidence, checked_at")
+      .eq("sport", sport)
+      .in("place_id", uniq.map((c) => c.id));
+    const intel = new Map<string, Intel>(
+      (intelRows ?? []).map((r) => [
+        r.place_id,
+        { verdict: r.verdict, confidence: Number(r.confidence), evidence: r.evidence, stale: !intelIsFresh(r.verdict, r.checked_at) },
+      ]),
+    );
+    const iConf = [...intel.values()].filter((x) => x.verdict === "confirmed" && !x.stale).length;
+    const iDeny = [...intel.values()].filter((x) => x.verdict === "denied" && !x.stale).length;
+    const iStale = [...intel.values()].filter((x) => x.stale).length;
+    report.push(`intel: ${iConf} confirmed, ${iDeny} denied, ${iStale} stale-for-recheck (${intel.size} of ${uniq.length} venues on file)`);
+    const verdicts = await aiFilter(uniq, sport, process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT, process.env.ANTHROPIC_API_KEY, intel);
+    const tokens = SPORT_TOKENS[sport] ?? [sportMeta(sport).name.toLowerCase()];
+    const sportTypes = TYPE_FOR[sport] ?? [];
+    const keptRows = verdicts
+      ? uniq.filter((c) => verdicts.get(c.id)?.keep !== false)
+      : uniq.filter((c) => tokens.some((k) => c.name.toLowerCase().includes(k)) || sportTypes.some((tp) => c.types.includes(tp)));
     kept = keptRows.length;
-    report.push(`AI evidence judge: ${verdicts ? `${kept} of ${uniq.length} kept` : `unavailable — deterministic evidence gate kept ${kept}`}`);
+    report.push(`AI judge (${process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT}): ${verdicts ? `${kept} of ${uniq.length} kept` : `unavailable — name/type gate kept ${kept}`}`);
     if (keptRows.length) report.push(`kept: ${keptRows.slice(0, 6).map((c) => verdicts?.get(c.id)?.name ?? c.name).join(" | ")}`);
   }
   const adminDb = createAdminClient();

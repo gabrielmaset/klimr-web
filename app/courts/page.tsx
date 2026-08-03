@@ -12,6 +12,9 @@ import { lookupZip } from "@/lib/us-places";
 import { geocodeAddress } from "@/lib/maps-url";
 import { CourtsFinder, type FinderCourt } from "./courts-finder";
 
+// Vercel: room for the search pipeline + the post-response website verifier.
+export const maxDuration = 60;
+
 export const metadata: Metadata = { title: "Courts" };
 
 const RADII = [3, 5, 10, 25];

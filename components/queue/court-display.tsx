@@ -167,7 +167,9 @@ const emptySnapshot = () => "";
 export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, isApp = false }: { initial: QSessionState; courtId: string; canOperate: boolean; code?: string; enteredCode?: string; isApp?: boolean }) {
   const sid = initial.session.id;
   const { state, refetch } = useQueueState(sid, initial, 3000);
-  const [now, setNow] = useState(() => Date.now());
+  // null until mounted: the server cannot know the client clock, and
+  // rendering a server timestamp then hydrating a client one is React #418.
+  const [now, setNow] = useState<number | null>(null);
   // Origin is only knowable in the browser; the store pattern keeps SSR and
   // hydration rendering "" (no mismatch) and fills it right after.
   const origin = useSyncExternalStore(subscribeNever, originSnapshot, emptySnapshot);
@@ -179,8 +181,12 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
   const [isFs, setIsFs] = useState(false);
 
   useEffect(() => {
+    const t0 = setTimeout(() => setNow(Date.now()), 0);
     const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(t);
+    };
   }, []);
 
   useEffect(() => {
@@ -356,7 +362,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
                 <span className="relative inline-flex h-full w-full rounded-full bg-[#ff5b3d]" />
               </span>
               <span className="font-mono font-bold tabular" style={{ fontVariantNumeric: "tabular-nums", fontSize: "clamp(3.6rem, 17vh, 13rem)", lineHeight: 0.95 }}>
-                {clock(now - Date.parse(court.current.startedAt))}
+                {now == null ? "—" : clock(now - Date.parse(court.current.startedAt))}
               </span>
             </div>
             {note ? <div className="mt-[1vh] rounded-full border border-white/15 bg-white/10 px-5 py-2 text-[clamp(0.85rem,1.5vw,1.35rem)] font-bold backdrop-blur">{note}</div> : null}

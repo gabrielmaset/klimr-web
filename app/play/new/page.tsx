@@ -5,6 +5,9 @@ import { SPORT_KEYS } from "@/lib/sports";
 import { CreateMatchForm } from "./create-form";
 import type { PickerCourt } from "@/app/courts/search-actions";
 
+// Vercel: room for the search pipeline + the post-response website verifier.
+export const maxDuration = 60;
+
 export const metadata: Metadata = { title: "Organize a match" };
 
 export default async function NewMatchPage({

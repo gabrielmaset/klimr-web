@@ -154,26 +154,26 @@ export function DivisionsEditor({
                   {mode === "per_division" ? (
                     <div className="rounded-xl border border-rule-soft bg-bg p-3">
                       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-faint">Division capacity</p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-end gap-2">
                         <input type="number" min={0} className={`${inputCls} w-28`} placeholder="Unlimited" value={r.capacity} onChange={(e) => update(i, { capacity: e.target.value })} aria-label={`Division capacity in ${unitLabel}`} />
                         {entryType === "team" ? (
                           r.teamSize.trim() === "" ? (
                             <div className="flex flex-col gap-1">
-                              <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
+                              <span className="whitespace-nowrap font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
                               <button
                                 type="button"
                                 onClick={() => update(i, { teamSize: String(inheritTeamSize ?? 2) })}
-                                className="press rounded-[9px] border border-dashed border-rule bg-surface px-2.5 py-1.5 text-xs font-semibold text-mute hover:border-brand hover:text-brand-deep"
+                                className="press whitespace-nowrap rounded-[9px] border border-dashed border-rule bg-surface px-3 py-2 text-xs font-semibold text-mute hover:border-brand hover:text-brand-deep"
                               >
                                 Inherits {inheritTeamSize ?? 2} · Override
                               </button>
                             </div>
                           ) : (
                             <label className="flex flex-col gap-1">
-                              <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size · override</span>
-                              <div className="flex items-center gap-1.5">
+                              <span className="whitespace-nowrap font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
+                              <div className="flex items-stretch gap-1.5">
                                 <input type="number" min={1} max={12} className={`${inputCls} w-20`} value={r.teamSize} onChange={(e) => update(i, { teamSize: e.target.value })} aria-label="Required players per team (override)" />
-                                <button type="button" onClick={() => update(i, { teamSize: "" })} title="Back to inherited size" aria-label="Use the event team size" className="press grid h-7 w-7 place-items-center rounded-[8px] border border-rule text-mute hover:border-brand hover:text-brand-deep">
+                                <button type="button" onClick={() => update(i, { teamSize: "" })} title="Back to the event team size" aria-label="Use the event team size" className="press grid w-8 place-items-center self-stretch rounded-[9px] border border-rule text-mute hover:border-brand hover:text-brand-deep">
                                   ×
                                 </button>
                               </div>

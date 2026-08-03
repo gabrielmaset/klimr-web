@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Crown, Plus, MapPin, Check, Loader2, Radio, Clock, Users } from "lucide-react";
 import type { QSessionState, QTeam, QCourtState } from "@/lib/queue";
 import { formationLabel, levelLabel } from "@/lib/queue";
@@ -20,9 +20,8 @@ async function getCoords(): Promise<{ lat: number; lng: number } | null> {
   });
 }
 
-/** Minutes since a timestamp — module-level so render stays pure; the 3s
- *  state poll re-renders and keeps it fresh. */
-const minutesSince = (iso: string) => Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60000));
+/** Minutes since a timestamp — pure: the caller supplies the clock. */
+const minutesSince = (iso: string, nowMs: number) => Math.max(1, Math.round((nowMs - Date.parse(iso)) / 60000));
 
 function joinedAt(iso: string | null): string {
   if (!iso) return "";
@@ -59,6 +58,17 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
   const [err, setErr] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"" | "joined" | "pending">("");
   const [joiningCourt, setJoiningCourt] = useState<string | null>(null);
+  // Client clock, null until mounted — server-rendered elapsed minutes would
+  // hydrate against a different clock (React #418).
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const t0 = setTimeout(() => setNowMs(Date.now()), 0);
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(t);
+    };
+  }, []);
   const [teamCourt, setTeamCourt] = useState<string | null>(null);
   const [teamNames, setTeamNames] = useState<string[]>([]);
 
@@ -240,7 +250,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                               <Radio size={12} className="text-brand" /> Live on this court
                             </span>
                             <span className="font-mono text-[10px] font-semibold text-white/50">
-                              {minutesSince(c.current.startedAt)} min in
+                              {nowMs == null ? "" : `${minutesSince(c.current.startedAt, nowMs)} min in`}
                             </span>
                           </div>
                           <div className="mt-2 flex items-center gap-2.5">

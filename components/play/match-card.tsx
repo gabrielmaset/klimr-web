@@ -14,10 +14,9 @@ import type { PlayMatch, Viewer } from "./play-browser";
  *  Join is optimistic: the chip flips to YOU'RE IN and the roster updates
  *  before the server round-trip lands. */
 
-function timeChip(iso: string | null): string {
+function timeChip(iso: string | null, now: Date): string {
   if (!iso) return "ANYTIME · OPEN PLAY";
   const d = new Date(iso);
-  const now = new Date();
   const tmrw = new Date(now);
   tmrw.setDate(now.getDate() + 1);
   const day =
@@ -46,7 +45,7 @@ function Disc({ name, url, hue, z }: { name: string; url: string | null; hue: nu
   );
 }
 
-export function MatchCard({ m, viewer }: { m: PlayMatch; viewer: Viewer }) {
+export function MatchCard({ m, viewer, now }: { m: PlayMatch; viewer: Viewer; now: Date | null }) {
   const [pending, startTransition] = useTransition();
   const [optimistic, setOptimistic] = useState(false);
   const tone = SPORT_TONES[sportSlug(m.sportKey)] ?? { fg: "var(--color-ink)", bg: "var(--color-bg)", bd: "var(--color-rule)" };
@@ -92,7 +91,7 @@ export function MatchCard({ m, viewer }: { m: PlayMatch; viewer: Viewer }) {
               {m.sportName} · {m.formatLabel}
             </p>
             <p className="mt-0.5 flex flex-wrap items-center gap-1.5">
-              <span className="font-mono text-[10.5px] font-bold tracking-[.04em] text-flame-text">{timeChip(m.effectiveAt)}</span>
+              <span className="font-mono text-[10.5px] font-bold tracking-[.04em] text-flame-text">{now ? timeChip(m.effectiveAt, now) : "\u00A0"}</span>
               {m.recurrence ? (
                 <span className="inline-flex items-center gap-1 rounded-[6px] border px-1.5 py-px font-mono text-[8.5px] font-bold uppercase tracking-[.08em]" style={{ background: "var(--color-bg)", borderColor: "var(--color-rule-2)", color: "var(--color-faint)" }}>
                   <Repeat size={9} strokeWidth={2.75} /> {m.recurrence}

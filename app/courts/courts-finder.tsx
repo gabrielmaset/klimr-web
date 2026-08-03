@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   MapPin, LocateFixed, Search, Globe, Sun, Warehouse, Lightbulb, Tag, ListOrdered,
   Star, Navigation, ArrowRight, ChevronDown, Check, Plus, ShieldCheck, List, Map as MapIcon,
@@ -38,7 +38,7 @@ export type FinderCourt = {
 
 /** Finder rows = confirmed directory courts + live-found Google results (the
  *  "on Google but not on Klimr yet" layer — the Westwood fix). */
-type Row = FinderCourt & { liveFound?: boolean; website?: string | null; isPrivate?: boolean };
+type Row = FinderCourt & { liveFound?: boolean; website?: string | null; isPrivate?: boolean; verified?: boolean };
 
 type Filters = {
   zip: string;
@@ -92,7 +92,22 @@ export function CourtsFinder({
   }, [scanKicked, router]);
   const pathname = usePathname();
   const [zipDraft, setZipDraft] = useState(initial.zip);
-  const [f, setF] = useState<Filters>(initial);
+  const spq = useSearchParams();
+  const f = useMemo<Filters>(() => {
+    const g = (k: string) => spq.get(k) ?? "";
+    const radius = Number(g("radius"));
+    return {
+      zip: g("zip") || initial.zip,
+      ll: /^-?\d+\.\d+,-?\d+\.\d+$/.test(g("ll")) ? g("ll") : "",
+      radius: [3, 5, 10, 25].includes(radius) ? radius : initial.radius,
+      sport: g("sport") || initial.sport,
+      venue: g("venue") === "indoor" || g("venue") === "outdoor" ? (g("venue") as "indoor" | "outdoor") : initial.venue,
+      lights: g("lights") ? g("lights") === "1" : initial.lights,
+      free: g("free") ? g("free") === "1" : initial.free,
+      queue: g("queue") ? g("queue") === "1" : initial.queue,
+      sort: ["active", "rated", "courts"].includes(g("sort")) ? (g("sort") as Filters["sort"]) : initial.sort,
+    };
+  }, [spq, initial]);
   const [sportOpen, setSportOpen] = useState(false);
   const [sportQuery, setSportQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -126,48 +141,40 @@ export function CourtsFinder({
      flagged as unconfirmed. */
   const [live, setLive] = useState<SearchResponse | null>(null);
   const [liveBusy, startLiveT] = useTransition();
-  const startLiveSearch = (next: Filters) =>
+  const liveSeq = useRef(0);
+  useEffect(() => {
+    const seq = ++liveSeq.current;
     startLiveT(async () => {
-      const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(next.ll ?? "");
+      if (!f.zip || f.sport === "all") {
+        setLive(null);
+        return;
+      }
+      const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(f.ll);
       try {
-        setLive(
-          await searchCourts({
-            locationKey: next.zip,
-            radiusKm: Math.max(2, Math.round(next.radius * 1.609)),
-            sport: next.sport,
+        const r = await Promise.race([
+          searchCourts({
+            locationKey: f.zip,
+            radiusKm: Math.max(2, Math.round(f.radius * 1.609)),
+            sport: f.sport,
             ...(m ? { lat: Number(m[1]), lng: Number(m[2]) } : {}),
           }),
-        );
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 20000)),
+        ]);
+        if (liveSeq.current === seq) setLive(r);
       } catch {
-        setLive({ status: "error", courts: [], source: "none", message: "Live search failed — try again in a moment." });
+        if (liveSeq.current === seq) {
+          setLive({ status: "error", courts: [], source: "none", message: "Live search timed out — try again." });
+        }
       }
     });
-  const runLive = (next: Filters) => {
-    if (!next.zip || next.sport === "all") {
-      setLive(null);
-      return;
-    }
-    startLiveSearch(next);
-  };
+     
+  }, [f.zip, f.ll, f.sport, f.radius]);
 
   const set = (patch: Partial<Filters>, reload = false) => {
-    const next = { ...f, ...patch };
-    // Indoor implies lights in reality — reflect it in the controls (AUTO).
-    setF(next);
-    pushUrl(next, reload);
-    // Live discovery re-runs whenever the search scope changes: origin or
-    // radius reloads, or the sport narrows.
-    if (reload || "sport" in patch || "radius" in patch) runLive(next);
+    pushUrl({ ...f, ...patch }, reload);
   };
 
   const findCourts = () => set({ zip: zipDraft.trim(), ll: "" }, true);
-
-  // Landing with ?sport= in the URL (a deep link or a retry) searches live
-  // immediately — no extra click required.
-  useEffect(() => {
-    if (initial.zip && initial.sport !== "all") startLiveSearch(initial);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const useMyLocation = () => {
     if (!navigator.geolocation || locating) return;
     setLocating(true);
@@ -250,6 +257,7 @@ export function CourtsFinder({
         liveFound: true,
         website: r.website,
         isPrivate: r.private,
+        verified: r.verified === true,
       }));
   }, [live, courts, f.radius]);
   const shown = useMemo<Row[]>(() => [...visible, ...liveRows], [visible, liveRows]);
@@ -617,6 +625,9 @@ function CourtCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[14.5px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
+            {c.verified ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#217A34]">VERIFIED ✓</span>
+            ) : null}
             {c.isPrivate ? (
               <span className="rounded-md bg-bg px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-faint">PRIVATE / MEMBERS</span>
             ) : null}

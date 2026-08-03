@@ -1343,6 +1343,12 @@ export interface Database {
         Update: { results?: Json; fetched_at?: string };
         Relationships: [];
       };
+      court_sport_intel: {
+        Row: { place_id: string; sport: string; verdict: string; confidence: number; reliability: number; evidence: string | null; source: string | null; checked_at: string };
+        Insert: { place_id: string; sport: string; verdict: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; checked_at?: string };
+        Update: { verdict?: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; checked_at?: string };
+        Relationships: [];
+      };
       service_usage: {
         Row: { month: string; live_search_count: number; updated_at: string };
         Insert: { month: string; live_search_count?: number; updated_at?: string };
