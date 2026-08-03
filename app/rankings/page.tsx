@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RankingsBoard } from "./rankings-board";
+import { SPORT_KEYS } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "Rankings" };
 
-export default async function RankingsPage() {
+export default async function RankingsPage({ searchParams }: { searchParams: Promise<{ sport?: string }> }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,7 +27,11 @@ export default async function RankingsPage() {
     .eq("user_id", user.id)
     .order("points", { ascending: false });
 
-  const initialSportKey = profile?.primary_sport ?? mine?.[0]?.sport_key ?? "tennis";
+  // Deep links (Playbook "View <sport> rankings", sport pages) land with the
+  // right board already selected — ?sport= wins over the profile default.
+  const qsSport = (await searchParams).sport ?? "";
+  const initialSportKey =
+    (SPORT_KEYS.includes(qsSport) ? qsSport : null) ?? profile?.primary_sport ?? mine?.[0]?.sport_key ?? "tennis";
 
   return (
     <RankingsBoard

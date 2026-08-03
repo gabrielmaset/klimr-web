@@ -1,18 +1,13 @@
 const nowMs = () => Date.now();
 
 import type { Metadata } from "next";
-import { SportIcon } from "@/components/sport-icons";
-import { Avatar } from "@/components/avatar";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarClock, MapPin, Users, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sportMeta, sportSlug } from "@/lib/sports";
-import { getUserSportOptions } from "@/lib/user-sports";
-import { FilterGroup, FacetLink } from "@/components/filter-chips";
-import { PlayCourtFilter } from "@/components/play-court-filter";
+import { sportMeta, matchFormatLabel } from "@/lib/sports";
 import { lookupZip } from "@/lib/us-places";
-import type { CourtHit } from "@/app/play/court-actions";
+import { PlayBrowser, type PlayMatch, type CourtOpt } from "@/components/play/play-browser";
 
 export const metadata: Metadata = { title: "Play" };
 
@@ -33,31 +28,17 @@ function nextOccurrenceMs(iso: string, recurrence: string | null): number {
   const step = (recurrence === "biweekly" ? 14 : 7) * 86_400_000;
   return t + Math.ceil((floor - t) / step) * step;
 }
-const REPEAT_LABEL: Record<string, string> = { weekly: "repeats weekly", biweekly: "repeats every 2 weeks", monthly: "repeats monthly" };
 
-function whenLabel(scheduledAt: string | null) {
-  if (!scheduledAt) return "Open — anytime";
-  return new Date(scheduledAt).toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-export default async function PlayPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ sport?: string; court?: string }>;
-}) {
-  const { sport, court } = await searchParams;
+/** The browse surface is one client component fed by ONE server assembly —
+ *  every filter, count, and sort recomputes instantly client-side against
+ *  this payload, and the URL carries the whole filter state
+ *  (?sport=&court=&when=&date=&open=&sort=). Design: KLIMR-PLAY-HANDOFF. */
+export default async function PlayPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/play");
-  const mySports = await getUserSportOptions(supabase, user.id);
 
   const query = supabase
     .from("matches")
@@ -69,7 +50,6 @@ export default async function PlayPage({
     // reachable via direct links and history views.
     .or(`scheduled_at.gte.${new Date(nowMs() - 2 * 3_600_000).toISOString()},scheduled_at.is.null,recurring.eq.true`)
     .order("scheduled_at", { ascending: true, nullsFirst: false });
-  const activeSport = sport && mySports.some((s) => s.key === sport) ? sport : null;
   const { data: matches } = await query;
   // Reliability belt: whatever the wire filter admits, PAST non-recurring
   // matches never render. Deterministic, in one place.
@@ -84,15 +64,12 @@ export default async function PlayPage({
         : null,
     }))
     .sort((a, b) => (a.effective_at ? Date.parse(a.effective_at) : Infinity) - (b.effective_at ? Date.parse(b.effective_at) : Infinity));
-  const sportCounts = new Map<string, number>();
-  for (const m of all) sportCounts.set(m.sport_key, (sportCounts.get(m.sport_key) ?? 0) + 1);
-  const list = activeSport ? all.filter((m) => m.sport_key === activeSport) : all;
 
   let orgs: Org[] = [];
   let parts: Part[] = [];
-  if (list.length) {
-    const organizerIds = [...new Set(list.map((m) => m.organizer_id))];
-    const matchIds = list.map((m) => m.id);
+  if (all.length) {
+    const organizerIds = [...new Set(all.map((m) => m.organizer_id))];
+    const matchIds = all.map((m) => m.id);
     const [o, p] = await Promise.all([
       supabase.from("profiles").select("id, display_name, avatar_hue").in("id", organizerIds),
       supabase.from("match_participants").select("match_id, user_id").in("match_id", matchIds),
@@ -103,76 +80,66 @@ export default async function PlayPage({
   const orgMap = new Map(orgs.map((o) => [o.id, o]));
 
   const courtIds = [...new Set(all.map((m) => m.court_id).filter(Boolean) as string[])];
-  let courtMap = new Map<string, { id: string; name: string }>();
+  let courtMap = new Map<string, { id: string; name: string; city: string | null; lat: number | null; lng: number | null }>();
   if (courtIds.length) {
-    const { data: cs } = await supabase.from("courts").select("id, name").in("id", courtIds);
-    courtMap = new Map(((cs as { id: string; name: string }[] | null) ?? []).map((c) => [c.id, c]));
+    const { data: cs } = await supabase.from("courts").select("id, name, city, lat, lng").in("id", courtIds);
+    courtMap = new Map(((cs as { id: string; name: string; city: string | null; lat: number | null; lng: number | null }[] | null) ?? []).map((c) => [c.id, c]));
   }
-  // ── court filter: ANY court is selectable (zero matches is a valid answer);
-  //    the default list is courts near the member's home ZIP with live counts ──
-  let activeCourtObj: { id: string; name: string } | null = null;
-  if (court) {
-    const known = courtMap.get(court);
-    if (known) activeCourtObj = known;
-    else {
-      const { data: c1 } = await supabase.from("courts").select("id, name").eq("id", court).maybeSingle();
-      if (c1) activeCourtObj = c1;
-    }
-  }
-  const activeCourt = activeCourtObj?.id ?? null;
-  const courtCounts: Record<string, number> = {};
-  for (const m of list) {
-    if (m.court_id) courtCounts[m.court_id] = (courtCounts[m.court_id] ?? 0) + 1;
-  }
-  const { data: me } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("home_zip, display_name, avatar_hue, avatar_path")
+    .eq("id", user.id)
+    .maybeSingle();
   const homePt = me?.home_zip ? lookupZip(me.home_zip) : null;
-  let nearbyCourts: CourtHit[] = [];
+  const R = 3958.8;
+  const mi = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+    const dla = ((b.lat - a.lat) * Math.PI) / 180;
+    const dln = ((b.lng - a.lng) * Math.PI) / 180;
+    const s = Math.sin(dla / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dln / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+  };
+  const distTo = (lat: number | null, lng: number | null): number | null =>
+    homePt && lat != null && lng != null ? Math.round(mi(homePt, { lat, lng }) * 10) / 10 : null;
+
+  // Court dropdown options: courts near home + every court a match points at.
+  const courtOpts = new Map<string, CourtOpt>();
   if (homePt) {
-    const dLat = 0.22, dLng = 0.26;
-    let ncq = supabase
+    const dLat = 0.22,
+      dLng = 0.26;
+    const { data: nc } = await supabase
       .from("courts")
-      .select("id, name, city, state, zip, lat, lng")
+      .select("id, name, city, lat, lng")
       .not("lat", "is", null)
       .gte("lat", homePt.lat - dLat)
       .lte("lat", homePt.lat + dLat)
       .gte("lng", homePt.lng - dLng)
       .lte("lng", homePt.lng + dLng)
       .limit(60);
-    if (activeSport) ncq = ncq.contains("sports", [activeSport]);
-    const { data: nc } = await ncq;
-    const R = 3958.8;
-    const mi = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
-      const dla = ((b.lat - a.lat) * Math.PI) / 180;
-      const dln = ((b.lng - a.lng) * Math.PI) / 180;
-      const s = Math.sin(dla / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dln / 2) ** 2;
-      return 2 * R * Math.asin(Math.sqrt(s));
-    };
-    nearbyCourts = (nc ?? [])
-      .map((c) => ({ c, d: mi(homePt, { lat: c.lat!, lng: c.lng! }) }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, 10)
-      .map(({ c, d }) => ({ id: c.id, name: c.name, city: c.city, state: c.state, zip: c.zip, distanceMi: Math.round(d * 10) / 10 }));
+    for (const c of nc ?? []) {
+      courtOpts.set(c.id, { id: c.id, name: c.name, city: c.city, distanceMi: distTo(c.lat, c.lng) });
+    }
   }
-  const shown = activeCourt ? list.filter((m) => m.court_id === activeCourt) : list;
+  for (const [id, c] of courtMap) {
+    if (!courtOpts.has(id)) courtOpts.set(id, { id, name: c.name, city: c.city, distanceMi: distTo(c.lat, c.lng) });
+  }
+  const courts = [...courtOpts.values()].sort((a, b) => (a.distanceMi ?? 999) - (b.distanceMi ?? 999)).slice(0, 40);
 
-  // Faces on cards: everyone already in each visible match (batched — two
-  // queries for the whole page, never per-card).
-  const shownIds = shown.map((m) => m.id);
+  // Faces on cards: everyone already in each match (batched — two queries for
+  // the whole page, never per-card).
   const facesByMatch = new Map<string, { name: string; url: string | null; hue: number }[]>();
+  const shownIds = all.map((m) => m.id);
   if (shownIds.length) {
-    const { data: parts } = await supabase
+    const { data: fp } = await supabase
       .from("match_participants")
       .select("match_id, user_id, joined_at")
       .in("match_id", shownIds)
       .order("joined_at", { ascending: true });
-    const uids = [...new Set((parts ?? []).map((x) => x.user_id))];
+    const uids = [...new Set((fp ?? []).map((x) => x.user_id))];
     if (uids.length) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, display_name, avatar_path, avatar_hue")
-        .in("id", uids);
+      const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_path, avatar_hue").in("id", uids);
       const profMap = new Map((profs ?? []).map((pr) => [pr.id, pr]));
-      for (const x of parts ?? []) {
+      for (const x of fp ?? []) {
         const pr = profMap.get(x.user_id);
         if (!pr) continue;
         const arr = facesByMatch.get(x.match_id) ?? [];
@@ -185,10 +152,6 @@ export default async function PlayPage({
       }
     }
   }
-  const qs = (s: string | null, c: string | null) => {
-    const parts = [s ? `sport=${s}` : null, c ? `court=${c}` : null].filter(Boolean);
-    return parts.length ? `?${parts.join("&")}` : "";
-  };
 
   const countMap = new Map<string, number>();
   const mineSet = new Set<string>();
@@ -197,123 +160,53 @@ export default async function PlayPage({
     if (p.user_id === user.id) mineSet.add(p.match_id);
   }
 
+  const payload: PlayMatch[] = all.map((m) => {
+    const c = m.court_id ? courtMap.get(m.court_id) : null;
+    const org = orgMap.get(m.organizer_id);
+    const joinedCount = countMap.get(m.id) ?? 0;
+    return {
+      id: m.id,
+      sportKey: m.sport_key,
+      sportName: sportMeta(m.sport_key).name,
+      formatLabel: matchFormatLabel(m.sport_key, m.format),
+      effectiveAt: m.effective_at,
+      recurrence: m.recurring ? (m.recurrence ?? "weekly") : null,
+      courtId: m.court_id ?? null,
+      courtName: c?.name ?? m.location_text ?? null,
+      distanceMi: c ? distTo(c.lat, c.lng) : null,
+      totalSlots: m.total_slots ?? 2,
+      joinedCount,
+      players: (facesByMatch.get(m.id) ?? []).slice(0, 4),
+      hostName: org?.display_name ?? "a member",
+      isHost: m.organizer_id === user.id,
+      isJoined: mineSet.has(m.id),
+    };
+  });
+
+  const viewer = {
+    name: me?.display_name ?? "You",
+    hue: me?.avatar_hue ?? 24,
+    url: me?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(me.avatar_path).data.publicUrl : null,
+  };
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Compete — Play</p>
-        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Play</h1>
+          <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Play</h1>
           <p className="mt-1 text-sm text-mute">Find an open match near you — or organize your own.</p>
         </div>
         <Link
           href="/play/new"
-          className="press inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft"
+          className="press inline-flex h-10 items-center gap-2 rounded-[11px] px-4 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]"
+          style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
         >
-          <Plus size={16} /> Organize a match
+          <Plus size={16} strokeWidth={2.75} /> Organize a match
         </Link>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-start">
-        <FilterGroup
-          label="Sport"
-          className="min-w-[210px] flex-1 max-w-xs"
-          pinned={
-            <FacetLink href={`/play${qs(null, activeCourt)}`} active={!activeSport} count={all.length}>
-              All sports
-            </FacetLink>
-          }
-        >
-          {mySports.map((s) => (
-            <FacetLink key={s.key} href={`/play${qs(s.key, activeCourt)}`} active={activeSport === s.key} count={sportCounts.get(s.key) ?? 0}>
-              <SportIcon sport={s.key} variant="badge" size={14} /> {s.name}
-            </FacetLink>
-          ))}
-        </FilterGroup>
-        <PlayCourtFilter nearby={nearbyCourts} counts={courtCounts} total={list.length} activeSport={activeSport} activeCourt={activeCourtObj} />
-      </div>
-
-      {shown.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-rule bg-surface shadow-e1 p-10 text-center">
-          <Users size={28} className="mx-auto text-faint" />
-          <h2 className="mt-3 font-display text-2xl text-ink">
-            No open matches{activeSport ? ` for ${sportMeta(activeSport).name.toLowerCase()}` : ""}
-            {activeCourtObj ? ` at ${activeCourtObj.name}` : ""} yet
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-mute">
-            Be the one to get a game going. Organize a match and verified players nearby can join.
-            {activeCourt ? (
-              <>
-                {" "}
-                <Link href={`/play${qs(activeSport, null)}`} className="font-semibold text-brand-deep hover:underline">
-                  Show all courts →
-                </Link>
-              </>
-            ) : null}
-          </p>
-          <Link
-            href="/play/new"
-            className="press mt-5 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
-          >
-            <Plus size={16} /> Organize a match
-          </Link>
-        </div>
-      ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((m) => {
-            const org = orgMap.get(m.organizer_id);
-            const filled = countMap.get(m.id) ?? 0;
-            const left = m.total_slots - filled;
-            const full = left <= 0;
-            const mine = mineSet.has(m.id);
-            const meta = sportMeta(m.sport_key);
-            const court = m.court_id ? courtMap.get(m.court_id) : null;
-            const faces = facesByMatch.get(m.id) ?? [];
-            const placeLabel = court ? court.name : m.location_text;
-            const placeNote = court && m.location_text ? m.location_text : null;
-            return (
-              <Link key={m.id} href={`/play/${m.id}`} className="lift block rounded-2xl border border-rule bg-surface shadow-e1 p-5">
-                <div className="flex items-center justify-between">
-                  <span className="grid h-11 w-11 place-items-center rounded-2xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(m.sport_key)}) 16%, transparent)` }} aria-hidden><SportIcon sport={m.sport_key} variant="glyph" size={28} /></span>
-                  <span
-                    className="kicker rounded-full px-2 py-1 text-[9px]"
-                    style={{ background: full ? "var(--color-bg)" : "var(--color-tint-brand)", color: full ? "var(--color-mute)" : "var(--color-brand-deep)" }}
-                  >
-                    {full ? "Full · waitlist" : `${left} spot${left === 1 ? "" : "s"} left`}
-                  </span>
-                </div>
-                <h3 className="mt-3 font-display text-xl text-ink">
-                  {meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}
-                </h3>
-                <div className="mt-3 space-y-1.5 text-sm text-mute">
-                  <div className="flex items-center gap-2"><CalendarClock size={14} className="shrink-0 text-faint" /> {whenLabel(m.effective_at)}{m.recurring && m.recurrence ? ` · ${REPEAT_LABEL[m.recurrence] ?? "repeats"}` : ""}</div>
-                  <div className="flex items-center gap-2">
-                    <MapPin size={14} className="shrink-0 text-faint" />
-                    <span className={`truncate ${placeLabel ? "" : "text-faint"}`}>{placeLabel ? `${placeLabel}${placeNote ? ` · ${placeNote}` : ""}` : "Location TBD"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users size={14} className="shrink-0 text-faint" /> {filled}/{m.total_slots} players
-                    {faces.length ? (
-                      <span className="ml-auto flex items-center -space-x-2">
-                        {faces.slice(0, 4).map((f, fi) => (
-                          <Avatar key={fi} url={f.url} hue={f.hue} name={f.name} size={22} ring className="border border-surface" />
-                        ))}
-                        {faces.length > 4 ? (
-                          <span className="grid h-[22px] w-[22px] place-items-center rounded-full border border-surface bg-bg font-mono text-[9px] font-bold text-mute">+{faces.length - 4}</span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-rule pt-3">
-                  <span className="truncate text-xs text-faint">by {org?.display_name ?? "a player"}{mine ? " · you're in" : ""}</span>
-                  <span className="shrink-0 text-xs font-semibold text-brand-deep">View →</span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <PlayBrowser matches={payload} courts={courts} viewer={viewer} radiusMi={15} />
     </div>
   );
 }
-

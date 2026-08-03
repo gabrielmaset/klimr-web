@@ -1,31 +1,29 @@
-/** Per-sport play options — because padel has no singles, volleyball has no
- *  racquets, and beach runs in team sizes. One source of truth for the wizard
- *  and the sports editor; values stay in player_sports.format / .hand. */
+/** Per-sport PLAYER-PREFERENCE options — derived from the canonical
+ *  MATCH_FORMATS registry in lib/sports (one source of truth; this file adds
+ *  only the "flexible" preference that a concrete match can't have).
+ *  Values are stored in player_sports.format / .hand and MUST stay stable:
+ *  singles/doubles/both for racquet sports, 2s/3s/4s/any for beach,
+ *  doubles for padel. Cutthroat is a pickup format, not a preference. */
+
+import { matchFormats } from "@/lib/sports";
 
 export type PlayOption = { value: string; label: string; blurb?: string };
 
-const RACQUET_FORMATS: PlayOption[] = [
-  { value: "singles", label: "Singles", blurb: "One on one — your game, your board." },
-  { value: "doubles", label: "Doubles", blurb: "Team chemistry and net play." },
-  { value: "both", label: "Both", blurb: "Whatever the court calls for." },
-];
-
-const BEACH_FORMATS: PlayOption[] = [
-  { value: "2s", label: "2s (pairs)", blurb: "The classic — you and a partner, whole court." },
-  { value: "3s", label: "3s (triples)", blurb: "More coverage, faster rotations." },
-  { value: "4s", label: "4s (fours)", blurb: "The big social format." },
-  { value: "any", label: "Any size", blurb: "Put me on whatever's running." },
-];
-
 export function sportFormats(sportKey: string): PlayOption[] {
-  if (sportKey === "beach_volleyball") return BEACH_FORMATS;
-  if (sportKey === "padel") return [{ value: "doubles", label: "Doubles", blurb: "Padel is a doubles game — locked in." }];
-  return RACQUET_FORMATS;
+  const base = matchFormats(sportKey)
+    .filter((f) => !f.casual)
+    .map((f) => ({ value: f.key, label: f.label, blurb: f.blurb }));
+  if (sportKey === "padel") return base; // doubles-only: fixed, not chosen
+  if (sportKey === "beach_volleyball") {
+    return [...base, { value: "any", label: "Any size", blurb: "Put me on whatever's running." }];
+  }
+  return [...base, { value: "both", label: "Both", blurb: "Whatever the court calls for." }];
 }
 
 /** Padel is doubles-only: the format is fixed, not chosen. */
 export function sportFormatFixed(sportKey: string): string | null {
-  return sportKey === "padel" ? "doubles" : null;
+  const list = matchFormats(sportKey).filter((f) => !f.casual);
+  return list.length === 1 ? list[0].key : null;
 }
 
 /** What the dominant-hand question is called per sport (never "racquet" for

@@ -2,10 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/instrument-sans";
 import "@fontsource-variable/instrument-sans/standard-italic.css";
-import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/spline-sans-mono";
 import "@fontsource-variable/hanken-grotesk";
-import "@fontsource/space-mono/400.css";
-import "@fontsource/space-mono/700.css";
 import "@fontsource-variable/fraunces/full.css"; // logotype only — see components/logo.tsx
 import "./globals.css";
 import Script from "next/script";

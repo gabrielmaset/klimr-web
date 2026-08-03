@@ -7,8 +7,9 @@ import { CalendarClock, MapPin, Users, Repeat, BadgeCheck, Check, Lock, MessageC
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminRole } from "@/lib/admin";
+import { matchDisplayStatus, matchJoinable } from "@/lib/match-status";
 import { Avatar } from "@/components/avatar";
-import { sportMeta, sportSlug } from "@/lib/sports";
+import { sportMeta, sportSlug, matchFormatLabel } from "@/lib/sports";
 import { joinMatch, leaveMatch, confirmSpot, joinWaitlist, leaveWaitlist, cancelMatch } from "./actions";
 import { MatchInvite } from "./MatchInvite";
 
@@ -27,7 +28,7 @@ function whenLabel(scheduledAt: string | null) {
   });
 }
 
-export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MatchPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ from?: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
   const {
@@ -40,14 +41,15 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   // matches the viewer isn't part of, so fall back to the admin client for a
   // read-only inspection view (organizer controls stay off: not their match).
   let db = supabase;
+  const adminRole = await getAdminRole();
   if (!match) {
-    const adminRole = await getAdminRole();
     if (adminRole) {
       db = createAdminClient();
       ({ data: match } = await db.from("matches").select("*").eq("id", id).maybeSingle());
     }
   }
   if (!match) notFound();
+  const fromAdmin = (await searchParams).from === "admin" && !!adminRole;
 
   let court: { id: string; name: string; address: string | null; lat: number | null; lng: number | null } | null = null;
   if (match.court_id) {
@@ -74,7 +76,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const isOrganizer = match.organizer_id === user.id;
   const myPart = participants.find((p) => p.user_id === user.id) ?? null;
   const isParticipant = !!myPart;
-  const joinable = match.status === "open";
+  const joinable = matchJoinable(match.status, match.scheduled_at);
+  const derived = matchDisplayStatus(match.status, match.scheduled_at);
 
   const { data: wlRows } = await db
     .from("join_requests")
@@ -138,11 +141,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     }
   }
 
-  const statusLabel = !joinable
-    ? match.status[0].toUpperCase() + match.status.slice(1)
-    : full
-      ? "Roster full"
-      : "Open — joining";
+  const statusLabel = !joinable ? derived.label : full ? "Roster full" : "Open — joining";
   const statusColor = !joinable ? "var(--color-mute)" : full ? "var(--color-mute)" : "var(--color-brand-deep)";
   const statusBg = !joinable || full ? "var(--color-bg)" : "var(--color-tint-brand)";
 
@@ -156,7 +155,13 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
-      <Breadcrumbs items={[{ label: "Play", href: "/play" }, { label: "Match" }]} />
+      <Breadcrumbs
+        items={
+          fromAdmin
+            ? [{ label: "Admin", href: "/admin" }, { label: "Expired content", href: "/admin/expired" }, { label: "Match" }]
+            : [{ label: "Play", href: "/play" }, { label: "Match" }]
+        }
+      />
 
       {/* header */}
       <div className="mt-4 flex items-start justify-between gap-4">
@@ -165,7 +170,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl" style={{ background: `color-mix(in oklab, var(--color-sport-${sportSlug(match.sport_key)}) 16%, transparent)` }} aria-hidden><SportIcon sport={match.sport_key} variant="glyph" size={36} /></span>
             <div>
               <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">
-                {meta.name} · {match.format === "doubles" ? "Doubles" : "Singles"}
+                {meta.name} · {matchFormatLabel(match.sport_key, match.format)}
               </h1>
               <p className="mt-1 text-sm text-mute">Organized by {profMap.get(match.organizer_id)?.display_name ?? "a player"}</p>
             </div>
@@ -278,7 +283,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             </div>
           )
         ) : !joinable ? (
-          <p className="text-sm text-mute">This match is {match.status}. Joining is closed.</p>
+          <p className="text-sm text-mute">This match is {derived.label.toLowerCase()}. Joining is closed.</p>
         ) : !full ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-ink">{match.total_slots - filled} spot{match.total_slots - filled === 1 ? "" : "s"} open. Jump in.</p>

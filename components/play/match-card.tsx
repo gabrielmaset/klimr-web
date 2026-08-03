@@ -1,0 +1,157 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { MapPin, ArrowRight, Check, Repeat } from "lucide-react";
+import { SportIcon } from "@/components/sport-icons";
+import { SPORT_TONES } from "@/components/sport-chip";
+import { sportSlug } from "@/lib/sports";
+import { joinMatch } from "@/app/play/[id]/actions";
+import type { PlayMatch, Viewer } from "./play-browser";
+
+/** One match card — KLIMR-PLAY-HANDOFF §3e. Answers fast: sport, format,
+ *  time, spots urgency, court + distance, players, host, one obvious action.
+ *  Join is optimistic: the chip flips to YOU'RE IN and the roster updates
+ *  before the server round-trip lands. */
+
+function timeChip(iso: string | null): string {
+  if (!iso) return "ANYTIME · OPEN PLAY";
+  const d = new Date(iso);
+  const now = new Date();
+  const tmrw = new Date(now);
+  tmrw.setDate(now.getDate() + 1);
+  const day =
+    d.toDateString() === now.toDateString()
+      ? "TODAY"
+      : d.toDateString() === tmrw.toDateString()
+        ? "TOMORROW"
+        : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase().replace(",", "");
+  return `${day} · ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+}
+
+function Disc({ name, url, hue, z }: { name: string; url: string | null; hue: number; z: number }) {
+  return (
+    <span
+      className="relative inline-grid h-[22px] w-[22px] shrink-0 place-items-center overflow-hidden rounded-full text-[9px] font-bold text-white ring-2 ring-white first:ml-0"
+      style={{ zIndex: z, marginLeft: -7, background: url ? undefined : `linear-gradient(140deg, hsl(${hue} 72% 60%), hsl(${hue} 72% 42%))` }}
+      title={name}
+    >
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        name.charAt(0).toUpperCase()
+      )}
+    </span>
+  );
+}
+
+export function MatchCard({ m, viewer }: { m: PlayMatch; viewer: Viewer }) {
+  const [pending, startTransition] = useTransition();
+  const [optimistic, setOptimistic] = useState(false);
+  const tone = SPORT_TONES[sportSlug(m.sportKey)] ?? { fg: "var(--color-ink)", bg: "var(--color-bg)", bd: "var(--color-rule)" };
+
+  const joined = m.isJoined || optimistic;
+  const joinedCount = m.joinedCount + (optimistic ? 1 : 0);
+  const spotsLeft = Math.max(0, m.totalSlots - joinedCount);
+  const players = optimistic ? [...m.players, { name: viewer.name, url: viewer.url, hue: viewer.hue }].slice(0, 4) : m.players;
+
+  const onJoin = () => {
+    setOptimistic(true);
+    const fd = new FormData();
+    fd.set("matchId", m.id);
+    startTransition(() => {
+      void joinMatch(fd);
+    });
+  };
+
+  const spotsChip =
+    spotsLeft === 0 ? (
+      <span className="shrink-0 rounded-[7px] border px-1.5 py-[3px] font-mono text-[8.5px] font-bold tracking-[.06em]" style={{ background: "var(--color-bg)", borderColor: "var(--color-rule-2)", color: "var(--color-faint)" }}>
+        FULL
+      </span>
+    ) : spotsLeft === 1 ? (
+      <span className="shrink-0 rounded-[7px] border px-1.5 py-[3px] font-mono text-[8.5px] font-bold tracking-[.06em]" style={{ background: "var(--color-tint-brand)", borderColor: "var(--color-tint-brand-bd)", color: "var(--color-flame-text)" }}>
+        1 SPOT LEFT
+      </span>
+    ) : (
+      <span className="shrink-0 rounded-[7px] border px-1.5 py-[3px] font-mono text-[8.5px] font-bold tracking-[.06em]" style={{ background: "#EFF8F0", borderColor: "#CFE8D5", color: "#217A34" }}>
+        {spotsLeft} SPOTS OPEN
+      </span>
+    );
+
+  return (
+    <div className="group rounded-[15px] border bg-surface transition-all hover:-translate-y-0.5 motion-reduce:hover:translate-y-0" style={{ borderColor: "#EFE9DC", boxShadow: "0 1px 2px rgba(80,60,30,.04)" }}>
+      <div className="p-3">
+        <div className="flex items-start gap-2.5">
+          <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[11px] border" style={{ background: tone.bg, borderColor: tone.bd }}>
+            <SportIcon sport={m.sportKey} variant="glyph" size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14.5px] font-bold leading-tight text-ink">
+              {m.sportName} · {m.formatLabel}
+            </p>
+            <p className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span className="font-mono text-[10.5px] font-bold tracking-[.04em] text-flame-text">{timeChip(m.effectiveAt)}</span>
+              {m.recurrence ? (
+                <span className="inline-flex items-center gap-1 rounded-[6px] border px-1.5 py-px font-mono text-[8.5px] font-bold uppercase tracking-[.08em]" style={{ background: "var(--color-bg)", borderColor: "var(--color-rule-2)", color: "var(--color-faint)" }}>
+                  <Repeat size={9} strokeWidth={2.75} /> {m.recurrence}
+                </span>
+              ) : null}
+            </p>
+          </div>
+          {spotsChip}
+        </div>
+
+        <p className="mt-2.5 flex items-center gap-1.5 text-[12px] font-semibold text-ink-soft">
+          {m.courtName ? (
+            <>
+              <MapPin size={13} className="shrink-0 text-faint" />
+              <span className="truncate">{m.courtName}</span>
+              {m.distanceMi != null ? <span className="shrink-0 font-mono text-[10px] font-semibold text-faint">{m.distanceMi.toFixed(1)} MI</span> : null}
+            </>
+          ) : (
+            <span className="font-normal text-faint">Location TBD — host will confirm</span>
+          )}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2" style={{ borderColor: "var(--color-rule-soft)" }}>
+        <span className="flex pl-[7px]">
+          {players.map((p, i) => (
+            <Disc key={`${p.name}-${i}`} name={p.name} url={p.url} hue={p.hue} z={10 - i} />
+          ))}
+        </span>
+        <span className="min-w-[100px] flex-[1_1_110px] truncate text-[11.5px] text-mute">
+          <span className="font-mono font-bold text-ink-soft">
+            {joinedCount}/{m.totalSlots}
+          </span>{" "}
+          · by {m.hostName}
+          {m.isHost ? " (you)" : ""}
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          {joined ? (
+            <span className="inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 font-mono text-[9px] font-bold tracking-[.06em]" style={{ background: "#EFF8F0", borderColor: "#CFE8D5", color: "#217A34" }}>
+              <Check size={10} strokeWidth={3} /> YOU&rsquo;RE IN
+            </span>
+          ) : spotsLeft > 0 ? (
+            <button
+              type="button"
+              onClick={onJoin}
+              disabled={pending}
+              className="press h-[30px] rounded-[9px] bg-ink px-3.5 text-[12.5px] font-bold text-surface transition-colors hover:bg-ink-soft disabled:opacity-60"
+            >
+              Join
+            </button>
+          ) : null}
+          <Link
+            href={`/play/${m.id}`}
+            className="press inline-flex h-[30px] items-center gap-1 rounded-[9px] border border-rule bg-surface px-3 text-[12.5px] font-bold text-ink-soft transition-colors hover:border-rule-2 hover:text-ink"
+          >
+            View <ArrowRight size={12} strokeWidth={2.5} />
+          </Link>
+        </span>
+      </div>
+    </div>
+  );
+}

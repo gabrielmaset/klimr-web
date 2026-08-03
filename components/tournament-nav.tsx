@@ -176,7 +176,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
       {/* desktop sidebar */}
       <aside
         ref={asideRef}
-        className={`print:hidden relative sticky top-0 z-[45] hidden h-dvh shrink-0 self-start p-3 transition-[width] duration-200 md:block ${collapsed || overlayMode ? "w-[76px]" : "w-64"}`}
+        className={`print:hidden relative sticky top-0 z-50 hidden h-dvh shrink-0 self-start p-3 transition-[width] duration-200 md:block ${collapsed || overlayMode ? "w-[76px]" : "w-64"}`}
       >
         <button
           type="button"

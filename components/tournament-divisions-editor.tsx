@@ -31,13 +31,14 @@ export function DivisionsEditor({
   initialMode,
   capacityUnit = "team",
   liveContext,
+  inheritTeamSize,
 }: {
   tournamentId: string;
   entryType: "team" | "individual";
   initial: DivisionRow[];
   initialMode: "pooled" | "per_division";
   capacityUnit?: "team" | "person";
-  liveContext?: { entries: number; scheduled: boolean };
+  liveContext?: { entries: number; scheduled: boolean }; inheritTeamSize?: number;
 }) {
   const [rows, setRows] = useState<Row[]>(initial.length ? initial.map(toRow) : [blank(entryType)]);
   const mode = initialMode; // capacity mode now lives in Settings → Format & eligibility
@@ -156,14 +157,32 @@ export function DivisionsEditor({
                       <div className="flex items-center gap-2">
                         <input type="number" min={0} className={`${inputCls} w-28`} placeholder="Unlimited" value={r.capacity} onChange={(e) => update(i, { capacity: e.target.value })} aria-label={`Division capacity in ${unitLabel}`} />
                         {entryType === "team" ? (
-                          <label className="flex flex-col gap-1">
-                            <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
-                            <input type="number" min={1} max={12} className={`${inputCls} w-24`} placeholder="Any" value={r.teamSize} onChange={(e) => update(i, { teamSize: e.target.value })} aria-label="Required players per team" />
-                          </label>
+                          r.teamSize.trim() === "" ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
+                              <button
+                                type="button"
+                                onClick={() => update(i, { teamSize: String(inheritTeamSize ?? 2) })}
+                                className="press rounded-[9px] border border-dashed border-rule bg-surface px-2.5 py-1.5 text-xs font-semibold text-mute hover:border-brand hover:text-brand-deep"
+                              >
+                                Inherits {inheritTeamSize ?? 2} · Override
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="flex flex-col gap-1">
+                              <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size · override</span>
+                              <div className="flex items-center gap-1.5">
+                                <input type="number" min={1} max={12} className={`${inputCls} w-20`} value={r.teamSize} onChange={(e) => update(i, { teamSize: e.target.value })} aria-label="Required players per team (override)" />
+                                <button type="button" onClick={() => update(i, { teamSize: "" })} title="Back to inherited size" aria-label="Use the event team size" className="press grid h-7 w-7 place-items-center rounded-[8px] border border-rule text-mute hover:border-brand hover:text-brand-deep">
+                                  ×
+                                </button>
+                              </div>
+                            </label>
+                          )
                         ) : null}
                         <span className="rounded-full border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{unitLabel}</span>
                       </div>
-                      <p className="mt-2 text-xs text-mute">Counted in {unitLabel} — the unit is set in Format &amp; eligibility.</p>
+                      <p className="mt-2 text-xs text-mute">Counted in {unitLabel}. Players per team is set once in Format &amp; eligibility — override here only if this division plays a different size (a 4s division in a 2s event).</p>
                     </div>
                   ) : (
                     <div className="rounded-xl border border-dashed border-rule bg-bg/60 p-3">

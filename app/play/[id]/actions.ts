@@ -21,6 +21,7 @@ export async function joinMatch(formData: FormData) {
   if (!user) redirect(`/login?next=/play/${id}`);
   if (!(await accountActive(supabase, user.id))) {
     revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
     return;
   }
 
@@ -59,6 +60,7 @@ export async function joinMatch(formData: FormData) {
     }
   }
   revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
 }
 
 export async function leaveMatch(formData: FormData) {
@@ -67,6 +69,7 @@ export async function leaveMatch(formData: FormData) {
   if (!user) redirect(`/login?next=/play/${id}`);
   await supabase.from("match_participants").delete().eq("match_id", id).eq("user_id", user.id);
   revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
 }
 
 export async function confirmSpot(formData: FormData) {
@@ -75,6 +78,7 @@ export async function confirmSpot(formData: FormData) {
   if (!user) redirect(`/login?next=/play/${id}`);
   await supabase.from("match_participants").update({ confirmed: true }).eq("match_id", id).eq("user_id", user.id);
   revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
 }
 
 export async function joinWaitlist(formData: FormData) {
@@ -83,6 +87,7 @@ export async function joinWaitlist(formData: FormData) {
   if (!user) redirect(`/login?next=/play/${id}`);
   if (!(await accountActive(supabase, user.id))) {
     revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
     return;
   }
   const { count } = await supabase
@@ -97,6 +102,7 @@ export async function joinWaitlist(formData: FormData) {
     waitlist_position: (count ?? 0) + 1,
   });
   revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
 }
 
 export async function leaveWaitlist(formData: FormData) {
@@ -105,6 +111,7 @@ export async function leaveWaitlist(formData: FormData) {
   if (!user) redirect(`/login?next=/play/${id}`);
   await supabase.from("join_requests").delete().eq("match_id", id).eq("requester_id", user.id);
   revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
 }
 
 export async function cancelMatch(formData: FormData) {
@@ -140,6 +147,7 @@ export async function inviteToMatch(formData: FormData) {
   if (!user) redirect(`/login?next=/play/${id}`);
   if (!invitee || invitee === user.id) {
     revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
     return;
   }
 
@@ -151,10 +159,12 @@ export async function inviteToMatch(formData: FormData) {
   // Only the organizer can invite, and only to a friend.
   if (!match || match.organizer_id !== user.id) {
     revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
     return;
   }
   if (!(await areFriends(supabase, user.id, invitee))) {
     revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
     return;
   }
 
@@ -174,6 +184,7 @@ export async function inviteToMatch(formData: FormData) {
     });
   }
   revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
 }
 
 // Invitee accepts — joins the roster if there's room.

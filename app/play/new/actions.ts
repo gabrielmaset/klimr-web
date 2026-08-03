@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { SPORT_KEYS } from "@/lib/sports";
+import { SPORT_KEYS, matchFormatMeta } from "@/lib/sports";
 import { accountActive } from "@/lib/guards";
 import { upsertGoogleCourt } from "@/app/courts/search-actions";
 
@@ -18,17 +18,21 @@ export async function createMatch(_prev: CreateState, formData: FormData): Promi
   if (!(await accountActive(supabase, user.id))) return { error: "Your account is restricted right now." };
 
   const sport = String(formData.get("sport") ?? "");
-  const format = String(formData.get("format") ?? "singles");
+  const format = String(formData.get("format") ?? "");
   const location = String(formData.get("location") ?? "").trim();
   const when = String(formData.get("scheduled_at") ?? "").trim();
-  const slotsRaw = parseInt(String(formData.get("slots") ?? ""), 10);
   const recurring = formData.get("recurring") === "on";
   const recurrenceRaw = String(formData.get("recurrence") ?? "");
   const recurrence = recurring && ["weekly", "biweekly", "monthly"].includes(recurrenceRaw) ? recurrenceRaw : null;
 
   if (!SPORT_KEYS.includes(sport)) return { error: "Pick a sport." };
-  if (format !== "singles" && format !== "doubles") return { error: "Pick a format." };
-  const slots = Number.isFinite(slotsRaw) ? Math.min(8, Math.max(2, slotsRaw)) : format === "doubles" ? 4 : 2;
+  // The format must exist in the canonical registry FOR THIS SPORT (beach
+  // volleyball has no "singles"), and capacity is DERIVED from the spec —
+  // server-authoritative, never typed by the client. The DB enforces the
+  // same pairing via the sport_formats FK (migration 0164).
+  const fmeta = matchFormatMeta(sport, format);
+  if (!fmeta) return { error: "Pick a format for this sport." };
+  const slots = fmeta.totalPlayers;
 
   let scheduledAt: string | null = null;
   if (when) {

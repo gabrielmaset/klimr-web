@@ -311,7 +311,7 @@ export function CourtsMap({
       inner.innerHTML =
         `<svg width="30" height="38" viewBox="0 0 30 38" style="position:absolute;inset:0;filter:drop-shadow(0 2px 4px rgba(30,26,20,.35))">` +
         `<path d="M15 37C15 37 28 22.5 28 14A13 13 0 1 0 2 14C2 22.5 15 37 15 37Z" fill="#FF4E1B" stroke="#fff" stroke-width="2.5"/></svg>` +
-        `<span style="position:absolute;top:4.5px;left:0;right:0;text-align:center;font:700 12px 'JetBrains Mono',ui-monospace,monospace;color:#fff">${i + 1}</span>` +
+        `<span style="position:absolute;top:4.5px;left:0;right:0;text-align:center;font:700 12px 'Spline Sans Mono',ui-monospace,monospace;color:#fff">${i + 1}</span>` +
         (c.liveQueue
           ? `<span style="position:absolute;right:-1px;top:-1px;width:9px;height:9px;border-radius:9999px;background:#2FA44F;border:2px solid #fff"></span>`
           : "");

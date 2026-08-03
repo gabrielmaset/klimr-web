@@ -42,11 +42,15 @@
   --color-rail-activebg: rgba(255, 78, 27, 0.16);
   --color-rail-hover: rgba(255, 255, 255, 0.06);
 
-  /* Type roles — Inter for UI + display, JetBrains Mono for data/codes */
+  /* Type roles — see docs/FONTS.md for the full inventory & rationale.
+     Mono is Spline Sans Mono: a humanist grotesque mono (Space Grotesk's
+     natural companion) whose SLASHED zero stays unambiguous even at 9.5px
+     kickers — the reason it replaced JetBrains Mono (dotted zero vanishes
+     small) and the legacy Space Mono (plain zero, reads like an O). */
   --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-kicker: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-kicker: "Spline Sans Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Spline Sans Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-athletic: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
 
   /* ── Semantic status ───────────────────────────────────────────────
@@ -184,7 +188,7 @@ html {
   --tp-olive: #3f6314;
 }
 .tp-mono {
-  font-family: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: "Spline Sans Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {

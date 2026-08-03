@@ -80,6 +80,8 @@ export type QCourtState = {
   teamSize: number;
   levels: string[];
   current: { matchId: string; startedAt: string; a: QTeam; b: QTeam } | null;
+  /** The most recently finished match on this court — compact, for the courtside display. */
+  lastMatch?: { aNames: string[]; bNames: string[]; winner: "a" | "b" | null; endedAt: string } | null;
   queue: QTeam[]; // queued teams in play order (holder first if a winner is staying)
   forming: QTeam[]; // teams still filling — open to join
   closed: boolean; // organizer retired this court (end-of-day wind-down)

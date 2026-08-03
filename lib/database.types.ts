@@ -173,6 +173,12 @@ export interface Database {
         Update: { follower_id?: string; followee_id?: string; created_at?: string };
         Relationships: [];
       };
+      sport_formats: {
+        Row: { sport_key: string; format_key: string; label: string; short_label: string; players_per_side: number; sides: number; total_players: number; is_default: boolean; is_casual: boolean; sort: number };
+        Insert: { sport_key: string; format_key: string; label: string; short_label: string; players_per_side: number; sides?: number; total_players: number; is_default?: boolean; is_casual?: boolean; sort?: number };
+        Update: { sport_key?: string; format_key?: string; label?: string; short_label?: string; players_per_side?: number; sides?: number; total_players?: number; is_default?: boolean; is_casual?: boolean; sort?: number };
+        Relationships: [];
+      };
       sports: {
         Row: { key: string; name: string; skill_system: string };
         Insert: { key: string; name: string; skill_system: string };

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/avatar";
-import { sportMeta } from "@/lib/sports";
+import { sportMeta, matchFormatLabel } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 
 type Prof = { id: string; display_name: string; avatar_hue: number; verification_status: string };
@@ -207,7 +207,7 @@ export async function SignedInHome() {
                 <Link key={m.id} href={`/play/${m.id}`} className="lift rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <div className="flex items-center gap-2.5">
                     <SportIcon sport={m.sport_key} variant="glyph" size={26} />
-                    <span className="font-display text-lg text-ink">{meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}</span>
+                    <span className="font-display text-lg text-ink">{meta.name} · {matchFormatLabel(m.sport_key, m.format)}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-mute">
                     <span className="flex items-center gap-1.5"><CalendarClock size={13} className="text-faint" /> {whenShort(m.scheduled_at)}</span>
@@ -257,7 +257,7 @@ export async function SignedInHome() {
                       {completed ? (
                         <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={13} className="text-success" /> Completed a <SportIcon sport={m.sport_key} variant="badge" size={13} /> {meta.name} match</span>
                       ) : (
-                        <>Organized a <SportIcon sport={m.sport_key} variant="badge" size={13} /> {meta.name} {m.format === "doubles" ? "doubles" : "singles"} match</>
+                        <>Organized a <SportIcon sport={m.sport_key} variant="badge" size={13} /> {meta.name} {matchFormatLabel(m.sport_key, m.format).toLowerCase()} match</>
                       )}
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">

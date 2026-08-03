@@ -64,7 +64,7 @@ export function LegacyCourtsMap({ token, courts, tall }: { token: string | null;
         const el = document.createElement("div");
         el.style.cssText =
           "width:26px;height:26px;border-radius:8px;background:#201B12;color:#fff;display:grid;place-items:center;" +
-          "font:700 11px 'JetBrains Mono',monospace;border:2px solid #fff;box-shadow:0 2px 6px rgba(32,27,18,.35);cursor:default;";
+          "font:700 11px 'Spline Sans Mono',monospace;border:2px solid #fff;box-shadow:0 2px 6px rgba(32,27,18,.35);cursor:default;";
         el.textContent = c.label;
         el.setAttribute("aria-label", c.name);
         el.title = [c.name, c.city].filter(Boolean).join(" · ");

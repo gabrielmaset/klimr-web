@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Lock, MessageCircle, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sportMeta, sportSlug } from "@/lib/sports";
+import { sportMeta, sportSlug, matchFormatLabel } from "@/lib/sports";
 import { SPORT_TONES } from "@/components/sport-chip";
 import { PageHeader, StatusPill } from "@/components/page-header";
 import { ChatsLiveRefresher } from "@/components/chats-live-refresher";
@@ -199,7 +199,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
         <span className={`min-w-0 flex-1 ${dim ? "opacity-55" : ""}`}>
           <span className="flex items-center gap-2">
             <span className="truncate text-sm font-bold text-ink">
-              {meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}
+              {meta.name} · {matchFormatLabel(m.sport_key, m.format)}
             </span>
             {dim ? (
               <span className="rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-faint" style={{ background: "#F4EFE5", border: "1px solid var(--color-rule-2)" }}>

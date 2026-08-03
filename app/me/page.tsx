@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCalendarEvents } from "@/lib/calendar";
 import { Avatar } from "@/components/avatar";
 import { CoverUploader } from "@/components/cover-uploader";
-import { sportMeta, sportSlug, SPORTS } from "@/lib/sports";
+import { sportMeta, sportSlug, SPORTS, matchFormatLabel } from "@/lib/sports";
+import { matchDisplayStatus } from "@/lib/match-status";
 import { SportChip } from "@/components/sport-chip";
 
 export const metadata: Metadata = { title: "My profile" };
@@ -329,7 +330,7 @@ export default async function MyProfilePage() {
                   <Link key={m.id} href={`/play/${m.id}`} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-bg">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl" style={{ background: sportTint(m.sport_key, 12) }} aria-hidden><SportIcon sport={m.sport_key} variant="glyph" size={26} /></span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-ink">{meta.name} · {m.format === "doubles" ? "Doubles" : "Singles"}</span>
+                      <span className="block text-sm font-semibold text-ink">{meta.name} · {matchFormatLabel(m.sport_key, m.format)}</span>
                       <span className="flex items-center gap-1.5 text-xs text-mute">
                         <CalendarClock size={12} className="shrink-0 text-faint" /> {whenLabel(m.scheduled_at)}
                         {m.location_text ? ` · ${m.location_text}` : ""}
@@ -337,9 +338,9 @@ export default async function MyProfilePage() {
                     </span>
                     <span
                       className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize"
-                      style={{ background: m.status === "open" ? "var(--color-tint-brand)" : "var(--color-bg)", color: m.status === "open" ? "var(--color-brand-deep)" : "var(--color-mute)" }}
+                      style={{ background: matchDisplayStatus(m.status, m.scheduled_at).key === "open" ? "var(--color-tint-brand)" : "var(--color-bg)", color: matchDisplayStatus(m.status, m.scheduled_at).key === "open" ? "var(--color-brand-deep)" : "var(--color-mute)" }}
                     >
-                      {m.status}
+                      {matchDisplayStatus(m.status, m.scheduled_at).label}
                     </span>
                   </Link>
                 );

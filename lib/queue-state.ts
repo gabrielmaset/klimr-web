@@ -212,11 +212,30 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
     admin.from("queue_join_requests").select("id, court_id, user_id, guest_name, created_at").eq("session_id", sessionId).eq("status", "pending").order("created_at"),
   ]);
 
+  // Last finished match per court (compact, for the courtside display).
+  const { data: finals } = await admin
+    .from("queue_matches")
+    .select("court_id, team_a, team_b, winner_team, ended_at")
+    .eq("session_id", sessionId)
+    .eq("status", "final")
+    .not("ended_at", "is", null)
+    .order("ended_at", { ascending: false })
+    .limit(12);
+  const lastByCourt = new Map<string, { team_a: string; team_b: string; winner_team: string | null; ended_at: string }>();
+  for (const f of finals ?? []) {
+    if (!lastByCourt.has(f.court_id)) lastByCourt.set(f.court_id, { team_a: f.team_a, team_b: f.team_b, winner_team: f.winner_team, ended_at: f.ended_at! });
+  }
+
   const reqRows = (requests ?? []) as { id: string; court_id: string; user_id: string | null; guest_name: string | null }[];
 
   const teamRows = (teams ?? []) as TeamRow[];
   const teamIds = teamRows.map((t) => t.id);
 
+  // Finished teams drop out of the active team query — pull the last-match
+  // teams in explicitly so their names still render on the display.
+  for (const f of lastByCourt.values()) {
+    for (const id of [f.team_a, f.team_b]) if (!teamIds.includes(id)) teamIds.push(id);
+  }
   let members: MemberRow[] = [];
   if (teamIds.length) {
     const { data: mem } = await admin.from("queue_team_members").select("team_id, user_id, guest_name, joined_at").in("team_id", teamIds).order("joined_at");
@@ -261,6 +280,18 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       if (a && b) current = { matchId: live.id, startedAt: live.started_at, a: buildTeam(a, size), b: buildTeam(b, size) };
     }
 
+    const last = lastByCourt.get(c.id);
+    const namesOf = (teamId: string): string[] =>
+      (membersByTeam.get(teamId) ?? []).map((m) => (m.user_id ? profById.get(m.user_id) ?? "Player" : m.guest_name ?? "Guest"));
+    const lastMatch = last
+      ? {
+          aNames: namesOf(last.team_a),
+          bNames: namesOf(last.team_b),
+          winner: (last.winner_team === last.team_a ? "a" : last.winner_team === last.team_b ? "b" : null) as "a" | "b" | null,
+          endedAt: last.ended_at,
+        }
+      : null;
+
     const queued = courtTeams
       .filter((t) => t.status === "queued")
       .sort((a, b) => {
@@ -275,6 +306,7 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
       teamSize: size,
       levels: c.levels ?? [],
       current,
+      lastMatch,
       queue: queued.map((t) => buildTeam(t, size)),
       forming: forming.map((t) => buildTeam(t, size)),
       closed: !!c.closed_at,

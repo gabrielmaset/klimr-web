@@ -4,7 +4,7 @@ import { FilterGroup, FacetLink } from "@/components/filter-chips";
 import { redirect } from "next/navigation";
 import { Radar, ArrowRight, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { SPORT_KEYS, sportMeta } from "@/lib/sports";
+import { SPORT_KEYS, sportMeta, matchFormatLabel } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { Avatar } from "@/components/avatar";
 import { AdSlot } from "@/components/ads/ad-slot";
@@ -288,7 +288,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                     </span>
                   </div>
                   <h3 className="mt-2 text-sm font-bold text-ink">
-                    {m2.name} · {m.format === "doubles" ? "Doubles" : "Singles"}
+                    {m2.name} · {matchFormatLabel(m.sport_key, m.format)}
                   </h3>
                   <p className="mt-1 text-xs text-mute">{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Open · anytime"}</p>
                   {m.place ? <p className="mt-0.5 truncate text-xs text-faint">{m.place}</p> : null}

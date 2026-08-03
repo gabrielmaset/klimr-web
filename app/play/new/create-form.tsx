@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createMatch } from "./actions";
-import { SPORTS } from "@/lib/sports";
+import { SPORTS, matchFormats, defaultMatchFormat, matchFormatMeta } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { CourtPicker } from "./court-picker";
 import { DateTimePicker } from "./datetime-picker";
@@ -20,12 +20,14 @@ export function CreateMatchForm({
 }) {
   const [state, action, pending] = useActionState(createMatch, undefined);
   const [sport, setSport] = useState<string>(initialCourt?.sport || defaultSport || "");
-  const [format, setFormat] = useState<"singles" | "doubles">("singles");
+  const [format, setFormat] = useState<string>(defaultMatchFormat(initialCourt?.sport || defaultSport || "")?.key ?? "");
   const [court, setCourt] = useState<PickerCourt | null>(initialCourt);
   const [recurring, setRecurring] = useState(false);
   const [recurrence, setRecurrence] = useState("weekly");
 
-  const defaultSlots = format === "doubles" ? 4 : 2;
+  // Everything about the match STRUCTURE derives from the canonical
+  // per-sport registry (lib/sports MATCH_FORMATS) — never hard-coded here.
+  const fmt = matchFormatMeta(sport, format);
   const courtPayload = court
     ? JSON.stringify({
         courtId: court.courtId,
@@ -57,7 +59,10 @@ export function CreateMatchForm({
                   <button
                     key={s.key}
                     type="button"
-                    onClick={() => setSport(s.key)}
+                    onClick={() => {
+                      setSport(s.key);
+                      setFormat(defaultMatchFormat(s.key)?.key ?? "");
+                    }}
                     aria-pressed={on}
                     className={`press rounded-2xl border px-2 py-3 text-center transition-all ${on ? "-translate-y-0.5 border-[#FFD4BC] bg-tint-brand shadow-[0_10px_28px_-18px_rgba(90,68,35,.45)] ring-2 ring-brand/25" : "border-rule bg-surface hover:-translate-y-0.5 hover:border-rule-2 hover:shadow-e1"}`}
                   >
@@ -71,25 +76,38 @@ export function CreateMatchForm({
             </div>
           </div>
 
-          {/* format */}
+          {/* format — options come from the sport's registry entry, so beach
+              volleyball offers 2s/3s/4s and racquetball offers cutthroat;
+              padel is doubles-only and simply shows its one locked card. */}
           <div>
             <label className="kicker text-faint">Format</label>
-            <div className="mt-2 inline-flex rounded-full border border-rule p-1">
-              {(["singles", "doubles"] as const).map((f) => {
-                const on = format === f;
-                return (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setFormat(f)}
-                    className="press rounded-full px-4 py-1.5 text-sm font-semibold transition-colors"
-                    style={{ background: on ? "var(--color-ink)" : "transparent", color: on ? "#fff" : "var(--color-mute)" }}
-                  >
-                    {f === "singles" ? "Singles" : "Doubles"}
-                  </button>
-                );
-              })}
-            </div>
+            {!sport ? (
+              <p className="mt-2 text-sm text-faint">Pick a sport first.</p>
+            ) : (
+              <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))" }}>
+                {matchFormats(sport).map((f) => {
+                  const on = format === f.key;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setFormat(f.key)}
+                      aria-pressed={on}
+                      className={`press rounded-xl border p-3 text-left transition-all ${on ? "-translate-y-0.5 border-[#FFD4BC] bg-tint-brand shadow-[0_10px_28px_-18px_rgba(90,68,35,.45)] ring-2 ring-brand/25" : "border-rule bg-surface hover:-translate-y-0.5 hover:border-rule-2 hover:shadow-e1"}`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span className={`text-sm font-bold ${on ? "text-brand-deep" : "text-ink"}`}>{f.label}</span>
+                        {f.casual ? (
+                          <span className="rounded-[6px] bg-bg px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wide text-faint">Pickup</span>
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 block font-mono text-[11px] font-semibold text-mute">{f.short} · {f.totalPlayers} players</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {fmt ? <p className="mt-2 text-xs text-mute">{fmt.blurb}</p> : null}
           </div>
 
           {/* when + slots */}
@@ -104,18 +122,24 @@ export function CreateMatchForm({
               <p className="mt-1.5 text-xs text-faint">Leave blank for open / anytime play. Times are in 15-minute steps.</p>
             </div>
             <div>
-              <label htmlFor="slots" className="kicker text-faint">Players needed</label>
-              <input
-                id="slots"
-                name="slots"
-                type="number"
-                min={2}
-                max={8}
-                defaultValue={defaultSlots}
-                key={defaultSlots}
-                className="mt-2 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
-              />
-              <p className="mt-1.5 text-xs text-faint">Including you. {format === "doubles" ? "Doubles is usually 4." : "Singles is 2."}</p>
+              <label className="kicker text-faint">Who you&rsquo;re looking for</label>
+              {fmt ? (
+                <div className="mt-2 rounded-xl border border-rule bg-bg px-3.5 py-3">
+                  <p className="text-sm font-semibold text-ink">
+                    {fmt.sides === 3
+                      ? "You + 2 others — every player for themselves"
+                      : fmt.playersPerSide === 1
+                        ? "You vs 1 opponent"
+                        : `You + ${fmt.playersPerSide - 1} teammate${fmt.playersPerSide - 1 === 1 ? "" : "s"} vs ${fmt.playersPerSide} opponents`}
+                  </p>
+                  <p className="mt-1 font-mono text-[11px] font-semibold text-mute">
+                    {fmt.totalPlayers} players total · {fmt.totalPlayers - 1} open spot{fmt.totalPlayers - 1 === 1 ? "" : "s"} to fill
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-faint">Pick a sport and format — the player count comes from the format.</p>
+              )}
+              <p className="mt-1.5 text-xs text-faint">You&rsquo;re seated automatically; invite players or leave spots open for joins.</p>
             </div>
           </div>
 
@@ -175,6 +199,7 @@ export function CreateMatchForm({
 
       <input type="hidden" name="sport" value={sport} />
       <input type="hidden" name="format" value={format} />
+      <input type="hidden" name="slots" value={fmt ? String(fmt.totalPlayers) : ""} />
       <input type="hidden" name="court_payload" value={courtPayload} />
       <input type="hidden" name="recurring" value={recurring ? "on" : ""} />
       <input type="hidden" name="recurrence" value={recurring ? recurrence : ""} />
@@ -188,8 +213,8 @@ export function CreateMatchForm({
       <div className="mt-8 flex items-center gap-3">
         <button
           type="submit"
-          disabled={pending || !sport}
-          className="press rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-50" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
+          disabled={pending || !sport || !fmt}
+          className="press rounded-[10px] px-5 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-50" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
         >
           {pending ? "Creating…" : "Create match"}
         </button>

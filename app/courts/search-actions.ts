@@ -2,7 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { SPORT_KEYS } from "@/lib/sports";
+import { SPORT_KEYS, sportMeta } from "@/lib/sports";
 import { lookupZip, resolveLocation as resolveLocationData, suggestCities as suggestCitiesData } from "@/lib/us-places";
 
 /* ------------------------------------------------------------------ *
@@ -47,11 +47,18 @@ export type SearchResponse = {
   expanded?: boolean;
 };
 
-const QUERY_FOR: Record<string, string> = {
-  tennis: "tennis court",
-  pickleball: "pickleball court",
-  padel: "padel court",
-  racquetball: "racquetball court",
+/** One or MORE Google text queries per sport, unioned. Racquetball venues in
+ *  particular live inside recreation centers and membership gyms, so a single
+ *  "racquetball court" query can drown in chain-gym noise before the real
+ *  municipal courts surface; beach volleyball previously fell through to the
+ *  literal key — "beach_volleyball court", underscore and all — and returned
+ *  garbage. Every sport gets explicit, human phrasing. */
+const QUERY_FOR: Record<string, string[]> = {
+  tennis: ["tennis court"],
+  pickleball: ["pickleball court"],
+  padel: ["padel court", "padel club"],
+  racquetball: ["racquetball court", "racquetball"],
+  beach_volleyball: ["beach volleyball court", "sand volleyball court"],
 };
 
 // --- Model + radius policy -------------------------------------------------
@@ -183,7 +190,8 @@ async function aiFilter(
     `- Not a place to play: governing bodies, associations, leagues, academies/coaching or lesson businesses with no actual courts, stringing or pro-shop services, tournament listings.\n` +
     `- Duplicates of a venue already kept (see DEDUPE).\n\n` +
     `KEEP (keep:true):\n` +
-    `- Real, playable ${sport} courts: public parks and recreation/community centers that have ${sport} courts, dedicated ${sport} clubs, and school/university courts that are open to the public.\n\n` +
+    `- Real, playable ${sport} courts: public parks and recreation/community centers that have ${sport} courts, dedicated ${sport} clubs, and school/university courts that are open to the public. Municipal "Recreation Center" facilities that offer ${sport} are premier keeps — never drop one for having a generic name.\n` +
+    `- Membership gyms and athletic clubs (e.g. big-chain fitness clubs) that genuinely have ${sport} courts: keep:true with private:true — for racquetball especially, most real courts live inside gyms and rec centers.\n\n` +
     `PRIVATE (private:true, but still keep): members-only or private clubs, country clubs, gated-community / HOA / apartment courts.\n\n` +
     `DEDUPE — return AT MOST ONE result per physical venue:\n` +
     `- Treat candidates as the same venue when they share an address, sit within ~150 m of each other (compare lat/lng), or when one name is the other plus a qualifier (e.g. "Mar Vista Recreation Center" vs "Mar Vista Recreation Center Tennis Courts").\n` +
@@ -201,7 +209,7 @@ async function aiFilter(
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1024,
+        max_tokens: 1600,
         system,
         messages: [{ role: "user", content: `Sport: ${sport}\nCandidates:\n${JSON.stringify(compact)}` }],
       }),
@@ -285,8 +293,12 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     .maybeSingle();
   if (cacheRow) {
     const ageMs = Date.now() - new Date(cacheRow.fetched_at).getTime();
-    if (ageMs < ttlDays * 86_400_000) {
-      return shape((cacheRow.results as unknown as CourtResult[]) ?? [], "cache");
+    const cached = (cacheRow.results as unknown as CourtResult[]) ?? [];
+    // Serve only fresh AND non-empty envelopes. A cached EMPTY result would
+    // pin "no courts within 50 miles" for a week of retries after one bad
+    // run (API hiccup, quota day, over-strict screen) — the Westwood bug.
+    if (ageMs < ttlDays * 86_400_000 && cached.length > 0) {
+      return shape(cached, "cache");
     }
   }
 
@@ -295,8 +307,9 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   const month = new Date().toISOString().slice(0, 7);
   const { data: claimed } = await admin.rpc("claim_live_search", { p_month: month, p_cap: cap });
   if (claimed !== true) {
-    if (cacheRow) {
-      const r = shape((cacheRow.results as unknown as CourtResult[]) ?? [], "cache");
+    const staleCached = (cacheRow?.results as unknown as CourtResult[]) ?? [];
+    if (staleCached.length > 0) {
+      const r = shape(staleCached, "cache");
       return { ...r, message: r.message ?? "Showing recent results — live search is paused until next month." };
     }
     return { status: "capped", courts: [], source: "none", message: "Live court search has hit this month's limit. Try again next month." };
@@ -307,7 +320,14 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
 
   let candidates: RawPlace[] = [];
   try {
-    candidates = await placesSearch(QUERY_FOR[sport] ?? `${sport} court`, center.lat, center.lng, WIDE_KM, googleKey);
+    const queries = QUERY_FOR[sport] ?? [`${sportMeta(sport).name.toLowerCase()} court`];
+    const batches = await Promise.all(queries.map((q) => placesSearch(q, center.lat, center.lng, WIDE_KM, googleKey)));
+    const seen = new Set<string>();
+    candidates = batches
+      .flat()
+      .filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true)))
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 30);
   } catch {
     return { status: "error", courts: [], source: "none", message: "Search is temporarily unavailable." };
   }
@@ -336,12 +356,18 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   }
 
   // 4) Cache the 50-mile envelope (one row per zip+sport).
-  await admin
-    .from("court_search_cache")
-    .upsert(
-      { zip: locationKey, radius_km: WIDE_KM, sport, results: wide, fetched_at: new Date().toISOString() },
-      { onConflict: "zip,radius_km,sport" },
-    );
+  // NEVER cache emptiness — and an empty live result clears any stale row so
+  // the very next attempt retries live instead of inheriting a bad week.
+  if (wide.length > 0) {
+    await admin
+      .from("court_search_cache")
+      .upsert(
+        { zip: locationKey, radius_km: WIDE_KM, sport, results: wide, fetched_at: new Date().toISOString() },
+        { onConflict: "zip,radius_km,sport" },
+      );
+  } else {
+    await admin.from("court_search_cache").delete().eq("zip", locationKey).eq("radius_km", WIDE_KM).eq("sport", sport);
+  }
 
   return shape(wide, "live");
 }

@@ -285,7 +285,19 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
   const shownTeamSize = liveMatchSize ?? court?.teamSize ?? 0;
 
   const heldTeam = court ? court.queue.find((t) => t.hold && t.wins > 0) ?? null : null;
-  const upNext = court ? court.queue.filter((t) => !t.hold).slice(0, 3) : [];
+  const upNext = court ? court.queue.filter((t) => !t.hold) : [];
+  // Horizontal scroll with a 6-second idle snap-back: browse the whole line,
+  // and when nobody's touched it for 6s the row glides home to the next
+  // teams up — the display never sits stranded mid-list.
+  const upRef = useRef<HTMLDivElement>(null);
+  const upIdle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onUpScroll = () => {
+    if (upIdle.current) clearTimeout(upIdle.current);
+    upIdle.current = setTimeout(() => {
+      upRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+    }, 6000);
+  };
+  useEffect(() => () => { if (upIdle.current) clearTimeout(upIdle.current); }, []);
   const canStart = !!court && court.queue.length >= 2;
   const cap = state.session.winCap;
 
@@ -450,13 +462,25 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
       <div className="shrink-0 border-t border-white/10 px-[max(0.9rem,3vw)] pt-[1.6vh] pb-[max(1.6vh,env(safe-area-inset-bottom))]">
         <div className="flex flex-col gap-[1.4vh] landscape:flex-row landscape:items-stretch landscape:gap-[2vw] lg:flex-row lg:items-stretch lg:gap-[2vw]">
           <div className="min-w-0 flex-1">
-            <p className="mb-[1vh] text-[clamp(0.65rem,1vw,0.95rem)] font-bold uppercase tracking-[0.22em] text-white/50">Next up in line</p>
+            <div className="mb-[1vh] flex flex-wrap items-baseline justify-between gap-x-[1.5vw] gap-y-1">
+              <p className="text-[clamp(0.65rem,1vw,0.95rem)] font-bold uppercase tracking-[0.22em] text-white/50">Next up in line{upNext.length > 3 ? ` · ${upNext.length} teams` : ""}</p>
+              {court?.lastMatch ? (
+                <p className="min-w-0 truncate text-[clamp(0.62rem,0.95vw,0.9rem)] font-semibold text-white/45">
+                  <span className="font-bold uppercase tracking-[0.18em] text-white/35">Last match · </span>
+                  {court.lastMatch.winner === "b"
+                    ? `${court.lastMatch.bNames.join(" & ") || "—"} def. ${court.lastMatch.aNames.join(" & ") || "—"}`
+                    : `${court.lastMatch.aNames.join(" & ") || "—"} def. ${court.lastMatch.bNames.join(" & ") || "—"}`}
+                  {" · "}
+                  {new Date(court.lastMatch.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                </p>
+              ) : null}
+            </div>
             {upNext.length === 0 ? (
               <p className="text-[clamp(0.9rem,1.4vw,1.4rem)] text-white/45">No teams waiting.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-[max(0.5rem,1.5vw)] landscape:grid-cols-3 md:grid-cols-3">
+              <div ref={upRef} onScroll={onUpScroll} onTouchStart={onUpScroll} className="flex snap-x snap-mandatory gap-[max(0.5rem,1.5vw)] overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {upNext.map((t, i) => (
-                  <div key={t.id} className="flex flex-col gap-[0.4rem] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)]">
+                  <div key={t.id} className="flex w-full shrink-0 snap-start flex-col gap-[0.4rem] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)] landscape:w-[calc((100%-2*max(0.5rem,1.5vw))/3)] md:w-[calc((100%-2*max(0.5rem,1.5vw))/3)]">
                     <div className="flex items-start gap-[max(0.5rem,1vw)]">
                       <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(2rem,3vw,3rem)", height: "clamp(2rem,3vw,3rem)", fontSize: "clamp(1rem,1.6vw,1.6rem)" }}>
                         {i + 1}

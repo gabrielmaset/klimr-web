@@ -158,7 +158,7 @@ function Podium({ top3, place, userId }: { top3: RankedRow[]; place: string; use
                 <text x={s.cx} y={s.top + AR + 22} textAnchor="middle" style={{ fontFamily: '"DM Sans Variable", sans-serif', fontWeight: 700, fontSize: 16, fill: you ? "#ff7a4d" : "#ffffff" }}>
                   {you ? "You" : firstName(s.row.display_name)}
                 </text>
-                <text x={s.cx} y={s.top + AR + 41} textAnchor="middle" style={{ fontFamily: '"JetBrains Mono Variable", monospace', fontSize: 12, fill: "rgba(255,255,255,.66)" }}>
+                <text x={s.cx} y={s.top + AR + 41} textAnchor="middle" style={{ fontFamily: '"Spline Sans Mono Variable", monospace', fontSize: 12, fill: "rgba(255,255,255,.66)" }}>
                   {compact(s.row.points)} pts
                 </text>
               </g>
@@ -349,7 +349,7 @@ export function RankingsBoard({
       </div>
 
       {/* THE MOUNTAIN — §3.2.2 (scope nodes over the ridge) */}
-      <div className="relative mt-6 h-[320px] overflow-hidden rounded-[22px]" style={{ border: "1px solid #E3E5D8", background: "linear-gradient(180deg,#E9F2FA 0%,#F6F4EA 62%,#F3EFE2 100%)" }}>
+      <div className="relative mt-6 h-[348px] overflow-hidden rounded-[22px]" style={{ border: "1px solid #E3E5D8", background: "linear-gradient(180deg,#E9F2FA 0%,#F6F4EA 62%,#F3EFE2 100%)" }}>
         <svg viewBox="0 0 1000 320" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
           <defs>
             <radialGradient id="mtn-sun" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(920 70) scale(100)">
@@ -395,9 +395,9 @@ export function RankingsBoard({
               >
                 {i + 1}
               </span>
-              <span className={`font-mono text-[9.5px] font-bold uppercase tracking-[.18em] mt-1.5 block text-[8.5px] ${on ? "text-flame-text" : ""}`} style={on ? undefined : { color: "var(--color-ink-4)" }}>{s.label}</span>
-              <span className="block max-w-[110px] truncate text-[12.5px] font-bold leading-tight text-ink max-sm:hidden">{s.place}</span>
-              <span className="block font-mono text-[10px]" style={{ color: "var(--color-ink-4)" }}>{countReady(s.key) ? compact(countFor(s.key)) : "·"}</span>
+              <span className={`font-mono text-[9.5px] font-bold uppercase tracking-[.18em] mt-1.5 block text-[8.5px] ${on ? "text-flame-text" : ""}`} style={{ textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2, 0 0 2px #F3EFE2", ...(on ? {} : { color: "var(--color-ink-4)" }) }}>{s.label}</span>
+              <span className="block max-w-[110px] truncate text-[12.5px] font-bold leading-tight text-ink max-sm:hidden" style={{ textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2, 0 0 2px #F3EFE2" }}>{s.place}</span>
+              <span className="block font-mono text-[10px]" style={{ color: "var(--color-ink-4)", textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2" }}>{countReady(s.key) ? compact(countFor(s.key)) : "·"}</span>
             </button>
           );
         })}

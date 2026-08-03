@@ -20,6 +20,10 @@ async function getCoords(): Promise<{ lat: number; lng: number } | null> {
   });
 }
 
+/** Minutes since a timestamp — module-level so render stays pure; the 3s
+ *  state poll re-renders and keeps it fresh. */
+const minutesSince = (iso: string) => Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60000));
+
 function joinedAt(iso: string | null): string {
   if (!iso) return "";
   const t = Date.parse(iso);
@@ -218,7 +222,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                           type="button"
                           disabled={pending}
                           onClick={() => join(c.id)}
-                          className="press inline-flex shrink-0 items-center gap-2 rounded-full bg-brand px-6 py-3.5 text-base font-bold text-white shadow-sm transition-colors hover:bg-brand-deep disabled:opacity-50"
+                          className="press inline-flex shrink-0 items-center gap-2 rounded-[12px] bg-brand px-6 py-3.5 text-base font-bold text-white shadow-sm transition-colors hover:bg-brand-deep disabled:opacity-50"
                         >
                           {busy ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />} {session.requireApproval ? "Request" : "Join"}
                         </button>
@@ -226,9 +230,30 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
 
                       {/* playing now */}
                       {c.current ? (
-                        <div className="flex items-start gap-2 border-b border-rule bg-tint-success px-4 py-3 text-sm font-bold text-success sm:px-5">
-                          <Radio size={16} className="mt-0.5 shrink-0" />
-                          <span>Playing now · {c.current.a.members.map((m) => m.name).join(", ") || "—"} vs {c.current.b.members.map((m) => m.name).join(", ") || "—"}</span>
+                        /* Read-only courtside strip — the live view the court
+                           display shows, minus every control: follow the match
+                           in real time (state polls every 3s) while you wait
+                           for your number in line to come up. */
+                        <div className="border-b border-rule bg-ink px-4 py-3 text-white sm:px-5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-1.5 font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-white/60">
+                              <Radio size={12} className="text-brand" /> Live on this court
+                            </span>
+                            <span className="font-mono text-[10px] font-semibold text-white/50">
+                              {minutesSince(c.current.startedAt)} min in
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2.5">
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[14.5px] font-bold leading-snug">{c.current.a.members.map((m) => m.name).join(" & ") || "—"}</span>
+                              {c.current.a.wins > 0 ? <span className="font-mono text-[10px] font-semibold text-white/50">{c.current.a.wins}W streak</span> : null}
+                            </span>
+                            <span className="shrink-0 font-mono text-[10px] font-bold text-white/40">VS</span>
+                            <span className="min-w-0 flex-1 text-right">
+                              <span className="block truncate text-[14.5px] font-bold leading-snug">{c.current.b.members.map((m) => m.name).join(" & ") || "—"}</span>
+                              {c.current.b.wins > 0 ? <span className="font-mono text-[10px] font-semibold text-white/50">{c.current.b.wins}W streak</span> : null}
+                            </span>
+                          </div>
                         </div>
                       ) : null}
 
