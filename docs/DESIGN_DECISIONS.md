@@ -170,6 +170,11 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-08-03 (g) — The cache learns to defer to knowledge; unsure drops self-heal
+- **Gabriel's probes proved the intelligence loop works** — at 90066 the judge's fresh pass kept Westwood Rec and dropped Mar Vista (verifier-written intel: 1 confirmed, 2 denied; judge 1455ms) — while the Courts page still showed the opposite, because the 7-day results cache had frozen the judge's FIRST, least-informed pass. Fix, one clean mechanism: **a cached conclusion that predates newer knowledge is stale by definition** — on every cache hit, if any `court_sport_intel` row for the sport is newer than the cached row, fall through to a live pass that knows it. Caches naturally hold again once the verify queue drains and intel stops moving; no writes, no invalidation bookkeeping.
+- **False negatives now self-heal:** a venue-shaped candidate (rec center, sports complex, gym, park…) that the judge DROPS without verify-flagging and without intel on file joins the verify queue anyway — "Westwood Recreation Center pool" can be dropped once, but never lost, because the verifier reads its page and the confirmed verdict outranks every future guess.
+- The green "EXPANDING COVERAGE" chip in the finder is the live-layer-at-work indicator; confirmed intact.
+
 ### 2026-08-03 (f) — Speed build: <5s target, research-grounded (Anthropic latency guidance)
 - **Gabriel's bar: Google answers in <1s; Klimr's AI-filtered results must land in 2–5s.** The bottleneck was never the data — it was making a large model WRITE ~900 tokens of verdict JSON (generation time ∝ output length). Three levers, per Anthropic's own guidance (researched: Haiku 4.5 is positioned for latency-sensitive classification/routing; prompt caching was evaluated and deliberately SKIPPED for the judge — Haiku's 4,096-token cache minimum exceeds our ~700-token system prompt, so it would be a no-op):
   1. **Model roles reassigned professionally:** JUDGE = Haiku (fast classifier ON the critical path), VERIFIER = Sonnet (deep reader of venue pages + reviews, OFF the critical path where latency is free). Retry ladder now goes UP: Haiku fails → Sonnet.

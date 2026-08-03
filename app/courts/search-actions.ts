@@ -527,9 +527,20 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     // cap and Google quota, short enough to recover fast.
     const freshMs = cached.length > 0 ? ttlDays * 86_400_000 : 30 * 60_000;
     if (ageMs < freshMs) {
-      return cached.length > 0
-        ? { status: "ok", courts: cached, source: "cache" }
-        : { status: "empty", courts: [], source: "cache", message: noneMsg };
+      const { data: newest } = await admin
+        .from("court_sport_intel")
+        .select("checked_at")
+        .eq("sport", sport)
+        .order("checked_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const intelNewer = newest ? Date.parse(newest.checked_at) > Date.parse(cacheRow.fetched_at) : false;
+      if (!intelNewer) {
+        return cached.length > 0
+          ? { status: "ok", courts: cached, source: "cache" }
+          : { status: "empty", courts: [], source: "cache", message: noneMsg };
+      }
+      // Newer intel exists → fall through to a live pass that knows it.
     }
   }
 
@@ -619,6 +630,26 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
       .filter((c) => verdicts.get(c.id)?.verify === true)
       .slice(0, 5)
       .map((c) => ({ id: c.id, name: c.name, website: c.website ?? null }));
+    if (verifyTargets.length < 5) {
+      const VENUEISH = new Set([
+        "community_center",
+        "recreation_center",
+        "sports_complex",
+        "sports_club",
+        "sports_activity_location",
+        "fitness_center",
+        "gym",
+        "athletic_field",
+        "park",
+      ]);
+      for (const c of undecided) {
+        if (verifyTargets.length >= 5) break;
+        const v = verdicts.get(c.id);
+        if (v?.keep === false && v?.verify !== true && !intel.has(c.id) && c.types.some((tp) => VENUEISH.has(tp))) {
+          verifyTargets.push({ id: c.id, name: c.name, website: c.website ?? null });
+        }
+      }
+    }
 
     const keptJudged = undecided.filter((c) => verdicts.get(c.id)?.keep !== false);
     wide = [...decidedKeep, ...keptJudged]
