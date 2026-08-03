@@ -3,11 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import {
-  MapPin, LocateFixed, Search, Globe, Sun, Warehouse, Lightbulb, Tag, ListOrdered,
-  Star, Navigation, ArrowRight, ChevronDown, Check, Plus, ShieldCheck, List, Map as MapIcon,
-  Loader2,
-} from "lucide-react";
+import { MapPin, LocateFixed, Search, Globe, Sun, Warehouse, Lightbulb, Tag, Star, Navigation, ArrowRight, ChevronDown, Check, Plus, ShieldCheck, List, Map as MapIcon, Loader2,  } from "lucide-react";
 import { SPORTS } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { CourtsMap } from "./courts-map";
@@ -373,7 +369,7 @@ export function CourtsFinder({
               {f.sport !== "all" ? <SportIcon sport={f.sport} variant="glyph" size={14} /> : <Globe size={13} />}
               {sportName}
               <span className="rounded-md bg-white/70 px-1.5 font-mono text-[10px] font-semibold">
-                {f.sport === "all" ? sportCounts.all : sportCounts.counts.get(f.sport) ?? 0}
+                {f.sport === "all" ? sportCounts.all : (sportCounts.counts.get(f.sport) ?? 0) + liveRows.length}
               </span>
               <ChevronDown size={13} />
             </button>
@@ -414,7 +410,7 @@ export function CourtsFinder({
                       className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-ink hover:bg-hover"
                     >
                       <SportIcon sport={s.key} variant="glyph" size={15} /> {s.name}
-                      <span className="ml-auto font-mono text-[10px] text-faint">{sportCounts.counts.get(s.key) ?? 0}</span>
+                      <span className="ml-auto font-mono text-[10px] text-faint">{(sportCounts.counts.get(s.key) ?? 0) + (s.key === f.sport ? liveRows.length : 0)}</span>
                       {f.sport === s.key ? <Check size={13} className="text-brand-deep" /> : null}
                     </button>
                   ))}
@@ -457,7 +453,6 @@ export function CourtsFinder({
               [
                 { key: "lights" as const, label: "Lights", Icon: Lightbulb, on: lightsOn, auto: f.venue === "indoor" && !f.lights },
                 { key: "free" as const, label: "Free", Icon: Tag, on: f.free, auto: false },
-                { key: "queue" as const, label: "Live Queue", Icon: ListOrdered, on: f.queue, auto: false },
               ]
             ).map(({ key, label, Icon, on, auto }) => (
               <button
@@ -743,15 +738,7 @@ function CourtCard({
             >
               Website <ArrowRight size={12} />
             </a>
-          ) : (
-            <Link
-              href="/courts/suggest"
-              onClick={(e) => e.stopPropagation()}
-              className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-brand px-3.5 text-xs font-bold text-white hover:bg-brand-deep"
-            >
-              Add to Klimr <ArrowRight size={12} />
-            </Link>
-          )
+          ) : null
         ) : (
           <Link
             href={`/courts/${c.id}`}

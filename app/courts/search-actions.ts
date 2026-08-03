@@ -95,7 +95,7 @@ const COURTS_EXTRACT_MODEL_DEFAULT = "claude-sonnet-4-6";
  *  verdicts downgrade to hints and trigger automatic re-verification.
  *  Unknowns retry soonest (we learned nothing); denials get the longest
  *  window (facilities appear less often than they disappear). */
-const INTEL_FRESH_DAYS: Record<string, number> = { confirmed: 60, denied: 90, unknown: 14 };
+const INTEL_FRESH_DAYS: Record<string, number> = { confirmed: 60, denied: 90, unknown: 2 };
 const intelIsFresh = (verdict: string, checkedAt: string): boolean =>
   Date.now() - Date.parse(checkedAt) < (INTEL_FRESH_DAYS[verdict] ?? 30) * 86_400_000;
 // The user's chosen radius is LAW: we search it, filter to it, cache per it,
@@ -269,7 +269,7 @@ const SPORT_TOKENS: Record<string, string[]> = {
  *  venues per search, verdicts persist in court_sport_intel and OUTRANK
  *  every future model guess. The judge's live opinion is temporary by
  *  design; this is what makes results converge to true. */
-async function verifyVenues(targets: { id: string; name: string; website: string | null }[], sport: string, anthropicKey: string): Promise<void> {
+async function verifyVenues(targets: { id: string; name: string; website: string | null; lat: number; lng: number; address: string | null; rating: number | null; ratingCount: number | null }[], sport: string, anthropicKey: string): Promise<void> {
   try {
     if (targets.length === 0) return;
     const model = process.env.COURTS_EXTRACT_MODEL || COURTS_EXTRACT_MODEL_DEFAULT;
@@ -287,6 +287,7 @@ async function verifyVenues(targets: { id: string; name: string; website: string
               temperature: 0,
               system:
                 `You verify whether a specific venue CURRENTLY offers ${sportName}. Search the web: the venue's own website and facility pages, city/parks department pages, Yelp/Google reviews, recent local sources.\n` +
+                `For chain gyms and clubs (LA Fitness, 24 Hour Fitness, Equinox, YMCA branches…), verify the SPECIFIC location\u2019s own club/branch page and amenities — chains vary by club; the brand homepage proves nothing.\n` +
                 `Corroboration rules: no single mention confirms or denies — require the venue's own site/an official page, OR at least two independent sources agreeing. Recent sources outweigh old ones (courts close or get converted). If sources conflict, prefer the venue's own current pages.\n` +
                 `Verdicts: "confirmed" — current sources clearly show ${sportName} courts/facilities AT this venue. "denied" — the venue's own facilities information or multiple sources clearly show it does NOT offer ${sportName} (e.g. its site lists other sports only). "unknown" — you could not establish it either way; a failed search is unknown, never a denial.\n` +
                 `After searching, reply with ONLY minified JSON, nothing else: {"verdict":"confirmed|denied|unknown","confidence":0..1,"evidence":"\u2264160 chars naming the source","display_name":"the venue\u2019s proper canonical name"}`,
@@ -328,6 +329,12 @@ async function verifyVenues(targets: { id: string; name: string; website: string
             reliability: parsed.verdict === "unknown" ? 0.3 : Math.min(0.95, 0.75 + 0.2 * conf),
             evidence: (parsed.evidence ?? "").slice(0, 200) || null,
             display_name: typeof parsed.display_name === "string" && parsed.display_name.trim().length > 2 ? parsed.display_name.trim().slice(0, 80) : null,
+            lat: v.lat,
+            lng: v.lng,
+            address: v.address,
+            website: v.website,
+            rating: v.rating,
+            rating_count: v.ratingCount,
             source: "web_search",
             checked_at: new Date().toISOString(),
           };
@@ -551,8 +558,90 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     return { status: "error", courts: [], source: "none", message: `Live search failed (${detail}) — if this persists, check the server keys in Admin → Diagnostics.` };
   }
 
+  try {
+    const { data: confRows } = await admin
+      .from("court_sport_intel")
+      .select("place_id, display_name, lat, lng, address, website, rating, rating_count, checked_at")
+      .eq("sport", sport)
+      .eq("verdict", "confirmed");
+    const have = new Set(candidates.map((c) => c.id));
+    const hydrate: string[] = [];
+    for (const r of confRows ?? []) {
+      if (!intelIsFresh("confirmed", r.checked_at)) continue;
+      if (r.lat == null || r.lng == null) {
+        if (!have.has(r.place_id)) hydrate.push(r.place_id);
+        continue;
+      }
+      const dKm = haversineKm(center.lat, center.lng, Number(r.lat), Number(r.lng));
+      if (dKm > requestedKm || have.has(r.place_id)) continue;
+      have.add(r.place_id);
+      candidates.push({
+        id: r.place_id,
+        name: r.display_name ?? "Court",
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        address: r.address,
+        rating: r.rating != null ? Number(r.rating) : null,
+        ratingCount: r.rating_count,
+        types: [],
+        primaryType: null,
+        distanceKm: dKm,
+        website: r.website,
+      });
+    }
+    // One-time backfill: legacy confirmed rows (pre-0171) lack coordinates —
+    // hydrate up to 3 via Place Details, store them, include if in radius.
+    for (const pid of hydrate.slice(0, 3)) {
+      try {
+        const resp = await fetch(`https://places.googleapis.com/v1/places/${pid}`, {
+          signal: AbortSignal.timeout(6000),
+          headers: { "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": "location,formattedAddress,websiteUri,rating,userRatingCount,displayName" },
+        });
+        if (!resp.ok) continue;
+        const d = await resp.json();
+        const plat = d?.location?.latitude;
+        const plng = d?.location?.longitude;
+        if (typeof plat !== "number" || typeof plng !== "number") continue;
+        await admin
+          .from("court_sport_intel")
+          .update({
+            lat: plat,
+            lng: plng,
+            address: typeof d?.formattedAddress === "string" ? d.formattedAddress : null,
+            website: typeof d?.websiteUri === "string" ? d.websiteUri : null,
+            rating: typeof d?.rating === "number" ? d.rating : null,
+            rating_count: typeof d?.userRatingCount === "number" ? d.userRatingCount : null,
+          })
+          .eq("place_id", pid)
+          .eq("sport", sport);
+        const dKm = haversineKm(center.lat, center.lng, plat, plng);
+        if (dKm <= requestedKm && !have.has(pid)) {
+          have.add(pid);
+          candidates.push({
+            id: pid,
+            name: typeof d?.displayName?.text === "string" ? d.displayName.text : "Court",
+            lat: plat,
+            lng: plng,
+            address: typeof d?.formattedAddress === "string" ? d.formattedAddress : null,
+            rating: typeof d?.rating === "number" ? d.rating : null,
+            ratingCount: typeof d?.userRatingCount === "number" ? d.userRatingCount : null,
+            types: [],
+            primaryType: null,
+            distanceKm: dKm,
+            website: typeof d?.websiteUri === "string" ? d.websiteUri : null,
+          });
+        }
+      } catch {
+        /* hydration is best-effort; the row stays coordless until next try */
+      }
+    }
+    candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  } catch (e) {
+    console.error("[courts] confirmed-merge failed", e instanceof Error ? e.message : e);
+  }
+
   let wide: CourtResult[];
-  let verifyTargets: { id: string; name: string; website: string | null }[] = [];
+  let verifyTargets: { id: string; name: string; website: string | null; lat: number; lng: number; address: string | null; rating: number | null; ratingCount: number | null }[] = [];
   if (candidates.length === 0) {
     wide = [];
   } else {
@@ -601,7 +690,7 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     const staleChecked = candidates.filter((c) => intel.get(c.id)?.stale === true);
     verifyTargets = [...neverChecked, ...staleChecked]
       .slice(0, 4)
-      .map((c) => ({ id: c.id, name: c.name, website: c.website ?? null }));
+      .map((c) => ({ id: c.id, name: c.name, website: c.website ?? null, lat: c.lat, lng: c.lng, address: c.address, rating: c.rating, ratingCount: c.ratingCount }));
 
     const keptJudged = undecided.filter((c) => verdicts.get(c.id)?.keep !== false);
     wide = [...decidedKeep, ...keptJudged]

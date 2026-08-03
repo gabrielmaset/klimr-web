@@ -506,16 +506,19 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                   <p className="mt-0.5 text-xs text-mute">
                     {formationLabel(c.teamSize)}{sizeOptions.includes(c.teamSize) ? "" : " (legacy size)"} · {c.levels.length ? c.levels.map(levelLabel).join(", ") : "All levels"}
                   </p>
-                  <p className="mt-1.5 flex items-center gap-2 text-xs text-mute">
+                  <div className="mt-2 flex flex-wrap items-center gap-2.5 text-xs text-mute">
                     <span className="font-semibold uppercase tracking-wider text-faint">Display</span>
-                    <span className="font-mono text-[13px] font-bold text-ink">{dCode}{ci + 1}</span>
-                    <button type="button" className="press rounded-full border border-rule px-2 py-0.5 font-semibold hover:border-brand hover:text-ink" onClick={() => navigator.clipboard?.writeText(`${dCode}${ci + 1}`)}>
+                    <span className="rounded-[10px] border border-rule bg-surface px-3 py-1.5 font-mono text-[22px] font-bold tracking-[0.14em] text-ink">
+                      {dCode}
+                      {ci + 1}
+                    </span>
+                    <button type="button" className="press rounded-[9px] border border-rule px-2.5 py-1.5 font-semibold hover:border-brand hover:text-ink" onClick={() => navigator.clipboard?.writeText(`${dCode}${ci + 1}`)}>
                       Copy
                     </button>
-                    <a href={`/q/${dCode}/${ci + 1}`} target="_blank" rel="noreferrer" className="press rounded-full border border-rule px-2 py-0.5 font-semibold hover:border-brand hover:text-ink">
+                    <a href={`/q/${dCode}/${ci + 1}`} target="_blank" rel="noreferrer" className="press rounded-[9px] border border-rule px-2.5 py-1.5 font-semibold hover:border-brand hover:text-ink">
                       Open display
                     </a>
-                  </p>
+                  </div>
                   {editCourtId === c.id ? (
                     <CourtEditor court={c} sizeOptions={sizeOptions} pending={pending} run={run} onDone={() => setEditCourtId(null)} />
                   ) : null}

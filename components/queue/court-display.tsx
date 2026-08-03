@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import { KlimrMark } from "@/components/logo";
 import QRCode from "qrcode";
-import { Crown, Play, Clock, Maximize, Minimize } from "lucide-react";
+import { Crown, Play, Clock, Maximize, Minimize, ChevronRight } from "lucide-react";
 import type { QSessionState, QTeam } from "@/lib/queue";
 import { teamDisplayName } from "@/lib/queue";
 import { clock, formationLabel, levelLabel } from "@/lib/queue";
@@ -52,17 +52,52 @@ function MarqueeText({ text }: { text: string }) {
   );
 }
 
-function StackedNames({ team, className }: { team: QTeam; className?: string }) {
-  if (!team.members.length) return <p className={className}>—</p>;
-  return (
-    <div className="space-y-1">
-      {team.members.map((m, i) => (
-        <p key={i} className={`leading-tight ${className ?? ""}`}>
+/** Player names sized for the formation: 2v2 stays grand, 3s ease down, and
+ *  4+ drops a tier AND splits into two ruled columns so the card keeps its
+ *  height — every cell still gets the marquee, so long names never clip. */
+function StackedNames({ team, context }: { team: QTeam; context: "match" | "queue" }) {
+  const n = team.members.length;
+  if (!n) return <p className="text-white/50">—</p>;
+  const size =
+    context === "match"
+      ? n <= 2
+        ? "text-[clamp(1.35rem,2.9vw,2.9rem)]"
+        : n === 3
+          ? "text-[clamp(1.15rem,2.3vw,2.3rem)]"
+          : n <= 5
+            ? "text-[clamp(0.95rem,1.9vw,1.9rem)]"
+            : "text-[clamp(0.85rem,1.6vw,1.6rem)]"
+      : n <= 3
+        ? "text-[clamp(1.1rem,1.9vw,1.85rem)]"
+        : "text-[clamp(0.9rem,1.55vw,1.5rem)]";
+  const weight = context === "match" ? "font-display font-semibold" : "font-semibold";
+  const rows = (names: { name: string }[]) => (
+    <div className="min-w-0 flex-1 space-y-[0.35em]">
+      {names.map((m, i) => (
+        <p key={i} className={`leading-tight text-white ${weight} ${size}`}>
           <MarqueeText text={m.name} />
         </p>
       ))}
     </div>
   );
+  if (context === "match" && n >= 4) {
+    const half = Math.ceil(n / 2);
+    return (
+      <div className="flex min-w-0 gap-[1.2vw]">
+        {rows(team.members.slice(0, half))}
+        <div className="flex min-w-0 flex-1 border-l border-white/12 pl-[1.2vw]">{rows(team.members.slice(half))}</div>
+      </div>
+    );
+  }
+  return rows(team.members);
+}
+
+/** "Gabriel" → "Gabriel\u2019s Team", "Miles" → "Miles\u2019 Team" (names ending
+ *  in s take a bare apostrophe). Letter mode passes through ("Team A"). */
+function teamWonName(mode: "letters" | "first_player" | "initials", side: string, team: QTeam): string {
+  const base = teamDisplayName(mode, side, team);
+  if (mode === "letters" || base === `Team ${side}`) return base;
+  return `${base}${/s$/i.test(base) ? "\u2019" : "\u2019s"} Team`;
 }
 
 function joinedAt(iso: string | null): string {
@@ -242,7 +277,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
   };
 
   const recordWin = (matchId: string, side: "A" | "B", team: QTeam) => {
-    const teamName = teamDisplayName(state.session.teamNameMode, side, team);
+    const teamName = teamWonName(state.session.teamNameMode, side, team);
     const cap = state.session.winCap;
     const newWins = team.wins + 1;
     if (cap > 1 && newWins >= cap) showNote(`${teamName} hit ${cap} wins 🏆 — two fresh teams are up`);
@@ -277,6 +312,20 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
     type BridgeWindow = Window & { webkit?: { messageHandlers?: { klimrCourtside?: { postMessage: (m: unknown) => void } } } };
     (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside?.postMessage({ type: "exit" });
   };
+  // Turned OFF (not ended, codes intact): this session is gone from under
+  // the display — eject to the code screen so the operator can join the next
+  // one. Pauses never land here (a paused session's status is still "live").
+  const sessionOff = !sessionLive && !sessionOver && !codesRotated;
+  useEffect(() => {
+    if (!sessionOff) return;
+    if (isApp) {
+      exitToSetup();
+      return;
+    }
+    const t = setTimeout(() => window.location.replace("/q"), 900);
+    return () => clearTimeout(t);
+     
+  }, [sessionOff, isApp]);
   const sPaused = sessionLive && !!state.session.paused;
   const court = state.courts.find((c) => c.id === courtId);
 
@@ -297,12 +346,30 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
   // teams up — the display never sits stranded mid-list.
   const upRef = useRef<HTMLDivElement>(null);
   const upIdle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Overflow affordance (the sidebar's more-below fade, turned sideways):
+  // when teams extend past the right edge, a quiet gradient + chevron says
+  // "there's more" — and it disappears at the end of the line.
+  const [upMore, setUpMore] = useState(false);
+  const measureUpMore = () => {
+    const el = upRef.current;
+    setUpMore(!!el && el.scrollWidth > el.clientWidth + 8 && el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+  };
   const onUpScroll = () => {
+    measureUpMore();
     if (upIdle.current) clearTimeout(upIdle.current);
     upIdle.current = setTimeout(() => {
       upRef.current?.scrollTo({ left: 0, behavior: "smooth" });
     }, 6000);
   };
+  useEffect(() => {
+    const t = setTimeout(measureUpMore, 0);
+    window.addEventListener("resize", measureUpMore);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", measureUpMore);
+    };
+     
+  }, [upNext.length]);
   useEffect(() => () => { if (upIdle.current) clearTimeout(upIdle.current); }, []);
   const canStart = !!court && court.queue.length >= 2;
   const cap = state.session.winCap;
@@ -340,9 +407,9 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
 
       {!sessionLive || codesRotated ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-[1.5vh] px-6 text-center">
-          <p className="font-display font-bold text-[clamp(1.8rem,4.5vw,3.6rem)]">{codesRotated ? "Codes were reset" : sessionOver ? "Session ended" : "The queue hasn\u2019t opened yet"}</p>
+          <p className="font-display font-bold text-[clamp(1.8rem,4.5vw,3.6rem)]">{codesRotated ? "Codes were reset" : sessionOver ? "Session ended" : "Queue turned off"}</p>
           <p className="max-w-[46ch] text-[clamp(0.95rem,1.6vw,1.5rem)] text-white/55">
-            {codesRotated ? "The organizer issued fresh codes — grab the new display code from Organizer tools and start over." : sessionOver ? "Thanks for playing — the organizer can start a new session from the queue page." : "Hang tight — this screen wakes up the moment the organizer turns the queue on."}
+            {codesRotated ? "The organizer issued fresh codes — grab the new display code from Organizer tools and start over." : sessionOver ? "Thanks for playing — the organizer can start a new session from the queue page." : "Heading back to the sign-in screen…"}
           </p>
           {isApp && displayDead ? (
             <button type="button" onClick={exitToSetup} className="press mt-[1vh] rounded-full bg-white px-8 py-3.5 font-display text-[clamp(1rem,1.7vw,1.5rem)] font-bold text-[#0a0f1f]">
@@ -392,12 +459,12 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
                   </div>
                   <div className="flex min-h-0 flex-1 overflow-y-auto px-[max(0.9rem,2.2vw)] py-[1vh]">
                     <div className="my-auto">
-                      <StackedNames team={t} className="font-display font-semibold text-[clamp(1.35rem,2.9vw,2.9rem)]" />
+                      <StackedNames team={t} context="match" />
                     </div>
                   </div>
                   {canOperate ? (
                     <div className="px-[1.6vw] pb-[1.6vh]">
-                      <HoldButton label={`${teamDisplayName(state.session.teamNameMode, s.key, t)} won`} color={s.color} disabled={pending} onConfirm={() => recordWin(court.current!.matchId, s.key, t)} />
+                      <HoldButton label={`${teamWonName(state.session.teamNameMode, s.key, t)} won`} color={s.color} disabled={pending} onConfirm={() => recordWin(court.current!.matchId, s.key, t)} />
                     </div>
                   ) : null}
                 </div>
@@ -471,19 +538,24 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
             <div className="mb-[1vh] flex flex-wrap items-baseline justify-between gap-x-[1.5vw] gap-y-1">
               <p className="text-[clamp(0.65rem,1vw,0.95rem)] font-bold uppercase tracking-[0.22em] text-white/50">Next up in line{upNext.length > 3 ? ` · ${upNext.length} teams` : ""}</p>
               {court?.lastMatch ? (
-                <p className="min-w-0 truncate text-[clamp(0.62rem,0.95vw,0.9rem)] font-semibold text-white/45">
-                  <span className="font-bold uppercase tracking-[0.18em] text-white/35">Last match · </span>
-                  {court.lastMatch.winner === "b"
-                    ? `${court.lastMatch.bNames.join(" & ") || "—"} def. ${court.lastMatch.aNames.join(" & ") || "—"}`
-                    : `${court.lastMatch.aNames.join(" & ") || "—"} def. ${court.lastMatch.bNames.join(" & ") || "—"}`}
-                  {" · "}
-                  {new Date(court.lastMatch.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                </p>
+                <div className="flex min-w-0 max-w-full items-baseline gap-1.5 text-[clamp(0.72rem,1.15vw,1.05rem)] font-semibold text-white/50">
+                  <span className="shrink-0 font-bold uppercase tracking-[0.18em] text-white/35">Last match ·</span>
+                  <span className="min-w-0 flex-1">
+                    <MarqueeText
+                      text={`${
+                        court.lastMatch.winner === "b"
+                          ? `${court.lastMatch.bNames.join(" & ") || "—"} def. ${court.lastMatch.aNames.join(" & ") || "—"}`
+                          : `${court.lastMatch.aNames.join(" & ") || "—"} def. ${court.lastMatch.bNames.join(" & ") || "—"}`
+                      } · ${new Date(court.lastMatch.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
+                    />
+                  </span>
+                </div>
               ) : null}
             </div>
             {upNext.length === 0 ? (
               <p className="text-[clamp(0.9rem,1.4vw,1.4rem)] text-white/45">No teams waiting.</p>
             ) : (
+              <div className="relative">
               <div ref={upRef} onScroll={onUpScroll} onTouchStart={onUpScroll} className="flex snap-x snap-mandatory gap-[max(0.5rem,1.5vw)] overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {upNext.map((t, i) => (
                   <div key={t.id} className="flex w-full shrink-0 snap-start flex-col gap-[0.4rem] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)] landscape:w-[calc((100%-2*max(0.5rem,1.5vw))/3)] md:w-[calc((100%-2*max(0.5rem,1.5vw))/3)]">
@@ -492,7 +564,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
                         {i + 1}
                       </span>
                       <div className="min-w-0">
-                        <StackedNames team={t} className="font-semibold leading-snug text-white text-[clamp(1.1rem,1.9vw,1.85rem)]" />
+                        <StackedNames team={t} context="queue" />
                       </div>
                     </div>
                     {t.queuedAt ? (
@@ -502,6 +574,14 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
                     ) : null}
                   </div>
                 ))}
+              </div>
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute inset-y-0 right-0 flex w-[max(3.2rem,6vw)] items-center justify-end pr-1 transition-opacity duration-200 ${upMore ? "opacity-100" : "opacity-0"}`}
+                style={{ background: "linear-gradient(to right, transparent, #000000 78%)" }}
+              >
+                <ChevronRight size={"clamp(18px,2vw,26px)" as unknown as number} className="animate-pulse text-white/55" />
+              </div>
               </div>
             )}
           </div>

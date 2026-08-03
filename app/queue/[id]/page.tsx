@@ -24,7 +24,7 @@ export default async function QueueSessionPage({ params }: { params: Promise<{ i
 
   return (
     <div className="mx-auto max-w-page px-5 py-8">
-      <Breadcrumbs items={state.session.eventId ? [{ label: "Events", href: "/events" }, { label: state.session.title, href: `/events/${state.session.eventId}` }, { label: "Live queue" }] : state.session.tournamentId ? [{ label: "Tournaments", href: "/tournaments" }, { label: state.session.title, href: `/tournament/${state.session.tournamentId}` }, { label: "Live queue" }] : [{ label: "Live Queue", href: "/q" }, { label: state.session.title }]} />
+      <Breadcrumbs items={state.session.eventId ? [{ label: "Events", href: "/events" }, { label: state.session.title, href: `/events/${state.session.eventId}` }, { label: "Live queue" }] : state.session.tournamentId ? [{ label: "Tournaments", href: "/tournaments" }, { label: state.session.title, href: `/tournament/${state.session.tournamentId}` }, { label: "Live queue" }] : [{ label: "Live Queue", href: "/queue" }, { label: state.session.title }]} />
       <QueueClient initial={state} isOrganizer={isOrganizer} />
     </div>
   );

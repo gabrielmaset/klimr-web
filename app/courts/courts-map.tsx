@@ -460,14 +460,7 @@ export function CourtsMap({
                 >
                   Website
                 </a>
-              ) : (
-                <Link
-                  href="/courts/suggest"
-                  className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white hover:bg-[#E23E0D]"
-                >
-                  Add to Klimr
-                </Link>
-              )
+              ) : null
             ) : (
               <Link
                 href={`/courts/${callout.court.id}`}
