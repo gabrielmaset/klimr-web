@@ -158,7 +158,7 @@ export function CourtsFinder({
             sport: f.sport,
             ...(m ? { lat: Number(m[1]), lng: Number(m[2]) } : {}),
           }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 20000)),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 40000)),
         ]);
         if (liveSeq.current === seq) setLive(r);
       } catch {
