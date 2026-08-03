@@ -11,6 +11,7 @@ import {
 import { SPORTS } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { CourtsMap } from "./courts-map";
+import { searchCourts, type SearchResponse } from "./search-actions";
 import { reverseToZip } from "./search-actions";
 
 export type FinderCourt = {
@@ -34,6 +35,10 @@ export type FinderCourt = {
   busy: "BUSY" | "MODERATE" | "QUIET" | null;
   distanceMi: number;
 };
+
+/** Finder rows = confirmed directory courts + live-found Google results (the
+ *  "on Google but not on Klimr yet" layer — the Westwood fix). */
+type Row = FinderCourt & { liveFound?: boolean; website?: string | null; isPrivate?: boolean };
 
 type Filters = {
   zip: string;
@@ -112,14 +117,46 @@ export function CourtsFinder({
     if (reload) startTransition(() => router.push(url, { scroll: false }));
     else window.history.replaceState(null, "", url);
   };
+  /* Live discovery — the SAME Google→screening pipeline the match court
+     picker uses, so this page finally searches the world, not just the
+     directory. Directory rows stay the confirmed layer; live rows arrive
+     flagged as unconfirmed. */
+  const [live, setLive] = useState<SearchResponse | null>(null);
+  const [liveBusy, startLiveT] = useTransition();
+  const startLiveSearch = (next: Filters) =>
+    startLiveT(async () => {
+      try {
+        setLive(await searchCourts({ locationKey: next.zip, radiusKm: Math.max(2, Math.round(next.radius * 1.609)), sport: next.sport }));
+      } catch {
+        setLive({ status: "error", courts: [], source: "none", message: "Live search failed — try again in a moment." });
+      }
+    });
+  const runLive = (next: Filters) => {
+    if (!next.zip || next.sport === "all") {
+      setLive(null);
+      return;
+    }
+    startLiveSearch(next);
+  };
+
   const set = (patch: Partial<Filters>, reload = false) => {
     const next = { ...f, ...patch };
     // Indoor implies lights in reality — reflect it in the controls (AUTO).
     setF(next);
     pushUrl(next, reload);
+    // Live discovery re-runs whenever the search scope changes: origin or
+    // radius reloads, or the sport narrows.
+    if (reload || "sport" in patch || "radius" in patch) runLive(next);
   };
 
   const findCourts = () => set({ zip: zipDraft.trim() }, true);
+
+  // Landing with ?sport= in the URL (a deep link or a retry) searches live
+  // immediately — no extra click required.
+  useEffect(() => {
+    if (initial.zip && initial.sport !== "all") startLiveSearch(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const useMyLocation = () => {
     if (!navigator.geolocation || locating) return;
     setLocating(true);
@@ -169,9 +206,41 @@ export function CourtsFinder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courts, f]);
 
+  const liveRows = useMemo<Row[]>(() => {
+    if (!live || live.status !== "ok") return [];
+    const dirNames = new Set(courts.map((c) => c.name.toLowerCase().trim()));
+    return live.courts
+      .filter((r) => !dirNames.has(r.name.toLowerCase().trim()))
+      .map((r) => ({
+        id: `g:${r.id}`,
+        name: r.name,
+        area: r.address ?? "",
+        lat: r.lat,
+        lng: r.lng,
+        sports: [r.sport],
+        courtCount: null,
+        indoor: false,
+        lights: null,
+        free: null,
+        memberRating: null,
+        memberReviewCount: 0,
+        googleRating: r.rating,
+        googleRatingCount: r.ratingCount ?? 0,
+        liveQueue: false,
+        activePlayers: 0,
+        recent: [],
+        busy: null,
+        distanceMi: Math.round(r.distanceKm * 0.6214 * 10) / 10,
+        liveFound: true,
+        website: r.website,
+        isPrivate: r.private,
+      }));
+  }, [live, courts]);
+  const shown = useMemo<Row[]>(() => [...visible, ...liveRows], [visible, liveRows]);
+
   // Derived, not synced: a selection only counts while its court is visible —
   // any filter change that removes the row clears the selection for free.
-  const effectiveSelectedId = selectedId !== null && visible.some((c) => c.id === selectedId) ? selectedId : null;
+  const effectiveSelectedId = selectedId !== null && shown.some((c) => c.id === selectedId) ? selectedId : null;
 
   const selectFromMap = (id: string) => {
     setSelectedId(id);
@@ -409,7 +478,7 @@ export function CourtsFinder({
         <div className={pane === "map" ? "hidden min-[900px]:block" : ""}>
           <div className="mb-2.5 flex items-center gap-3">
             <span className="font-mono text-[10px] font-bold tracking-[0.14em] text-faint">
-              {visible.length} {visible.length === 1 ? "COURT" : "COURTS"} WITHIN {f.radius} MI{originLabel ? ` OF ${originLabel.toUpperCase()}` : ""}
+              {shown.length} {shown.length === 1 ? "COURT" : "COURTS"} WITHIN {f.radius} MI{originLabel ? ` OF ${originLabel.toUpperCase()}` : ""}{liveBusy ? " · SEARCHING LIVE…" : ""}
             </span>
             <span className="flex-1" />
             <label className="flex items-center gap-2">
@@ -440,9 +509,17 @@ export function CourtsFinder({
                   <p className="mt-1 text-xs text-mute">Enter a ZIP or city above and hit Find courts.</p>
                 </div>
               </div>
-            ) : visible.length === 0 ? (
+            ) : shown.length === 0 ? (
               <div className="grid flex-1 place-items-center rounded-xl border border-dashed border-rule bg-surface p-8 text-center">
                 <div>
+                  {live && live.status !== "ok" ? (
+                    <p className="mx-auto mb-3 max-w-[340px] rounded-xl border border-brand/30 bg-tint-brand px-3.5 py-2.5 text-xs font-semibold text-brand-deep">
+                      {live.status === "not_configured"
+                        ? "Live search isn’t configured — the server is missing GOOGLE_MAPS_API_KEY or ANTHROPIC_API_KEY (Vercel → Settings → Environment Variables)."
+                        : live.message ?? "Live search found nothing within 50 miles."}
+                    </p>
+                  ) : null}
+                  {liveBusy ? <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-faint">Searching live via Google + Klimr screening…</p> : null}
                   <p className="text-sm font-bold text-ink">No courts match these filters.</p>
                   <p className="mt-1 text-xs text-mute">Widen the radius or clear a filter — or add the spot you play.</p>
                   <Link href="/courts/suggest" className="press mt-3 inline-flex items-center gap-1.5 rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-xs font-bold text-ink hover:bg-hover">
@@ -451,7 +528,7 @@ export function CourtsFinder({
                 </div>
               </div>
             ) : (
-              visible.map((c, i) => (
+              shown.map((c, i) => (
                 <CourtCard
                   key={c.id}
                   court={c}
@@ -474,7 +551,7 @@ export function CourtsFinder({
         <div className={pane === "list" ? "hidden min-[900px]:block" : ""}>
           <CourtsMap
             token={mapboxToken}
-            courts={visible}
+            courts={shown}
             origin={origin}
             radiusMi={f.radius}
             originLabel={originLabel}
@@ -497,7 +574,7 @@ function CourtCard({
   onSelect,
   onHover,
 }: {
-  court: FinderCourt;
+  court: Row;
   index: number;
   selected: boolean;
   hovered: boolean;
@@ -524,6 +601,12 @@ function CourtCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[14.5px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
+            {c.liveFound ? (
+              <span className="inline-flex items-center rounded-md bg-tint-brand px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-flame-text">FOUND LIVE · UNCONFIRMED</span>
+            ) : null}
+            {c.liveFound && c.isPrivate ? (
+              <span className="rounded-md bg-bg px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-faint">PRIVATE / MEMBERS</span>
+            ) : null}
             {c.liveQueue ? (
               <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#217A34]">
                 <span aria-hidden className="h-1 w-1 animate-pulse rounded-full bg-[#2FA44F]" /> LIVE QUEUE
@@ -619,13 +702,35 @@ function CourtCard({
         >
           <Navigation size={12} /> Directions
         </a>
-        <Link
-          href={`/courts/${c.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-brand px-3.5 text-xs font-bold text-white hover:bg-brand-deep"
-        >
-          View court <ArrowRight size={12} />
-        </Link>
+        {c.liveFound ? (
+          c.website ? (
+            <a
+              href={c.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-brand px-3.5 text-xs font-bold text-white hover:bg-brand-deep"
+            >
+              Website <ArrowRight size={12} />
+            </a>
+          ) : (
+            <Link
+              href="/courts/suggest"
+              onClick={(e) => e.stopPropagation()}
+              className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-brand px-3.5 text-xs font-bold text-white hover:bg-brand-deep"
+            >
+              Add to Klimr <ArrowRight size={12} />
+            </Link>
+          )
+        ) : (
+          <Link
+            href={`/courts/${c.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="press inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-brand px-3.5 text-xs font-bold text-white hover:bg-brand-deep"
+          >
+            View court <ArrowRight size={12} />
+          </Link>
+        )}
         </span>
       </div>
     </article>

@@ -1,4 +1,6 @@
 import { CircleAlert, TriangleAlert, Info, Search } from "lucide-react";
+import { probeCourtPipeline } from "@/app/courts/search-actions";
+import { SPORTS } from "@/lib/sports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 
@@ -21,9 +23,11 @@ type LogRow = {
   created_at: string;
 };
 
-export default async function AdminDiagnostics({ searchParams }: { searchParams: Promise<{ q?: string; level?: string; src?: string }> }) {
+export default async function AdminDiagnostics({ searchParams }: { searchParams: Promise<{ q?: string; level?: string; src?: string; probe_zip?: string; probe_sport?: string }> }) {
   const gate = await requireAdmin("support");
-  const { q, level, src: srcParam } = await searchParams;
+  const sp = await searchParams;
+  const probe = sp.probe_zip || sp.probe_sport ? await probeCourtPipeline(sp.probe_zip ?? "90066", sp.probe_sport ?? "racquetball") : null;
+  const { q, level, src: srcParam } = sp;
   const admin = createAdminClient();
 
   let query = admin
@@ -66,6 +70,29 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
     <div>
       <div className="mb-4">
         <h2 className="font-display text-2xl text-ink">Diagnostics &amp; logs</h2>
+        <section className="mt-5 rounded-2xl border border-rule bg-surface p-5 shadow-e1">
+          <p className="kicker text-faint">Court search pipeline probe</p>
+          <p className="mt-1 text-xs text-mute">Runs every stage for a zip + sport and reports exactly where results die: env keys → geocode → each Google query → AI screen → cache.</p>
+          <form method="get" className="mt-3 flex flex-wrap items-center gap-2">
+            <input name="probe_zip" defaultValue={sp.probe_zip ?? "90066"} maxLength={5} className="w-24 rounded-[10px] border border-rule-2 bg-surface px-3 py-2 font-mono text-sm text-ink outline-none focus:border-brand" aria-label="Probe ZIP" />
+            <select name="probe_sport" defaultValue={sp.probe_sport ?? "racquetball"} className="rounded-[10px] border border-rule-2 bg-surface px-2.5 py-2 text-sm font-semibold text-ink outline-none focus:border-brand" aria-label="Probe sport">
+              {SPORTS.map((s) => (
+                <option key={s.key} value={s.key}>{s.name}</option>
+              ))}
+            </select>
+            <button className="press rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:bg-ink-soft">Run probe</button>
+          </form>
+          {probe ? (
+            <ol className="mt-4 space-y-1.5 rounded-xl border border-rule-soft bg-bg px-4 py-3">
+              {probe.report.map((line, i) => (
+                <li key={i} className="font-mono text-[12px] leading-relaxed text-ink-soft">
+                  <span className="mr-2 font-bold text-faint">{i + 1}.</span>
+                  {line}
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </section>
         <p className="mt-1 text-sm text-mute">Errors and warnings reported by any user&rsquo;s browser. Newest first, up to 200.</p>
       </div>
 

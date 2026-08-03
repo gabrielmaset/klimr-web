@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
+import { requireAdmin } from "@/lib/admin";
 import { lookupZip, resolveLocation as resolveLocationData, suggestCities as suggestCitiesData } from "@/lib/us-places";
 
 /* ------------------------------------------------------------------ *
@@ -130,7 +131,11 @@ async function placesSearch(
       locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: Math.min(50000, radiusKm * 1000) } },
     }),
   });
-  if (!resp.ok) return [];
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    console.error(`[courts] Places HTTP ${resp.status}`, body.slice(0, 400));
+    throw new Error(`places_http_${resp.status}`);
+  }
   const data = await resp.json();
   const places = Array.isArray(data?.places) ? data.places : [];
   const out: RawPlace[] = [];
@@ -328,8 +333,9 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
       .filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true)))
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .slice(0, 30);
-  } catch {
-    return { status: "error", courts: [], source: "none", message: "Search is temporarily unavailable." };
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : "unknown";
+    return { status: "error", courts: [], source: "none", message: `Live search failed (${detail}) — if this persists, check the server keys in Admin → Diagnostics.` };
   }
 
   let wide: CourtResult[];
@@ -370,6 +376,55 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   }
 
   return shape(wide, "live");
+}
+
+/** Admin-only pipeline probe: runs every stage for a zip+sport and reports
+ *  exactly where results die — env keys, geocode, each Places query (count +
+ *  top names, or the thrown HTTP status), the AI screen's keep count, and
+ *  the cache row. Rendered in Admin → Diagnostics. */
+export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Promise<{ report: string[] }> {
+  await requireAdmin();
+  const report: string[] = [];
+  const sport = SPORT_KEYS.includes(sportRaw) ? sportRaw : "racquetball";
+  const zip = /^\d{5}$/.test(zipRaw.trim()) ? zipRaw.trim() : "90066";
+  const gKey = process.env.GOOGLE_MAPS_API_KEY;
+  report.push(`GOOGLE_MAPS_API_KEY: ${gKey ? "present" : "MISSING — set it in Vercel env"}`);
+  report.push(`ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "present" : "MISSING — set it in Vercel env"}`);
+  const place = resolveLocationData(zip);
+  report.push(`resolve ${zip}: ${place ? `ok (${place.lat.toFixed(3)}, ${place.lng.toFixed(3)})` : "FAILED"}`);
+  if (!place || !gKey) return { report };
+  let kept = 0;
+  let all: RawPlace[] = [];
+  for (const q of QUERY_FOR[sport] ?? [`${sportMeta(sport).name.toLowerCase()} court`]) {
+    try {
+      const rows = await placesSearch(q, place.lat, place.lng, WIDE_KM, gKey);
+      all = all.concat(rows);
+      report.push(`places "${q}": ${rows.length} candidates${rows.length ? ` — ${rows.slice(0, 5).map((r) => r.name).join(" | ")}` : ""}`);
+    } catch (e) {
+      report.push(`places "${q}": THREW ${e instanceof Error ? e.message : "unknown"} (see server logs for the response body)`);
+    }
+  }
+  if (all.length && process.env.ANTHROPIC_API_KEY) {
+    const seen = new Set<string>();
+    const uniq = all.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true))).slice(0, 30);
+    const verdicts = await aiFilter(uniq, sport, process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT, process.env.ANTHROPIC_API_KEY);
+    kept = verdicts ? uniq.filter((c) => verdicts.get(c.id)?.keep !== false).length : uniq.length;
+    report.push(`AI screen: ${verdicts ? `${kept} of ${uniq.length} kept` : "unavailable — pre-filtered list used"}`);
+  }
+  const adminDb = createAdminClient();
+  const { data: cacheRow } = await adminDb
+    .from("court_search_cache")
+    .select("results, fetched_at")
+    .eq("zip", zip)
+    .eq("radius_km", WIDE_KM)
+    .eq("sport", sport)
+    .maybeSingle();
+  report.push(
+    cacheRow
+      ? `cache (${zip}/${sport}): ${((cacheRow.results as unknown as unknown[]) ?? []).length} rows, fetched ${cacheRow.fetched_at}`
+      : `cache (${zip}/${sport}): none`,
+  );
+  return { report };
 }
 
 /* ------------------------------------------------------------------ *
