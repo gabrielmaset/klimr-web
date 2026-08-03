@@ -87,9 +87,12 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
 
   return (
     <form action={action}>
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      {/* ONE card: notifications + privacy read top-to-bottom, and the Save
+          button sits at the BOTTOM of the form (Gabriel’s spec) — a finished
+          pass ends exactly where the button is. */}
+      <div className="rounded-2xl border border-rule bg-surface shadow-e1">
         {/* Notifications */}
-        <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
+        <section className="p-4 sm:p-5">
           <h2 className="kicker text-faint">Notifications</h2>
           <p className="mt-1 text-xs text-mute">Choose what you hear about. Delivery turns on as each feature ships.</p>
           <div className="mt-2 divide-y divide-rule">
@@ -112,7 +115,7 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
         </section>
 
         {/* Privacy */}
-        <section className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
+        <section className="border-t border-rule p-4 sm:p-5">
           <h2 className="kicker text-faint">Privacy</h2>
           <p className="mt-1 text-xs text-mute">
             Every Klimr member is identity-verified, so your profile and rank are always visible to other members.
@@ -133,6 +136,23 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
             Need to stop a specific player? Block them from their profile — they&rsquo;ll appear under Blocked players in your settings.
           </p>
         </section>
+
+        {/* Save — the last row of the form. */}
+        <div className="flex items-center gap-3 border-t border-rule p-4 sm:p-5">
+          <button
+            type="submit"
+            disabled={pending}
+            className="press rounded-[10px] bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+          >
+            {pending ? "Saving…" : "Save changes"}
+          </button>
+          {state?.ok ? (
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-success">
+              <Check size={15} /> Saved
+            </span>
+          ) : null}
+          {state?.error ? <span className="text-sm text-brand-deep">{state.error}</span> : null}
+        </div>
       </div>
 
       {/* hidden inputs carry the controlled state into the action */}
@@ -145,21 +165,6 @@ export function SettingsForm({ initial }: { initial: Prefs }) {
       <input type="hidden" name="location_precision" value={p.location_precision} />
       <input type="hidden" name="who_can_invite" value={p.who_can_invite} />
 
-      <div className="mt-5 flex items-center gap-3 border-t border-rule pt-5">
-        <button
-          type="submit"
-          disabled={pending}
-          className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Save changes"}
-        </button>
-        {state?.ok ? (
-          <span className="inline-flex items-center gap-1 text-sm font-semibold text-success">
-            <Check size={15} /> Saved
-          </span>
-        ) : null}
-        {state?.error ? <span className="text-sm text-brand-deep">{state.error}</span> : null}
-      </div>
     </form>
   );
 }

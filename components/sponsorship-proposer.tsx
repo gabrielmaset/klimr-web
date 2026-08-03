@@ -90,7 +90,7 @@ export function SponsorshipProposer({ businessId }: { businessId: string }) {
           className="relative flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-rule bg-surface px-3 py-2 text-sm font-semibold text-faint"
         >
           <UserRound size={15} /> Player
-          <span className="absolute -top-2 right-2 rounded-full bg-ink px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wide text-cream">
+          <span className="absolute -top-2 right-2 rounded-[10px] bg-ink px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wide text-surface">
             Coming soon
           </span>
         </div>
@@ -139,7 +139,7 @@ export function SponsorshipProposer({ businessId }: { businessId: string }) {
             type="button"
             onClick={submit}
             disabled={pending}
-            className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-cream hover:opacity-90 disabled:opacity-40"
+            className="press inline-flex items-center gap-1.5 rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-40"
           >
             {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Send proposal
           </button>

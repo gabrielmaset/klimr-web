@@ -44,6 +44,10 @@ export async function saveProfile(
 
   const zip = String(formData.get("zip") || "").trim();
   if (!/^\d{5}$/.test(zip)) return { error: "Enter a 5-digit ZIP code." };
+  // Optional phone (0163): digits-only; a malformed value never blocks
+  // onboarding — it just doesn't persist.
+  const phoneDigits = String(formData.get("phone") ?? "").replace(/\D/g, "").slice(0, 10);
+  const phone = /^[2-9]\d{9}$/.test(phoneDigits) ? phoneDigits : null;
 
   let sportsPicked: PickedSport[];
   try {
@@ -156,6 +160,8 @@ export async function saveProfile(
     .from("profiles")
     .update({
       display_name: displayName,
+      phone,
+      phone_country: "US",
       first_name: firstName,
       last_name: lastName,
       home_zip: zip,

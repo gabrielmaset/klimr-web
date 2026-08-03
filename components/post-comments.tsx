@@ -163,7 +163,7 @@ export function PostThread({ postId, onCountChange }: { postId: string; onCountC
             onClick={submit}
             disabled={pending || !draft.trim()}
             aria-label="Post comment"
-            className="press inline-flex shrink-0 items-center justify-center rounded-full bg-ink p-2 text-cream disabled:opacity-40"
+            className="press inline-flex shrink-0 items-center justify-center rounded-[10px] bg-ink p-2 text-surface disabled:opacity-40"
           >
             {pending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
           </button>

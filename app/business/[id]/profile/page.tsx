@@ -79,7 +79,7 @@ export default async function BusinessProfilePage({ params }: { params: Promise<
               </div>
             </div>
           </div>
-          <button className="press mt-4 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-cream hover:opacity-90">
+          <button className="press mt-4 rounded-[10px] bg-ink px-5 py-2 text-sm font-semibold text-surface hover:opacity-90">
             Save changes
           </button>
         </form>

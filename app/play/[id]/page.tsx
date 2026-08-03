@@ -5,6 +5,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CalendarClock, MapPin, Users, Repeat, BadgeCheck, Check, Lock, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getAdminRole } from "@/lib/admin";
 import { Avatar } from "@/components/avatar";
 import { sportMeta, sportSlug } from "@/lib/sports";
 import { joinMatch, leaveMatch, confirmSpot, joinWaitlist, leaveWaitlist, cancelMatch } from "./actions";
@@ -33,16 +35,27 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/play/${id}`);
 
-  const { data: match } = await supabase.from("matches").select("*").eq("id", id).single();
+  let { data: match } = await supabase.from("matches").select("*").eq("id", id).maybeSingle();
+  // Admins can open ANY match — e.g. from Admin → Expired content. RLS hides
+  // matches the viewer isn't part of, so fall back to the admin client for a
+  // read-only inspection view (organizer controls stay off: not their match).
+  let db = supabase;
+  if (!match) {
+    const adminRole = await getAdminRole();
+    if (adminRole) {
+      db = createAdminClient();
+      ({ data: match } = await db.from("matches").select("*").eq("id", id).maybeSingle());
+    }
+  }
   if (!match) notFound();
 
   let court: { id: string; name: string; address: string | null; lat: number | null; lng: number | null } | null = null;
   if (match.court_id) {
-    const { data: c } = await supabase.from("courts").select("id, name, address, lat, lng").eq("id", match.court_id).maybeSingle();
+    const { data: c } = await db.from("courts").select("id, name, address, lat, lng").eq("id", match.court_id).maybeSingle();
     court = c ?? null;
   }
 
-  const { data: partRows } = await supabase
+  const { data: partRows } = await db
     .from("match_participants")
     .select("user_id, slot, is_organizer, confirmed")
     .eq("match_id", id)
@@ -63,7 +76,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const isParticipant = !!myPart;
   const joinable = match.status === "open";
 
-  const { data: wlRows } = await supabase
+  const { data: wlRows } = await db
     .from("join_requests")
     .select("requester_id, waitlist_position")
     .eq("match_id", id)

@@ -96,7 +96,7 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
             key={s}
             href={`/admin/businesses?status=${s}`}
             className={`press rounded-full border px-3.5 py-1.5 text-sm font-semibold capitalize transition-colors ${
-              s === status ? "border-ink bg-ink text-cream" : "border-rule bg-surface text-ink hover:border-faint"
+              s === status ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-ink hover:border-faint"
             }`}
           >
             {s} · {countOf.get(s) ?? 0}
@@ -238,7 +238,7 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
                   placeholder="Review note (kept in the admin log)"
                   className="min-w-[220px] flex-1 rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
                 />
-                <button className="press rounded-full bg-ink px-3.5 py-1.5 text-xs font-semibold text-cream hover:opacity-90">
+                <button className="press rounded-[10px] bg-ink px-3.5 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
                   Apply tier
                 </button>
               </form>

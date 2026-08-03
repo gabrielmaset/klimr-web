@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sportMeta } from "@/lib/sports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 import { Clock } from "lucide-react";
@@ -65,7 +66,7 @@ export default async function ExpiredContentPage({
     const { data } = await qb;
     await collectNames((data ?? []).map((m) => m.organizer_id));
     for (const m of data ?? [])
-      rows.push({ kind: "Match", id: m.id, title: `${m.sport_key} · ${m.format}`, when: m.scheduled_at, organizer: nameOf.get(m.organizer_id ?? "") ?? "—", status: m.status, href: `/play/${m.id}` });
+      rows.push({ kind: "Match", id: m.id, title: `${sportMeta(m.sport_key).name} · ${m.format}`, when: m.scheduled_at, organizer: nameOf.get(m.organizer_id ?? "") ?? "—", status: m.status, href: `/play/${m.id}` });
   } else if (type === "event") {
     let qb = admin
       .from("events")

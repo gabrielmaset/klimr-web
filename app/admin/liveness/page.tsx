@@ -70,7 +70,7 @@ export default async function AdminLiveness() {
         <form action={runLivenessNow}>
           <button
             type="submit"
-            className="rounded-full border border-line bg-ink px-4 py-2 text-sm font-semibold text-cream transition-opacity hover:opacity-85"
+            className="rounded-[10px] border border-line bg-ink px-4 py-2 text-sm font-semibold text-surface transition-opacity hover:opacity-85"
           >
             Run liveness job now
           </button>

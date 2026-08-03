@@ -126,7 +126,7 @@ export function TierApplication({ businessId }: { businessId: string }) {
           type="button"
           onClick={submit}
           disabled={pending || uploading}
-          className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-cream hover:opacity-90 disabled:opacity-40"
+          className="press inline-flex items-center gap-1.5 rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90 disabled:opacity-40"
         >
           {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Submit for review
         </button>

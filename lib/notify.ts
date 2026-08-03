@@ -12,6 +12,8 @@ export type Kind =
   | "marketplace"
   | "sponsorship"
   | "tournament"
+  | "team_invite"
+  | "team_activity"
   | "system";
 
 /** Future delivery channels attach HERE and only here (single seam):
@@ -32,7 +34,7 @@ async function deliverPush(_input: { userId: string; kind: Kind; title: string; 
  *  account, safety, and moderation notices bypass preferences, the industry
  *  standard. Friend requests/accepts have no toggle by design (core social
  *  graph). A missing prefs row means default-on. */
-const KIND_PREF: Record<Kind, "notif_match_invites" | "notif_ranking_changes" | "notif_region_challenges" | "notif_marketplace_events" | null> = {
+const KIND_PREF: Record<Kind, "notif_match_invites" | "notif_ranking_changes" | "notif_region_challenges" | "notif_marketplace_events" | "notif_team_invites" | "notif_team_roster" | "notif_team_activity" | null> = {
   match_invite: "notif_match_invites",
   match_join: "notif_match_invites",
   match_confirm: "notif_match_invites",
@@ -42,8 +44,11 @@ const KIND_PREF: Record<Kind, "notif_match_invites" | "notif_ranking_changes" | 
   sponsorship: "notif_marketplace_events",
   friend_request: null,
   friend_accept: null,
-  // Roster/entry operations are operational notices — always delivered.
-  tournament: null,
+  // Team life is member-controllable (Settings → Team notifications):
+  // invites, roster/entry/substitution notices, and team activity.
+  tournament: "notif_team_roster",
+  team_invite: "notif_team_invites",
+  team_activity: "notif_team_activity",
   system: null,
 };
 export async function createNotification(input: {
@@ -59,7 +64,7 @@ export async function createNotification(input: {
     if (prefCol) {
       const { data: prefs } = await admin
         .from("user_preferences")
-        .select("notif_match_invites, notif_ranking_changes, notif_region_challenges, notif_marketplace_events")
+        .select("notif_match_invites, notif_ranking_changes, notif_region_challenges, notif_marketplace_events, notif_team_invites, notif_team_roster, notif_team_activity")
         .eq("user_id", input.userId)
         .maybeSingle();
       if (prefs && prefs[prefCol] === false) return; // muted by the recipient

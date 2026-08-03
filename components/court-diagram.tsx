@@ -56,8 +56,8 @@ export function CourtDiagram({ sport }: { sport: string }) {
         <Dim x={260} y={34}>NET · 34 IN</Dim>
         <Dim x={260} y={244}>44 FT</Dim>
         <Dim x={56} y={136}>20 FT</Dim>
-        <Dim x={231} y={100}>KITCHEN</Dim>
-        <Dim x={231} y={112}>7 FT</Dim>
+        <Dim x={231} y={100}>NON-VOLLEY ZONE</Dim>
+        <Dim x={231} y={112}>(KITCHEN) · 7 FT</Dim>
         <Dim x={141} y={95}>SERVICE COURT</Dim>
       </svg>
     );
@@ -77,25 +77,41 @@ export function CourtDiagram({ sport }: { sport: string }) {
         <Dim x={260} y={262}>20 M · GLASS BACK WALLS IN PLAY</Dim>
         <Dim x={46} y={144}>10 M</Dim>
         <Dim x={194} y={100}>SERVICE BOX</Dim>
+        <Dim x={129} y={262}>SERVICE LINE · 6.95 M FROM NET</Dim>
       </svg>
     );
   }
 
   if (slug === "racquetball") {
-    // Floor plan 40ft × 20ft: service line 15ft, short line 20ft, receiving line 25ft.
+    // Portrait floor plan, player's-eye orientation: the FRONT WALL — the
+    // target every serve and return must reach first — is at the TOP, directly
+    // in front of the service zone (it was previously drawn to the side).
+    // 20ft wide × 40ft deep at 7px/ft: service line 15ft from the front wall,
+    // short line 20ft, receiving line 25ft (dashed). Doubles boxes hug the
+    // side walls inside the zone; drive-serve lines sit 3ft off each wall.
     return (
-      <svg viewBox="0 0 520 260" role="img" aria-label="Racquetball court floor plan" className="h-auto w-full">
-        <rect x="90" y="46" width="340" height="170" fill="#FFFFFF" stroke={INK} strokeWidth="2.5" />
-        <rect x="90" y="42" width="340" height="4" fill={tone.fg} /> {/* front wall */}
-        <rect x="217.5" y="46" width="42.5" height="170" fill={tone.bg} /> {/* service zone 15–20ft */}
-        <line x1="217.5" y1="46" x2="217.5" y2="216" {...LINE} /> {/* service line */}
-        <line x1="260" y1="46" x2="260" y2="216" {...LINE} /> {/* short line */}
-        <line x1="302.5" y1="46" x2="302.5" y2="216" stroke={INK} strokeWidth="1.5" strokeDasharray="5 5" fill="none" /> {/* receiving line */}
-        <Dim x={260} y={34}>FRONT WALL ← EVERY SURFACE IN PLAY</Dim>
-        <Dim x={238.5} y={130}>SERVICE</Dim>
-        <Dim x={238.5} y={142}>ZONE</Dim>
-        <Dim x={302.5} y={236}>RECEIVING LINE</Dim>
-        <Dim x={260} y={252} anchor="middle">40 FT DEEP · 20 FT WIDE · 20 FT HIGH</Dim>
+      <svg viewBox="0 0 520 360" role="img" aria-label="Racquetball court floor plan — front wall at top" className="h-auto w-full">
+        <rect x="200" y="32" width="140" height="8" fill={tone.fg} /> {/* FRONT WALL */}
+        <rect x="200" y="40" width="140" height="280" fill="#FFFFFF" stroke={INK} strokeWidth="2.5" />
+        <rect x="200" y="145" width="140" height="35" fill={tone.bg} /> {/* service zone 15–20ft */}
+        <line x1="200" y1="145" x2="340" y2="145" {...LINE} /> {/* service line · 15 ft */}
+        <line x1="200" y1="180" x2="340" y2="180" {...LINE} /> {/* short line · 20 ft */}
+        <line x1="200" y1="215" x2="340" y2="215" stroke={INK} strokeWidth="1.5" strokeDasharray="5 5" fill="none" /> {/* receiving line · 25 ft */}
+        <rect x="200" y="145" width="12" height="35" {...THIN} /> {/* doubles boxes */}
+        <rect x="328" y="145" width="12" height="35" {...THIN} />
+        <line x1="221" y1="145" x2="221" y2="180" stroke={INK} strokeWidth="1" strokeDasharray="3 4" fill="none" /> {/* drive-serve lines · 3 ft */}
+        <line x1="319" y1="145" x2="319" y2="180" stroke={INK} strokeWidth="1" strokeDasharray="3 4" fill="none" />
+        <Dim x={270} y={24}>FRONT WALL — EVERY SERVE &amp; RETURN MUST REACH IT FIRST</Dim>
+        <Dim x={192} y={150} anchor="end">SERVICE LINE · 15 FT</Dim>
+        <Dim x={192} y={185} anchor="end">SHORT LINE · 20 FT</Dim>
+        <Dim x={192} y={220} anchor="end">RECEIVING LINE · 25 FT</Dim>
+        <Dim x={270} y={167}>SERVICE ZONE</Dim>
+        <Dim x={348} y={150} anchor="start">DOUBLES BOX</Dim>
+        <Dim x={348} y={185} anchor="start">40 FT DEEP</Dim>
+        <Dim x={348} y={264} anchor="start">SIDE WALLS +</Dim>
+        <Dim x={348} y={276} anchor="start">CEILING IN PLAY</Dim>
+        <Dim x={270} y={338}>BACK WALL — IN PLAY</Dim>
+        <Dim x={270} y={352}>20 FT WIDE · 40 FT DEEP · 20 FT HIGH</Dim>
       </svg>
     );
   }

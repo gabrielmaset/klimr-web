@@ -24,7 +24,7 @@ export default async function OnboardingPage() {
       supabase
         .from("profiles")
         .select(
-          "display_name, first_name, last_name, home_zip, primary_sport, bio, gender, birth_year, date_of_birth, availability, avatar_hue, play_style, onboarding_draft, verification_status",
+          "display_name, first_name, last_name, home_zip, phone, primary_sport, bio, gender, birth_year, date_of_birth, availability, avatar_hue, play_style, onboarding_draft, verification_status",
         )
         .eq("id", user.id)
         .single(),
@@ -63,7 +63,7 @@ export default async function OnboardingPage() {
   // A saved draft (autosnapshotted each step) beats the profile row — it is
   // strictly newer for an unfinished signup.
   type Draft = Partial<{
-    firstName: string; lastName: string; zip: string; dob: string; gender: string;
+    firstName: string; lastName: string; zip: string; phone: string; dob: string; gender: string;
     hue: number; bio: string; style: string;
     availability: { day: string; start: string; end: string }[];
     sports: { key: string; level: string; primary: boolean; rating: string; format: string; hand: string }[];
@@ -75,6 +75,7 @@ export default async function OnboardingPage() {
     firstName: draft?.firstName ?? profile?.first_name ?? "",
     lastName: draft?.lastName ?? profile?.last_name ?? "",
     zip: draft?.zip ?? profile?.home_zip ?? "",
+    phone: draft?.phone ?? profile?.phone ?? "",
     bio: draft?.bio ?? profile?.bio ?? "",
     gender: draft?.gender ?? profile?.gender ?? "",
     dob: draft?.dob ?? profile?.date_of_birth ?? "",

@@ -117,25 +117,26 @@ export default async function SettingsPage() {
 
       <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
         <div className="space-y-5">
+          {/* Every row is a DISTINCT destination — the old hub sent two pairs
+              of rows to the same pages, which is how a settings page loses
+              trust. Account = who you are and how you get in. */}
           <Section
             title="Account"
             rows={[
-              { Icon: UserRound, title: "Profile & bio", desc: "Name, bio, date of birth, and area", href: "/settings/profile" },
-              { Icon: Trophy, title: "Sports & skill levels", desc: "The sports you play and your levels", href: "/settings/sports" },
-              { Icon: BadgeCheck, title: "Identity verification", desc: "Your verified-player status", href: "/settings/verification" },
-              { Icon: Eye, title: "Profile page", desc: "Privacy, gear bag, and what visitors see", href: "/settings/profile-page" },
-              { Icon: GraduationCap, title: "Professional & hosting", desc: "Apply as a coach, health pro, event organizer, or tournament director", href: "/settings/professional" },
-              { Icon: Mail, title: "Linked email & phone", desc: "How you sign in and get reached", href: "/settings/email" },
-              { Icon: Briefcase, title: "Business accounts", desc: "Create and manage businesses linked to your account", href: "/business" },
+              { Icon: UserRound, title: "Profile & bio", desc: "Name, bio, date of birth, and photo", href: "/settings/profile" },
+              { Icon: MapPin, title: "Home ZIP & neighborhood", desc: "Anchors your local rankings and what counts as nearby", href: "/settings/location" },
+              { Icon: Mail, title: "Linked email & phone", desc: "Sign-in email and your contact number", href: "/settings/email" },
               { Icon: KeyRound, title: "Sign-in & security", desc: "Magic link and two-factor", href: "/account/security" },
+              { Icon: BadgeCheck, title: "Identity verification", desc: "Your verified-player status", href: "/settings/verification" },
             ]}
           />
           <Section
-            title="Ranking & play"
+            title="Playing"
             rows={[
-              { Icon: MapPin, title: "Home ZIP & neighborhood", desc: "Anchors your local rankings", href: "/settings/profile" },
-              { Icon: Swords, title: "Default sport", desc: "What opens first across Klimr", href: "/settings/sports" },
+              { Icon: Trophy, title: "Sports & skill levels", desc: "The sports you play and your levels", href: "/settings/sports" },
+              { Icon: Swords, title: "Default sport", desc: "What opens first across Klimr", href: "/settings/default-sport" },
               { Icon: CalendarDays, title: "Availability schedule", desc: "When you usually play", href: "/settings/availability" },
+              { Icon: Eye, title: "Profile page", desc: "Privacy, gear bag, and what visitors see", href: "/settings/profile-page" },
               { Icon: BookOpen, title: "Sport rules & how to play", desc: "Formats and how ranking points work", href: "/resources" },
             ]}
           />
@@ -144,7 +145,18 @@ export default async function SettingsPage() {
             rows={[
               { Icon: Users, title: "My teams", desc: "Teams you're on, and create new ones", href: "/teams" },
               { Icon: Send, title: "Team invitations", desc: "Invites waiting on you", href: "/invites?tab=received&kind=teams" },
-              { Icon: ShieldCheck, title: "Team notifications", desc: "Invites and roster changes", soon: true },
+              { Icon: ShieldCheck, title: "Team notifications", desc: "Invites, rosters, and team activity — each on its own switch", href: "/settings/team-notifications" },
+            ]}
+          />
+          {/* The old "Business accounts" vs "Professional & hosting" pair
+              overlapped. The split that holds: professional status is about
+              YOU (personal credentials); business profiles are ENTITIES you
+              manage. One section, two clearly different doors. */}
+          <Section
+            title="Professional & business"
+            rows={[
+              { Icon: GraduationCap, title: "Professional status", desc: "Your personal credentials — coach, health pro, event organizer, or tournament director", href: "/settings/professional" },
+              { Icon: Briefcase, title: "Business profiles", desc: "Venues, shops, clubs, and brands you manage — separate from your player profile", href: "/business" },
             ]}
           />
           <Section

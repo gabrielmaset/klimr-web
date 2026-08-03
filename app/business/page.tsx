@@ -48,7 +48,7 @@ export default async function BusinessIndex() {
         <p className="text-sm text-mute">{list.length ? `${list.length} business${list.length === 1 ? "" : "es"}` : "Nothing here yet."}</p>
         <Link
           href="/business/new"
-          className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-cream hover:opacity-90"
+          className="press inline-flex items-center gap-1.5 rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:opacity-90"
         >
           <Plus size={15} /> New business
         </Link>

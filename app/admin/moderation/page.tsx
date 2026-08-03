@@ -119,7 +119,7 @@ export default async function AdminModeration({ searchParams }: { searchParams: 
             key={s}
             href={`/admin/moderation?status=${s}`}
             className={`press rounded-full border px-3.5 py-1.5 text-sm font-semibold capitalize transition-colors ${
-              s === status ? "border-ink bg-ink text-cream" : "border-rule bg-surface text-ink hover:border-faint"
+              s === status ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-ink hover:border-faint"
             }`}
           >
             {s} · {countOf.get(s) ?? 0}

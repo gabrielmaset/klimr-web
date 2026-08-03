@@ -27,7 +27,7 @@ export default async function NewBusiness() {
         sub="Drafts are private. Klimr reviews new businesses before they go live — verification tiers come after."
       />
 
-      <form action={createBusiness} className="mt-6 max-w-2xl space-y-5">
+      <form action={createBusiness} className="mt-6 max-w-3xl space-y-5">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-faint">What is it?</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
@@ -76,7 +76,7 @@ export default async function NewBusiness() {
           </div>
         </div>
 
-        <button className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-cream hover:opacity-90">
+        <button className="press rounded-[10px] bg-ink px-5 py-2.5 text-sm font-semibold text-surface hover:opacity-90">
           Create draft
         </button>
       </form>

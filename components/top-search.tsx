@@ -3,14 +3,16 @@
 import { SITE_INDEX, type PageSection } from "@/lib/site-index";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X, Trophy, ShoppingBag, GraduationCap , ArrowUpRight } from "lucide-react";
+import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X, Trophy, ShoppingBag, GraduationCap } from "lucide-react";
 import { globalSearch } from "@/app/search/actions";
 import { useAiSearch } from "@/components/ai-search-panel";
 import type { SearchResult, SearchResultType } from "@/app/search/types";
-import { Compass } from "lucide-react";
+import { BookOpen, Compass } from "lucide-react";
+import { HELP_INDEX } from "@/lib/help-index";
 
 type PageResult = { type: "page"; id: string; title: string; subtitle?: string; href: string; section: PageSection };
-type Result = SearchResult | PageResult;
+type HelpResult = { type: "help"; id: string; title: string; subtitle: string | null; href: string; steps?: string[] };
+type Result = SearchResult | PageResult | HelpResult;
 
 // ONE source of truth (lib/site-index.ts): a page added there is instantly
 // findable here, in the AI's find_pages tool, everywhere. The hand list that
@@ -73,6 +75,37 @@ function sectionize(results: Result[]) {
   if (rest.length) sections.push({ key: "other", label: "More", items: rest });
   return { sections, flat: sections.flatMap((s) => s.items) };
 }
+
+/* Deterministic HOW-TO: help entries match instantly from the local index, so
+   "change profile photo" shows the actual steps without waiting on the AI —
+   and the AI's own steps panel still covers phrasing the index misses. */
+function helpHits(term: string): HelpResult[] {
+  const q = term.toLowerCase();
+  const toks = q.split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2);
+  if (!toks.length) return [];
+  return HELP_INDEX.map((h) => {
+    const hay = `${h.title} ${h.keywords.join(" ")}`.toLowerCase();
+    const score = toks.reduce((s, w) => s + (hay.includes(w) ? 1 : 0), 0) + (h.title.toLowerCase().includes(q) ? 2 : 0);
+    return { h, score };
+  })
+    .filter((x) => x.score >= Math.min(2, toks.length + 1))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2)
+    .map(({ h }, i) => ({ type: "help" as const, id: `help-${h.href}-${i}`, title: h.title, subtitle: i === 0 ? null : "How-to guide", href: h.href, steps: i === 0 ? h.steps : undefined }));
+}
+
+/* AI answers merge into the SAME canonical sections as instant results — one
+   label per kind, never a model-invented near-duplicate category. */
+const AI_KIND_TO_TYPE: Record<string, SearchResultType> = {
+  events: "event",
+  tournaments: "tournament",
+  teams: "team",
+  players: "player",
+  marketplace: "listing",
+  courts: "court",
+  pros: "class",
+  classes: "class",
+};
 import { Avatar } from "@/components/avatar";
 
 const TYPE_ICON: Record<SearchResultType, typeof User> = {
@@ -125,7 +158,38 @@ function TopSearchInner() {
     return () => clearTimeout(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term, open, looksNatural]);
-  const { sections, flat } = sectionize(results);
+  const howto = useMemo(() => helpHits(term), [term]);
+  const aiExtras = useMemo(() => {
+    const out = new Map<SearchResultType, SearchResult[]>();
+    for (const g of aiGroups) {
+      const ty = AI_KIND_TO_TYPE[g.kind];
+      if (!ty) continue;
+      const arr = out.get(ty) ?? [];
+      for (const it of g.items) {
+        arr.push({ type: ty, id: `ai-${it.href}`, title: it.title, subtitle: [it.subtitle, it.meta].filter(Boolean).join(" · ") || null, href: it.href });
+      }
+      out.set(ty, arr);
+    }
+    return out;
+  }, [aiGroups]);
+  const { sections, flat } = useMemo(() => {
+    const base = sectionize(results);
+    const merged = base.sections.map((s) => ({ ...s, items: [...s.items] }));
+    const orderOf = (k: string) => SECTION_ORDER.findIndex((s) => s.key === k);
+    for (const [ty, items] of aiExtras) {
+      const sec = merged.find((s) => s.key === ty);
+      if (sec) sec.items.push(...items.slice(0, 4));
+      else {
+        const def = SECTION_ORDER.find((s) => s.key === ty);
+        const ins = { key: ty, label: def?.label ?? "More results", items: items.slice(0, 5) as Result[] };
+        const at = merged.findIndex((s) => orderOf(s.key) > orderOf(ty));
+        if (at === -1) merged.push(ins);
+        else merged.splice(at, 0, ins);
+      }
+    }
+    const withHowto = howto.length ? [{ key: "howto", label: "How to", items: howto as Result[] }, ...merged] : merged;
+    return { sections: withHowto, flat: withHowto.flatMap((s) => s.items) };
+  }, [results, aiExtras, howto]);
   const activeClamped = flat.length ? Math.min(active, flat.length - 1) : 0;
 
   useEffect(() => {
@@ -289,28 +353,6 @@ function TopSearchInner() {
                     ))}
                   </ol>
                 ) : null}
-                {aiGroups.map((g) => (
-                  <div key={g.kind + g.label}>
-                    <p className="kicker px-2.5 pb-1 pt-1.5 text-faint">{g.label}</p>
-                    {g.items.map((item) => (
-                      <button
-                        key={item.href + item.title}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => go(item.href)}
-                        className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-tint-brand"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-ink">{item.title}</span>
-                          {item.subtitle || item.meta ? (
-                            <span className="block truncate text-xs text-mute">{[item.subtitle, item.meta].filter(Boolean).join(" · ")}</span>
-                          ) : null}
-                        </span>
-                        <ArrowUpRight size={14} className="shrink-0 text-faint" />
-                      </button>
-                    ))}
-                  </div>
-                ))}
               </div>
             ) : null}
             {loading && results.length === 0 && !aiActive ? (
@@ -324,10 +366,10 @@ function TopSearchInner() {
                   {section.items.map((r) => {
                     const i = flat.indexOf(r);
                 const sel = i === activeClamped;
-                const Icon = r.type === "page" ? Compass : TYPE_ICON[r.type];
+                const Icon = r.type === "page" ? Compass : r.type === "help" ? BookOpen : TYPE_ICON[r.type];
                 return (
+                  <div key={`${r.type}-${r.id}`}>
                   <button
-                    key={`${r.type}-${r.id}`}
                     id={`top-opt-${i}`}
                     role="option"
                     aria-selected={sel}
@@ -349,6 +391,16 @@ function TopSearchInner() {
                     </span>
                     <CornerDownLeft size={14} className={`shrink-0 text-faint transition-opacity ${sel ? "opacity-100" : "opacity-0"}`} />
                   </button>
+                  {r.type === "help" && r.steps ? (
+                    <ol className="mx-2 mb-1 mt-0.5 space-y-1 rounded-xl border border-rule-soft bg-bg px-3.5 py-2.5">
+                      {r.steps.map((st, sj) => (
+                        <li key={sj} className="flex gap-2 text-[13px] text-ink-soft">
+                          <span className="font-mono text-[11px] font-bold text-brand">{sj + 1}.</span> {st}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  </div>
                 );
               })}
                 </div>

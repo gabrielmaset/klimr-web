@@ -241,7 +241,7 @@ export interface Database {
           connections_count: number;
           followers_count: number;
           following_count: number;
-         timezone: string | null;  onboarding_draft: Json | null; };
+         timezone: string | null;  onboarding_draft: Json | null; phone_country: string; phone: string | null };
         Insert: {
           member_no?: number | null;
           id: string;
@@ -278,7 +278,7 @@ export interface Database {
           connections_count?: number;
           followers_count?: number;
           following_count?: number;
-         timezone?: string | null;  onboarding_draft?: Json | null; };
+         timezone?: string | null;  onboarding_draft?: Json | null; phone_country?: string; phone?: string | null };
         Update: {
           display_name?: string;
           first_name?: string | null;
@@ -312,7 +312,7 @@ export interface Database {
           connections_count?: number;
           followers_count?: number;
           following_count?: number;
-         gear?: Json; usual_times?: string | null; profile_gallery?: Json; show_courts?: boolean; show_teams?: boolean; show_tournaments?: boolean;  timezone?: string | null;  onboarding_draft?: Json | null; };
+         gear?: Json; usual_times?: string | null; profile_gallery?: Json; show_courts?: boolean; show_teams?: boolean; show_tournaments?: boolean;  timezone?: string | null;  onboarding_draft?: Json | null; phone_country?: string; phone?: string | null };
         Relationships: [];
       };
       gate_access_codes: {
@@ -853,8 +853,7 @@ export interface Database {
           profile_visibility: string;
           location_precision: string;
           who_can_invite: string;
-          updated_at: string;
-        };
+          updated_at: string; notif_team_invites: boolean; notif_team_roster: boolean; notif_team_activity: boolean };
         Insert: {
           user_id: string;
           notif_match_invites?: boolean;
@@ -865,8 +864,7 @@ export interface Database {
           profile_visibility?: string;
           location_precision?: string;
           who_can_invite?: string;
-          updated_at?: string;
-        };
+          updated_at?: string; notif_team_invites?: boolean; notif_team_roster?: boolean; notif_team_activity?: boolean };
         Update: {
           notif_match_invites?: boolean;
           notif_ranking_changes?: boolean;
@@ -876,8 +874,7 @@ export interface Database {
           profile_visibility?: string;
           location_precision?: string;
           who_can_invite?: string;
-          updated_at?: string;
-        };
+          updated_at?: string; notif_team_invites?: boolean; notif_team_roster?: boolean; notif_team_activity?: boolean };
         Relationships: [];
       };
       feed_items: {

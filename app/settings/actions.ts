@@ -49,6 +49,99 @@ export async function savePreferences(_prev: PrefState, formData: FormData): Pro
   return { ok: true };
 }
 
+/** Home ZIP & neighborhood — its own dedicated setting (the hub previously
+ *  pointed this at Profile & bio, a duplicate destination). Same US-only ZIP
+ *  resolution as the profile flow: zip_regions first, packaged US index as
+ *  fallback. */
+export async function updateLocation(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/settings/location");
+  const zip = String(formData.get("zip") ?? "").trim();
+  if (!/^\d{5}$/.test(zip)) redirect("/settings/location?err=zip");
+  const { data: region } = await supabase.from("zip_regions").select("neighborhood, city, state, country").eq("zip", zip).maybeSingle();
+  const usFallback = region ? null : lookupZip(zip);
+  if ((!region && !usFallback) || (region?.country && region.country !== "US")) {
+    redirect("/settings/location?err=us");
+  }
+  await supabase
+    .from("profiles")
+    .update({
+      home_zip: zip,
+      neighborhood: region?.neighborhood ?? null,
+      city: region?.city ?? usFallback?.city ?? null,
+      state: region?.state ?? usFallback?.state ?? null,
+      country: region?.country ?? "US",
+    })
+    .eq("id", user.id);
+  revalidatePath("/settings/location");
+  revalidatePath("/settings");
+  redirect("/settings/location?saved=1");
+}
+
+/** Default sport — a real control of its own (the hub previously sent both
+ *  this and "Sports & skill levels" to the same page). Only a sport the
+ *  member actively plays can be the default. */
+export async function setDefaultSport(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/settings/default-sport");
+  const sport = String(formData.get("sport") ?? "").trim();
+  const { data: mine } = await supabase.from("player_sports").select("sport_key").eq("user_id", user.id).eq("active", true);
+  const ok = (mine ?? []).some((r) => r.sport_key === sport);
+  if (!ok) redirect("/settings/default-sport?err=pick");
+  await supabase.from("profiles").update({ primary_sport: sport }).eq("id", user.id);
+  revalidatePath("/settings/default-sport");
+  revalidatePath("/settings");
+  redirect("/settings/default-sport?saved=1");
+}
+
+/** Team notifications (0163): the three team toggles, defaulting on. Enforced
+ *  centrally in lib/notify — safety and account notices always deliver. */
+export async function saveTeamNotificationPrefs(_prev: PrefState, formData: FormData): Promise<PrefState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in." };
+  const row = {
+    user_id: user.id,
+    notif_team_invites: bool(formData.get("notif_team_invites")),
+    notif_team_roster: bool(formData.get("notif_team_roster")),
+    notif_team_activity: bool(formData.get("notif_team_activity")),
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from("user_preferences").upsert(row, { onConflict: "user_id" });
+  if (error) {
+    console.error("[settings] team prefs save failed", error.code, error.message);
+    return { error: "Couldn't save. Please try again." };
+  }
+  revalidatePath("/settings/team-notifications");
+  return { ok: true };
+}
+
+/** Account phone (0163): digits-only storage; US numbers must be 10 digits
+ *  starting 2–9 (NANP). Empty clears the number. */
+export async function updatePhone(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/settings/email");
+  const digits = String(formData.get("phone") ?? "").replace(/\D/g, "").slice(0, 10);
+  const country = String(formData.get("phone_country") ?? "US").toUpperCase() === "US" ? "US" : "US";
+  if (digits && !/^[2-9]\d{9}$/.test(digits)) {
+    redirect("/settings/email?phone=invalid");
+  }
+  await supabase.from("profiles").update({ phone: digits || null, phone_country: country }).eq("id", user.id);
+  revalidatePath("/settings/email");
+  redirect("/settings/email?phone=saved");
+}
+
 export async function unblockPlayer(formData: FormData) {
   const target = String(formData.get("userId"));
   const supabase = await createClient();

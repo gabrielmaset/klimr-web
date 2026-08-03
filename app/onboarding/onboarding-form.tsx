@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
 import { Check, Copy, Loader2, Pencil, Plus, ShieldCheck, Smartphone, Star, X } from "lucide-react";
+import { PhoneField } from "@/components/phone-field";
 import QRCode from "react-qr-code";
 import { VerificationDataPanel } from "@/components/verification-privacy";
 import { saveProfile, saveWizardDraft, requestVerification, createVerificationHandoff, type WizardState } from "./actions";
@@ -92,6 +93,7 @@ export type WizardInitial = {
   firstName: string;
   lastName: string;
   zip: string;
+  phone: string;
   bio: string;
   gender: string;
   dob: string;
@@ -189,7 +191,7 @@ export function OnboardingWizard({
   };
   const snapshotDraft = () => {
     const draft = {
-      firstName, lastName, zip, dob, gender, hue, bio, style,
+      firstName, lastName, zip, phone, dob, gender, hue, bio, style,
       availability: ranges,
       sports: Object.entries(picked).map(([key, v]) => ({ key, ...v })),
       verifyRequested: verify === "requested",
@@ -200,6 +202,7 @@ export function OnboardingWizard({
   const [firstName, setFirstName] = useState(initial.firstName);
   const [lastName, setLastName] = useState(initial.lastName);
   const [zip, setZip] = useState(initial.zip);
+  const [phone, setPhone] = useState(initial.phone);
   const [dob, setDob] = useState(initial.dob);
   const [gender, setGender] = useState(initial.gender);
   const [hue, setHue] = useState(initial.hue);
@@ -544,6 +547,13 @@ export function OnboardingWizard({
                     <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="mt-1.5 w-full rounded-xl border border-rule-2 bg-surface px-3.5 py-3 text-[16px] text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15" />
                   </label>
                 </div>
+                <label className="block">
+                  <span className="text-[13px] font-bold uppercase tracking-[.08em] text-faint">Phone <span className="normal-case tracking-normal text-faint/80">(optional)</span></span>
+                  <div className="mt-1.5">
+                    <PhoneField defaultDigits={initial.phone} onDigitsChange={setPhone} />
+                  </div>
+                  <span className="mt-1.5 block text-[12px] text-mute">Some tournaments require a contact number at registration — saving it once here fills it everywhere.</span>
+                </label>
                 <p className="text-[13px] leading-relaxed text-mute">Klimr is 18+. Your birthday is used for verification and never shown on your profile.</p>
               </div>
             ) : null}
