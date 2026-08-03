@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Search, Star, Lock, Loader2, MapPin, Check, X } from "lucide-react";
-import { courtsNearZip, searchCourts, type PickerCourt } from "@/app/courts/search-actions";
+import { courtsNearZip, type PickerCourt, type SearchResponse } from "@/app/courts/search-actions";
 
 const KM_PER_MI = 1.60934;
 
@@ -62,7 +62,11 @@ export function CourtPicker({
     setSearching(true);
     setNotice(null);
     try {
-      const r = await searchCourts({ locationKey: zip, radiusKm: Math.round(25 * KM_PER_MI), sport });
+      const r = (await fetch("/api/courts/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locationKey: zip, radiusKm: Math.round(25 * KM_PER_MI), sport }),
+      }).then((res) => res.json())) as SearchResponse;
       const mapped: PickerCourt[] = (r.courts ?? []).map((c) => ({
         key: c.id,
         courtId: null,

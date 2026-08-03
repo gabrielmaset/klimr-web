@@ -11,7 +11,7 @@ import {
 import { SPORTS } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { CourtsMap } from "./courts-map";
-import { searchCourts, type SearchResponse } from "./search-actions";
+import type { SearchResponse } from "./search-actions";
 import { reverseToZip } from "./search-actions";
 
 export type FinderCourt = {
@@ -151,15 +151,21 @@ export function CourtsFinder({
       }
       const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(f.ll);
       try {
-        const r = await Promise.race([
-          searchCourts({
-            locationKey: f.zip,
-            radiusKm: Math.max(2, Math.round(f.radius * 1.609)),
-            sport: f.sport,
-            ...(m ? { lat: Number(m[1]), lng: Number(m[2]) } : {}),
-          }),
+        // Route-handler fetch, NOT a server action: navigation never queues
+        // behind a running search — the menu stays instant regardless.
+        const r = (await Promise.race([
+          fetch("/api/courts/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              locationKey: f.zip,
+              radiusKm: Math.max(2, Math.round(f.radius * 1.609)),
+              sport: f.sport,
+              ...(m ? { lat: Number(m[1]), lng: Number(m[2]) } : {}),
+            }),
+          }).then((res) => res.json()),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 40000)),
-        ]);
+        ])) as SearchResponse;
         if (liveSeq.current === seq) setLive(r);
       } catch {
         if (liveSeq.current === seq) {

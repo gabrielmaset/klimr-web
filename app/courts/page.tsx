@@ -48,7 +48,11 @@ export default async function CourtsPage({
     .maybeSingle();
 
     const mySportKeys = await getUserSportKeys(supabase, user.id);
-const rawQuery = (one("zip") ?? profile?.home_zip ?? "").trim();
+// The search field loads EMPTY unless the link explicitly carries a ZIP —
+// no more surprise pre-fill, and no auto-fired search on plain visits
+// (which was also what made the menu wait: an in-flight action queues
+// navigation). Home ZIP stays out of it; Use-my-location and typing remain.
+const rawQuery = (one("zip") ?? "").trim();
   // The finder opens on the player's own sport, not "All sports".
   const defaultSport = profile?.primary_sport && SPORT_KEYS.includes(profile.primary_sport) ? profile.primary_sport : "all";
   const sportParam = one("sport") ?? defaultSport;

@@ -1344,9 +1344,9 @@ export interface Database {
         Relationships: [];
       };
       court_sport_intel: {
-        Row: { place_id: string; sport: string; verdict: string; confidence: number; reliability: number; evidence: string | null; source: string | null; checked_at: string };
-        Insert: { place_id: string; sport: string; verdict: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; checked_at?: string };
-        Update: { verdict?: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; checked_at?: string };
+        Row: { place_id: string; sport: string; verdict: string; confidence: number; reliability: number; evidence: string | null; source: string | null; display_name: string | null; checked_at: string };
+        Insert: { place_id: string; sport: string; verdict: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; display_name?: string | null; checked_at?: string };
+        Update: { verdict?: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; display_name?: string | null; checked_at?: string };
         Relationships: [];
       };
       service_usage: {

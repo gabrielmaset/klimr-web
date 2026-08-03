@@ -289,7 +289,7 @@ async function verifyVenues(targets: { id: string; name: string; website: string
                 `You verify whether a specific venue CURRENTLY offers ${sportName}. Search the web: the venue's own website and facility pages, city/parks department pages, Yelp/Google reviews, recent local sources.\n` +
                 `Corroboration rules: no single mention confirms or denies — require the venue's own site/an official page, OR at least two independent sources agreeing. Recent sources outweigh old ones (courts close or get converted). If sources conflict, prefer the venue's own current pages.\n` +
                 `Verdicts: "confirmed" — current sources clearly show ${sportName} courts/facilities AT this venue. "denied" — the venue's own facilities information or multiple sources clearly show it does NOT offer ${sportName} (e.g. its site lists other sports only). "unknown" — you could not establish it either way; a failed search is unknown, never a denial.\n` +
-                `After searching, reply with ONLY minified JSON, nothing else: {"verdict":"confirmed|denied|unknown","confidence":0..1,"evidence":"\u2264160 chars naming the source"}`,
+                `After searching, reply with ONLY minified JSON, nothing else: {"verdict":"confirmed|denied|unknown","confidence":0..1,"evidence":"\u2264160 chars naming the source","display_name":"the venue\u2019s proper canonical name"}`,
               messages: [
                 {
                   role: "user",
@@ -317,7 +317,7 @@ async function verifyVenues(targets: { id: string; name: string; website: string
             console.error("[courts] verifier parse failed", text.slice(0, 200));
             return null;
           }
-          const parsed = JSON.parse(text.slice(s, e + 1)) as { verdict?: string; confidence?: number; evidence?: string };
+          const parsed = JSON.parse(text.slice(s, e + 1)) as { verdict?: string; confidence?: number; evidence?: string; display_name?: string };
           if (!["confirmed", "denied", "unknown"].includes(parsed.verdict ?? "")) return null;
           const conf = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
           return {
@@ -327,6 +327,7 @@ async function verifyVenues(targets: { id: string; name: string; website: string
             confidence: conf,
             reliability: parsed.verdict === "unknown" ? 0.3 : Math.min(0.95, 0.75 + 0.2 * conf),
             evidence: (parsed.evidence ?? "").slice(0, 200) || null,
+            display_name: typeof parsed.display_name === "string" && parsed.display_name.trim().length > 2 ? parsed.display_name.trim().slice(0, 80) : null,
             source: "web_search",
             checked_at: new Date().toISOString(),
           };
@@ -347,7 +348,7 @@ async function verifyVenues(targets: { id: string; name: string; website: string
 }
 
 /* Claude judges the candidates into a reliable, sport-specific list. */
-type Intel = { verdict: string; confidence: number; evidence: string | null; stale: boolean };
+type Intel = { verdict: string; confidence: number; evidence: string | null; displayName: string | null; stale: boolean };
 
 async function aiFilter(
   candidates: RawPlace[],
@@ -557,13 +558,13 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   } else {
     const { data: intelRows } = await admin
       .from("court_sport_intel")
-      .select("place_id, verdict, confidence, evidence, checked_at")
+      .select("place_id, verdict, confidence, evidence, display_name, checked_at")
       .eq("sport", sport)
       .in("place_id", candidates.map((c) => c.id));
     const intel = new Map<string, Intel>(
       (intelRows ?? []).map((r) => [
         r.place_id,
-        { verdict: r.verdict, confidence: Number(r.confidence), evidence: r.evidence, stale: !intelIsFresh(r.verdict, r.checked_at) },
+        { verdict: r.verdict, confidence: Number(r.confidence), evidence: r.evidence, displayName: r.display_name, stale: !intelIsFresh(r.verdict, r.checked_at) },
       ]),
     );
 
@@ -596,12 +597,10 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     // queue, nearest first, kept or dropped alike — the judge's confidence
     // is not trusted, only checked. 3 per search; a few searches per area
     // and every shown venue is ground-truth-backed.
-    verifyTargets = candidates
-      .filter((c) => {
-        const iv = intel.get(c.id);
-        return !iv || iv.stale;
-      })
-      .slice(0, 3)
+    const neverChecked = candidates.filter((c) => !intel.has(c.id));
+    const staleChecked = candidates.filter((c) => intel.get(c.id)?.stale === true);
+    verifyTargets = [...neverChecked, ...staleChecked]
+      .slice(0, 4)
       .map((c) => ({ id: c.id, name: c.name, website: c.website ?? null }));
 
     const keptJudged = undecided.filter((c) => verdicts.get(c.id)?.keep !== false);
@@ -609,7 +608,7 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .map((c) => ({
         id: c.id,
-        name: verdicts.get(c.id)?.name ?? c.name,
+        name: intel.get(c.id)?.displayName ?? verdicts.get(c.id)?.name ?? c.name,
         verified: intel.get(c.id)?.verdict === "confirmed" && !intel.get(c.id)!.stale,
         lat: c.lat,
         lng: c.lng,
@@ -688,13 +687,13 @@ export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Prom
     const adminIntel = createAdminClient();
     const { data: intelRows } = await adminIntel
       .from("court_sport_intel")
-      .select("place_id, verdict, confidence, evidence, checked_at")
+      .select("place_id, verdict, confidence, evidence, display_name, checked_at")
       .eq("sport", sport)
       .in("place_id", uniq.map((c) => c.id));
     const intel = new Map<string, Intel>(
       (intelRows ?? []).map((r) => [
         r.place_id,
-        { verdict: r.verdict, confidence: Number(r.confidence), evidence: r.evidence, stale: !intelIsFresh(r.verdict, r.checked_at) },
+        { verdict: r.verdict, confidence: Number(r.confidence), evidence: r.evidence, displayName: r.display_name, stale: !intelIsFresh(r.verdict, r.checked_at) },
       ]),
     );
     const iConf = [...intel.values()].filter((x) => x.verdict === "confirmed" && !x.stale).length;
@@ -738,6 +737,49 @@ export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Prom
       ? `cache (${zip}/${sport}): ${((cacheRow.results as unknown as unknown[]) ?? []).length} rows, fetched ${cacheRow.fetched_at}`
       : `cache (${zip}/${sport}): none`,
   );
+
+  // ── THE LEDGER — every candidate, every decision, one line each ──
+  // This is the "why is X (not) showing" answer at a glance: intel verdict
+  // with evidence, the judge's provisional call, and the FINAL outcome under
+  // live semantics (fresh intel outranks the judge).
+  {
+    const seen2 = new Set<string>();
+    const uniqAll = all.filter((c) => (seen2.has(c.id) ? false : (seen2.add(c.id), true))).sort((a, b) => a.distanceKm - b.distanceKm);
+    const { data: intelRows2 } = await createAdminClient()
+      .from("court_sport_intel")
+      .select("place_id, verdict, evidence, display_name, checked_at")
+      .eq("sport", sport)
+      .in("place_id", uniqAll.map((c) => c.id));
+    const led = new Map(
+      (intelRows2 ?? []).map((r) => [
+        r.place_id,
+        { verdict: r.verdict, evidence: r.evidence, displayName: r.display_name, stale: !intelIsFresh(r.verdict, r.checked_at) },
+      ]),
+    );
+    report.push("\u2500\u2500 ledger: every candidate, every decision \u2500\u2500");
+    const shownNames: string[] = [];
+    uniqAll.forEach((c, i) => {
+      const iv = led.get(c.id);
+      const nm = (iv?.displayName ?? c.name).slice(0, 44);
+      const intelStr = !iv
+        ? "\u2014 not yet verified"
+        : `${iv.verdict}${iv.stale ? " (stale)" : ""}${iv.evidence ? ` \u00b7 ${String(iv.evidence).slice(0, 56)}` : ""}`;
+      let finalStr: string;
+      if (iv && !iv.stale && iv.verdict === "confirmed") finalStr = "SHOWN \u2713 intel-confirmed";
+      else if (iv && !iv.stale && iv.verdict === "denied") finalStr = "hidden \u2717 intel-denied";
+      else finalStr = "provisional \u2014 judge decides until verified";
+      if (finalStr.startsWith("SHOWN")) shownNames.push(nm);
+      report.push(`${String(i + 1).padStart(2, " ")}. ${nm} \u00b7 ${(c.distanceKm * 0.6214).toFixed(1)}mi \u00b7 intel: ${intelStr} \u00b7 ${finalStr}`);
+    });
+    const nextV = [
+      ...uniqAll.filter((c) => !led.has(c.id)),
+      ...uniqAll.filter((c) => led.get(c.id)?.stale === true),
+    ]
+      .slice(0, 4)
+      .map((c) => (led.get(c.id)?.displayName ?? c.name).slice(0, 40));
+    report.push(nextV.length ? `next search verifies: ${nextV.join(" | ")}` : "verification complete: every candidate has a fresh verdict \u2713");
+  }
+
   return { report };
 }
 
