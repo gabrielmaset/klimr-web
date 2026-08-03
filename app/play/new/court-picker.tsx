@@ -86,7 +86,6 @@ export function CourtPicker({
       });
       setLoaded(true);
       if (r.status === "empty") setNotice(r.message ?? "No courts found within 50 miles.");
-      else if (r.expanded) setNotice("Nothing within 25 mi — added the nearest within 50 miles.");
       else if (r.status === "capped") setNotice(r.message ?? "Live search is at this month's limit.");
       else if (r.status === "not_configured") setNotice("Live search isn't switched on yet.");
     } catch {

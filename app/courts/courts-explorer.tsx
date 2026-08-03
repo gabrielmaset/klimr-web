@@ -108,7 +108,7 @@ export function CourtsExplorer({
   const [locMsg, setLocMsg] = useState<string | null>(null);
   const [sport, setSport] = useState(defaultSport);
   const [radiusMi, setRadiusMi] = useState(10);
-  const [searchedMi, setSearchedMi] = useState(10);
+  const [, setSearchedMi] = useState(10);
   const [loading, setLoading] = useState(false);
   const [resp, setResp] = useState<SearchResponse | null>(null);
   const [visible, setVisible] = useState(PAGE);
@@ -300,9 +300,9 @@ export function CourtsExplorer({
             </div>
           ) : (
             <>
-              {resp.expanded ? (
+              {false ? (
                 <div className="mb-2.5 rounded-xl border border-rule bg-[#fff8f0] px-3 py-2 text-xs text-mute">
-                  No {sportMeta(sport).name.toLowerCase()} courts within {searchedMi} mi — showing the nearest within 50 miles.
+                  {/* legacy widening notice — engine v3 never widens past the chosen radius */}
                 </div>
               ) : null}
               <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">

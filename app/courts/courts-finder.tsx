@@ -223,6 +223,9 @@ export function CourtsFinder({
     if (!live || live.status !== "ok") return [];
     const dirNames = new Set(courts.map((c) => c.name.toLowerCase().trim()));
     return live.courts
+      // Belt to the engine's hard bound: nothing beyond the chosen radius,
+      // even if a cached row from another setting ever slipped through.
+      .filter((r) => r.distanceKm * 0.6214 <= f.radius + 0.05)
       .filter((r) => !dirNames.has(r.name.toLowerCase().trim()))
       .map((r) => ({
         id: `g:${r.id}`,
@@ -248,7 +251,7 @@ export function CourtsFinder({
         website: r.website,
         isPrivate: r.private,
       }));
-  }, [live, courts]);
+  }, [live, courts, f.radius]);
   const shown = useMemo<Row[]>(() => [...visible, ...liveRows], [visible, liveRows]);
 
   // Derived, not synced: a selection only counts while its court is visible —

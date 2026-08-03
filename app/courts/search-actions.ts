@@ -44,8 +44,6 @@ export type SearchResponse = {
   courts: CourtResult[];
   source: "live" | "cache" | "none";
   message?: string;
-  /** True when the requested radius found nothing and we widened to 50 mi. */
-  expanded?: boolean;
 };
 
 /** One or MORE Google text queries per sport, unioned. Racquetball venues in
@@ -54,6 +52,20 @@ export type SearchResponse = {
  *  municipal courts surface; beach volleyball previously fell through to the
  *  literal key — "beach_volleyball court", underscore and all — and returned
  *  garbage. Every sport gets explicit, human phrasing. */
+/** Google Table A place types that ARE the sport (decisive typeHit proof).
+ *  Verified against the official Place Types (New) table — tennis_court
+ *  shipped in the Feb 2026 release; no racquetball/pickleball/padel/volley
+ *  types exist yet, so those sports rely on text recall + evidence. */
+const TYPE_FOR: Record<string, string[]> = {
+  tennis: ["tennis_court"],
+};
+
+/** Nearby-Search venue sweep: the Table A types where courts physically
+ *  live. This is the RECALL layer text search kept missing — a municipal
+ *  "Recreation Center" (community_center) never needs to rank for a text
+ *  query to enter the candidate pool; the evidence layer then decides. */
+const SWEEP_TYPES = ["community_center", "sports_complex", "sports_club", "fitness_center", "gym", "athletic_field"];
+
 const QUERY_FOR: Record<string, string[]> = {
   tennis: ["tennis court"],
   pickleball: ["pickleball court"],
@@ -74,11 +86,11 @@ const QUERY_FOR: Record<string, string[]> = {
 // ever unavailable for any reason, aiFilter() degrades gracefully: Courts still
 // returns the Google-screened list, only without the AI de-noise pass.
 const COURTS_AI_MODEL_DEFAULT = "claude-haiku-4-5-20251001";
-// Users can pick up to 25 mi. If a search finds nothing, we auto-widen to a 50-mi
-// envelope before reporting "none found" (Google biases up to 50 km; the distance
-// filter spans the full 50 mi). We fetch + cache that envelope once per zip+sport.
-const MAX_REQUEST_KM = 41; // ~25 mi
-const WIDE_KM = 80; // ~50 mi
+// The user's chosen radius is LAW: we search it, filter to it, cache per it,
+// and never widen it behind their back (a 32.6-mi result under a 10-mi header
+// is how trust dies). Empty within the radius = say so; the radius chips are
+// the user's own widening control.
+const MAX_REQUEST_KM = 41; // ~25 mi — the largest radius chip
 
 const num = (v: string | undefined, d: number) => {
   const n = Number(v);
@@ -108,6 +120,40 @@ type RawPlace = {
   distanceKm: number;
   website: string | null;
 };
+
+/** Google Places (New) NEARBY search — locationRestriction is a HARD bound
+ *  (unlike text search's locationBias, which is a hint Google may ignore:
+ *  the source of the 32.6-mi result inside a 10-mi search). */
+async function placesNearby(
+  types: string[],
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  key: string,
+): Promise<RawPlace[]> {
+  const resp = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask":
+        "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.businessStatus,places.types,places.primaryType,places.websiteUri",
+    },
+    body: JSON.stringify({
+      includedTypes: types,
+      maxResultCount: 20,
+      rankPreference: "DISTANCE",
+      locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: Math.min(50000, radiusKm * 1000) } },
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    console.error(`[courts] Nearby HTTP ${resp.status}`, body.slice(0, 400));
+    throw new Error(`nearby_http_${resp.status}`);
+  }
+  const data = await resp.json();
+  return mapPlaces(Array.isArray(data?.places) ? data.places : [], lat, lng, radiusKm);
+}
 
 /* Google Places (New) text search, biased to the search circle. */
 async function placesSearch(
@@ -139,35 +185,49 @@ async function placesSearch(
     throw new Error(`places_http_${resp.status}`);
   }
   const data = await resp.json();
-  const places = Array.isArray(data?.places) ? data.places : [];
+  return mapPlaces(Array.isArray(data?.places) ? data.places : [], lat, lng, radiusKm).slice(0, 20);
+}
+
+/** One mapper for every Places call: normalize + drop closed + HARD radius
+ *  filter — nothing beyond the requested radius survives, from any source. */
+type GPlace = {
+  id?: unknown;
+  displayName?: { text?: unknown };
+  location?: { latitude?: unknown; longitude?: unknown };
+  formattedAddress?: unknown;
+  rating?: unknown;
+  userRatingCount?: unknown;
+  businessStatus?: unknown;
+  types?: unknown;
+  primaryType?: unknown;
+  websiteUri?: unknown;
+};
+
+function mapPlaces(places: unknown[], lat: number, lng: number, radiusKm: number): RawPlace[] {
   const out: RawPlace[] = [];
-  for (const p of places) {
+  for (const p of places as GPlace[]) {
     const plat = p?.location?.latitude;
     const plng = p?.location?.longitude;
     if (typeof plat !== "number" || typeof plng !== "number") continue;
-    if (p?.businessStatus && p.businessStatus !== "OPERATIONAL") continue; // drop closed
+    if (typeof p?.businessStatus === "string" && p.businessStatus !== "OPERATIONAL") continue; // drop closed
     const distanceKm = haversineKm(lat, lng, plat, plng);
     if (distanceKm > radiusKm) continue; // hard radius
     out.push({
       id: String(p.id),
-      name: p?.displayName?.text ?? "Court",
+      name: typeof p?.displayName?.text === "string" ? p.displayName.text : "Court",
       lat: plat,
       lng: plng,
-      address: p?.formattedAddress ?? null,
+      address: typeof p?.formattedAddress === "string" ? p.formattedAddress : null,
       rating: typeof p?.rating === "number" ? p.rating : null,
       ratingCount: typeof p?.userRatingCount === "number" ? p.userRatingCount : null,
-      types: Array.isArray(p?.types) ? p.types : [],
-      primaryType: p?.primaryType ?? null,
+      types: Array.isArray(p?.types) ? (p.types as string[]) : [],
+      primaryType: typeof p?.primaryType === "string" ? p.primaryType : null,
       distanceKm,
       website: typeof p?.websiteUri === "string" ? p.websiteUri : null,
     });
   }
-  // De-dupe + keep the closest first; cap candidates for the AI pass.
   const seen = new Set<string>();
-  return out
-    .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, 20);
+  return out.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true))).sort((a, b) => a.distanceKm - b.distanceKm);
 }
 
 /** Sport keywords for evidence checks (lowercase substring match). */
@@ -179,7 +239,7 @@ const SPORT_TOKENS: Record<string, string[]> = {
   beach_volleyball: ["beach volleyball", "sand volleyball", "volleyball"],
 };
 
-export type Evidence = { nameHit: boolean; siteHit: boolean; snippet: string | null };
+export type Evidence = { nameHit: boolean; typeHit: boolean; siteHit: boolean; snippet: string | null };
 
 /** EVIDENCE, not vibes: nameHit = the venue's own name says the sport;
  *  siteHit = the venue's own website says it (fetched with a hard timeout,
@@ -188,13 +248,19 @@ export type Evidence = { nameHit: boolean; siteHit: boolean; snippet: string | n
  *  racquetball search — this layer is what stops it. */
 async function gatherEvidence(candidates: RawPlace[], sport: string): Promise<Map<string, Evidence>> {
   const tokens = SPORT_TOKENS[sport] ?? [sportMeta(sport).name.toLowerCase()];
+  const typeIds = TYPE_FOR[sport] ?? [];
   const out = new Map<string, Evidence>();
   for (const c of candidates) {
     const name = c.name.toLowerCase();
-    out.set(c.id, { nameHit: tokens.some((k) => name.includes(k)), siteHit: false, snippet: null });
+    out.set(c.id, {
+      nameHit: tokens.some((k) => name.includes(k)),
+      typeHit: typeIds.length > 0 && c.types.some((tp) => typeIds.includes(tp)),
+      siteHit: false,
+      snippet: null,
+    });
   }
-  // Fetch websites only where the name alone doesn't prove it (cap 12).
-  const toFetch = candidates.filter((c) => !out.get(c.id)!.nameHit && c.website).slice(0, 12);
+  // Fetch websites only where name/type alone don't prove it (cap 12).
+  const toFetch = candidates.filter((c) => !out.get(c.id)!.nameHit && !out.get(c.id)!.typeHit && c.website).slice(0, 12);
   await Promise.all(
     toFetch.map(async (c) => {
       try {
@@ -241,14 +307,15 @@ async function aiFilter(
     lat: Math.round(c.lat * 1e5) / 1e5,
     lng: Math.round(c.lng * 1e5) / 1e5,
     nameHit: evidence.get(c.id)?.nameHit ?? false,
+    typeHit: evidence.get(c.id)?.typeHit ?? false,
     siteHit: evidence.get(c.id)?.siteHit ?? false,
     siteSnippet: evidence.get(c.id)?.snippet ?? null,
   }));
   const system =
     `You verify EVIDENCE and return only venues PROVEN to have ${sport} — a player must be able to show up and play ${sport} there today. ` +
-    `Each candidate has: id, name, primaryType, types, rating, ratingCount, address, lat, lng, and evidence fields: nameHit (its own name says ${sport}), siteHit (its own website mentions ${sport}), siteSnippet (the exact text found). For each, decide keep (true/false) and private (true/false); optionally return name (a cleaned venue name).\n\n` +
+    `Each candidate has: id, name, primaryType, types, rating, ratingCount, address, lat, lng, and evidence fields: nameHit (its own name says ${sport}), typeHit (Google itself classifies it with a ${sport} place type — decisive proof), siteHit (its own website mentions ${sport}), siteSnippet (the exact text found). For each, decide keep (true/false) and private (true/false); optionally return name (a cleaned venue name).\n\n` +
     `THE EVIDENCE RULE — this outranks everything else:\n` +
-    `- KEEP only with concrete proof: nameHit is true, or siteHit is true with a snippet that genuinely refers to playable ${sport} courts/facilities at THIS venue, or the name unambiguously identifies a dedicated ${sport} venue.\n` +
+    `- KEEP only with concrete proof: nameHit is true, or typeHit is true, or siteHit is true with a snippet that genuinely refers to playable ${sport} courts/facilities at THIS venue, or the name unambiguously identifies a dedicated ${sport} venue.\n` +
     `- A recreation center, park, gym, club, or "sports center" with NO evidence MUST be dropped — map searches rank many such places that do not actually have ${sport}. Plausibility is not proof.\n` +
     `- A snippet that mentions ${sport} only as merchandise, a class elsewhere, a blog tag, or another location is NOT proof.\n\n` +
     `ALSO DROP (keep:false):\n` +
@@ -350,31 +417,22 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   const cap = num(process.env.COURTS_MONTHLY_LIVE_SEARCH_CAP, 800);
   const model = process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT;
 
-  // Given the cached/fetched 50-mi envelope, return the requested radius if it has
-  // anything; otherwise widen to the full envelope (flagged); otherwise report none.
-  const shape = (wide: CourtResult[], source: "live" | "cache"): SearchResponse => {
-    const near = wide.filter((c) => c.distanceKm <= requestedKm + 0.05);
-    if (near.length > 0) return { status: "ok", courts: near, source };
-    if (wide.length > 0) return { status: "ok", courts: wide, source, expanded: true };
-    return { status: "empty", courts: [], source, message: "No courts found within 50 miles." };
-  };
+  const noneMsg = `No verified ${sportMeta(sport).name.toLowerCase()} courts within ${Math.round(requestedKm / 1.609)} mi — try a wider radius.`;
 
-  // 1) Fresh cache hit (the 50-mile envelope) → free.
+  // 1) Fresh cache hit for THIS radius → free. (Empty results are never
+  //    cached, so a bad run can't pin "no courts" for a week.)
   const { data: cacheRow } = await admin
     .from("court_search_cache")
     .select("results, fetched_at")
     .eq("zip", locationKey)
-    .eq("radius_km", WIDE_KM)
+    .eq("radius_km", requestedKm)
     .eq("sport", sport)
     .maybeSingle();
   if (cacheRow) {
     const ageMs = Date.now() - new Date(cacheRow.fetched_at).getTime();
     const cached = (cacheRow.results as unknown as CourtResult[]) ?? [];
-    // Serve only fresh AND non-empty envelopes. A cached EMPTY result would
-    // pin "no courts within 50 miles" for a week of retries after one bad
-    // run (API hiccup, quota day, over-strict screen) — the Westwood bug.
     if (ageMs < ttlDays * 86_400_000 && cached.length > 0) {
-      return shape(cached, "cache");
+      return { status: "ok", courts: cached, source: "cache" };
     }
   }
 
@@ -385,8 +443,7 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   if (claimed !== true) {
     const staleCached = (cacheRow?.results as unknown as CourtResult[]) ?? [];
     if (staleCached.length > 0) {
-      const r = shape(staleCached, "cache");
-      return { ...r, message: r.message ?? "Showing recent results — live search is paused until next month." };
+      return { status: "ok", courts: staleCached, source: "cache", message: "Showing recent results — live search is paused until next month." };
     }
     return { status: "capped", courts: [], source: "none", message: "Live court search has hit this month's limit. Try again next month." };
   }
@@ -397,11 +454,17 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   let candidates: RawPlace[] = [];
   try {
     const queries = QUERY_FOR[sport] ?? [`${sportMeta(sport).name.toLowerCase()} court`];
-    // Relevance passes for each phrasing + one DISTANCE pass on the primary
-    // phrasing: nearby municipal courts must never lose to far, famous clubs.
+    const typeIds = TYPE_FOR[sport] ?? [];
+    // RECALL, all hard-bounded to the requested radius:
+    //  - sport-typed Nearby Search where Google has the type (tennis_court);
+    //  - a Nearby venue sweep (community centers, sports complexes, gyms…)
+    //    so municipal courts enter the pool WITHOUT ranking for text;
+    //  - the text phrasings (bias + hard post-filter) + one DISTANCE pass.
     const batches = await Promise.all([
-      ...queries.map((q) => placesSearch(q, center.lat, center.lng, WIDE_KM, googleKey)),
-      placesSearch(queries[0], center.lat, center.lng, WIDE_KM, googleKey, "DISTANCE"),
+      ...(typeIds.length ? [placesNearby(typeIds, center.lat, center.lng, requestedKm, googleKey)] : []),
+      placesNearby(SWEEP_TYPES, center.lat, center.lng, requestedKm, googleKey),
+      ...queries.map((q) => placesSearch(q, center.lat, center.lng, requestedKm, googleKey)),
+      placesSearch(queries[0], center.lat, center.lng, requestedKm, googleKey, "DISTANCE"),
     ]);
     const seen = new Set<string>();
     candidates = batches
@@ -425,7 +488,7 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
         if (verdicts) return verdicts.get(c.id)?.keep !== false;
         // AI down → the deterministic evidence gate stands in: proof or drop.
         const ev = evidence.get(c.id);
-        return !!(ev?.nameHit || ev?.siteHit);
+        return !!(ev?.nameHit || ev?.typeHit || ev?.siteHit);
       })
       .map((c) => ({
         id: c.id,
@@ -450,14 +513,14 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     await admin
       .from("court_search_cache")
       .upsert(
-        { zip: locationKey, radius_km: WIDE_KM, sport, results: wide, fetched_at: new Date().toISOString() },
+        { zip: locationKey, radius_km: requestedKm, sport, results: wide, fetched_at: new Date().toISOString() },
         { onConflict: "zip,radius_km,sport" },
       );
   } else {
-    await admin.from("court_search_cache").delete().eq("zip", locationKey).eq("radius_km", WIDE_KM).eq("sport", sport);
+    await admin.from("court_search_cache").delete().eq("zip", locationKey).eq("radius_km", requestedKm).eq("sport", sport);
   }
 
-  return shape(wide, "live");
+  return wide.length > 0 ? { status: "ok", courts: wide, source: "live" } : { status: "empty", courts: [], source: "live", message: noneMsg };
 }
 
 /** Admin-only pipeline probe: runs every stage for a zip+sport and reports
@@ -474,12 +537,30 @@ export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Prom
   report.push(`ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "present" : "MISSING — set it in Vercel env"}`);
   const place = resolveLocationData(zip);
   report.push(`resolve ${zip}: ${place ? `ok (${place.lat.toFixed(3)}, ${place.lng.toFixed(3)})` : "FAILED"}`);
+  const probeKm = 16; // ~10 mi — the default radius chip
   if (!place || !gKey) return { report };
   let kept = 0;
   let all: RawPlace[] = [];
+  const typeIds = TYPE_FOR[sport] ?? [];
+  if (typeIds.length) {
+    try {
+      const rows = await placesNearby(typeIds, place.lat, place.lng, probeKm, gKey);
+      all = all.concat(rows);
+      report.push(`nearby [${typeIds.join(",")}]: ${rows.length} candidates${rows.length ? ` — ${rows.slice(0, 5).map((r) => r.name).join(" | ")}` : ""}`);
+    } catch (e) {
+      report.push(`nearby [${typeIds.join(",")}]: THREW ${e instanceof Error ? e.message : "unknown"}`);
+    }
+  }
+  try {
+    const rows = await placesNearby(SWEEP_TYPES, place.lat, place.lng, probeKm, gKey);
+    all = all.concat(rows);
+    report.push(`nearby sweep [${SWEEP_TYPES.length} types]: ${rows.length} candidates${rows.length ? ` — ${rows.slice(0, 5).map((r) => r.name).join(" | ")}` : ""}`);
+  } catch (e) {
+    report.push(`nearby sweep: THREW ${e instanceof Error ? e.message : "unknown"}`);
+  }
   for (const q of QUERY_FOR[sport] ?? [`${sportMeta(sport).name.toLowerCase()} court`]) {
     try {
-      const rows = await placesSearch(q, place.lat, place.lng, WIDE_KM, gKey);
+      const rows = await placesSearch(q, place.lat, place.lng, probeKm, gKey);
       all = all.concat(rows);
       report.push(`places "${q}": ${rows.length} candidates${rows.length ? ` — ${rows.slice(0, 5).map((r) => r.name).join(" | ")}` : ""}`);
     } catch (e) {
@@ -491,10 +572,11 @@ export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Prom
     const uniq = all.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true))).slice(0, 30);
     const evidence = await gatherEvidence(uniq, sport);
     const nHits = uniq.filter((c) => evidence.get(c.id)?.nameHit).length;
+    const tHits = uniq.filter((c) => evidence.get(c.id)?.typeHit).length;
     const sHits = uniq.filter((c) => evidence.get(c.id)?.siteHit).length;
-    report.push(`evidence: ${nHits} name-proven, ${sHits} website-proven (of ${uniq.length})`);
+    report.push(`evidence: ${nHits} name-proven, ${tHits} type-proven, ${sHits} website-proven (of ${uniq.length})`);
     const verdicts = await aiFilter(uniq, sport, process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT, process.env.ANTHROPIC_API_KEY, evidence);
-    const keptRows = verdicts ? uniq.filter((c) => verdicts.get(c.id)?.keep !== false) : uniq.filter((c) => evidence.get(c.id)?.nameHit || evidence.get(c.id)?.siteHit);
+    const keptRows = verdicts ? uniq.filter((c) => verdicts.get(c.id)?.keep !== false) : uniq.filter((c) => evidence.get(c.id)?.nameHit || evidence.get(c.id)?.typeHit || evidence.get(c.id)?.siteHit);
     kept = keptRows.length;
     report.push(`AI evidence judge: ${verdicts ? `${kept} of ${uniq.length} kept` : `unavailable — deterministic evidence gate kept ${kept}`}`);
     if (keptRows.length) report.push(`kept: ${keptRows.slice(0, 6).map((c) => verdicts?.get(c.id)?.name ?? c.name).join(" | ")}`);
@@ -504,7 +586,7 @@ export async function probeCourtPipeline(zipRaw: string, sportRaw: string): Prom
     .from("court_search_cache")
     .select("results, fetched_at")
     .eq("zip", zip)
-    .eq("radius_km", WIDE_KM)
+    .eq("radius_km", probeKm)
     .eq("sport", sport)
     .maybeSingle();
   report.push(
@@ -640,15 +722,13 @@ export async function courtsNearZip(input: { zip: string; sport: string }): Prom
     if (c.google_place_id) placeIds.add(c.google_place_id);
   }
 
-  // 2) Merge any cached search envelope for this ZIP+sport (free, already screened).
-  const { data: cacheRow } = await admin
+  // 2) Merge every cached radius row for this ZIP+sport (free, already screened).
+  const { data: cacheRows } = await admin
     .from("court_search_cache")
     .select("results")
     .eq("zip", zip)
-    .eq("radius_km", WIDE_KM)
-    .eq("sport", sport)
-    .maybeSingle();
-  if (cacheRow) {
+    .eq("sport", sport);
+  for (const cacheRow of cacheRows ?? []) {
     const cached = (cacheRow.results as unknown as CourtResult[]) ?? [];
     for (const c of cached) {
       if (placeIds.has(c.id) || byKey.has(c.id)) continue;
@@ -676,7 +756,7 @@ export async function courtsNearZip(input: { zip: string; sport: string }): Prom
     return a.distanceKm - b.distanceKm;
   });
 
-  return { status: courts.length ? "ok" : "empty", courts, source: cacheRow ? "mixed" : "directory" };
+  return { status: courts.length ? "ok" : "empty", courts, source: (cacheRows ?? []).length > 0 ? "mixed" : "directory" };
 }
 
 /* Persist a Google-discovered court into the directory (dedupe by place id),
