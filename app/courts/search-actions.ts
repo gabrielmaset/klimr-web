@@ -354,6 +354,82 @@ async function verifyVenues(targets: { id: string; name: string; website: string
   }
 }
 
+/** Read-time intel overlay for CACHED results — the cache is a base list,
+ *  never the last word: fresh-denied venues drop, fresh-confirmed venues in
+ *  radius merge in (legacy coordless verdicts hydrate via Place Details,
+ *  once, and store their location forever), names and VERIFIED refresh.
+ *  Mirrors the live path's confirmed-by-right merge so no serve path can
+ *  contradict the intel table. */
+async function overlayIntelOnCache(
+  admin: ReturnType<typeof createAdminClient>,
+  cached: CourtResult[],
+  sport: string,
+  center: { lat: number; lng: number },
+  requestedKm: number,
+  googleKey: string,
+): Promise<CourtResult[]> {
+  try {
+    const { data: intelRows } = await admin
+      .from("court_sport_intel")
+      .select("place_id, verdict, display_name, lat, lng, address, website, rating, rating_count, checked_at")
+      .eq("sport", sport);
+    const fresh = (intelRows ?? []).filter((r) => intelIsFresh(r.verdict, r.checked_at));
+    const denied = new Set(fresh.filter((r) => r.verdict === "denied").map((r) => r.place_id));
+    const confirmed = new Map(fresh.filter((r) => r.verdict === "confirmed").map((r) => [r.place_id, r]));
+    const out: CourtResult[] = cached
+      .filter((r) => !denied.has(r.id))
+      .map((r) => {
+        const c = confirmed.get(r.id);
+        return c ? { ...r, name: c.display_name ?? r.name, verified: true } : r;
+      });
+    const have = new Set(out.map((r) => r.id));
+    for (const r of confirmed.values()) {
+      if (have.has(r.place_id)) continue;
+      let lat = r.lat != null ? Number(r.lat) : null;
+      let lng = r.lng != null ? Number(r.lng) : null;
+      let name = r.display_name ?? "Court";
+      let address = r.address;
+      let website = r.website;
+      let rating = r.rating != null ? Number(r.rating) : null;
+      let ratingCount = r.rating_count;
+      if (lat == null || lng == null) {
+        // Legacy verdict without coordinates: hydrate once, store forever.
+        try {
+          const resp = await fetch(`https://places.googleapis.com/v1/places/${r.place_id}`, {
+            signal: AbortSignal.timeout(6000),
+            headers: { "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": "location,formattedAddress,websiteUri,rating,userRatingCount,displayName" },
+          });
+          if (!resp.ok) continue;
+          const d = await resp.json();
+          if (typeof d?.location?.latitude !== "number" || typeof d?.location?.longitude !== "number") continue;
+          lat = d.location.latitude;
+          lng = d.location.longitude;
+          name = r.display_name ?? (typeof d?.displayName?.text === "string" ? d.displayName.text : name);
+          address = typeof d?.formattedAddress === "string" ? d.formattedAddress : null;
+          website = typeof d?.websiteUri === "string" ? d.websiteUri : null;
+          rating = typeof d?.rating === "number" ? d.rating : null;
+          ratingCount = typeof d?.userRatingCount === "number" ? d.userRatingCount : null;
+          await admin
+            .from("court_sport_intel")
+            .update({ lat, lng, address, website, rating, rating_count: ratingCount })
+            .eq("place_id", r.place_id)
+            .eq("sport", sport);
+        } catch {
+          continue;
+        }
+      }
+      const distanceKm = haversineKm(center.lat, center.lng, lat!, lng!);
+      if (distanceKm > requestedKm) continue;
+      have.add(r.place_id);
+      out.push({ id: r.place_id, name, lat: lat!, lng: lng!, address, rating, ratingCount, distanceKm, private: false, sport, website, verified: true });
+    }
+    return out.sort((a, b) => a.distanceKm - b.distanceKm);
+  } catch (e) {
+    console.error("[courts] cache overlay failed", e instanceof Error ? e.message : e);
+    return cached;
+  }
+}
+
 /* Claude judges the candidates into a reliable, sport-specific list. */
 type Intel = { verdict: string; confidence: number; evidence: string | null; displayName: string | null; stale: boolean };
 
@@ -482,6 +558,7 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   const cap = num(process.env.COURTS_MONTHLY_LIVE_SEARCH_CAP, 800);
   const model = process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT;
 
+  const center = { lat: place.lat, lng: place.lng };
   const noneMsg = `No verified ${sportMeta(sport).name.toLowerCase()} courts within ${Math.round(requestedKm / 1.609)} mi — try a wider radius.`;
 
   // 1) Fresh cache hit for THIS radius → free. (Empty results are never
@@ -510,8 +587,9 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
         .maybeSingle();
       const intelNewer = newest ? Date.parse(newest.checked_at) > Date.parse(cacheRow.fetched_at) : false;
       if (!intelNewer) {
-        return cached.length > 0
-          ? { status: "ok", courts: cached, source: "cache" }
+        const served = await overlayIntelOnCache(admin, cached, sport, center, requestedKm, googleKey);
+        return served.length > 0
+          ? { status: "ok", courts: served, source: "cache" }
           : { status: "empty", courts: [], source: "cache", message: noneMsg };
       }
       // Newer intel exists → fall through to a live pass that knows it.
@@ -531,8 +609,6 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   }
 
   // 3) Places → pre-filter → AI (location already resolved locally).
-  const center = { lat: place.lat, lng: place.lng };
-
   let candidates: RawPlace[] = [];
   try {
     const queries = QUERY_FOR[sport] ?? [`${sportMeta(sport).name.toLowerCase()} court`];

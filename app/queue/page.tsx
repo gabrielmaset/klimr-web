@@ -10,9 +10,10 @@ export const metadata: Metadata = { title: "Live Queue \u00b7 Klimr" };
 // The in-shell Live Queue home (left menu → here): join by code or start a
 // standalone queue. The chromeless walk-up page at /q stays the QR / guest
 // destination — same codes, same normalization, different frame.
-// Standalone queues the person organizes are LISTED here — they aren't
-// linked to any event, so this page is their only home; without this list a
-// created queue was unreachable the moment you navigated away.
+// ACTIVE standalone queues the person organizes are listed here (below the
+// join/start cards) — they aren't linked to any event, so this page is their
+// only home. Standalone queues are one-time-use: turned off = gone from the
+// list; the Create button mints the next instance.
 export default async function QueueHubPage() {
   const supabase = await createClient();
   const {
@@ -35,6 +36,7 @@ export default async function QueueHubPage() {
       .from("court_sessions")
       .select("id, title, sport_key, status, paused, created_at")
       .eq("organizer_id", user.id)
+      .eq("status", "live")
       .is("event_id", null)
       .is("tournament_id", null)
       .order("created_at", { ascending: false })
@@ -58,8 +60,9 @@ export default async function QueueHubPage() {
 
   return (
     <>
+      <QueueHub />
       {mine.length > 0 ? (
-        <div className="mx-auto max-w-page px-5 pt-8 sm:pt-10">
+        <div className="mx-auto max-w-page px-5 pb-10 pt-2">
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-faint">Your live queues</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {mine.map((s) => {
@@ -94,7 +97,6 @@ export default async function QueueHubPage() {
           </div>
         </div>
       ) : null}
-      <QueueHub />
     </>
   );
 }

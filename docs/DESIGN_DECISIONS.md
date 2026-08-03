@@ -170,6 +170,14 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-08-03 (p) — Standalone queues are one-time-use; the hub list is active-only and sits below the cards
+- **Placement:** "Your live queues" moved BELOW the join-with-code / start-your-own cards — the actions lead, the inventory follows.
+- **Lifecycle (Gabriel):** standalone queues are disposable. The hub lists only ACTIVE ones (`status = "live"`, paused included); turned-off queues vanish from the list. Turning off a STANDALONE queue now exits straight back to /queue — with confirm copy that says so plainly ("Standalone queues are one-time — start a fresh one whenever you need the next session") — while event/tournament queues keep the original reset-and-stay behavior and copy (they re-open next occurrence).
+
+### 2026-08-03 (o) — The cache defers to intel at READ time; the marquee stops crying wolf
+- **The Westwood deadlock, named honestly:** confirmed-by-right shipped on the LIVE path — but Gabriel's 90066 cache row was written at 20:26 on the previous build, stays fresh for 7 days, and no newer intel arrived after it — so the live path (and the fix) never executed for that area. Structural cure: **intel corrections now apply at read time on every serve.** Cached rows are a base list that fresh intel overlays: denied venues drop, in-radius confirmed venues merge in — legacy coordless verdicts (Westwood's) hydrate via one Place Details call, store their location forever, and appear immediately — names and VERIFIED refresh. No serve path can contradict the intel table again, cached or not.
+- **Courtside marquee re-measures** on font load (fallback-metric measurements made "Fernando" scroll) and on resize via ResizeObserver, with a 6px tolerance — only genuine overflow animates. The two-column rule gets wider breathing room (gap and divider padding up to max(0.9rem, 2vw)).
+
 ### 2026-08-03 (n) — Courtside handles big formations, speaks in teams, and exits when the queue turns off
 - **Turned-off ≠ waiting:** a session that is no longer live (and not ended, codes intact) now EJECTS the display — the iPad app returns to its code screen immediately via the bridge; browsers replace to /q after a brief "Queue turned off — heading back to the sign-in screen…" beat. The old "The queue hasn't opened yet" limbo is gone; pauses are untouched (a paused session's status is still "live", so it keeps the full frame + Paused chip).
 - **Formation-aware typography:** current-match player names tier by roster size (2v2 grand → 3s medium → 4–5 compact → 6v6 smaller), and at 4+ the card splits into TWO ruled columns (center hairline, equal halves, marquee per cell) — the 4v4 screenshot's bottom-clipping is structurally impossible now, and long names still glide instead of wrapping. Up-next cards drop a tier at 4+ too.

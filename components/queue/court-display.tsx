@@ -29,21 +29,41 @@ function MarqueeText({ text }: { text: string }) {
     const o = outer.current;
     const el = inner.current;
     if (!o || !el) return;
-    const shift = el.scrollWidth - o.clientWidth;
-    if (shift <= 4) return;
-    const scrollSec = Math.max(0.9, shift / 55);
-    const total = 2 + scrollSec + 2 + scrollSec;
-    const anim = el.animate(
-      [
-        { transform: "translateX(0)", offset: 0 },
-        { transform: "translateX(0)", offset: 2 / total },
-        { transform: `translateX(${-shift}px)`, offset: (2 + scrollSec) / total },
-        { transform: `translateX(${-shift}px)`, offset: (2 + scrollSec + 2) / total },
-        { transform: "translateX(0)", offset: 1 },
-      ],
-      { duration: total * 1000, iterations: Infinity, easing: "linear" },
-    );
-    return () => anim.cancel();
+    let anim: Animation | null = null;
+    // Re-measure on font load and any resize: a measurement taken against
+    // fallback-font metrics (before the display font swaps in) or before a
+    // column reflow settles can claim overflow that isn't there — "Fernando"
+    // must never scroll. Only genuine overflow (> 6px) animates.
+    const apply = () => {
+      anim?.cancel();
+      anim = null;
+      const shift = el.scrollWidth - o.clientWidth;
+      if (shift <= 6) return;
+      const scrollSec = Math.max(0.9, shift / 55);
+      const total = 2 + scrollSec + 2 + scrollSec;
+      anim = el.animate(
+        [
+          { transform: "translateX(0)", offset: 0 },
+          { transform: "translateX(0)", offset: 2 / total },
+          { transform: `translateX(${-shift}px)`, offset: (2 + scrollSec) / total },
+          { transform: `translateX(${-shift}px)`, offset: (2 + scrollSec + 2) / total },
+          { transform: "translateX(0)", offset: 1 },
+        ],
+        { duration: total * 1000, iterations: Infinity, easing: "linear" },
+      );
+    };
+    apply();
+    const ro = new ResizeObserver(() => apply());
+    ro.observe(o);
+    let gone = false;
+    (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts?.ready.then(() => {
+      if (!gone) apply();
+    });
+    return () => {
+      gone = true;
+      ro.disconnect();
+      anim?.cancel();
+    };
   }, [text]);
   return (
     <span ref={outer} className="block overflow-hidden whitespace-nowrap">
@@ -83,9 +103,9 @@ function StackedNames({ team, context }: { team: QTeam; context: "match" | "queu
   if (context === "match" && n >= 4) {
     const half = Math.ceil(n / 2);
     return (
-      <div className="flex min-w-0 gap-[1.2vw]">
+      <div className="flex min-w-0 gap-[max(0.9rem,2vw)]">
         {rows(team.members.slice(0, half))}
-        <div className="flex min-w-0 flex-1 border-l border-white/12 pl-[1.2vw]">{rows(team.members.slice(half))}</div>
+        <div className="flex min-w-0 flex-1 border-l border-white/12 pl-[max(0.9rem,2vw)]">{rows(team.members.slice(half))}</div>
       </div>
     );
   }

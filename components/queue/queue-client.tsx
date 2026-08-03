@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Crown, Play, X, Plus, Copy, Check, LogOut, Monitor, Radio, UserCheck, Power, RotateCcw, Pause, Settings, ChevronDown, MapPin, Pencil } from "lucide-react";
 import type { QSessionState, QCourtState, QTeam } from "@/lib/queue";
 import { LEVELS, levelLabel, formationLabel, formationsFor } from "@/lib/queue";
@@ -118,6 +119,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
     setOrigin(window.location.origin);
   }, []);
 
+  const router = useRouter();
   const run = (fn: Action, fd: FormData, withCoords = false) => {
     setErr(null);
     start(async () => {
@@ -262,7 +264,21 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                       type="button"
                       disabled={pending}
                       onClick={() => {
-                        if (confirm("Turn off and reset this queue? Everyone in line is cleared and it starts fresh the next time you turn it on. This won't cancel the event or its recurring series.")) run(resetSession, fd({ sessionId: sid }));
+                        const standalone = !state.session.eventId && !state.session.tournamentId;
+                        const msg = standalone
+                          ? "Turn off this queue? Everyone in line is cleared. Standalone queues are one-time — start a fresh one from the Live Queue page whenever you need the next session."
+                          : "Turn off and reset this queue? Everyone in line is cleared and it starts fresh the next time you turn it on. This won't cancel the event or its recurring series.";
+                        if (confirm(msg)) {
+                          setErr(null);
+                          start(async () => {
+                            await resetSession(fd({ sessionId: sid }));
+                            if (standalone) {
+                              router.replace("/queue");
+                              return;
+                            }
+                            await refetch();
+                          });
+                        }
                       }}
                       className="press inline-flex items-center gap-1.5 rounded-full border border-[#fecaca] bg-white px-3 py-1.5 text-xs font-semibold text-[#b91c1c] hover:bg-[#fef2f2]"
                     >
