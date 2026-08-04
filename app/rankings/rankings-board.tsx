@@ -397,7 +397,9 @@ export function RankingsBoard({
               </span>
               <span className={`font-mono text-[9.5px] font-bold uppercase tracking-[.18em] mt-1.5 block text-[8.5px] ${on ? "text-flame-text" : ""}`} style={{ textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2, 0 0 2px #F3EFE2", ...(on ? {} : { color: "var(--color-ink-4)" }) }}>{s.label}</span>
               <span className="block max-w-[110px] truncate text-[12.5px] font-bold leading-tight text-ink max-sm:hidden" style={{ textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2, 0 0 2px #F3EFE2" }}>{s.place}</span>
-              <span className="block font-mono text-[10px]" style={{ color: "var(--color-ink-4)", textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2" }}>{countReady(s.key) ? compact(countFor(s.key)) : "·"}</span>
+              <span className="mx-auto mt-0.5 inline-flex items-center justify-center rounded-md border border-black/[0.07] bg-white/90 px-1.5 py-[1.5px] font-mono text-[10px] font-bold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+                {countReady(s.key) ? compact(countFor(s.key)) : "·"}
+              </span>
             </button>
           );
         })}

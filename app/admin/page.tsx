@@ -9,10 +9,12 @@ export default async function AdminHome() {
   const { role } = await requireAdmin("support");
   const admin = createAdminClient();
 
-  const [openReports, users, posts, openMatches, pendingVerif, restricted, modPosts, modComments, draftBiz, tierApps] = await Promise.all([
+   
+  const nowIso = new Date().toISOString();
+  const weekAgoIso = new Date(Date.parse(nowIso) - 7 * 86_400_000).toISOString();
+  const [openReports, users, openMatches, pendingVerif, restricted, modPosts, modComments, draftBiz, tierApps, signups7, expiredMatches, suggPending] = await Promise.all([
     admin.from("reports").select("*", { count: "exact", head: true }).eq("status", "open"),
     admin.from("profiles").select("*", { count: "exact", head: true }),
-    admin.from("posts").select("*", { count: "exact", head: true }).eq("moderation_status", "approved"),
     admin.from("matches").select("*", { count: "exact", head: true }).in("status", ["open", "scheduled"]),
     admin.from("profiles").select("*", { count: "exact", head: true }).eq("verification_status", "pending"),
     admin.from("profiles").select("*", { count: "exact", head: true }).in("account_status", ["suspended", "banned"]),
@@ -20,21 +22,25 @@ export default async function AdminHome() {
     admin.from("post_comments").select("*", { count: "exact", head: true }).in("moderation_status", ["pending", "flagged"]),
     admin.from("business_accounts").select("*", { count: "exact", head: true }).eq("status", "draft"),
     admin.from("business_tier_applications").select("*", { count: "exact", head: true }).eq("status", "submitted"),
+    admin.from("profiles").select("*", { count: "exact", head: true }).gte("created_at", weekAgoIso),
+    admin.from("matches").select("*", { count: "exact", head: true }).in("status", ["open", "scheduled"]).lt("scheduled_at", nowIso),
+    admin.from("court_suggestions").select("*", { count: "exact", head: true }).eq("status", "pending"),
   ]);
   const modQueue = (modPosts.count ?? 0) + (modComments.count ?? 0);
 
-  const stats = [
-    { label: "Open reports", value: openReports.count ?? 0, href: "/admin/reports", accent: (openReports.count ?? 0) > 0 },
-    { label: "Players", value: users.count ?? 0, href: "/admin/users" },
-    { label: "Expired content", value: "Kept forever", href: "/admin/expired" },
-    { label: "Court suggestions", value: "Review queue", href: "/admin/court-suggestions" },
-    { label: "Event Pulse (shadow)", value: "\u2192", href: "/admin/liveness" },
-    { label: "Moderation queue", value: modQueue, href: "/admin/moderation", accent: modQueue > 0 },
-    { label: "Business reviews", value: draftBiz.count ?? 0, href: "/admin/businesses", accent: (draftBiz.count ?? 0) > 0 },
-    { label: "Tier-2 applications", value: tierApps.count ?? 0, href: "/admin/businesses?status=active", accent: (tierApps.count ?? 0) > 0 },
-    { label: "Posts live", value: posts.count ?? 0 },
-    { label: "Open matches", value: openMatches.count ?? 0 },
+  // Every card: a plain-English label, a real number, and a destination.
+  // (Analytics-style metrics live in the Insights tab; internal/dev tools
+  // like the event-liveness shadow engine live under Diagnostics.)
+  const stats: { label: string; value: number; href?: string; accent?: boolean; sub?: string }[] = [
+    { label: "Abuse reports \u2014 open", value: openReports.count ?? 0, href: "/admin/reports", accent: (openReports.count ?? 0) > 0 },
+    { label: "Moderation queue \u2014 posts & comments", value: modQueue, href: "/admin/moderation", accent: modQueue > 0 },
     { label: "Pending verification", value: pendingVerif.count ?? 0, href: "/admin/users?verification=pending", accent: (pendingVerif.count ?? 0) > 0 },
+    { label: "Players", value: users.count ?? 0, href: "/admin/users", sub: `+${(signups7.count ?? 0).toLocaleString("en-US")} in the last 7 days` },
+    { label: "Open matches", value: openMatches.count ?? 0 },
+    { label: "Expired matches \u2014 past their time", value: expiredMatches.count ?? 0, href: "/admin/expired" },
+    { label: "Court suggestions \u2014 awaiting review", value: suggPending.count ?? 0, href: "/admin/court-suggestions", accent: (suggPending.count ?? 0) > 0 },
+    { label: "Business listings \u2014 drafts to review", value: draftBiz.count ?? 0, href: "/admin/businesses", accent: (draftBiz.count ?? 0) > 0 },
+    { label: "Business tier upgrades \u2014 submitted", value: tierApps.count ?? 0, href: "/admin/businesses?status=active", accent: (tierApps.count ?? 0) > 0 },
     { label: "Suspended / banned", value: restricted.count ?? 0, href: "/admin/users?status=restricted", accent: (restricted.count ?? 0) > 0 },
   ];
 
@@ -99,6 +105,7 @@ export default async function AdminHome() {
               <div className="mt-1 font-display text-4xl leading-none" style={{ color: s.accent ? "var(--color-brand-deep)" : "var(--color-ink)" }}>
                 {s.value.toLocaleString("en-US")}
               </div>
+              {s.sub ? <div className="mt-1 text-[11px] font-semibold text-mute">{s.sub}</div> : null}
             </div>
           );
           return s.href ? (

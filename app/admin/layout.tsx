@@ -23,6 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <nav className="mt-5 flex flex-wrap gap-1.5 border-b border-rule pb-3" aria-label="Admin">
         {[
           { href: "/admin", label: "Overview" },
+          { href: "/admin/insights", label: "Insights" },
           { href: "/admin/reports", label: "Moderation" },
           { href: "/admin/support", label: "Support" },
           { href: "/admin/users", label: "Users" },

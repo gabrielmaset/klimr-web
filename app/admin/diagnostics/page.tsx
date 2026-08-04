@@ -93,7 +93,17 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
             </ol>
           ) : null}
         </section>
-        <p className="mt-1 text-sm text-mute">Errors and warnings reported by any user&rsquo;s browser. Newest first, up to 200.</p>
+        <section className="mt-6 rounded-[14px] border border-dashed border-rule bg-white p-4">
+        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-faint">Internal tools</p>
+        <a href="/admin/liveness" className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-ink underline decoration-rule underline-offset-4 hover:decoration-brand">
+          Event liveness (shadow)
+        </a>
+        <p className="mt-1 text-[12px] text-mute">
+          The recurring-event pulse engine from migration 0129 — it computes dormancy signals into shadow columns without touching real state, which is why “Run now” looks like it does nothing. Parked here until recurring-event dormancy becomes a launch priority.
+        </p>
+      </section>
+
+      <p className="mt-1 text-sm text-mute">Errors and warnings reported by any user&rsquo;s browser. Newest first, up to 200.</p>
       </div>
 
       <form method="get" className="mb-5 flex flex-wrap items-center gap-2">

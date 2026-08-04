@@ -34,7 +34,7 @@ export type FinderCourt = {
 
 /** Finder rows = confirmed directory courts + live-found Google results (the
  *  "on Google but not on Klimr yet" layer — the Westwood fix). */
-type Row = FinderCourt & { liveFound?: boolean; website?: string | null; isPrivate?: boolean; verified?: boolean };
+type Row = FinderCourt & { liveFound?: boolean; website?: string | null; isPrivate?: boolean; verified?: boolean; venueKnown?: boolean };
 
 type Filters = {
   zip: string;
@@ -257,6 +257,7 @@ export function CourtsFinder({
         busy: null,
         distanceMi: Math.round(r.distanceKm * 0.6214 * 10) / 10,
         liveFound: true,
+        venueKnown: false, // Google doesn\u2019t say indoor/outdoor \u2014 claim nothing
         website: r.website,
         isPrivate: r.private,
         verified: r.verified === true,
@@ -680,7 +681,7 @@ function CourtCard({
             <SportIcon sport={s} variant="glyph" size={12} /> {SPORTS.find((x) => x.key === s)?.name ?? s}
           </span>
         ))}
-        {c.indoor ? (
+        {(c as Row).venueKnown === false ? null : c.indoor ? (
           <span className="inline-flex items-center gap-1 rounded-[9px] border border-rule-soft bg-bg px-2 py-1 text-[11px] font-semibold text-mute"><Warehouse size={11} /> Indoor</span>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-[9px] border border-rule-soft bg-bg px-2 py-1 text-[11px] font-semibold text-mute"><Sun size={11} /> Outdoor</span>
