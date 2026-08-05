@@ -253,7 +253,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
               return (
                 <div key={en.regId} className="border-b border-rule/60 pb-2 last:border-b-0 last:pb-0">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <Link href={`/e/${en.code}`} className="font-semibold text-ink hover:underline">{en.title}</Link>
+                    <Link href={`/e/${en.code}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink hover:underline">{en.title}</Link>
                     <span className={`font-mono text-[10.5px] uppercase tracking-wide ${en.locked ? "text-[#B42318]" : "text-mute"}`}>
                       {en.locked ? "Roster locked" : en.lockAt ? `Subs until ${en.lockAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Subs open"}
                     </span>

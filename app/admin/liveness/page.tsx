@@ -128,7 +128,7 @@ export default async function AdminLiveness() {
                 {((watched ?? []) as EventRow[]).map((e) => (
                   <tr key={e.id} className="border-b border-line/60 last:border-0">
                     <td className="px-3 py-2">
-                      <Link href={`/e/${e.id}`} className="font-semibold text-ink hover:underline">
+                      <Link href={`/e/${e.id}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink hover:underline">
                         {e.title}
                       </Link>{" "}
                       <span className="text-xs text-faint">{e.sport_key}</span>

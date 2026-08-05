@@ -31,6 +31,11 @@ export type PlayMatch = {
   hostName: string;
   isHost: boolean;
   isJoined: boolean;
+  waitlistCount: number;
+  /** Viewer's waitlist state on this match, if any. */
+  wlStatus: "waitlisted" | "offered" | null;
+  wlPosition: number | null;
+  wlExpiresAt: string | null;
 };
 export type CourtOpt = { id: string; name: string; city: string | null; distanceMi: number | null };
 export type Viewer = { name: string; hue: number; url: string | null };
@@ -88,7 +93,15 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
   const date = sp.get("date") ?? "";
   const whenRaw = (sp.get("when") ?? "all") as WhenKey;
   const when: WhenKey = date ? "date" : ["all", "today", "week", "weekdays", "weekends"].includes(whenRaw) ? whenRaw : "all";
-  const openOnly = sp.get("open") === "1";
+  const openUrl = sp.get("open") === "1";
+  // Local override so the toggle is instant — the URL round-trip (which
+  // keeps the state shareable/back-button-safe) catches up behind it.
+  const [openLocal, setOpenLocal] = useState<boolean | null>(null);
+  const openOnly = openLocal ?? openUrl;
+  useEffect(() => {
+    const t = setTimeout(() => setOpenLocal(null), 0); // resync after the URL lands
+    return () => clearTimeout(t);
+  }, [openUrl]);
   const sort = sp.get("sort") ?? "soon";
 
   const [menu, setMenu] = useState<null | "sport" | "court" | "date">(null);
@@ -352,7 +365,10 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
         <button
           type="button"
           aria-pressed={openOnly}
-          onClick={() => set({ open: openOnly ? null : "1" })}
+          onClick={() => {
+            setOpenLocal(!openOnly);
+            set({ open: openOnly ? null : "1" });
+          }}
           className={`${trigger} max-[899px]:w-full`}
           style={
             openOnly

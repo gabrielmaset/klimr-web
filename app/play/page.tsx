@@ -65,17 +65,25 @@ export default async function PlayPage() {
     }))
     .sort((a, b) => (a.effective_at ? Date.parse(a.effective_at) : Infinity) - (b.effective_at ? Date.parse(b.effective_at) : Infinity));
 
+  type Wl = { match_id: string; requester_id: string; status: string; waitlist_position: number | null; offer_expires_at: string | null };
   let orgs: Org[] = [];
   let parts: Part[] = [];
+  let wl: Wl[] = [];
   if (all.length) {
     const organizerIds = [...new Set(all.map((m) => m.organizer_id))];
     const matchIds = all.map((m) => m.id);
-    const [o, p] = await Promise.all([
+    const [o, p, w] = await Promise.all([
       supabase.from("profiles").select("id, display_name, avatar_hue").in("id", organizerIds),
       supabase.from("match_participants").select("match_id, user_id").in("match_id", matchIds),
+      supabase
+        .from("join_requests")
+        .select("match_id, requester_id, status, waitlist_position, offer_expires_at")
+        .in("match_id", matchIds)
+        .in("status", ["waitlisted", "offered"]),
     ]);
     orgs = (o.data as Org[] | null) ?? [];
     parts = (p.data as Part[] | null) ?? [];
+    wl = (w.data as Wl[] | null) ?? [];
   }
   const orgMap = new Map(orgs.map((o) => [o.id, o]));
 
@@ -159,6 +167,18 @@ export default async function PlayPage() {
     countMap.set(p.match_id, (countMap.get(p.match_id) ?? 0) + 1);
     if (p.user_id === user.id) mineSet.add(p.match_id);
   }
+  const nowIsoWl = new Date().toISOString();
+  const wlCountMap = new Map<string, number>();
+  const wlMine = new Map<string, Wl>();
+  for (const r of wl) {
+    if (r.status === "waitlisted") wlCountMap.set(r.match_id, (wlCountMap.get(r.match_id) ?? 0) + 1);
+    if (r.requester_id === user.id) {
+      // An offer past its deadline renders as nothing — the sweep will
+      // formalize the expiry within the minute.
+      if (r.status === "offered" && (!r.offer_expires_at || r.offer_expires_at < nowIsoWl)) continue;
+      wlMine.set(r.match_id, r);
+    }
+  }
 
   const payload: PlayMatch[] = all.map((m) => {
     const c = m.court_id ? courtMap.get(m.court_id) : null;
@@ -176,6 +196,10 @@ export default async function PlayPage() {
       distanceMi: c ? distTo(c.lat, c.lng) : null,
       totalSlots: m.total_slots ?? 2,
       joinedCount,
+      waitlistCount: wlCountMap.get(m.id) ?? 0,
+      wlStatus: (wlMine.get(m.id)?.status as "waitlisted" | "offered" | undefined) ?? null,
+      wlPosition: wlMine.get(m.id)?.waitlist_position ?? null,
+      wlExpiresAt: wlMine.get(m.id)?.offer_expires_at ?? null,
       players: (facesByMatch.get(m.id) ?? []).slice(0, 4),
       hostName: org?.display_name ?? "a member",
       isHost: m.organizer_id === user.id,

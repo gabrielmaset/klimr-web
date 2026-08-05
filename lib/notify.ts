@@ -2,6 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type Kind =
+  | "waitlist_offer"
+  | "waitlist_expired"
   | "match_invite"
   | "friend_request"
   | "friend_accept"
@@ -35,6 +37,8 @@ async function deliverPush(_input: { userId: string; kind: Kind; title: string; 
  *  standard. Friend requests/accepts have no toggle by design (core social
  *  graph). A missing prefs row means default-on. */
 const KIND_PREF: Record<Kind, "notif_match_invites" | "notif_ranking_changes" | "notif_region_challenges" | "notif_marketplace_events" | "notif_team_invites" | "notif_team_roster" | "notif_team_activity" | null> = {
+  waitlist_offer: "notif_match_invites",
+  waitlist_expired: "notif_match_invites",
   match_invite: "notif_match_invites",
   match_join: "notif_match_invites",
   match_confirm: "notif_match_invites",

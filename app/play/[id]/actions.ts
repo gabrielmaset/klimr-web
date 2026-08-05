@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { accountActive } from "@/lib/guards";
 import { createNotification } from "@/lib/notify";
+import { after } from "next/server";
+import { promoteForMatch, confirmOffer, declineOffer } from "@/lib/match-waitlist";
 import { sportMeta } from "@/lib/sports";
 
 async function ctx() {
@@ -31,12 +33,19 @@ export async function joinMatch(formData: FormData) {
     .eq("id", id)
     .single();
   if (match && match.status === "open") {
-    const { count } = await supabase
-      .from("match_participants")
-      .select("*", { count: "exact", head: true })
-      .eq("match_id", id);
+    const nowIso = new Date().toISOString();
+    const [{ count }, { count: activeOffers }] = await Promise.all([
+      supabase.from("match_participants").select("*", { count: "exact", head: true }).eq("match_id", id),
+      supabase
+        .from("join_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("match_id", id)
+        .eq("status", "offered")
+        .gt("offer_expires_at", nowIso),
+    ]);
     const filled = count ?? 0;
-    if (filled < match.total_slots) {
+    // Actively offered spots are RESERVED for the waitlist player deciding.
+    if (filled + (activeOffers ?? 0) < match.total_slots) {
       await supabase.from("match_participants").insert({
         match_id: id,
         user_id: user.id,
@@ -68,6 +77,9 @@ export async function leaveMatch(formData: FormData) {
   const { supabase, user } = await ctx();
   if (!user) redirect(`/login?next=/play/${id}`);
   await supabase.from("match_participants").delete().eq("match_id", id).eq("user_id", user.id);
+  // The vacated spot goes to the waitlist: first in line gets an offer with
+  // a deadline keyed to how soon the match starts (20m / 1h / 4h).
+  after(() => promoteForMatch(id));
   revalidatePath(`/play/${id}`);
   revalidatePath("/play");
 }
@@ -90,17 +102,36 @@ export async function joinWaitlist(formData: FormData) {
   revalidatePath("/play");
     return;
   }
-  const { count } = await supabase
-    .from("join_requests")
-    .select("*", { count: "exact", head: true })
-    .eq("match_id", id)
-    .eq("status", "waitlisted");
-  await supabase.from("join_requests").insert({
-    match_id: id,
-    requester_id: user.id,
-    status: "waitlisted",
-    waitlist_position: (count ?? 0) + 1,
-  });
+  const nowIso = new Date().toISOString();
+  const [{ data: match }, { count: filled }, { count: activeOffers }, { count: waiting }, { data: mine }, { count: iAmIn }] = await Promise.all([
+    supabase.from("matches").select("total_slots, status").eq("id", id).maybeSingle(),
+    supabase.from("match_participants").select("*", { count: "exact", head: true }).eq("match_id", id),
+    supabase.from("join_requests").select("*", { count: "exact", head: true }).eq("match_id", id).eq("status", "offered").gt("offer_expires_at", nowIso),
+    supabase.from("join_requests").select("*", { count: "exact", head: true }).eq("match_id", id).eq("status", "waitlisted"),
+    supabase.from("join_requests").select("id, status").eq("match_id", id).eq("requester_id", user.id).maybeSingle(),
+    supabase.from("match_participants").select("*", { count: "exact", head: true }).eq("match_id", id).eq("user_id", user.id),
+  ]);
+  const effectivelyFull = !!match && match.status === "open" && (filled ?? 0) + (activeOffers ?? 0) >= match.total_slots;
+  const alreadyActive = mine?.status === "waitlisted" || mine?.status === "offered";
+  if (!effectivelyFull || alreadyActive || (iAmIn ?? 0) > 0) {
+    revalidatePath(`/play/${id}`);
+    revalidatePath("/play");
+    return;
+  }
+  if (mine) {
+    // Rejoining after an expired/declined/old row: back of the line, fresh clock.
+    await supabase
+      .from("join_requests")
+      .update({ status: "waitlisted", waitlist_position: (waiting ?? 0) + 1, offered_at: null, offer_expires_at: null, created_at: nowIso })
+      .eq("id", mine.id);
+  } else {
+    await supabase.from("join_requests").insert({
+      match_id: id,
+      requester_id: user.id,
+      status: "waitlisted",
+      waitlist_position: (waiting ?? 0) + 1,
+    });
+  }
   revalidatePath(`/play/${id}`);
   revalidatePath("/play");
 }
@@ -110,6 +141,9 @@ export async function leaveWaitlist(formData: FormData) {
   const { supabase, user } = await ctx();
   if (!user) redirect(`/login?next=/play/${id}`);
   await supabase.from("join_requests").delete().eq("match_id", id).eq("requester_id", user.id);
+  // Renumber the line, and if this row held an active offer, the freed
+  // reservation goes to the next player.
+  after(() => promoteForMatch(id));
   revalidatePath(`/play/${id}`);
   revalidatePath("/play");
 }
@@ -287,4 +321,24 @@ export async function cancelMatchInvite(formData: FormData) {
   revalidatePath("/invites");
   const matchId = String(formData.get("matchId") || "");
   if (matchId) revalidatePath(`/play/${matchId}`);
+}
+
+/** Waitlist offer: claim the reserved spot within the window. */
+export async function confirmWaitlistSpot(formData: FormData) {
+  const id = String(formData.get("matchId"));
+  const { user } = await ctx();
+  if (!user) redirect(`/login?next=/play/${id}`);
+  await confirmOffer(id, user.id);
+  revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
+}
+
+/** Waitlist offer: pass — the spot cascades to the next in line. */
+export async function declineWaitlistSpot(formData: FormData) {
+  const id = String(formData.get("matchId"));
+  const { user } = await ctx();
+  if (!user) redirect(`/login?next=/play/${id}`);
+  await declineOffer(id, user.id);
+  revalidatePath(`/play/${id}`);
+  revalidatePath("/play");
 }

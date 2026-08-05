@@ -137,15 +137,22 @@ export function CourtsFinder({
      flagged as unconfirmed. */
   const [live, setLive] = useState<SearchResponse | null>(null);
   const [liveBusy, startLiveT] = useTransition();
+  // Searches run ONLY on the Find courts click (or a deep link's first
+  // load). Filter changes — radius, sport, venue, location — just compose
+  // the next query and re-arm the button; nothing fires until it's pressed.
   const liveSeq = useRef(0);
-  useEffect(() => {
+  const searchKeyOf = (x: Filters) => [x.zip, x.ll, x.radius, x.sport, x.venue, x.lights, x.free].join("|");
+  const [searchedKey, setSearchedKey] = useState<string | null>(null);
+  const runSearch = (target: Filters) => {
     const seq = ++liveSeq.current;
+    const key = searchKeyOf(target);
     startLiveT(async () => {
-      if (!f.zip || f.sport === "all") {
+      if (!target.zip || target.sport === "all") {
         setLive(null);
+        setSearchedKey(key);
         return;
       }
-      const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(f.ll);
+      const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(target.ll);
       try {
         // Route-handler fetch, NOT a server action: navigation never queues
         // behind a running search — the menu stays instant regardless.
@@ -154,29 +161,49 @@ export function CourtsFinder({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              locationKey: f.zip,
-              radiusKm: Math.max(2, Math.round(f.radius * 1.609)),
-              sport: f.sport,
+              locationKey: target.zip,
+              radiusKm: Math.max(2, Math.round(target.radius * 1.609)),
+              sport: target.sport,
               ...(m ? { lat: Number(m[1]), lng: Number(m[2]) } : {}),
             }),
           }).then((res) => res.json()),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 40000)),
         ])) as SearchResponse;
-        if (liveSeq.current === seq) setLive(r);
+        if (liveSeq.current === seq) {
+          setLive(r);
+          setSearchedKey(key); // grey the button: this exact query is answered
+        }
       } catch {
         if (liveSeq.current === seq) {
           setLive({ status: "error", courts: [], source: "none", message: "Live search timed out — try again." });
         }
       }
     });
-     
-  }, [f.zip, f.ll, f.sport, f.radius]);
+  };
+  // Deep links (?zip=…&sport=…) search once on arrival — that's the point of
+  // a shared link; everything after is button-driven.
+  useEffect(() => {
+    if (f.zip && f.sport !== "all") runSearch(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const set = (patch: Partial<Filters>, reload = false) => {
     pushUrl({ ...f, ...patch }, reload);
   };
 
-  const findCourts = () => set({ zip: zipDraft.trim(), ll: "" }, true);
+  const intendedFilters = (): Filters => {
+    const z = zipDraft.trim();
+    // Typing a different place drops the precise coordinates; clicking Find
+    // with the same ZIP (e.g. right after Use-my-location) keeps them.
+    return { ...f, zip: z, ll: z === f.zip ? f.ll : "" };
+  };
+  const findCourts = () => {
+    const next = intendedFilters();
+    pushUrl(next, true);
+    runSearch(next);
+  };
+  /** Orange = this exact query hasn't been run yet; grey = answered. */
+  const searchDirty = searchedKey !== searchKeyOf(intendedFilters());
   const useMyLocation = () => {
     if (!navigator.geolocation || locating) return;
     setLocating(true);
@@ -203,18 +230,6 @@ export function CourtsFinder({
     (!lightsOn || c.lights === true) &&
     (!f.free || c.free === true) &&
     (!f.queue || c.liveQueue);
-
-  const sportCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    let all = 0;
-    for (const c of courts) {
-      if (!passesNonSport(c)) continue;
-      all += 1;
-      for (const s of c.sports) counts.set(s, (counts.get(s) ?? 0) + 1);
-    }
-    return { counts, all };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courts, f.venue, f.lights, f.free, f.queue]);
 
   const visible = useMemo(() => {
     const rows = courts.filter((c) => passesNonSport(c) && (f.sport === "all" || c.sports.includes(f.sport)));
@@ -347,7 +362,11 @@ export function CourtsFinder({
             type="button"
             onClick={findCourts}
             disabled={pending}
-            className="press inline-flex h-11 items-center gap-2 rounded-[11px] bg-brand px-5 text-sm font-bold text-white shadow-[0_4px_14px_-6px_rgba(214,58,15,.5)] hover:bg-[#E23E0D]"
+            className={`press inline-flex h-11 items-center gap-2 rounded-[11px] px-5 text-sm font-bold ${
+              searchDirty || pending
+                ? "bg-brand text-white shadow-[0_4px_14px_-6px_rgba(214,58,15,.5)] hover:bg-[#E23E0D]"
+                : "bg-[#DDD7CA] text-[#6E6759] hover:bg-[#D3CCBD]"
+            }`}
           >
             {pending ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Find courts
           </button>
@@ -369,9 +388,6 @@ export function CourtsFinder({
             >
               {f.sport !== "all" ? <SportIcon sport={f.sport} variant="glyph" size={14} /> : <Globe size={13} />}
               {sportName}
-              <span className="rounded-md bg-white/70 px-1.5 font-mono text-[10px] font-semibold">
-                {f.sport === "all" ? sportCounts.all : (sportCounts.counts.get(f.sport) ?? 0) + liveRows.length}
-              </span>
               <ChevronDown size={13} />
             </button>
             {sportOpen ? (
@@ -394,7 +410,6 @@ export function CourtsFinder({
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-ink hover:bg-hover"
                 >
                   <Globe size={14} className="text-mute" /> All sports
-                  <span className="ml-auto font-mono text-[10px] text-faint">{sportCounts.all}</span>
                   {f.sport === "all" ? <Check size={13} className="text-brand-deep" /> : null}
                 </button>
                 <div className="max-h-56 overflow-y-auto">
@@ -411,7 +426,6 @@ export function CourtsFinder({
                       className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-ink hover:bg-hover"
                     >
                       <SportIcon sport={s.key} variant="glyph" size={15} /> {s.name}
-                      <span className="ml-auto font-mono text-[10px] text-faint">{(sportCounts.counts.get(s.key) ?? 0) + (s.key === f.sport ? liveRows.length : 0)}</span>
                       {f.sport === s.key ? <Check size={13} className="text-brand-deep" /> : null}
                     </button>
                   ))}

@@ -5,7 +5,7 @@
 export type VerificationStatus = "unverified" | "pending" | "verified";
 export type MatchStatus = "open" | "scheduled" | "completed" | "disputed" | "void";
 export type ResultStatus = "pending" | "confirmed" | "void";
-export type JoinStatus = "pending" | "accepted" | "declined" | "waitlisted";
+export type JoinStatus = "pending" | "accepted" | "declined" | "waitlisted" | "offered" | "joined" | "expired";
 export type ReportReason =
   | "harassment"
   | "cheating"
@@ -502,6 +502,8 @@ export interface Database {
           requester_id: string;
           status: JoinStatus;
           waitlist_position: number | null;
+          offered_at: string | null;
+          offer_expires_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -509,10 +511,15 @@ export interface Database {
           match_id: string;
           requester_id: string;
           status?: JoinStatus;
+          offered_at?: string | null;
+          offer_expires_at?: string | null;
           waitlist_position?: number | null;
           created_at?: string;
         };
-        Update: { status?: JoinStatus; waitlist_position?: number | null };
+        Update: { status?: JoinStatus;
+          offered_at?: string | null;
+          offer_expires_at?: string | null;
+          created_at?: string; waitlist_position?: number | null };
         Relationships: [];
       };
       sponsorships: {

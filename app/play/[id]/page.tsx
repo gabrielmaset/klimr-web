@@ -10,7 +10,8 @@ import { getAdminRole } from "@/lib/admin";
 import { matchDisplayStatus, matchJoinable } from "@/lib/match-status";
 import { Avatar } from "@/components/avatar";
 import { sportMeta, sportSlug, matchFormatLabel } from "@/lib/sports";
-import { joinMatch, leaveMatch, confirmSpot, joinWaitlist, leaveWaitlist, cancelMatch } from "./actions";
+import { joinMatch, leaveMatch, confirmSpot, joinWaitlist, leaveWaitlist, cancelMatch, confirmWaitlistSpot, declineWaitlistSpot } from "./actions";
+import { OfferCountdown } from "@/components/play/offer-countdown";
 import { MatchInvite } from "./MatchInvite";
 
 export const metadata: Metadata = { title: "Match" };
@@ -81,12 +82,15 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
 
   const { data: wlRows } = await db
     .from("join_requests")
-    .select("requester_id, waitlist_position")
+    .select("requester_id, waitlist_position, status, offer_expires_at")
     .eq("match_id", id)
-    .eq("status", "waitlisted")
+    .in("status", ["waitlisted", "offered"])
     .order("waitlist_position", { ascending: true });
-  const waitlist = wlRows ?? [];
+  const nowIsoWl = new Date().toISOString();
+  const waitlist = (wlRows ?? []).filter((w) => w.status === "waitlisted");
+  const activeOffers = (wlRows ?? []).filter((w) => w.status === "offered" && (w.offer_expires_at ?? "") > nowIsoWl);
   const myWait = waitlist.find((w) => w.requester_id === user.id) ?? null;
+  const myOffer = activeOffers.find((w) => w.requester_id === user.id) ?? null;
 
   let wlProfMap = new Map<string, Prof>();
   if (isOrganizer && waitlist.length) {
@@ -284,9 +288,27 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
           )
         ) : !joinable ? (
           <p className="text-sm text-mute">This match is {derived.label.toLowerCase()}. Joining is closed.</p>
-        ) : !full ? (
+        ) : myOffer ? (
+          <div className="rounded-xl border px-4 py-3" style={{ background: "var(--color-tint-brand)", borderColor: "var(--color-tint-brand-bd)" }}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold" style={{ color: "var(--color-flame-text)" }}>
+                Your spot is ready — confirm within <OfferCountdown expiresAt={myOffer.offer_expires_at!} /> or it goes to the next player.
+              </p>
+              <div className="flex items-center gap-2">
+                <form action={confirmWaitlistSpot}>
+                  <input type="hidden" name="matchId" value={id} />
+                  <button className="press rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Confirm spot</button>
+                </form>
+                <form action={declineWaitlistSpot}>
+                  <input type="hidden" name="matchId" value={id} />
+                  <button className="press rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">Pass</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        ) : filled + activeOffers.length < match.total_slots ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-ink">{match.total_slots - filled} spot{match.total_slots - filled === 1 ? "" : "s"} open. Jump in.</p>
+            <p className="text-sm text-ink">{match.total_slots - filled - activeOffers.length} spot{match.total_slots - filled - activeOffers.length === 1 ? "" : "s"} open. Jump in.</p>
             <form action={joinMatch}>
               <input type="hidden" name="matchId" value={id} />
               <button className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
@@ -296,7 +318,7 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
           </div>
         ) : myWait ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-ink">You&rsquo;re <b>#{myWait.waitlist_position}</b> on the waitlist. We&rsquo;ll hold your place if a spot opens.</p>
+            <p className="text-sm text-ink">You&rsquo;re <b>#{myWait.waitlist_position}</b> on the waitlist. When a spot opens you&rsquo;ll get a confirmation window — 20 minutes if the match starts within 4 hours, 1 hour within a day, otherwise 4 hours.</p>
             <form action={leaveWaitlist}>
               <input type="hidden" name="matchId" value={id} />
               <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">

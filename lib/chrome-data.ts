@@ -53,15 +53,29 @@ export async function getTopBarData(supabase: SupabaseServerClient, userId: stri
   const { data: parts } = await supabase.from("match_participants").select("match_id").eq("user_id", userId);
   const mIds = [...new Set((parts ?? []).map((x) => x.match_id))];
   if (mIds.length) {
-    const { data: nm } = await supabase
+    // "Ready to go" only (Gabriel): the NEXT chip shows a match whose roster
+    // is FULL — every slot claimed. Scan the next few upcoming and take the
+    // first full one, so a half-empty morning match doesn't mask a full
+    // afternoon one.
+    const { data: upcoming } = await supabase
       .from("matches")
-      .select("id, sport_key, scheduled_at, location_text, court_id")
+      .select("id, sport_key, scheduled_at, location_text, court_id, total_slots")
       .in("id", mIds)
       .in("status", ["open", "scheduled"])
       .gte("scheduled_at", new Date().toISOString())
       .order("scheduled_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(5);
+    let nm: (typeof upcoming extends (infer U)[] | null ? U : never) | null = null;
+    for (const cand of upcoming ?? []) {
+      const { count: filled } = await supabase
+        .from("match_participants")
+        .select("*", { count: "exact", head: true })
+        .eq("match_id", cand.id);
+      if ((filled ?? 0) >= cand.total_slots) {
+        nm = cand;
+        break;
+      }
+    }
     if (nm) {
       let place: string | null = nm.location_text ?? null;
       if (nm.court_id) {

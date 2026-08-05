@@ -667,7 +667,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   );
                 })}
                 {tourns.map((t) => (
-                  <Link key={t.id} href={`/e/${t.code}`} className="press -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
+                  <Link key={t.id} href={`/e/${t.code}`} target="_blank" rel="noopener noreferrer" className="press -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
                     <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-lg border border-[#EFE9DC] bg-bg"><Trophy size={15} className="text-ink-soft" /></span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">

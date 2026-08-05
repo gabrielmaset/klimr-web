@@ -145,7 +145,7 @@ function PhotoCard({ t, miles }: { t: PubRow; miles: number | null }) {
   const lead = leadPhoto(t.format_config);
   const cover = lead?.url ?? coverUrl(t.cover_path);
   return (
-    <Link href={`/e/${t.code}`} className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
+    <Link href={`/e/${t.code}`} target="_blank" rel="noopener noreferrer" className="lift group flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
       <CardMedia cover={cover} crop={lead} logo={coverUrl(t.logo_path)} sportKey={t.sport_key} statusKey={t.status} promoted={t.promoted} miles={miles} date={fmtDate(t.starts_at)} />
       <div className="flex flex-1 flex-col p-4">
         <h3 className="truncate text-base font-bold text-ink">{t.title}</h3>
@@ -267,7 +267,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
       {/* Featured hero (promoted) */}
       {hero ? (
         <section className="mb-9">
-          <Link href={`/e/${hero.code}`} className="group relative block overflow-hidden rounded-3xl border border-rule">
+          <Link href={`/e/${hero.code}`} target="_blank" rel="noopener noreferrer" className="group relative block overflow-hidden rounded-3xl border border-rule">
             <div className="relative h-64 w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.02] sm:h-80" style={coverUrl(hero.cover_path) ? { backgroundImage: `url("${coverUrl(hero.cover_path)}")` } : { background: sportGrad(hero.sport_key) }}>
               {!coverUrl(hero.cover_path) ? <span className="pointer-events-none absolute inset-0 grid place-items-center opacity-20"><SportIcon sport={hero.sport_key} variant="hero" size={235} /></span> : null}
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
@@ -370,11 +370,11 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
               const wl = e.status === "waitlisted";
               return (
                 <div key={e.regId} className="flex flex-col overflow-hidden rounded-3xl border border-rule bg-surface shadow-e1">
-                  <Link href={`/e/${e.code}`} className="group block">
+                  <Link href={`/e/${e.code}`} target="_blank" rel="noopener noreferrer" className="group block">
                     <CardMedia cover={leadPhoto(e.format_config)?.url ?? coverUrl(e.cover_path)} crop={leadPhoto(e.format_config)} logo={null} sportKey={e.sport_key} statusKey={null} date={fmtDate(e.starts_at)} className="aspect-[16/9]" />
                   </Link>
                   <div className="flex flex-1 flex-col p-4">
-                    <Link href={`/e/${e.code}`} className="truncate text-sm font-bold text-ink hover:underline">
+                    <Link href={`/e/${e.code}`} target="_blank" rel="noopener noreferrer" className="truncate text-sm font-bold text-ink hover:underline">
                       {e.title}
                     </Link>
                     {e.location_name ? <p className="mt-0.5 truncate text-xs text-mute">{e.location_name}</p> : null}
