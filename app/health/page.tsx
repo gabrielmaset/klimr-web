@@ -235,7 +235,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
       <section>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-flame-text`}>Find a pro</p>
+            <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-flame-text`}>Find a pro</p>
             <h2 className="mt-0.5 font-display text-xl font-bold text-ink">Verified professionals</h2>
             <p className="mt-0.5 max-w-2xl text-xs text-mute">Every credential is checked against its issuing body, and reviews come from named Klimr members. Sessions and payment are arranged directly with the pro.</p>
           </div>
@@ -247,7 +247,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
           <aside className="hidden md:block">
             <div className="sticky top-24 grid gap-5">
               <div>
-                <p className={`${mono} px-2.5 text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Specialty</p>
+                <p className={`${mono} px-2.5 text-floor font-bold uppercase tracking-[.18em] text-faint`}>Specialty</p>
                 <div className="mt-1.5 grid gap-0.5">
                   <Link href={buildHref({ spec: null, page: null })} className={`press flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] ${!fSpec ? "bg-tint-brand font-bold text-brand-deep" : "font-semibold text-ink-soft hover:bg-bg hover:text-ink"}`}>
                     All specialties <span className={`${mono} text-[10.5px] ${!fSpec ? "text-brand-deep" : "text-faint"}`}>{base.length}</span>
@@ -267,7 +267,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
                 </div>
               </div>
               <div>
-                <p className={`${mono} px-2.5 text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Format</p>
+                <p className={`${mono} px-2.5 text-floor font-bold uppercase tracking-[.18em] text-faint`}>Format</p>
                 <div className="mt-1.5 grid gap-0.5">
                   {[
                     { value: "", label: "All formats", count: fmtCounts.all },
@@ -332,7 +332,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
                       <p className={`${mono} flex items-center justify-end gap-1 text-[13px] font-bold text-ink`}>
                         <Star size={12} className="fill-[#E8A50C] text-[#E8A50C]" /> {p.rating != null ? p.rating.toFixed(1) : "—"}
                       </p>
-                      <p className={`${mono} text-[9px] uppercase text-faint`}>({p.reviewCount}) members</p>
+                      <p className={`${mono} text-floor uppercase text-faint`}>({p.reviewCount}) members</p>
                     </div>
                   </div>
                   <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
@@ -341,7 +341,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
                         {s.one}
                       </span>
                     ))}
-                    <span className={`${mono} rounded-full border border-rule bg-bg px-2 py-0.5 text-[9.5px] font-semibold uppercase text-ink-soft`}>
+                    <span className={`${mono} rounded-full border border-rule bg-bg px-2 py-0.5 text-floor font-semibold uppercase text-ink-soft`}>
                       {p.format === "virtual" ? "Virtual · Nationwide" : p.areaText ? `${p.areaText}${p.format === "both" ? " + Virtual" : ""}` : p.format === "both" ? "In-person + Virtual" : "In-person"}
                     </span>
                   </div>
@@ -367,14 +367,14 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
 
       {/* ── 2b. The Training Table ─────────────────────────────────── */}
       <section id="library" className="mt-10 scroll-mt-24">
-        <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-flame-text`}>The library</p>
+        <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-flame-text`}>The library</p>
         <h2 className="mt-0.5 font-display text-xl font-bold text-ink">The Training Table</h2>
         <p className="mt-0.5 text-xs text-mute">Short, practical reads for players — sourced to recognized bodies, with named professional review rolling out across the library.</p>
 
         {/* featured collection */}
         <div className="mt-4 flex flex-wrap items-center gap-5 rounded-[20px] border border-[#FFD9C2] p-5" style={{ background: "linear-gradient(135deg,#FFF0E8,#FFF7F0)" }}>
           <div className="min-w-[260px] flex-1">
-            <p className={`${mono} text-[9px] font-bold uppercase tracking-[.18em] text-flame-text`}>Featured collection</p>
+            <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-flame-text`}>Featured collection</p>
             <h3 className="mt-1 font-display text-lg font-bold text-ink">{FEATURED_COLLECTION.title}</h3>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{FEATURED_COLLECTION.dek}</p>
             <p className={`${mono} mt-2 text-[10px] font-bold uppercase tracking-wider text-faint`}>{featured.length} reads · {featuredMins} min</p>
@@ -431,7 +431,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
               const n = readsBySlug.get(a.slug) ?? 0;
               return (
                 <Link key={a.slug} href={`/health/read/${a.slug}`} className="press grid items-center gap-3 py-3 transition-colors hover:bg-[#FBF8F1] sm:grid-cols-[var(--tag)_1fr_auto]" style={{ ["--tag" as string]: tagColCh }}>
-                  <span className={`${mono} w-fit rounded-md border border-rule bg-bg px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-ink-soft sm:w-auto sm:text-center`}>
+                  <span className={`${mono} w-fit rounded-md border border-rule bg-bg px-2 py-0.5 text-floor font-bold uppercase tracking-wide text-ink-soft sm:w-auto sm:text-center`}>
                     {topicLabel.get(a.topic)}
                   </span>
                   <span className="min-w-0">
@@ -469,7 +469,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
 
         {/* courtside questions */}
         <div className="mt-5 rounded-[20px] border border-rule bg-white p-5">
-          <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-flame-text`}>Courtside questions</p>
+          <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-flame-text`}>Courtside questions</p>
           <p className="mt-0.5 text-xs text-mute">Quick answers from the library — general education, not medical advice.</p>
           <div className="mt-2"><QuickAnswers items={QUICK_ANSWERS} /></div>
         </div>
@@ -505,7 +505,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
               {openPro.headline ? <p className="mt-3 text-sm font-semibold text-ink-soft">{openPro.headline}</p> : null}
               {openPro.bio ? <p className="mt-1.5 text-[13px] leading-relaxed text-mute">{openPro.bio}</p> : null}
 
-              <p className={`${mono} mt-4 text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Verified credentials</p>
+              <p className={`${mono} mt-4 text-floor font-bold uppercase tracking-[.18em] text-faint`}>Verified credentials</p>
               <div className="mt-1.5 grid gap-2">
                 {openPro.verifiedCreds.length ? openPro.verifiedCreds.map((c, i) => (
                   <div key={i} className="flex items-start gap-2">
@@ -520,14 +520,14 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
                 )) : <p className="text-xs text-mute">Credential details on file with Klimr admin.</p>}
               </div>
 
-              <p className={`${mono} mt-4 text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Member reviews</p>
+              <p className={`${mono} mt-4 text-floor font-bold uppercase tracking-[.18em] text-faint`}>Member reviews</p>
               <div className="mt-1.5">
                 <ProviderReviews providerUserId={openPro.userId} ratingAvg={openPro.rating} ratingCount={openPro.reviewCount} reviews={openPro.reviews} viewerId={user.id} />
               </div>
             </div>
 
             <div className="border-t border-rule bg-[#FDFBF7] p-5 sm:p-6 md:border-l md:border-t-0">
-              <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Sessions</p>
+              <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-faint`}>Sessions</p>
               {openPro.priceFrom ? (
                 <p className="mt-1 text-ink"><span className={`${mono} text-[28px] font-bold`}>${Math.round(openPro.priceFrom / 100)}</span> <span className="text-xs text-mute">/ session</span></p>
               ) : (
@@ -544,7 +544,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
               {openPro.userId !== user.id ? (
                 <form action={messagePro} className="mt-3">
                   <input type="hidden" name="pro_id" value={openPro.userId} />
-                  <button className="press w-full rounded-xl py-3 text-sm font-bold text-white hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
+                  <button type="submit" className="press w-full rounded-xl py-3 text-sm font-bold text-white hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
                     Message {openPro.name.split(" ")[0]}
                   </button>
                 </form>
@@ -556,7 +556,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
                   <form action={reportProvider} className="mt-2 grid gap-2">
                     <input type="hidden" name="pro_id" value={openPro.userId} />
                     <textarea name="reason" rows={2} required minLength={3} maxLength={600} placeholder="What's wrong with this profile?" className="w-full resize-y rounded-[10px] border border-rule-2 bg-white px-3 py-2 text-xs text-ink outline-none placeholder:text-faint focus:border-brand" />
-                    <button className="press w-fit rounded-lg border border-rule-2 bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft hover:text-ink">Send report</button>
+                    <button type="submit" className="press w-fit rounded-lg border border-rule-2 bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft hover:text-ink">Send report</button>
                   </form>
                 </details>
               ) : null}

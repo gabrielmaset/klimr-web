@@ -218,7 +218,7 @@ export function CoverCropper({
       <div className="rise w-full max-w-2xl rounded-3xl border border-rule bg-surface p-5 shadow-[0_24px_70px_-20px_rgba(10,10,11,0.5)]">
         <div className="flex items-center justify-between">
           <span className="kicker text-brand-deep">Position your cover photo</span>
-          <button onClick={onCancel} aria-label="Close" className="press grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:text-ink">
+          <button type="button" onClick={onCancel} aria-label="Close" className="press grid h-8 w-8 place-items-center rounded-full text-faint transition-colors hover:text-ink">
             <X size={18} aria-hidden />
           </button>
         </div>
@@ -248,18 +248,18 @@ export function CoverCropper({
         </div>
 
         <div className="mx-auto mt-4 flex max-w-md items-center gap-3">
-          <button onClick={() => setView(sRef.current - 0.3, xRef.current, yRef.current)} aria-label="Zoom out" className="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-rule text-ink-soft">
+          <button type="button" onClick={() => setView(sRef.current - 0.3, xRef.current, yRef.current)} aria-label="Zoom out" className="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-rule text-ink-soft">
             <span className="text-lg leading-none">−</span>
           </button>
           <input type="range" min={1} max={4} step={0.01} value={scale} onChange={(e) => setView(parseFloat(e.target.value), xRef.current, yRef.current)} aria-label="Zoom" className="h-1 flex-1 accent-brand" />
-          <button onClick={() => setView(sRef.current + 0.3, xRef.current, yRef.current)} aria-label="Zoom in" className="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-rule text-ink-soft">
+          <button type="button" onClick={() => setView(sRef.current + 0.3, xRef.current, yRef.current)} aria-label="Zoom in" className="press grid h-9 w-9 shrink-0 place-items-center rounded-full border border-rule text-ink-soft">
             <Plus size={16} aria-hidden />
           </button>
         </div>
 
         <div className="mt-5 flex gap-3">
-          <button onClick={onCancel} className="press flex-1 rounded-full border border-rule bg-surface py-2.5 text-sm font-semibold text-ink-soft">Cancel</button>
-          <button onClick={confirm} disabled={busy || !ready} className="press flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60">
+          <button type="button" onClick={onCancel} className="press flex-1 rounded-lg border border-rule bg-surface py-2.5 text-sm font-semibold text-ink-soft">Cancel</button>
+          <button type="button" onClick={confirm} disabled={busy || !ready} className="press flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60">
             {busy ? "Saving…" : (<><Check size={16} aria-hidden /> Set cover</>)}
           </button>
         </div>

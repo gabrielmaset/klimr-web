@@ -60,7 +60,7 @@ export function EventPinRecheck({ kind, targetId }: { kind: "event" | "tournamen
               <button
                 type="button"
                 onClick={() => setShowTrace((v) => !v)}
-                className="mt-1 inline-flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-faint hover:text-mute"
+                className="mt-1 inline-flex items-center gap-1 font-mono text-floor font-semibold uppercase tracking-[0.14em] text-faint hover:text-mute"
               >
                 <ChevronDown size={10} className={`transition-transform ${showTrace ? "rotate-180" : ""}`} />
                 Resolution steps

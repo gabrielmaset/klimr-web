@@ -29,7 +29,7 @@ export function GateForm({ errorMessage, noticeMessage }: { errorMessage: string
         <button
           type="submit"
           disabled={blocked}
-          className="press mt-4 w-full rounded-full bg-ink py-3 text-sm font-bold text-surface transition-colors hover:bg-ink-soft disabled:opacity-60"
+          className="press mt-4 w-full rounded-lg bg-ink py-3 text-sm font-bold text-surface transition-colors hover:bg-ink-soft disabled:opacity-60"
         >
           Enter
         </button>
@@ -59,7 +59,7 @@ export function GateForm({ errorMessage, noticeMessage }: { errorMessage: string
         <button
           type="submit"
           disabled={blocked}
-          className="press mt-3 w-full rounded-full border border-rule bg-surface py-3 text-sm font-semibold text-ink transition-colors hover:border-ink disabled:opacity-60"
+          className="press mt-3 w-full rounded-lg border border-rule bg-surface py-3 text-sm font-semibold text-ink transition-colors hover:border-ink disabled:opacity-60"
         >
           Email me a code
         </button>

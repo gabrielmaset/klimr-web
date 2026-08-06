@@ -152,7 +152,7 @@ export function CalendarView({ events, nowIso }: { events: CalEvent[]; nowIso: s
       {/* toolbar */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={goToday} className="press rounded-full border border-rule bg-surface px-3.5 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-bg">
+          <button type="button" onClick={goToday} className="press rounded-lg border border-rule bg-surface px-3.5 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-bg">
             Today
           </button>
           <div className="flex items-center">

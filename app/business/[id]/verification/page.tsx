@@ -58,7 +58,7 @@ export default async function BusinessVerificationPage({ params }: { params: Pro
               <form action={withdrawTierApplication} className="mt-2">
                 <input type="hidden" name="applicationId" value={openApp.id} />
                 <input type="hidden" name="businessId" value={id} />
-                <button className="press text-[10px] font-bold uppercase tracking-wide text-faint hover:text-danger">
+                <button type="submit" className="press text-[10px] font-bold uppercase tracking-wide text-faint hover:text-danger">
                   Withdraw application
                 </button>
               </form>

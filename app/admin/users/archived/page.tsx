@@ -78,13 +78,13 @@ export default async function ArchivedAccountsPage() {
                   <div className="flex shrink-0 items-center gap-1.5">
                     <form action={recoverUser}>
                       <input type="hidden" name="userId" value={u.id} />
-                      <button className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-faint">
+                      <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-faint">
                         <RotateCcw size={13} /> Recover
                       </button>
                     </form>
                     <form action={purgeUserNow}>
                       <input type="hidden" name="userId" value={u.id} />
-                      <button className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:border-brand/40 hover:text-brand-deep">
+                      <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:border-brand/40 hover:text-brand-deep">
                         <Trash2 size={13} /> Purge now
                       </button>
                     </form>

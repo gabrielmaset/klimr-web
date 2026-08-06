@@ -245,7 +245,7 @@ export function TopBar({
             className="inline-flex h-[34px] min-w-0 flex-[0_1_auto] items-center gap-2 overflow-hidden rounded-[10px] border border-tint-brand-bd bg-tint-brand px-2.5"
           >
             <span className="live-dot h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
-            <span className="shrink-0 font-mono text-[9.5px] font-bold uppercase tracking-[.16em] text-flame-text">Next</span>
+            <span className="shrink-0 font-mono text-floor font-bold uppercase tracking-[.16em] text-flame-text">Next</span>
             <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
               {SPORT_LABEL[nextMatch.sportKey] ?? "Match"} · {mounted ? whenShort(nextMatch.scheduledAt) : "\u2026"}
               {nextMatch.place ? ` · ${nextMatch.place}` : ""}

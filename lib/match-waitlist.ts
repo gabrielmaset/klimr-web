@@ -1,3 +1,4 @@
+import { offerWindowMinutes } from "@/lib/waitlist-window";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notify";
 import { sendEmail } from "@/lib/email";
@@ -23,13 +24,7 @@ import { sportMeta } from "@/lib/sports";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-export function offerWindowMinutes(scheduledAt: string | null, atMs: number): number {
-  if (!scheduledAt) return 240; // anytime matches: the generous window
-  const hoursUntil = (Date.parse(scheduledAt) - atMs) / 3_600_000;
-  if (hoursUntil <= 4) return 20;
-  if (hoursUntil <= 24) return 60;
-  return 240;
-}
+export { offerWindowMinutes } from "@/lib/waitlist-window";
 
 const windowLabel = (mins: number) => (mins === 20 ? "20 minutes" : mins === 60 ? "1 hour" : "4 hours");
 

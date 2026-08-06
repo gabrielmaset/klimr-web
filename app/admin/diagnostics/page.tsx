@@ -80,7 +80,7 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
                 <option key={s.key} value={s.key}>{s.name}</option>
               ))}
             </select>
-            <button className="press rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:bg-ink-soft">Run probe</button>
+            <button type="submit" className="press rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:bg-ink-soft">Run probe</button>
           </form>
           {probe ? (
             <ol className="mt-4 space-y-1.5 rounded-xl border border-rule-soft bg-bg px-4 py-3">
@@ -127,7 +127,7 @@ export default async function AdminDiagnostics({ searchParams }: { searchParams:
           <option value="warn">Warnings</option>
           <option value="info">Info</option>
         </select>
-        <button className="press rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Search</button>
+        <button type="submit" className="press rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Search</button>
       </form>
 
       <p className="mb-3 text-xs text-faint">{logs.length} {logs.length === 1 ? "entry" : "entries"}{term ? ` matching “${term}”` : ""}</p>

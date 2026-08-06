@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ sport: st
   return { title: meta ? `${meta.name} — The playbook` : "The playbook" };
 }
 
-const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]";
+const monoKicker = "font-mono text-floor font-bold uppercase tracking-[.18em]";
 const CARD = "rounded-[18px] border border-rule bg-surface p-5 shadow-e1";
 
 const SECTIONS = [
@@ -67,7 +67,7 @@ export default async function SportGuidePage({ params }: { params: Promise<{ spo
           { Icon: Backpack, l: "Gear", v: r.equipment },
         ].map(({ Icon, l, v }) => (
           <div key={l} className="rounded-[12px] bg-bg px-3.5 py-3" style={{ border: "1px solid #EFE9DC" }}>
-            <p className={`${monoKicker} flex items-center gap-1.5 text-[8.5px] text-faint`}>
+            <p className={`${monoKicker} flex items-center gap-1.5 text-floor text-faint`}>
               <Icon size={11} /> {l}
             </p>
             <p className="mt-1.5 text-[12.5px] font-semibold leading-snug text-ink">{v}</p>
@@ -95,7 +95,7 @@ export default async function SportGuidePage({ params }: { params: Promise<{ spo
         <section id="court" className={`${CARD} lg:col-span-2`}>
           <div className="flex items-baseline justify-between gap-4">
             <h2 className={`${monoKicker} text-flame-text`}>The court</h2>
-            <p className="font-mono text-[9.5px] font-semibold uppercase tracking-[.14em] text-faint">{r.court}</p>
+            <p className="font-mono text-floor font-semibold uppercase tracking-[.14em] text-faint">{r.court}</p>
           </div>
           <div className="mx-auto mt-3 max-w-[640px]">
             <CourtDiagram sport={sport} />
@@ -154,7 +154,7 @@ export default async function SportGuidePage({ params }: { params: Promise<{ spo
             {r.tiers.map((t, i) => (
               <div key={t.name} className="rounded-[12px] bg-bg px-3.5 py-2.5" style={{ border: "1px solid #EFE9DC" }}>
                 <p className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
-                  <span className="font-mono text-[9px] font-bold text-faint">T{i + 1}</span>
+                  <span className="font-mono text-floor font-bold text-faint">T{i + 1}</span>
                   {t.name}
                 </p>
                 <p className="mt-0.5 text-[12px] leading-relaxed text-mute">{t.desc}</p>

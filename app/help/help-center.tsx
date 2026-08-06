@@ -147,7 +147,7 @@ export function HelpCenter({ openChat }: { openChat?: () => void }) {
                 Try different words, ask the assistant, or send us a note — we read everything.
               </p>
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                <button type="button" onClick={openChat} className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-bold text-white">
+                <button type="button" onClick={openChat} className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-bold text-white">
                   <Sparkles size={14} className="text-pop" /> Ask the assistant
                 </button>
                 <Link href="/support" className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-bg px-4 py-2 text-sm font-semibold text-ink">

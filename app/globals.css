@@ -137,20 +137,28 @@ html {
   }
 }
 
-/* Fluid UI scale (desktop only). The whole interface is built on rem units, so
-   scaling the root font-size proportionally shrinks everything — type, spacing,
-   column widths, the sidebar — like an automatic browser zoom. Smaller monitors
-   settle at ~80% (the comfortable density on a laptop) and it eases up to 100% on
-   large displays (≥1920px), capped there so it never scales past the user's own
-   font-size preference. rem floor/ceiling keep it accessible; vw keeps it smooth
-   with no layout jumps. Media-query breakpoints are anchored to the browser
-   default, so responsive layouts still switch at the same widths. Below md (768px)
-   the mobile layout takes over and base sizing is left untouched. */
-@media (min-width: 768px) {
-  html {
-    font-size: clamp(0.8rem, 0.833vw, 1rem);
-  }
+/* Root font floor: 100% (decision D4, Aug 2026 — audit UX-001).
+   This USED to be `clamp(0.8rem, 0.833vw, 1rem)`, a fluid downscale that settled
+   at ~80% on laptop widths — so a typical desktop rendered the entire interface,
+   including body copy, at 12.8px root instead of 16px. That is below the
+   accessible floor, it silently overrode the user's own browser font-size
+   preference, and it made the many hard-coded 8–11px labels effectively
+   unreadable. The scale is removed rather than re-tuned: the interface now
+   renders at the browser default and honours whatever the user has chosen.
+   Consequence, accepted deliberately: every rem-based size on desktop is ~25%
+   larger than before. Dense surfaces are re-tuned per component rather than by
+   shrinking the root again. */
+
+/* Minimum text sizes (audit UX-003). Nothing that conveys meaning may render
+   below --text-floor. Decorative-only marks may use --text-micro. Both are rem,
+   so they scale with the user's preference instead of pinning to px. */
+:root {
+  --text-floor: 0.6875rem;  /* 11px at default root — hard minimum for real text */
+  --text-micro: 0.75rem;    /* 12px — the intended size for kickers and badges */
 }
+
+.text-floor { font-size: var(--text-floor); }
+.text-micro { font-size: var(--text-micro); }
 
 /* Safe-area helpers — padding that automatically matches each device's notch,
    Dynamic Island, home indicator, or curved corners (iPhone 17e through 17 Pro
@@ -295,7 +303,7 @@ select:focus-visible {
      every remaining kicker in the app to the new grammar in one place. */
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 9.5px;
+  font-size: var(--text-floor);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   line-height: 1.4;
@@ -333,7 +341,7 @@ select:focus-visible {
 .bkt-col { display: flex; flex-direction: column; min-width: 11.5rem; }
 .bkt-col-label {
   margin-bottom: 0.7rem; text-align: center;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  font-size: var(--text-micro); font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
   color: var(--color-mute);
 }
 .bkt-cell { position: relative; flex: 1 1 0; display: flex; align-items: center; padding: 0.4rem 0; }

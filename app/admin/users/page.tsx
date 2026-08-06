@@ -93,7 +93,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
             className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
           />
         </div>
-        <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Search</button>
+        <button type="submit" className="press rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Search</button>
       </form>
 
       <section className="mt-5 rounded-[14px] border border-rule bg-white p-4">
@@ -137,7 +137,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {u.verification_status === "pending" ? (
-                    <span className="rounded-md bg-[#FFF4E0] px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-[0.1em] text-[#9A6B00]">PENDING</span>
+                    <span className="rounded-md bg-[#FFF4E0] px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] text-[#9A6B00]">PENDING</span>
                   ) : null}
                   <span className="font-mono text-[11px] text-faint">{joinedAgo(u.created_at, nowMs)}</span>
                 </div>
@@ -169,14 +169,14 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {u.last_seen_at && Date.parse(u.last_seen_at) > onlineCutoff ? (
-                  <span className="inline-flex items-center gap-1 kicker rounded-full bg-success/10 px-2 py-0.5 text-[9px]" style={{ color: "var(--color-success)" }}>
+                  <span className="inline-flex items-center gap-1 kicker rounded-full bg-success/10 px-2 py-0.5 text-floor" style={{ color: "var(--color-success)" }}>
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-success)" }} /> online
                   </span>
                 ) : null}
-                {u.verification_status === "verified" ? <span className="kicker rounded-full bg-tint-brand px-2 py-0.5 text-[9px] text-brand-deep">verified</span> : null}
-                {u.verification_status === "pending" ? <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-tint-brand)", color: "var(--color-brand-deep)" }}>pending</span> : null}
+                {u.verification_status === "verified" ? <span className="kicker rounded-full bg-tint-brand px-2 py-0.5 text-floor text-brand-deep">verified</span> : null}
+                {u.verification_status === "pending" ? <span className="kicker rounded-full px-2 py-0.5 text-floor" style={{ background: "var(--color-tint-brand)", color: "var(--color-brand-deep)" }}>pending</span> : null}
                 {u.account_status !== "active" ? (
-                  <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[u.account_status] }}>{u.account_status}</span>
+                  <span className="kicker rounded-full px-2 py-0.5 text-floor" style={{ background: "var(--color-bg)", color: STATUS_TONE[u.account_status] }}>{u.account_status}</span>
                 ) : null}
               </div>
             </Link>

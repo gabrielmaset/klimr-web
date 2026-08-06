@@ -1,6 +1,8 @@
 # Klimr CI — the standing build gates, automated.
 # Runs on every push and pull request (including Dependabot's):
-# the same two gates every change has always had to pass locally.
+# lint -> typecheck -> vitest (incl. the K1-04 golden corpus & K1-07 safety
+# suite) -> build. The SQL RLS/invariant suite runs manually in the Supabase
+# SQL editor (no pgTAP install); see supabase/tests/.
 name: CI
 on:
   push:
@@ -18,4 +20,23 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx eslint .
-      - run: npm run build
+      - run: npx tsc --noEmit
+      - run: npm test
+      # K2-06: build once, capture the output, and publish the per-route
+      # bundle table as a job summary so a size regression is visible in the PR
+      # instead of discovered on a venue's Wi-Fi.
+      - name: Build
+        run: npm run build 2>&1 | tee /tmp/build.log
+      - name: Bundle report
+        if: always()
+        run: |
+          {
+            echo "### Route bundle sizes"
+            echo ""
+            echo '```'
+            sed -n '/Route (app)/,/^$/p' /tmp/build.log || echo "route table not found"
+            echo '```'
+            echo ""
+            echo "First Load JS shared by all:"
+            grep -E "First Load JS shared by all" /tmp/build.log || true
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -221,7 +221,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
         </div>
         <form action={checkInCourt}>
           <input type="hidden" name="courtId" value={court.id} />
-          <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
             <UserCheck size={15} /> Check in
           </button>
         </form>
@@ -288,7 +288,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
             />
             <div className="mt-2 flex items-center justify-between">
               <span className="flex items-center gap-1 text-[11px] text-faint"><ShieldCheck size={11} /> Screened before posting</span>
-              <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+              <button type="submit" className="press rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
                 {mine ? "Update review" : "Post review"}
               </button>
             </div>

@@ -79,6 +79,12 @@ export default async function AdminHome() {
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const since = new Date(now - 15 * 60_000).toISOString();
+  // Courtside fleet: how many displays are OPEN vs actually running live play
+  // (founder request Aug 2026, migration 0182). The second number is the one
+  // that means a venue is working, not merely powered on.
+  const { data: fleetRows } = await admin.rpc("courtside_fleet_status");
+  const fleet = fleetRows?.[0];
+
   const { data: activeRows } = await admin
     .from("profiles")
     .select("id, display_name, last_seen_at")
@@ -117,6 +123,33 @@ export default async function AdminHome() {
           );
         })}
       </div>
+
+      <Link href="/admin/devices" className="lift mt-7 block">
+        <div className="rounded-2xl border bg-surface p-5" style={{ borderColor: (fleet?.in_active_play ?? 0) > 0 ? "var(--color-brand)" : "var(--color-rule)" }}>
+          <div className="kicker flex items-center gap-2 text-faint">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ background: (fleet?.in_active_play ?? 0) > 0 ? "var(--color-success)" : "var(--color-faint)" }}
+            />
+            Courtside displays
+          </div>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+            <div>
+              <span className="font-display text-4xl leading-none" style={{ color: "var(--color-brand-deep)" }}>
+                {(fleet?.in_active_play ?? 0).toLocaleString("en-US")}
+              </span>
+              <span className="ml-2 text-[11px] font-semibold text-mute">running live play</span>
+            </div>
+            <div className="text-[11px] font-semibold text-mute">
+              {fleet?.on_live_session ?? 0} on a live session · {fleet?.app_open ?? 0} app open ·{" "}
+              {fleet?.registered ?? 0} registered
+            </div>
+          </div>
+          <div className="mt-1 text-[11px] text-faint">
+            &ldquo;Running live play&rdquo; means a team is waiting or a match is in progress — not just that the app is open.
+          </div>
+        </div>
+      </Link>
 
       <div className="mt-7">
         <div className="kicker mb-3 flex items-center gap-2 text-faint">

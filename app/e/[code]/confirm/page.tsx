@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sanitizeRichText, looksLikeHtml } from "@/lib/rich-text";
 import { redirect, notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -84,6 +85,7 @@ export default async function ConfirmPage({ params }: { params: Promise<{ code: 
         fields={fields}
         waiverText={legal.waiver_text ?? ""}
         rulesText={legal.rules_text ?? ""}
+        rulesHtml={legal.rules_text && looksLikeHtml(legal.rules_text) ? sanitizeRichText(legal.rules_text) : null}
         requireWaiver={!!legal.require_waiver}
         requireRules={!!legal.require_rules}
       />

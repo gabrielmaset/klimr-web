@@ -249,7 +249,7 @@ export function NetworkBrowser({
             <button
               type="button"
               onClick={togglePartners}
-              className={`press inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`press inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                 partnersOnly ? "border-transparent bg-pop text-white" : "border-rule bg-surface text-ink-soft hover:border-pop/50"
               }`}
             >
@@ -435,7 +435,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
     <button
       type="button"
       onClick={onClick}
-      className={`press rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${on ? "border-brand bg-brand text-white" : "border-rule bg-surface text-mute hover:border-brand/50 hover:text-ink"}`}
+      className={`press rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${on ? "border-brand bg-brand text-white" : "border-rule bg-surface text-mute hover:border-brand/50 hover:text-ink"}`}
     >
       {children}
     </button>

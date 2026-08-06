@@ -47,7 +47,7 @@ function toggleIn(set: Set<string>, v: string): Set<string> {
 function ClearLink({ n, onClear }: { n: number; onClear: () => void }) {
   if (n === 0) return null;
   return (
-    <button type="button" onClick={onClear} className="press font-mono text-[9px] font-bold uppercase tracking-[.14em] text-brand-deep hover:underline">
+    <button type="button" onClick={onClear} className="press font-mono text-floor font-bold uppercase tracking-[.14em] text-brand-deep hover:underline">
       {n} · Clear
     </button>
   );

@@ -40,7 +40,7 @@ export function JoinSuggest({ sport, zip }: { sport: string; zip: string }) {
   return (
     <div className="mt-6 overflow-hidden rounded-2xl border border-[#FFD9C2]" style={{ background: "linear-gradient(135deg,#FFF3EB,#FFFBF6)" }}>
       <div className="px-4 pt-3.5">
-        <p className="font-mono text-[9px] font-bold uppercase tracking-[.18em] text-flame-text">Before you create</p>
+        <p className="font-mono text-floor font-bold uppercase tracking-[.18em] text-flame-text">Before you create</p>
         <p className="mt-0.5 text-sm font-bold text-ink">
           {rows.length === 1 ? "An open match near you needs players" : `${rows.length} open matches near you need players`}
         </p>

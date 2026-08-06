@@ -143,7 +143,7 @@ export function GalleryEditor({ tournamentId, initial }: { tournamentId: string;
               style={{ objectPosition: `${g.x}% ${g.y}%`, transform: `scale(${g.zoom})`, transformOrigin: `${g.x}% ${g.y}%` }}
             />
             {i === 0 ? (
-              <span className="absolute left-1.5 top-1.5 rounded-[5px] bg-tint-brand px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.1em] text-flame-text" style={{ boxShadow: "inset 0 0 0 1px var(--color-tint-brand-bd)" }}>
+              <span className="absolute left-1.5 top-1.5 rounded-[5px] bg-tint-brand px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.1em] text-flame-text" style={{ boxShadow: "inset 0 0 0 1px var(--color-tint-brand-bd)" }}>
                 Leads
               </span>
             ) : null}

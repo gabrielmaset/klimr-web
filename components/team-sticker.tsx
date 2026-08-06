@@ -46,7 +46,7 @@ export function TeamSticker({
       <span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.55),rgba(255,255,255,0)_30%)]" />
       {/* hue band */}
       <div className="flex h-8 items-center justify-between px-3" style={{ background: band }}>
-        <span className="text-[9px] font-extrabold uppercase tracking-[0.07em] text-ink/55">{topLabel}</span>
+        <span className="text-floor font-extrabold uppercase tracking-[0.07em] text-ink/55">{topLabel}</span>
         {isOwner ? <Crown size={13} className="text-brand-deep" aria-label="Owner" /> : null}
       </div>
       {/* avatar overlapping the band */}
@@ -60,7 +60,7 @@ export function TeamSticker({
       {city ? <p className="truncate px-2 text-center text-[11px] text-mute">{city}</p> : <div className="h-[15px]" />}
       <div className="mt-2 flex min-h-[20px] flex-wrap justify-center gap-1.5 px-2">
         {skillLevel ? (
-          <span className="rounded-full border border-rule bg-bg px-2 py-0.5 text-[9.5px] font-semibold text-ink-soft">{skillLevel}</span>
+          <span className="rounded-full border border-rule bg-bg px-2 py-0.5 text-floor font-semibold text-ink-soft">{skillLevel}</span>
         ) : null}
       </div>
       <div className="mx-2 mb-3 mt-2.5 flex items-center justify-center gap-2 border-t border-dashed border-rule pt-2.5 text-[11px] font-semibold text-brand-deep">

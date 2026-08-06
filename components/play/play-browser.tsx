@@ -212,7 +212,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
                 : { background: "var(--color-surface)", borderColor: "var(--color-rule-2)", color: "var(--color-ink)" }
             }
           >
-            <span className="font-mono text-[9px] font-bold uppercase tracking-[.16em] opacity-60">Sport</span>
+            <span className="font-mono text-floor font-bold uppercase tracking-[.16em] opacity-60">Sport</span>
             <span className="h-4 w-px bg-current opacity-20" aria-hidden />
             {activeSport ? <SportIcon sport={activeSport.key} variant="glyph" size={17} /> : <LayoutGrid size={15} className="opacity-70" />}
             <span className="max-w-[130px] truncate">{activeSport?.name ?? "All sports"}</span>
@@ -259,7 +259,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
             onClick={() => setMenu(menu === "court" ? null : "court")}
             className={`${trigger} border-rule-2 bg-surface text-ink max-[899px]:w-full`}
           >
-            <span className="font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">Court</span>
+            <span className="font-mono text-floor font-bold uppercase tracking-[.16em] text-faint">Court</span>
             <span className="h-4 w-px bg-rule" aria-hidden />
             <MapPin size={14} className={activeCourt ? "text-flame-text" : "text-faint"} />
             <span className="max-w-[170px] truncate">{activeCourt?.name ?? "All courts"}</span>
@@ -278,7 +278,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
                 <button type="button" role="option" aria-selected={!court} className={rowCls} onClick={() => { set({ court: null }); setMenu(null); }}>
                   <span className="min-w-0 flex-1">
                     All courts
-                    <span className="mt-0.5 block font-mono text-[9px] font-semibold uppercase tracking-[.12em] text-faint">Near you</span>
+                    <span className="mt-0.5 block font-mono text-floor font-semibold uppercase tracking-[.12em] text-faint">Near you</span>
                   </span>
                   <span className="font-mono text-[10.5px] font-semibold text-faint">{base("court").length}</span>
                   {!court ? <Check size={14} className="text-flame-text" /> : null}
@@ -289,7 +289,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
                     <button key={c.id} type="button" role="option" aria-selected={on} className={`${rowCls} ${on ? "bg-tint-brand" : ""}`} onClick={() => { set({ court: c.id }); setMenu(null); }}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{c.name}</span>
-                        <span className="mt-0.5 block font-mono text-[9px] font-semibold uppercase tracking-[.12em] text-faint">
+                        <span className="mt-0.5 block font-mono text-floor font-semibold uppercase tracking-[.12em] text-faint">
                           {[c.city, c.distanceMi != null ? `${c.distanceMi.toFixed(1)} MI` : null].filter(Boolean).join(" · ")}
                         </span>
                       </span>
@@ -305,7 +305,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
 
         {/* When */}
         <div className="flex items-center gap-2 max-[899px]:w-full max-[899px]:overflow-x-auto">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">When</span>
+          <span className="font-mono text-floor font-bold uppercase tracking-[.16em] text-faint">When</span>
           <div className="flex items-center rounded-[11px] p-[3px]" style={{ background: "rgba(32,27,18,.05)" }}>
             {WHEN_SEGMENTS.map((w) => {
               const on = when === w.key;
@@ -386,7 +386,7 @@ export function PlayBrowser({ matches, courts, viewer, radiusMi }: { matches: Pl
           {results.length} open match{results.length === 1 ? "" : "es"} near you · Within {radiusMi} mi
         </p>
         <label className="flex items-center gap-2">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">Sort</span>
+          <span className="font-mono text-floor font-bold uppercase tracking-[.16em] text-faint">Sort</span>
           <select
             value={sort}
             onChange={(e) => set({ sort: e.target.value })}

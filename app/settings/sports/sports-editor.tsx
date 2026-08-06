@@ -90,7 +90,7 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
               {on ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2 pl-7">
                   <label className="flex flex-col gap-1">
-                    <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Level</span>
+                    <span className="font-mono text-floor font-semibold uppercase tracking-[0.12em] text-faint">Level</span>
                     <select value={s.level} onChange={(e) => set(k, { level: e.target.value })} className={selCls} aria-label="Skill level">
                       {LEVELS.map((l) => (
                         <option key={l.value} value={l.value}>{l.label}</option>
@@ -98,7 +98,7 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
                     </select>
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Format — singles / doubles</span>
+                    <span className="font-mono text-floor font-semibold uppercase tracking-[0.12em] text-faint">Format — singles / doubles</span>
                     <select value={s.format} onChange={(e) => set(k, { format: e.target.value })} className={selCls} aria-label="Format" disabled={sportFormats(k).length === 1}>
                     {sportFormats(k).map((f) => (
                       <option key={f.value} value={f.value}>{f.label}</option>
@@ -108,7 +108,7 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
                   </label>
                   {hasRatingSystem(SKILL_SYSTEM[k] ?? null) ? (
                     <label className="flex flex-col gap-1">
-                      <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">{SKILL_SYSTEM[k]} rating — optional</span>
+                      <span className="font-mono text-floor font-semibold uppercase tracking-[0.12em] text-faint">{SKILL_SYSTEM[k]} rating — optional</span>
                       <input
                       value={s.rating}
                       onChange={(e) => set(k, { rating: e.target.value })}
@@ -137,7 +137,7 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
         <button
           type="submit"
           disabled={pending || selectedKeys.length === 0}
-          className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+          className="press rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save changes"}
         </button>

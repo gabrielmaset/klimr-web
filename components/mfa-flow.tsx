@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Check, Copy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { signOutAction, recordLogin } from "@/app/auth/actions";
+import { signOutAction, recordLogin, verifyTotpAction } from "@/app/auth/actions";
 import { factorName } from "@/lib/mfa";
 
 type Phase = "loading" | "enroll" | "challenge" | "done" | "error";
@@ -73,15 +73,10 @@ export function MfaFlow({ next }: { next: string }) {
     setBusy(true);
     setErr(null);
     try {
-      const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({ factorId });
-      if (cErr) throw cErr;
-      const { error: vErr } = await supabase.auth.mfa.verify({
-        factorId,
-        challengeId: ch.id,
-        code: clean,
-      });
-      if (vErr) {
-        setErr("That code didn't match. Check your authenticator app and try again.");
+      // Verification runs server-side (lockout + throttle live there — K1-02).
+      const res = await verifyTotpAction(factorId, clean);
+      if (!res.ok) {
+        setErr(res.error);
         setBusy(false);
         return;
       }
@@ -110,7 +105,7 @@ export function MfaFlow({ next }: { next: string }) {
         aria-label="6-digit code"
         className="w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-3 text-center font-mono text-2xl tracking-[0.4em] text-ink outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
       />
-      <button
+      <button type="button"
         onClick={submit}
         disabled={busy}
         className="press flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
@@ -250,7 +245,7 @@ export function MfaFlow({ next }: { next: string }) {
 
       {phase !== "loading" && phase !== "done" ? (
         <form action={signOutAction} className="mt-6">
-          <button className="press text-sm text-mute underline underline-offset-2 transition-colors hover:text-ink">
+          <button type="submit" className="press text-sm text-mute underline underline-offset-2 transition-colors hover:text-ink">
             Sign out
           </button>
         </form>

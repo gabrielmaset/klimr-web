@@ -162,25 +162,25 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
             {post.verified ? <BadgeCheck size={14} className="shrink-0 text-[#D63A0F]" /> : null}
           </div>
           <div className="mt-0.5 flex items-center gap-2">
-            <span className="font-mono text-[9px] font-bold tracking-[0.13em]" style={{ color: t.color }}>
+            <span className="font-mono text-floor font-bold tracking-[0.13em]" style={{ color: t.color }}>
               {t.label}
             </span>
-            <span className="font-mono text-[9.5px] text-faint">{post.meta}</span>
+            <span className="font-mono text-floor text-faint">{post.meta}</span>
             {post.audience === "friends" ? (
-              <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold tracking-[0.08em] text-faint" title="Friends only">
+              <span className="inline-flex items-center gap-1 font-mono text-floor font-semibold tracking-[0.08em] text-faint" title="Friends only">
                 <Lock size={10} /> FRIENDS
               </span>
             ) : post.audience === "followers" ? (
-              <span className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold tracking-[0.08em] text-faint" title="Friends & followers">
+              <span className="inline-flex items-center gap-1 font-mono text-floor font-semibold tracking-[0.08em] text-faint" title="Friends & followers">
                 <Users size={10} /> FRIENDS+
               </span>
             ) : null}
             {post.status === "pending" ? (
-              <span className="rounded-md bg-[#FDF3DD] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#B45309]">
+              <span className="rounded-md bg-[#FDF3DD] px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] text-[#B45309]">
                 IN REVIEW · ONLY YOU
               </span>
             ) : post.status === "rejected" ? (
-              <span className="rounded-md bg-[#FDECEC] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#B42318]">
+              <span className="rounded-md bg-[#FDECEC] px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] text-[#B42318]">
                 NOT PUBLISHED
               </span>
             ) : null}
@@ -199,13 +199,13 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
         <div className="mt-3 flex items-center gap-4 rounded-[13px] border border-rule-soft bg-bg px-4 py-[13px]">
           <div className="min-w-0 flex-1">
             <p className="text-[13.5px] font-bold text-ink">
-              {post.match.winner} <span className="font-mono text-[9px] font-bold tracking-[0.1em] text-[#217A34]">WIN</span>
+              {post.match.winner} <span className="font-mono text-floor font-bold tracking-[0.1em] text-[#217A34]">WIN</span>
             </p>
             <p className="mt-0.5 text-[13.5px] font-semibold text-mute">{post.match.opponent}</p>
           </div>
           <div className="shrink-0 text-right">
             <p className="font-mono text-[19px] font-bold tracking-[-0.02em] text-ink">{post.match.score}</p>
-            <p className="mt-0.5 font-mono text-[9.5px] uppercase text-faint">{post.match.court}</p>
+            <p className="mt-0.5 font-mono text-floor uppercase text-faint">{post.match.court}</p>
           </div>
         </div>
       ) : null}
@@ -245,7 +245,7 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
         <div className="mt-3 flex items-center gap-3.5 rounded-[13px] bg-[linear-gradient(140deg,#FF6A35,#D63A0F)] px-4 py-[13px] text-white">
           <span className="font-display text-[30px] font-bold tracking-[-0.03em]">{post.milestone.rank}</span>
           <div className="flex-1">
-            <p className="font-mono text-[9px] font-bold tracking-[0.16em] text-white/75">NEW ALTITUDE</p>
+            <p className="font-mono text-floor font-bold tracking-[0.16em] text-white/75">NEW ALTITUDE</p>
             <p className="mt-0.5 text-[12.5px] font-semibold">{post.milestone.place}</p>
           </div>
           <svg viewBox="0 0 120 40" width="120" height="40" className="shrink-0" aria-hidden>
@@ -259,7 +259,7 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
         <div className="mt-3 flex items-center gap-3 rounded-[13px] bg-[linear-gradient(140deg,#F6CD1F,#D9A70B)] px-4 py-3 text-[#4A3708]">
           <Trophy size={22} className="shrink-0" />
           <div className="flex-1">
-            <p className="font-mono text-[9px] font-bold tracking-[0.16em]">ACHIEVEMENT</p>
+            <p className="font-mono text-floor font-bold tracking-[0.16em]">ACHIEVEMENT</p>
             <p className="mt-px text-[12.5px] font-bold">{post.milestone?.label || "Milestone shared with your courts"}</p>
           </div>
         </div>
@@ -295,7 +295,7 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
         >
           <Send size={15} /> Share
         </button>
-        {sharedNote ? <span className="font-mono text-[9.5px] text-[#217A34]">{sharedNote}</span> : null}
+        {sharedNote ? <span className="font-mono text-floor text-[#217A34]">{sharedNote}</span> : null}
         {shareOpen ? (
           <div className="absolute bottom-11 left-[170px] z-20 w-[220px] rounded-xl border border-rule-2 bg-surface p-1.5 shadow-e3">
             <button

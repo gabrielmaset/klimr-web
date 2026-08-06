@@ -193,7 +193,7 @@ export function FeedWire({ rows, discover }: { rows: WireRow[]; discover?: { peo
               type="button"
               onClick={() => toggleKind(k)}
               aria-pressed={!off}
-              className={`press inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[.12em] transition-all ${off ? "border-rule bg-bg text-faint opacity-60" : "border-transparent text-ink"}`}
+              className={`press inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-floor font-bold uppercase tracking-[.12em] transition-all ${off ? "border-rule bg-bg text-faint opacity-60" : "border-transparent text-ink"}`}
               style={off ? undefined : { background: `color-mix(in oklab, ${m.accent} 13%, transparent)`, color: m.accent }}
             >
               <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: off ? "var(--color-faint)" : m.accent }} />
@@ -207,7 +207,7 @@ export function FeedWire({ rows, discover }: { rows: WireRow[]; discover?: { peo
         {shown.map((b) => {
           if (b.t === "day") {
             return (
-              <p key={b.key} className="bg-bg/70 px-4 py-1.5 font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">
+              <p key={b.key} className="bg-bg/70 px-4 py-1.5 font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">
                 {b.label}
               </p>
             );
@@ -273,7 +273,7 @@ export function FeedWire({ rows, discover }: { rows: WireRow[]; discover?: { peo
           Show earlier <span className="font-mono text-[10.5px] text-faint">· {remaining} more</span>
         </button>
       ) : (
-        <p className="border-t border-rule-soft px-4 py-2.5 text-center font-mono text-[9.5px] font-bold uppercase tracking-[.16em] text-faint">
+        <p className="border-t border-rule-soft px-4 py-2.5 text-center font-mono text-floor font-bold uppercase tracking-[.16em] text-faint">
           You&rsquo;re all caught up — the wire keeps recent days; older items retire
         </p>
       )}
@@ -323,7 +323,7 @@ function WireLine({ row, nowMs, unseen, indent }: { row: WireRow; nowMs: number;
       <span className={`min-w-0 flex-1 text-[13.5px] leading-snug text-ink ${row.isPost ? "" : "truncate"}`}>
         <span className="font-bold">{row.text}</span>
         {row.repostOfName ? (
-          <span className="ml-1.5 inline-flex items-center gap-1 align-middle font-mono text-[9px] font-bold uppercase tracking-[.1em] text-faint">
+          <span className="ml-1.5 inline-flex items-center gap-1 align-middle font-mono text-floor font-bold uppercase tracking-[.1em] text-faint">
             <Repeat2 size={10} aria-hidden /> from {row.repostOfName}
           </span>
         ) : null}
@@ -337,7 +337,7 @@ function WireLine({ row, nowMs, unseen, indent }: { row: WireRow; nowMs: number;
         ) : null}
       </span>
       {row.sport ? <SportIcon sport={row.sport} variant="badge" size={14} className="opacity-90" /> : null}
-      {row.inCircle ? <span className="shrink-0 rounded-full bg-tint-brand px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.12em] text-brand-deep">Circle</span> : null}
+      {row.inCircle ? <span className="shrink-0 rounded-full bg-tint-brand px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.12em] text-brand-deep">Circle</span> : null}
       {row.isPost && row.postId ? (
         <button
           type="button"

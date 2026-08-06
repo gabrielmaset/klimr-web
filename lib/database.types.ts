@@ -599,6 +599,42 @@ export interface Database {
         };
         Relationships: [];
       };
+      mfa_failed_verification_attempts: {
+        Row: { user_id: string; factor_id: string; failed_count: number; last_failed_at: string; locked_until: string | null };
+        Insert: { user_id: string; factor_id: string; failed_count?: number; last_failed_at?: string; locked_until?: string | null };
+        Update: { failed_count?: number; last_failed_at?: string; locked_until?: string | null };
+        Relationships: [];
+      };
+      court_evidence: {
+        Row: { id: string; place_id: string; sport: string; source_url: string | null; source_label: string | null; excerpt: string | null; supports_verdict: string | null; confidence: number | null; extractor_model: string | null; fetched_at: string; created_at: string };
+        Insert: { id?: string; place_id: string; sport: string; source_url?: string | null; source_label?: string | null; excerpt?: string | null; supports_verdict?: string | null; confidence?: number | null; extractor_model?: string | null; fetched_at?: string; created_at?: string };
+        Update: { excerpt?: string | null; supports_verdict?: string | null; confidence?: number | null };
+        Relationships: [];
+      };
+      courtside_devices: {
+        Row: { install_id: string; label: string | null; venue_name: string | null; session_id: string | null; app_version: string | null; platform: string | null; network_state: string | null; battery_pct: number | null; last_ip_hash: string | null; first_seen_at: string; last_seen_at: string; retired_at: string | null; notes: string | null };
+        Insert: { install_id: string; label?: string | null; venue_name?: string | null; session_id?: string | null; app_version?: string | null; platform?: string | null; network_state?: string | null; battery_pct?: number | null; last_ip_hash?: string | null; first_seen_at?: string; last_seen_at?: string; retired_at?: string | null; notes?: string | null };
+        Update: { label?: string | null; venue_name?: string | null; notes?: string | null; retired_at?: string | null };
+        Relationships: [];
+      };
+      jobs: {
+        Row: { id: string; kind: string; payload: Json; dedupe_key: string | null; status: string; attempts: number; max_attempts: number; run_after: string; leased_until: string | null; lease_owner: string | null; last_error: string | null; correlation_id: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; kind: string; payload?: Json; dedupe_key?: string | null; status?: string; attempts?: number; max_attempts?: number; run_after?: string; leased_until?: string | null; lease_owner?: string | null; last_error?: string | null; correlation_id?: string | null; created_at?: string; updated_at?: string };
+        Update: { status?: string; attempts?: number; run_after?: string; leased_until?: string | null; lease_owner?: string | null; last_error?: string | null };
+        Relationships: [];
+      };
+      queue_session_version: {
+        Row: { session_id: string; version: number; updated_at: string };
+        Insert: { session_id: string; version?: number; updated_at?: string };
+        Update: { version?: number; updated_at?: string };
+        Relationships: [];
+      };
+      queue_command_log: {
+        Row: { idempotency_key: string; session_id: string; court_id: string | null; command: string; result_team_id: string | null; actor_user_id: string | null; created_at: string };
+        Insert: { idempotency_key: string; session_id: string; court_id?: string | null; command: string; result_team_id?: string | null; actor_user_id?: string | null; created_at?: string };
+        Update: { command?: string; result_team_id?: string | null };
+        Relationships: [];
+      };
       rank_snapshots: {
         Row: { snap_date: string; user_id: string; sport_key: string; points: number; rank: number };
         Insert: { snap_date: string; user_id: string; sport_key: string; points: number; rank: number };
@@ -1351,9 +1387,9 @@ export interface Database {
         Relationships: [];
       };
       court_sport_intel: {
-        Row: { place_id: string; sport: string; verdict: string; confidence: number; reliability: number; evidence: string | null; source: string | null; display_name: string | null; lat: number | null; lng: number | null; address: string | null; website: string | null; rating: number | null; rating_count: number | null; checked_at: string };
-        Insert: { place_id: string; sport: string; verdict: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; display_name?: string | null; lat?: number | null; lng?: number | null; address?: string | null; website?: string | null; rating?: number | null; rating_count?: number | null; checked_at?: string };
-        Update: { verdict?: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; display_name?: string | null; lat?: number | null; lng?: number | null; address?: string | null; website?: string | null; rating?: number | null; rating_count?: number | null; checked_at?: string };
+        Row: { place_id: string; sport: string; verdict: string; confidence: number; reliability: number; evidence: string | null; source: string | null; source_url: string | null; evidence_excerpt: string | null; verifying_at: string | null; display_name: string | null; lat: number | null; lng: number | null; address: string | null; website: string | null; rating: number | null; rating_count: number | null; checked_at: string };
+        Insert: { place_id: string; sport: string; verdict: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; source_url?: string | null; evidence_excerpt?: string | null; verifying_at?: string | null; display_name?: string | null; lat?: number | null; lng?: number | null; address?: string | null; website?: string | null; rating?: number | null; rating_count?: number | null; checked_at?: string };
+        Update: { verdict?: string; confidence?: number; reliability?: number; evidence?: string | null; source?: string | null; source_url?: string | null; evidence_excerpt?: string | null; verifying_at?: string | null; display_name?: string | null; lat?: number | null; lng?: number | null; address?: string | null; website?: string | null; rating?: number | null; rating_count?: number | null; checked_at?: string };
         Relationships: [];
       };
       service_usage: {
@@ -2062,6 +2098,19 @@ export interface Database {
       generate_invite_codes: { Args: { p_count: number; p_max_uses?: number; p_note?: string | null }; Returns: string[] };
       generate_investor_codes: { Args: { p_count: number; p_note?: string | null }; Returns: string[] };
       check_rate_limit: { Args: { p_key: string; p_max: number; p_window_seconds: number }; Returns: boolean };
+      place_on_team: { Args: { p_court_id: string; p_user_id: string | null; p_guest_name: string | null; p_idempotency_key: string | null }; Returns: string };
+      queue_version: { Args: { p_session_id: string }; Returns: number };
+      enqueue_job: { Args: { p_kind: string; p_payload: Json; p_dedupe_key: string | null; p_run_after: string; p_max_attempts: number; p_correlation_id: string | null }; Returns: string };
+      claim_jobs: { Args: { p_kind: string | null; p_limit: number; p_owner: string; p_lease_seconds: number }; Returns: Database["public"]["Tables"]["jobs"]["Row"][] };
+      complete_job: { Args: { p_id: string }; Returns: undefined };
+      fail_job: { Args: { p_id: string; p_error: string }; Returns: string };
+      replay_job: { Args: { p_id: string }; Returns: undefined };
+      merge_format_config: { Args: { p_id: string; p_patch: Json; p_expected_updated_at: string | null }; Returns: Json };
+      courtside_heartbeat: { Args: { p_install_id: string; p_app_version: string | null; p_platform: string | null; p_network_state: string | null; p_battery_pct: number | null; p_session_id: string | null; p_ip_hash: string | null }; Returns: undefined };
+      court_data_quality: { Args: Record<string, never>; Returns: { total_verdicts: number; confirmed: number; denied: number; unknown: number; coverage_pct: number | null; median_age_days: number | null; stale_pct: number | null; disagreement_pct: number | null; evidence_per_verdict: number | null; verifying_now: number }[] };
+      ranking_data_quality: { Args: Record<string, never>; Returns: { snapshot_days: number; latest_snapshot: string | null; hours_since_latest: number | null; players_in_latest: number; sports_covered: number }[] };
+      courtside_fleet_status: { Args: Record<string, never>; Returns: { registered: number; app_open: number; on_live_session: number; in_active_play: number }[] };
+      courtside_device_tiers: { Args: Record<string, never>; Returns: { install_id: string; tier: string; session_id: string | null; last_seen_at: string }[] };
       code_lock_seconds: { Args: { p_bucket: string }; Returns: number };
       note_code_failure: { Args: { p_bucket: string; p_max: number; p_window_seconds: number; p_lock_seconds: number }; Returns: number };
       clear_code_attempts: { Args: { p_bucket: string }; Returns: undefined };

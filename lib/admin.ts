@@ -1,4 +1,5 @@
 import "server-only";
+import { getStepUpDecision } from "@/lib/step-up";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -33,6 +34,11 @@ export async function requireAdmin(min: AdminRole = "support"): Promise<{ userId
   const a = await getAdminRole();
   if (!a) redirect("/");
   if (!atLeast(a.role, min)) redirect("/admin");
+  // Step-up assertion (audit SEC-006 · D8): every admin mutation runs at AAL2.
+  // 2FA is mandatory on every account, so a healthy session already is; an
+  // AAL1 session here means a stale or fixated cookie → re-verify at /mfa.
+  const step = await getStepUpDecision();
+  if (step !== "ok") redirect("/mfa?next=/admin");
   return a;
 }
 

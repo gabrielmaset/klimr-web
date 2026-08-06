@@ -47,7 +47,7 @@ export function SuggestCourtForm() {
       <FloatInput label="Google Maps link (optional)" id="sg-maps_url" name="maps_url" type="url" maxLength={400} />
       <FloatTextarea label="Anything else (optional)" id="sg-notes" name="notes" rows={3} maxLength={500} />
       {state?.error ? <p className="text-sm font-semibold text-[#B42318]">{state.error}</p> : null}
-      <button disabled={pending} className="press inline-flex items-center gap-2 rounded-[10px] bg-ink px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2A2622] disabled:opacity-60">
+      <button type="submit" disabled={pending} className="press inline-flex items-center gap-2 rounded-[10px] bg-ink px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2A2622] disabled:opacity-60">
         {pending ? <Loader2 size={15} className="animate-spin" /> : null} Send suggestion
       </button>
     </form>

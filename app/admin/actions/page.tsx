@@ -47,7 +47,7 @@ export default async function AdminActionsLog({ searchParams }: { searchParams: 
             className="w-full rounded-[10px] border border-rule-2 bg-surface py-2.5 pl-9 pr-3 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
         </div>
-        <button className="press rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Search</button>
+        <button type="submit" className="press rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Search</button>
       </form>
 
       <p className="mb-3 text-xs text-faint">{actions.length} {actions.length === 1 ? "action" : "actions"}{term ? ` matching “${term}”` : ""}</p>

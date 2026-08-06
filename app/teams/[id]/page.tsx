@@ -409,7 +409,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
       {amMember ? (
         <form action={leaveTeam} className="mt-8">
           <input type="hidden" name="teamId" value={team.id} />
-          <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-brand/40 hover:text-brand-deep">
+          <button type="submit" className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-brand/40 hover:text-brand-deep">
             {isOwner ? (isPro ? "Leave team (ownership passes on)" : "Leave team (team management passes on)") : "Leave team"}
           </button>
         </form>

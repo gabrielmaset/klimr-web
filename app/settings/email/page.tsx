@@ -49,7 +49,7 @@ export default async function EmailSettingsPage({ searchParams }: { searchParams
         <form action={updatePhone} className="mt-4 max-w-sm">
           <PhoneField defaultDigits={prof?.phone ?? null} defaultCountry={prof?.phone_country ?? "US"} />
           <div className="mt-3 flex items-center gap-3">
-            <button className="press rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:bg-ink-soft">Save phone</button>
+            <button type="submit" className="press rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:bg-ink-soft">Save phone</button>
             {phoneFlag === "saved" ? <span className="text-xs font-semibold text-brand-deep">Saved.</span> : null}
             {phoneFlag === "invalid" ? <span className="text-xs font-semibold text-[#B42318]">Enter a 10-digit US number.</span> : null}
           </div>

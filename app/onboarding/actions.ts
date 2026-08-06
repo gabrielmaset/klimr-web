@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { submitVerificationRequest } from "@/lib/verification";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { lookupZip } from "@/lib/us-places";
 import { ageFromDob } from "@/lib/age";
@@ -241,10 +242,12 @@ export async function requestVerification() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false as const };
-  const { data: me } = await supabase.from("profiles").select("verification_status").eq("id", user.id).maybeSingle();
-  if (me?.verification_status === "verified") return { ok: true as const, status: "verified" as const };
-  await supabase.from("profiles").update({ verification_status: "pending" }).eq("id", user.id);
-  return { ok: true as const, status: "pending" as const };
+  // Single server-mediated transition (audit ID-001): the old user-client
+  // update here was silently swallowed by the DB guard — UI said pending,
+  // the row never changed. lib/verification.ts is the one write path.
+  const res = await submitVerificationRequest(user.id);
+  if (!res.ok) return { ok: false as const };
+  return { ok: true as const, status: res.status === "verified" ? ("verified" as const) : ("pending" as const) };
 }
 
 /** Desktop → phone handoff (the Persona/Stripe pattern): a single-use,

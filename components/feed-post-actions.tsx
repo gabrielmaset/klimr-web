@@ -48,7 +48,7 @@ export function FeedPostActions({ postId, initialCount, initialLiked, mine }: { 
                 });
               }}
             >
-              <button disabled={pending} className="press font-bold text-[#b91c1c]">Delete?</button>
+              <button type="submit" disabled={pending} className="press font-bold text-[#b91c1c]">Delete?</button>
             </form>
             <button type="button" onClick={() => setConfirming(false)} className="press font-semibold text-mute">Keep</button>
           </span>

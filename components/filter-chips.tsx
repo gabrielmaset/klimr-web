@@ -11,7 +11,7 @@ import { Check } from "lucide-react";
 export function ChipRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[64px_minmax(0,1fr)]">
-      <span className="font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">{label}</span>
+      <span className="font-mono text-floor font-bold uppercase tracking-[.16em] text-faint">{label}</span>
       <div className="flex gap-1.5 overflow-x-auto py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {children}
       </div>
@@ -45,7 +45,7 @@ export function ChipButton({ active, onClick, children, count, size = "md" }: { 
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`press inline-flex ${size === "sm" ? "h-7 px-3 text-xs" : "h-8 px-3.5 text-[13px]"} shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border font-semibold transition-all ${
+      className={`press inline-flex ${size === "sm" ? "h-7 px-3 text-xs" : "h-8 px-3.5 text-[13px]"} shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border font-semibold transition-all ${
         active
           ? "border-ink bg-ink text-surface shadow-[0_2px_8px_-2px_rgba(32,27,18,.35)]"
           : "border-rule-2 bg-surface text-ink-soft hover:-translate-y-px hover:border-[#CDC3AE] hover:text-ink"
@@ -66,7 +66,7 @@ export function FilterGroup({ label, children, className = "", trailing, footer,
   return (
     <div role="group" aria-label={label} className={`relative flex min-w-0 flex-col rounded-2xl border border-rule-2 bg-surface px-1.5 pb-1.5 pt-3 ${className}`}>
       <span
-        className="absolute -top-[7px] left-3 inline-flex h-[14px] items-center gap-2 px-1.5 font-mono text-[9px] font-bold uppercase leading-none tracking-[.16em] text-faint"
+        className="absolute -top-[7px] left-3 inline-flex h-[14px] items-center gap-2 px-1.5 font-mono text-floor font-bold uppercase leading-none tracking-[.16em] text-faint"
         style={{ background: "linear-gradient(to bottom, transparent calc(50% - 1px), var(--color-surface) calc(50% - 1px))" }}
       >
         {label}

@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { rateLimit } from "@/lib/ratelimit";
+import { rateLimitStrict } from "@/lib/ratelimit";
 import { runAiSearch, type AiSearchResult } from "@/lib/ai-search";
 
 /** AI-enabled global search. SECURITY: retrieval runs on the USER's client —
@@ -14,7 +14,8 @@ export async function aiSearch(query: string): Promise<{ ok: boolean; result?: A
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Sign in to use AI search." };
-  const allowed = await rateLimit(`ai-search:${user.id}`, 12, 60);
+  // Cost-bearing endpoint (SEC-007): limiter outages fail CLOSED to the in-process bucket.
+  const allowed = await rateLimitStrict(`ai-search:${user.id}`, 12, 60);
   if (!allowed) return { ok: false, error: "A lot of searches at once — give it a few seconds." };
   const { data: profile } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
   const result = await runAiSearch(supabase, user.id, profile?.home_zip ?? null, q);

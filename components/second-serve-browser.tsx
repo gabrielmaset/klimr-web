@@ -32,7 +32,7 @@ export type BrowseListing = {
   saved: boolean;
 };
 
-const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]";
+const monoKicker = "font-mono text-floor font-bold uppercase tracking-[.18em]";
 
 function sportTone(key: string) {
   return key === "multi" ? MULTI_TONE : (SPORT_TONES[sportSlug(key)] ?? MULTI_TONE);
@@ -307,7 +307,7 @@ function ListingCard({ l, saved, onHeart }: { l: BrowseListing; saved: boolean; 
           <span className="grid h-full w-full place-items-center" aria-hidden><SportMark k={l.sport} size={44} /></span>
         )}
         {badge ? (
-          <span className="absolute left-2 top-2 rounded-[6px] px-[7px] py-[3px] font-mono text-[8px] font-bold uppercase tracking-[.12em]" style={{ background: badge.bg, color: badge.fg, boxShadow: `inset 0 0 0 1px ${badge.bd}` }}>
+          <span className="absolute left-2 top-2 rounded-[6px] px-[7px] py-[3px] font-mono text-floor font-bold uppercase tracking-[.12em]" style={{ background: badge.bg, color: badge.fg, boxShadow: `inset 0 0 0 1px ${badge.bd}` }}>
             {badge.label}
           </span>
         ) : null}
@@ -333,8 +333,8 @@ function ListingCard({ l, saved, onHeart }: { l: BrowseListing; saved: boolean; 
           <span className="font-mono text-[15.5px] font-bold tabular" style={{ color: l.mode === "trade" ? TRADE_TONE.fg : l.mode === "free" ? FREE_TONE.fg : "var(--color-ink)" }}>
             {priceLabel(l)}
           </span>
-          {l.mode === "sale" && l.obo ? <span className="font-mono text-[9px] font-bold text-faint">OBO</span> : null}
-          <span className="ml-auto shrink-0 font-mono text-[8.5px] font-bold uppercase tracking-[.1em] text-faint">{l.condition ?? ""}</span>
+          {l.mode === "sale" && l.obo ? <span className="font-mono text-floor font-bold text-faint">OBO</span> : null}
+          <span className="ml-auto shrink-0 font-mono text-floor font-bold uppercase tracking-[.1em] text-faint">{l.condition ?? ""}</span>
         </div>
         <p className="mt-1 truncate text-[13px] font-semibold text-ink">
           {l.title}
@@ -344,7 +344,7 @@ function ListingCard({ l, saved, onHeart }: { l: BrowseListing; saved: boolean; 
           <SportMark k={l.sport} size={13} className="mr-0.5" /> {l.distanceMi !== null ? `${l.distanceMi} mi` : "distance —"} · {l.postedDaysAgo}d ago
         </p>
         <div className="mt-2 flex items-center gap-1.5 border-t border-rule-soft pt-2">
-          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px] font-bold text-white" style={{ background: `linear-gradient(140deg, hsl(${l.sellerHue} 82% 52%), hsl(${l.sellerHue} 85% 38%))` }}>
+          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-floor font-bold text-white" style={{ background: `linear-gradient(140deg, hsl(${l.sellerHue} 82% 52%), hsl(${l.sellerHue} 85% 38%))` }}>
             {l.sellerName.slice(0, 1)}
           </span>
           <span className="truncate text-[11.5px] font-semibold text-ink-soft">

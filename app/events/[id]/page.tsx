@@ -433,7 +433,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <div className="mt-2.5 flex flex-wrap items-center gap-3">
                 <form action={reopenEvent}>
                   <input type="hidden" name="eventId" value={e.id} />
-                  <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
+                  <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
                     <RotateCcw size={14} /> Recover event
                   </button>
                 </form>
@@ -458,14 +458,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           myStatus === "going" ? (
             <form action={cancelRsvp}>
               <input type="hidden" name="eventId" value={e.id} />
-              <button className="press inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-tint-success px-5 py-2.5 text-sm font-semibold text-success">
+              <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg border border-success/40 bg-tint-success px-5 py-2.5 text-sm font-semibold text-success">
                 <Check size={15} /> You&apos;re in · tap to leave
               </button>
             </form>
           ) : myStatus === "pending" ? (
             <form action={cancelRsvp}>
               <input type="hidden" name="eventId" value={e.id} />
-              <button className="press inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-tint-warning px-5 py-2.5 text-sm font-semibold text-warning">
+              <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg border border-warning/30 bg-tint-warning px-5 py-2.5 text-sm font-semibold text-warning">
                 <Clock size={15} /> Awaiting approval · cancel
               </button>
             </form>
@@ -474,7 +474,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           ) : (
             <form action={rsvp}>
               <input type="hidden" name="eventId" value={e.id} />
-              <button className="press rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">{e.join_policy === "approval" ? "Request to join" : "Join event"}</button>
+              <button type="submit" className="press rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">{e.join_policy === "approval" ? "Request to join" : "Join event"}</button>
               <p className="mt-2 max-w-md text-[10.5px] leading-relaxed text-faint">
                 By joining you agree to the <a href="/legal#terms" target="_blank" className="font-semibold underline decoration-rule-2 underline-offset-2">Klimr Terms</a>, including assumption of risk &amp; release. This event is hosted by a member — Klimr is not the organizer.
               </p>
@@ -610,14 +610,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                       <form action={approveMember}>
                         <input type="hidden" name="eventId" value={e.id} />
                         <input type="hidden" name="userId" value={p.id} />
-                        <button className="press inline-flex items-center gap-1 rounded-full bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95">
+                        <button type="submit" className="press inline-flex items-center gap-1 rounded-lg bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95">
                           <Check size={13} /> Approve
                         </button>
                       </form>
                       <form action={denyMember}>
                         <input type="hidden" name="eventId" value={e.id} />
                         <input type="hidden" name="userId" value={p.id} />
-                        <button aria-label="Decline" className="press rounded-full border border-rule bg-white px-2 py-1.5 text-faint hover:text-brand-deep">
+                        <button type="submit" aria-label="Decline" className="press rounded-lg border border-rule bg-white px-2 py-1.5 text-faint hover:text-brand-deep">
                           <X size={14} />
                         </button>
                       </form>

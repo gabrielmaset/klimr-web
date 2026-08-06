@@ -33,7 +33,7 @@ export type ListingInitial = {
 
 const field =
   "h-[40px] w-full rounded-[10px] border border-rule-2 bg-surface px-3 text-[13px] text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15";
-const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint";
+const monoKicker = "font-mono text-floor font-bold uppercase tracking-[.18em] text-faint";
 
 export function ListingForm({ formMode, initial, defaultZip, defaultSport = null }: { formMode: "create" | "edit"; initial?: ListingInitial; defaultZip?: string | null; defaultSport?: string | null }) {
   const [state, formAction, pending] = useActionState(formMode === "create" ? createListing : updateListing, null);
@@ -146,7 +146,7 @@ export function ListingForm({ formMode, initial, defaultZip, defaultSport = null
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.url} alt="" className="h-full w-full object-cover" />
               {i === 0 ? (
-                <span className="absolute left-1.5 top-1.5 rounded-[5px] bg-tint-brand px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.1em] text-flame-text" style={{ boxShadow: "inset 0 0 0 1px var(--color-tint-brand-bd)" }}>
+                <span className="absolute left-1.5 top-1.5 rounded-[5px] bg-tint-brand px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.1em] text-flame-text" style={{ boxShadow: "inset 0 0 0 1px var(--color-tint-brand-bd)" }}>
                   Cover
                 </span>
               ) : null}

@@ -60,7 +60,7 @@ export default async function HealthReadPage({ params }: { params: Promise<{ slu
         </div>
 
         <div className="mt-7 rounded-2xl border border-rule bg-bg p-4">
-          <p className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Sources</p>
+          <p className="font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">Sources</p>
           <ul className="mt-1.5 grid gap-1">
             {article.sources.map((s) => (
               <li key={s.url}>
@@ -75,7 +75,7 @@ export default async function HealthReadPage({ params }: { params: Promise<{ slu
         {nextArticle ? (
           <Link href={`/health/read/${nextArticle.slug}`} className="press mt-5 flex items-center justify-between rounded-2xl border border-[#FFD9C2] bg-tint-brand p-4 transition-all hover:-translate-y-0.5">
             <span>
-              <span className="block font-mono text-[9px] font-bold uppercase tracking-[.18em] text-flame-text">Next in {FEATURED_COLLECTION.title}</span>
+              <span className="block font-mono text-floor font-bold uppercase tracking-[.18em] text-flame-text">Next in {FEATURED_COLLECTION.title}</span>
               <span className="mt-0.5 block text-sm font-bold text-ink">{nextArticle.title}</span>
             </span>
             <span className="text-brand-deep">→</span>

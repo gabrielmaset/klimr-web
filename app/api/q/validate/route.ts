@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cleanQueueCode, splitQueueCode } from "@/lib/queue";
+import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,11 @@ export const dynamic = "force-dynamic";
  *  existence is not a secret — the response still carries nothing beyond
  *  { ok, live, courts }. */
 export async function GET(req: Request) {
+  // Codes are credentials — throttle anonymous existence probes per IP.
+  const ip = await clientIp();
+  if (!(await rateLimitStrict(`qvalidate:ip:${ip}`, 30, 60))) {
+    return NextResponse.json({ ok: false, live: false, courts: 0 }, { status: 429, headers: { "cache-control": "no-store" } });
+  }
   const { searchParams } = new URL(req.url);
   const raw = cleanQueueCode(String(searchParams.get("code") ?? ""));
   const { code } = splitQueueCode(raw);

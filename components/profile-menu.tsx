@@ -81,7 +81,7 @@ export function ProfileMenu({ userId, name, alreadyReported }: { userId: string;
               <div className="mt-3 flex gap-2">
                 <form action={blockUser} className="flex-1">
                   <input type="hidden" name="userId" value={userId} />
-                  <button className="press w-full rounded-full bg-[#D92D20] px-3 py-2 text-xs font-bold text-white hover:brightness-105">Block</button>
+                  <button type="submit" className="press w-full rounded-lg bg-[#D92D20] px-3 py-2 text-xs font-bold text-white hover:brightness-105">Block</button>
                 </form>
                 <button type="button" onClick={() => setMode("menu")} className="press rounded-full border border-rule-2 px-3 py-2 text-xs font-semibold text-ink-soft">Cancel</button>
               </div>
@@ -97,7 +97,7 @@ export function ProfileMenu({ userId, name, alreadyReported }: { userId: string;
               </select>
               <textarea name="context" rows={2} maxLength={500} placeholder="Anything our team should know (optional)" className="mt-2 w-full resize-y rounded-[10px] border border-rule-2 bg-bg px-3 py-2 text-xs text-ink outline-none placeholder:text-faint" />
               <div className="mt-2 flex gap-2">
-                <button className="press flex-1 rounded-full bg-[#D92D20] px-3 py-2 text-xs font-bold text-white hover:brightness-105">Send report</button>
+                <button type="submit" className="press flex-1 rounded-lg bg-[#D92D20] px-3 py-2 text-xs font-bold text-white hover:brightness-105">Send report</button>
                 <button type="button" onClick={() => setMode("menu")} className="press rounded-full border border-rule-2 px-3 py-2 text-xs font-semibold text-ink-soft">Back</button>
               </div>
             </form>

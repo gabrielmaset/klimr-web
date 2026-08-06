@@ -16,7 +16,7 @@ export function HistoryList({ rows, emptyText }: { rows: HistoryRow[]; emptyText
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
               <span className="truncate text-sm font-bold text-ink">{r.title}</span>
-              {r.cancelled ? <span className="shrink-0 rounded-full bg-[#fef2f2] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#dc2626]">Cancelled</span> : null}
+              {r.cancelled ? <span className="shrink-0 rounded-full bg-[#fef2f2] px-1.5 py-0.5 text-floor font-bold uppercase tracking-wide text-[#dc2626]">Cancelled</span> : null}
             </span>
             <span className="mt-0.5 block truncate text-xs text-mute">{r.sub}</span>
           </span>

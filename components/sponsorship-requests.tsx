@@ -36,7 +36,7 @@ export function SponsorshipRequests({ items, backPath }: { items: SponsorshipReq
                   <input type="hidden" name="sponsorshipId" value={it.id} />
                   <input type="hidden" name="decision" value="approve" />
                   <input type="hidden" name="back" value={backPath} />
-                  <button className="press rounded-full bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95">
+                  <button type="submit" className="press rounded-lg bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95">
                     Approve
                   </button>
                 </form>
@@ -44,7 +44,7 @@ export function SponsorshipRequests({ items, backPath }: { items: SponsorshipReq
                   <input type="hidden" name="sponsorshipId" value={it.id} />
                   <input type="hidden" name="decision" value="decline" />
                   <input type="hidden" name="back" value={backPath} />
-                  <button className="press rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:border-faint">
+                  <button type="submit" className="press rounded-lg border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:border-faint">
                     Decline
                   </button>
                 </form>

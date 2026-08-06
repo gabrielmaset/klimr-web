@@ -272,7 +272,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           <p className="mx-auto mt-1 max-w-sm text-sm text-mute">They can&rsquo;t see you anywhere on Klimr, and you won&rsquo;t see their activity.</p>
           <form action={unblockUser} className="mt-4">
             <input type="hidden" name="userId" value={profile.id} />
-            <button className="press rounded-full border border-rule-2 bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">Unblock</button>
+            <button type="submit" className="press rounded-lg border border-rule-2 bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">Unblock</button>
           </form>
         </div>
       </div>
@@ -388,9 +388,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
   const statTile = (k: string, v: string, sub: string) => (
     <div className="rounded-2xl border border-[#EFE9DC] bg-bg px-4 py-3">
-      <p className={`${mono} text-[8.5px] font-bold uppercase tracking-[.16em] text-faint`}>{k}</p>
+      <p className={`${mono} text-floor font-bold uppercase tracking-[.16em] text-faint`}>{k}</p>
       <p className="mt-1 font-display text-[19px] font-bold leading-none text-ink">{v}</p>
-      <p className={`${mono} mt-1 text-[9px] uppercase tracking-wide text-faint`}>{sub}</p>
+      <p className={`${mono} mt-1 text-floor uppercase tracking-wide text-faint`}>{sub}</p>
     </div>
   );
 
@@ -514,7 +514,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
       {/* ── main grid ──────────────────────────────────────────────── */}
       <div className="mt-6 grid gap-[22px] lg:grid-cols-[minmax(0,1fr)_336px]">
         <div className="min-w-0">
-          <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Rankings · ZIP to world</p>
+          <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-faint`}>Rankings · ZIP to world</p>
 
           <div className="mt-3 grid gap-4">
             {sports.map((ps) => {
@@ -532,14 +532,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                       <div>
                         <p className="flex items-center gap-2 font-display text-lg font-bold text-ink">
                           {sportMeta(ps.sport_key).name}
-                          {ps.sport_key === mainSport ? <span className={`${mono} rounded-full border border-[#FFD4BC] bg-tint-brand px-2 py-0.5 text-[8.5px] font-bold uppercase tracking-wider text-brand-deep`}>Main sport</span> : null}
+                          {ps.sport_key === mainSport ? <span className={`${mono} rounded-full border border-[#FFD4BC] bg-tint-brand px-2 py-0.5 text-floor font-bold uppercase tracking-wider text-brand-deep`}>Main sport</span> : null}
                         </p>
                         <p className={`${mono} mt-0.5 text-[11px] uppercase text-faint`}>{ps.points.toLocaleString("en-US")} pts{ps.skill_rating != null ? ` · skill ${ps.skill_rating.toFixed(1)}` : ""}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className={`${mono} text-sm font-bold text-ink`}>{ps.wins}–{losses} <span className={winPctCls(ps.wins, ps.matches_played)}>{ps.matches_played ? `${Math.round((ps.wins / ps.matches_played) * 100)}%` : "—"}</span></p>
-                      <p className={`${mono} mt-1 flex items-center justify-end gap-1 text-[8.5px] font-bold uppercase tracking-wider text-faint`}>
+                      <p className={`${mono} mt-1 flex items-center justify-end gap-1 text-floor font-bold uppercase tracking-wider text-faint`}>
                         Form
                         <span className="ml-1 inline-flex gap-1">
                           {[...form].reverse().map((w, i) => (
@@ -553,17 +553,17 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
                   <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-[1.45fr_1fr_1fr_1fr_1fr]">
                     <div className="rounded-xl border border-[#FFD4BC] bg-tint-brand px-3 py-2.5">
-                      <p className={`${mono} flex items-center justify-between text-[8.5px] font-bold uppercase tracking-wider text-brand-deep`}>
+                      <p className={`${mono} flex items-center justify-between text-floor font-bold uppercase tracking-wider text-brand-deep`}>
                         ZIP {zip?.rank && zip.field ? <span>Top {Math.max(1, Math.round((zip.rank / zip.field) * 100))}%</span> : null}
                       </p>
                       <p className="mt-0.5 font-display text-[22px] font-bold leading-none text-ink">{zip?.rank ? `#${zip.rank}` : "—"}</p>
-                      <p className={`${mono} mt-0.5 text-[9px] text-faint`}>of {zip?.field ?? 0}</p>
+                      <p className={`${mono} mt-0.5 text-floor text-faint`}>of {zip?.field ?? 0}</p>
                     </div>
                     {rest.map((r) => (
                       <div key={r.label} className="rounded-xl border border-[#EFE9DC] bg-bg px-3 py-2.5">
-                        <p className={`${mono} text-[8.5px] font-bold uppercase tracking-wider text-faint`}>{r.label}</p>
+                        <p className={`${mono} text-floor font-bold uppercase tracking-wider text-faint`}>{r.label}</p>
                         <p className="mt-0.5 text-base font-bold leading-none text-ink">{r.rank ? `#${r.rank}` : "—"}</p>
-                        <p className={`${mono} mt-0.5 text-[9px] text-faint`}>of {r.field}</p>
+                        <p className={`${mono} mt-0.5 text-floor text-faint`}>of {r.field}</p>
                       </div>
                     ))}
                   </div>
@@ -575,7 +575,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
           {gallery.length > 0 ? (
             <div className="mt-5 rounded-3xl border border-rule bg-surface shadow-e1 p-5">
-              <p className={`${mono} flex items-center justify-between text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>
+              <p className={`${mono} flex items-center justify-between text-floor font-bold uppercase tracking-[.18em] text-faint`}>
                 Photo gallery <span>{gallery.length} photos</span>
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
@@ -596,7 +596,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
           {recentQp.length > 0 ? (
             <div className="mt-5 rounded-3xl border border-rule bg-surface shadow-e1 p-5">
-              <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Recent matches</p>
+              <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-faint`}>Recent matches</p>
               <div className="mt-2 divide-y divide-rule-soft">
                 {recentQp.map((m) => (
                   <div key={m.match_id as string} className="flex items-center gap-3 py-2.5">
@@ -621,7 +621,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               <svg className="absolute inset-0 h-full w-full opacity-[0.14]" preserveAspectRatio="none" viewBox="0 0 336 220" aria-hidden>
                 <polyline points="0,190 60,120 110,160 180,70 240,130 300,50 336,90" fill="none" stroke="#fff" strokeWidth="2" />
               </svg>
-              <p className={`${mono} relative text-[9.5px] font-bold uppercase tracking-[.18em] text-white/80`}>Head-to-head</p>
+              <p className={`${mono} relative text-floor font-bold uppercase tracking-[.18em] text-white/80`}>Head-to-head</p>
               {h2h ? (
                 <div className="relative">
                   <p className="mt-2 font-display text-[38px] font-bold leading-none">You {h2h.wins} – {h2h.losses} {first}</p>
@@ -646,7 +646,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
           {teams.length > 0 || tourns.length > 0 ? (
             <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5">
-              <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Teams &amp; tournaments</p>
+              <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-faint`}>Teams &amp; tournaments</p>
               <div className="mt-2 grid gap-1">
                 {teams.map((t) => {
                   const st = tintOf(t.sport_key);
@@ -656,7 +656,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="truncate text-[13px] font-bold text-ink">{t.name}</span>
-                          <span className={`${mono} shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase`} style={{ background: st.bg, borderColor: st.bd, color: st.fg }}>
+                          <span className={`${mono} shrink-0 rounded-full border px-1.5 py-0.5 text-floor font-bold uppercase`} style={{ background: st.bg, borderColor: st.bd, color: st.fg }}>
                             {t.role === "captain" ? "Captain" : t.role === "co_captain" ? "Co-captain" : "Player"}
                           </span>
                         </span>
@@ -673,11 +673,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-[13px] font-bold text-ink">{t.title}</span>
                         {t.inBracket ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#CFE8D5] bg-[#EFF8F0] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase text-[#217A34]">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#CFE8D5] bg-[#EFF8F0] px-1.5 py-0.5 font-mono text-floor font-bold uppercase text-[#217A34]">
                             <span className="live-dot h-1.5 w-1.5 rounded-full bg-[#2F9E44]" /> In bracket
                           </span>
                         ) : (
-                          <span className={`${mono} shrink-0 rounded-full border border-[#FFD4BC] bg-tint-brand px-1.5 py-0.5 text-[8px] font-bold uppercase text-brand-deep`}>Registered</span>
+                          <span className={`${mono} shrink-0 rounded-full border border-[#FFD4BC] bg-tint-brand px-1.5 py-0.5 text-floor font-bold uppercase text-brand-deep`}>Registered</span>
                         )}
                       </span>
                       {t.endsAt ? <span className="block text-[11px] text-faint">Starts {fmtDay(t.endsAt)}</span> : null}
@@ -691,7 +691,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
           {gear.length > 0 ? (
             <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5">
-              <p className={`${mono} flex items-center justify-between text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>
+              <p className={`${mono} flex items-center justify-between text-floor font-bold uppercase tracking-[.18em] text-faint`}>
                 Gear bag <span>Player-listed</span>
               </p>
               <div className="mt-2 grid gap-2">
@@ -713,7 +713,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
           {courts.length > 0 ? (
             <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5">
-              <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Plays at</p>
+              <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-faint`}>Plays at</p>
               <div className="mt-2 grid gap-1">
                 {courts.map((c) => (
                   <Link key={c.id} href={`/courts/${c.id}`} className="press -mx-2 flex items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-bg">
@@ -733,7 +733,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
           {!isSelf && mutualNames.length > 0 ? (
             <Link href="/network" className="press rounded-3xl border border-rule bg-surface shadow-e1 p-5 transition-all hover:-translate-y-0.5 hover:shadow-e2">
-              <p className={`${mono} text-[9.5px] font-bold uppercase tracking-[.18em] text-faint`}>Mutual network</p>
+              <p className={`${mono} text-floor font-bold uppercase tracking-[.18em] text-faint`}>Mutual network</p>
               <div className="mt-2.5 flex items-center gap-3">
                 <span className="flex">
                   {mutualNames.slice(0, 4).map((n, i) => (

@@ -1,6 +1,8 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimitStrict, clientIp } from "@/lib/ratelimit";
+import { enqueueJob, newCorrelationId } from "@/lib/jobs";
 import { createClient } from "@/lib/supabase/server";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
 import { requireAdmin } from "@/lib/admin";
@@ -38,6 +40,9 @@ export type CourtResult = {
   website: string | null;
   /** Klimr source-checked this venue for this sport (court_sport_intel). */
   verified?: boolean;
+  /** In the result set from Google/model but not yet source-confirmed —
+   *  renders the "Listed — not yet verified" third state (audit COURT + D10). */
+  listedUnverified?: boolean;
 };
 
 export type SearchStatus = "ok" | "empty" | "not_configured" | "capped" | "bad_input" | "no_location" | "error";
@@ -274,8 +279,32 @@ async function verifyVenues(targets: { id: string; name: string; website: string
     if (targets.length === 0) return;
     const model = process.env.COURTS_EXTRACT_MODEL || COURTS_EXTRACT_MODEL_DEFAULT;
     const sportName = sportMeta(sport).name;
+    const stampAdmin = createAdminClient();
+    // Concurrency guard (audit COURT-007): skip any venue another search is
+    // already verifying (stamp < 2 min old), then claim the rest by stamping
+    // verifying_at. Prevents duplicate concurrent website fetches of one place.
+    const ids = targets.map((t) => t.id);
+    const { data: inflight } = await stampAdmin
+      .from("court_sport_intel")
+      .select("place_id, verifying_at")
+      .eq("sport", sport)
+      .in("place_id", ids);
+    const busy = new Set(
+      (inflight ?? [])
+        .filter((r) => r.verifying_at && Date.now() - Date.parse(r.verifying_at) < 120_000)
+        .map((r) => r.place_id),
+    );
+    const claim = targets.filter((t) => !busy.has(t.id));
+    if (claim.length === 0) return;
+    const nowStamp = new Date().toISOString();
+    // Stamp existing rows; brand-new venues get their stamp on upsert below.
+    await stampAdmin
+      .from("court_sport_intel")
+      .update({ verifying_at: nowStamp })
+      .eq("sport", sport)
+      .in("place_id", claim.map((t) => t.id));
     const rows = await Promise.all(
-      targets.map(async (v) => {
+      claim.map(async (v) => {
         try {
           const resp = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
@@ -290,7 +319,7 @@ async function verifyVenues(targets: { id: string; name: string; website: string
                 `For chain gyms and clubs (LA Fitness, 24 Hour Fitness, Equinox, YMCA branches…), verify the SPECIFIC location\u2019s own club/branch page and amenities — chains vary by club; the brand homepage proves nothing.\n` +
                 `Corroboration rules: no single mention confirms or denies — require the venue's own site/an official page, OR at least two independent sources agreeing. Recent sources outweigh old ones (courts close or get converted). If sources conflict, prefer the venue's own current pages.\n` +
                 `Verdicts: "confirmed" — current sources clearly show ${sportName} courts/facilities AT this venue. "denied" — the venue's own facilities information or multiple sources clearly show it does NOT offer ${sportName} (e.g. its site lists other sports only), OR at least two independent sources describe this venue's amenities and NONE mentions ${sportName} — consistent omission across amenity lists is evidence of absence for a facility that would list it. "unknown" — you could not establish it either way; a failed search is unknown, never a denial.\n` +
-                `After searching, reply with ONLY minified JSON, nothing else: {"verdict":"confirmed|denied|unknown","confidence":0..1,"evidence":"\u2264160 chars naming the source","display_name":"the venue\u2019s proper canonical name"}`,
+                `After searching, reply with ONLY minified JSON, nothing else: {"verdict":"confirmed|denied|unknown","confidence":0..1,"evidence":"\u2264160 chars naming the source","evidence_excerpt":"\u2264500-char direct quote from the source that supports the verdict","source_url":"the exact URL you read","display_name":"the venue\u2019s proper canonical name"}`,
               messages: [
                 {
                   role: "user",
@@ -318,7 +347,7 @@ async function verifyVenues(targets: { id: string; name: string; website: string
             console.error("[courts] verifier parse failed", text.slice(0, 200));
             return null;
           }
-          const parsed = JSON.parse(text.slice(s, e + 1)) as { verdict?: string; confidence?: number; evidence?: string; display_name?: string };
+          const parsed = JSON.parse(text.slice(s, e + 1)) as { verdict?: string; confidence?: number; evidence?: string; display_name?: string; source_url?: string; evidence_excerpt?: string };
           if (!["confirmed", "denied", "unknown"].includes(parsed.verdict ?? "")) return null;
           const conf = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
           return {
@@ -328,6 +357,9 @@ async function verifyVenues(targets: { id: string; name: string; website: string
             confidence: conf,
             reliability: parsed.verdict === "unknown" ? 0.3 : Math.min(0.95, 0.75 + 0.2 * conf),
             evidence: (parsed.evidence ?? "").slice(0, 200) || null,
+            evidence_excerpt: (parsed.evidence_excerpt ?? "").slice(0, 600) || null,
+            source_url: typeof parsed.source_url === "string" && /^https?:\/\//.test(parsed.source_url) ? parsed.source_url.slice(0, 500) : null,
+            verifying_at: null,
             display_name: typeof parsed.display_name === "string" && parsed.display_name.trim().length > 2 ? parsed.display_name.trim().slice(0, 80) : null,
             lat: v.lat,
             lng: v.lng,
@@ -520,6 +552,51 @@ async function aiFilter(
   }
 }
 
+/** Confirmed-intel-only result list (audit COURT-006 fallback). Returns
+ *  Klimr-verified courts for this sport within the radius, straight from
+ *  court_sport_intel with no Google/model call — the graceful degradation
+ *  used when keys are missing or the judge is down. Rows without coordinates
+ *  are skipped (can't be range-filtered). */
+async function intelOnlyResults(
+  admin: ReturnType<typeof createAdminClient>,
+  sport: string,
+  center: { lat: number; lng: number },
+  radiusKm: number,
+): Promise<CourtResult[]> {
+  try {
+    const { data: rows } = await admin
+      .from("court_sport_intel")
+      .select("place_id, display_name, lat, lng, address, website, rating, rating_count, verdict, checked_at")
+      .eq("sport", sport)
+      .eq("verdict", "confirmed");
+    const out: CourtResult[] = [];
+    for (const r of rows ?? []) {
+      if (!intelIsFresh("confirmed", r.checked_at) || r.lat == null || r.lng == null) continue;
+      const dKm = haversineKm(center.lat, center.lng, Number(r.lat), Number(r.lng));
+      if (dKm > radiusKm) continue;
+      out.push({
+        id: r.place_id,
+        name: r.display_name ?? "Court",
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        address: r.address,
+        rating: r.rating != null ? Number(r.rating) : null,
+        ratingCount: r.rating_count,
+        distanceKm: Math.round(dKm * 10) / 10,
+        private: false,
+        sport,
+        website: r.website,
+        verified: true,
+        listedUnverified: false,
+      });
+    }
+    return out.sort((a, b) => a.distanceKm - b.distanceKm);
+  } catch (e) {
+    console.error("[courts] intel-only fallback failed", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
 export async function searchCourts(input: { locationKey: string; radiusKm: number; sport: string; lat?: number; lng?: number }): Promise<SearchResponse> {
   const sb = await createClient();
   const {
@@ -547,13 +624,20 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   }
   const locationKey = place.key;
 
-  const googleKey = process.env.GOOGLE_MAPS_API_KEY;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!googleKey || !anthropicKey) {
-    return { status: "not_configured", courts: [], source: "none" };
+  // K1-05 (audit COURT-004): per-user limiter + a per-user daily ceiling on
+  // LIVE search, both fail-CLOSED (cost-bearing). Cache hits below don't count
+  // — only an actual live slot claim does, so browsing cached areas is free.
+  const ip = await clientIp();
+  if (!(await rateLimitStrict(`court-live:burst:${user.id}:${ip}`, 8, 60))) {
+    return { status: "error", courts: [], source: "none", message: "A lot of searches at once — give it a few seconds." };
   }
 
   const admin = createAdminClient();
+  const googleKey = process.env.GOOGLE_MAPS_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  // NOTE (audit COURT-005): the key check moved BELOW the cache consult — a
+  // cached area keeps serving through a Google/Anthropic key rotation. Only a
+  // path that must go LIVE requires keys, and that check sits at the live gate.
   const ttlDays = num(process.env.COURTS_CACHE_TTL_DAYS, 7);
   const cap = num(process.env.COURTS_MONTHLY_LIVE_SEARCH_CAP, 800);
   const model = process.env.COURTS_AI_MODEL || COURTS_AI_MODEL_DEFAULT;
@@ -578,22 +662,29 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
     // cap and Google quota, short enough to recover fast.
     const freshMs = cached.length > 0 ? ttlDays * 86_400_000 : 30 * 60_000;
     if (ageMs < freshMs) {
-      const { data: newest } = await admin
-        .from("court_sport_intel")
-        .select("checked_at")
-        .eq("sport", sport)
-        .order("checked_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const intelNewer = newest ? Date.parse(newest.checked_at) > Date.parse(cacheRow.fetched_at) : false;
-      if (!intelNewer) {
-        const served = await overlayIntelOnCache(admin, cached, sport, center, requestedKm, googleKey);
-        return served.length > 0
-          ? { status: "ok", courts: served, source: "cache" }
-          : { status: "empty", courts: [], source: "cache", message: noneMsg };
-      }
-      // Newer intel exists → fall through to a live pass that knows it.
+      // D9 Option A (audit COURT-007/ADD-01): serve the cache and let the
+      // read-time overlay reconcile it against the intel table. The old
+      // "newer intel ⇒ go live" fall-through caused a SELF-INVALIDATION loop —
+      // a live pass wrote fresh intel that was, by construction, newer than
+      // the cache row it had just written, so the next identical search always
+      // went live again and re-burned the cap. The overlay already applies the
+      // newest verdicts at read time, so a live pass is not needed here.
+      // overlayIntelOnCache tolerates a missing Google key (best-effort
+      // hydration only), so cached areas serve through key rotations too.
+      const served = await overlayIntelOnCache(admin, cached, sport, center, requestedKm, googleKey ?? "");
+      return served.length > 0
+        ? { status: "ok", courts: served, source: "cache" }
+        : { status: "empty", courts: [], source: "cache", message: noneMsg };
     }
+  }
+
+  // Live path requires keys (checked here, not before the cache — COURT-005).
+  // When keys are absent but we have ANY intel for this sport in range, serve
+  // that intel-only list rather than nothing (audit COURT-006 fallback).
+  if (!googleKey || !anthropicKey) {
+    const intelOnly = await intelOnlyResults(admin, sport, center, requestedKm);
+    if (intelOnly.length > 0) return { status: "ok", courts: intelOnly, source: "cache", message: "Showing Klimr-verified courts — live search is briefly unavailable." };
+    return { status: "not_configured", courts: [], source: "none" };
   }
 
   // 2) Claim a live search slot under the monthly cap (atomic). If we're capped,
@@ -752,8 +843,11 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
       verdicts = await aiFilter(undecided, sport, COURTS_EXTRACT_MODEL_DEFAULT, anthropicKey, intel);
     }
     if (!verdicts) {
-      // Screening down ≠ no courts. Say so, and cache NOTHING — a judge
-      // hiccup must never poison 30 minutes of "no courts exist".
+      // Screening down ≠ no courts. Serve any confirmed intel in range so the
+      // feature degrades to "verified-only" instead of empty; cache NOTHING —
+      // a judge hiccup must never poison 30 minutes of "no courts exist".
+      const intelOnly = await intelOnlyResults(admin, sport, center, requestedKm);
+      if (intelOnly.length > 0) return { status: "ok", courts: intelOnly, source: "cache", message: "Showing Klimr-verified courts — full screening is briefly unavailable." };
       return { status: "error", courts: [], source: "none", message: "Court screening is briefly unavailable — try again in a moment." };
     }
     // Judge-flagged unknowns: queued for the post-response verifier
@@ -775,6 +869,7 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
         id: c.id,
         name: intel.get(c.id)?.displayName ?? verdicts.get(c.id)?.name ?? c.name,
         verified: intel.get(c.id)?.verdict === "confirmed" && !intel.get(c.id)!.stale,
+        listedUnverified: !(intel.get(c.id)?.verdict === "confirmed" && !intel.get(c.id)!.stale),
         lat: c.lat,
         lng: c.lng,
         address: c.address,
@@ -804,7 +899,24 @@ export async function searchCourts(input: { locationKey: string; radiusKm: numbe
   // — their own website is fetched and READ by the extractor, and the
   // verdict + reliability score persist in court_sport_intel. The next
   // search over this area starts from knowledge, not guesses.
-  after(() => verifyVenues(verifyTargets, sport, anthropicKey));
+  // K2-03: verification is now DURABLE. Each unsure venue is enqueued as its
+  // own job (deduped per venue+sport, so concurrent searches over the same
+  // area don't pile up duplicates); the inline `after` pass still runs as the
+  // fast path. If this instance is recycled mid-flight, the job survives, is
+  // retried with backoff, and dead-letters into /admin/jobs instead of the
+  // venue silently never being verified.
+  const correlationId = newCorrelationId();
+  after(async () => {
+    for (const t of verifyTargets) {
+      await enqueueJob({
+        kind: "verify_venue",
+        payload: { placeId: t.id, sport },
+        dedupeKey: `verify:${t.id}:${sport}`,
+        correlationId,
+      });
+    }
+    await verifyVenues(verifyTargets, sport, anthropicKey);
+  });
 
   return wide.length > 0 ? { status: "ok", courts: wide, source: "live" } : { status: "empty", courts: [], source: "live", message: noneMsg };
 }

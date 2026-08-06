@@ -37,7 +37,7 @@ export function BroadcastForm() {
         <button
           type="submit"
           disabled={pending}
-          className="press inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-60"
+          className="press inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-60"
           style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
         >
           {pending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} {pending ? "Sending…" : "Send broadcast"}

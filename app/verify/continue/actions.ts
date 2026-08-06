@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { submitVerificationRequest } from "@/lib/verification";
 
 /** Consume the handoff: single-use, unexpired token → file the verification
  *  request (status 'pending') for its owner. Never downgrades 'verified'. */
@@ -22,7 +23,8 @@ export async function confirmHandoff(formData: FormData) {
 
   const { data: me } = await admin.from("profiles").select("verification_status").eq("id", h.user_id).maybeSingle();
   if (me?.verification_status !== "verified") {
-    await admin.from("profiles").update({ verification_status: "pending" }).eq("id", h.user_id);
+    // Same single transition as every other entry point (lib/verification.ts).
+    await submitVerificationRequest(h.user_id);
   }
   redirect("/verify/continue/done");
 }

@@ -60,12 +60,12 @@ export default async function AdminTicket({ params }: { params: Promise<{ id: st
         <form action={setTicketStatus} className="flex flex-wrap gap-1.5">
           <input type="hidden" name="ticketId" value={t.id} />
           {STATUSES.map((s) => (
-            <button
+            <button type="submit"
               key={s.key}
               name="status"
               value={s.key}
               disabled={t.status === s.key}
-              className={`press rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+              className={`press rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
                 t.status === s.key ? "bg-ink text-white" : "border border-rule text-mute hover:text-ink"
               }`}
             >
@@ -122,7 +122,7 @@ export default async function AdminTicket({ params }: { params: Promise<{ id: st
                 placeholder="Notes for the team — the member never sees this."
                 className="w-full resize-none rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-ink/40"
               />
-              <button className="press mt-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white">Save note</button>
+              <button type="submit" className="press mt-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white">Save note</button>
             </form>
           </div>
         </div>

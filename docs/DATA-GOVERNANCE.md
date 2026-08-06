@@ -73,3 +73,81 @@ at purge.
   personal content cascades.
 - Any future EU availability triggers a GDPR review before launch (erasure
   grounds are narrower than CCPA's exemptions).
+
+---
+
+## 7. Object-level data map (K1-08 · audit PRIV-001/PRIV-003)
+
+Classification per object: **P** = personal (identifies a member), **Op** =
+operational, **Sec** = security/audit. "Reader" is who may read at runtime.
+
+### Tables — personal
+| Object | Class | Purpose | Reader (runtime) | Retention |
+|---|---|---|---|---|
+| `profiles` | P | Account, display identity, home ZIP | Owner + RLS-scoped viewers; service role | Life of account; purged on deletion |
+| `auth.users` | P | Auth identity, email | Supabase Auth; service role | Life of account; deleted on purge |
+| `mfa_failed_verification_attempts` | Sec | TOTP lockout counters (0055) | `supabase_auth_admin` + privileged server (K1-02) | Rows self-expire; cleared on success |
+| `connections` / social graph (0099) | P | Follows, requests, blocks | RLS-scoped to the two parties | Life of account |
+| `event_registrations`, `tournament_registrations` | P | Who signed up | Organizer + registrant (RLS) | Life of event + history value |
+| `queue_teams`, `queue_join_requests` | P | Live-play participation, guest names | Session organizer + participant (RLS) | Cleared on session reset/off |
+| `posts`, `comments`, `post_tags` | P | Social feed content | Audience-scoped (RLS) | Life of account or until deleted |
+| `deleted_users_ledger` | P | Purged-UUID → identity mapping | **Service role only** (RLS, zero grants) | Retained (legal/audit); the only post-purge identity map |
+
+### Tables — operational / security
+| Object | Class | Purpose | Reader | Retention |
+|---|---|---|---|---|
+| `rank_snapshots` | Op | Nightly ranking history for feed moves | **Definer function only** (0174: RLS on, grants revoked) | Rolling |
+| `court_search_cache` | Op | Cached court lists per ZIP+radius+sport | Service role | TTL (default 7d); empty rows 30 min |
+| `court_sport_intel` | Op | Source-checked venue verdicts + evidence (0175) | Service role; read-overlaid into results | Freshness-scored; re-verified on staleness |
+| `admin_actions` | Sec | Append-only staff + privileged-client audit (K1-01) | Admins (RLS); service role | Retained |
+| `error_logs` | Sec | Server + Courtside diagnostics | Admins (RLS) | Rolling; daily cap (K1-03) |
+| `service_usage` | Op | Monthly live-search spend counter | Service role | Rolling monthly |
+
+### Storage buckets
+| Bucket | Class | Contents | Reader | Retention |
+|---|---|---|---|---|
+| Avatars | P | Profile images | Public-read by design; owner writes | Removed on purge |
+| Post media | P | Feed images | Audience-scoped via signed access | With the post |
+
+### External processors (sub-processors)
+| Vendor | Data shared | Purpose | Notes |
+|---|---|---|---|
+| Supabase | All DB + auth + storage | Primary datastore | Pro tier; daily backups; US region |
+| Vercel | Request metadata, logs | Hosting/runtime | Commercial tier at launch |
+| Resend | Email address, message body | Transactional email | `notifications.klimr.com` |
+| Anthropic | Query text; venue names/URLs | AI search + courts verifier | See §8; zero-retention path, no training |
+| Google (Maps/Places) | ZIP/coords, venue queries | Court discovery | Coordinates coarsened per §9 |
+| Cloudflare Turnstile | Challenge token, IP | Bot defense | Fails open by documented design |
+
+## 8. AI vendor data flow (K1-08 · audit SRCH-003)
+- **What leaves Klimr.** AI global search sends only the user's **query text**
+  plus the server-minted result **bank** (titles + internal hrefs the user could
+  already see). The courts verifier sends **venue names and website URLs** to be
+  checked. No emails, no precise personal coordinates, no internal IDs beyond
+  what public pages already expose.
+- **Retrieval is RLS-bound.** In AI search the model orchestrates over the
+  **user's own Supabase client** — Row-Level Security decides visibility; the
+  model holds no keys. Result hrefs are minted server-side (K0-07); the model
+  can only echo IDs, never mint destinations.
+- **Provider settings.** Anthropic API traffic is **not used for training**;
+  Klimr uses the zero-data-retention request path where available. No prompts
+  or results are persisted at the vendor beyond the request lifecycle.
+- **Kill switch.** `AI_SEARCH_DISABLED=1` (Vercel env) sheds AI search
+  instantly; callers fall back to deterministic search. Courts degrade to
+  intel-only results when the AI key is absent or the judge is down (K1-05).
+- **Budgets & deadlines.** Per-user rate + daily ceiling; a 25s whole-run
+  deadline and 12s per-round timeout bound cost and latency (K1-04).
+
+## 9. Courts location handling (K1-08 · audit COURT-008)
+- **Collection moments.** A ZIP/city entered in the courts search, or — only if
+  the user taps **"Use my location"** — the browser's coordinate fix for that
+  one search. Coordinates are never collected silently.
+- **Coarsening.** Coordinate searches cache under a **~1 km bucket**
+  (`ll:<lat2dp>,<lng2dp>`) so a precise fix is never stored or reused at full
+  precision; nearby fixes share one cache envelope.
+- **Non-persistence.** Live-play **join coordinates** (the geofence check) are
+  evaluated server-side and **not persisted** to a member's record. The queue
+  payload projection (K0-04) strips the geofence centre from non-organizer
+  responses entirely.
+- **Radius honesty.** The user's chosen radius is a hard bound on every search,
+  filter, and cache key; results are never silently widened.

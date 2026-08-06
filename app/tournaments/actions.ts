@@ -11,6 +11,7 @@ import { normalizeGallery, rosterLockAt, type GalleryItem } from "@/lib/tourname
 import { computePoolStandings, isRegistrationOpen, isSignupFormReady, poolSizes } from "@/lib/tournament";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveEventPin } from "@/lib/maps-url";
+import { sanitizeRichText } from "@/lib/rich-text";
 import { getAdminRole } from "@/lib/admin";
 import { rateLimit } from "@/lib/ratelimit";
 import { withinRecoverWindow } from "@/lib/recover";
@@ -144,8 +145,10 @@ async function buildBracketFromSeeds(supabase: Awaited<ReturnType<typeof createC
 // Short, URL-safe, unambiguous codes for /e/<code> (no 0/o/1/l/i to avoid confusion).
 const CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 function makeCode(len = 6) {
+  // Codes are public slugs, but crypto randomness anyway (audit TOUR-001) —
+  // same rule as queue sessionCode: never Math.random for identifiers.
   let s = "";
-  for (let i = 0; i < len; i++) s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  for (let i = 0; i < len; i++) s += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   return s;
 }
 
@@ -193,7 +196,7 @@ export async function createTournamentFromWizard(
     status: "draft",
   };
   if (patch.summary !== undefined) row.summary = patch.summary;
-  if (patch.description !== undefined) row.description = patch.description;
+  if (patch.description !== undefined) row.description = patch.description == null ? patch.description : sanitizeRichText(patch.description) || null;
   if (patch.visibility === "public" || patch.visibility === "unlisted") row.visibility = patch.visibility;
   if (patch.starts_at !== undefined) row.starts_at = patch.starts_at;
   if (patch.ends_at !== undefined) row.ends_at = patch.ends_at;
@@ -425,7 +428,14 @@ export async function reconcileTournamentStructure(
   return note;
 }
 
-export async function updateTournamentDraft(id: string, patch: TournamentDraftPatch) {
+export async function updateTournamentDraft(
+  id: string,
+  patch: TournamentDraftPatch,
+  /** Optional optimistic-concurrency precondition (K2-04): pass the
+   *  `updated_at` the editor's form was rendered from and a concurrent change
+   *  is reported instead of silently overwritten. */
+  expectedUpdatedAt?: string | null,
+) {
   // Server-side date sanity (mirrors the client): whenever either bound is
   // in the patch, the pair must satisfy ends >= starts against stored truth.
   if (patch.starts_at !== undefined || patch.ends_at !== undefined) {
@@ -455,7 +465,7 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
 
   if (patch.title !== undefined) u.title = patch.title;
   if (patch.summary !== undefined) u.summary = patch.summary;
-  if (patch.description !== undefined) u.description = patch.description;
+  if (patch.description !== undefined) u.description = patch.description == null ? patch.description : sanitizeRichText(patch.description) || null;
   if (patch.sport_key !== undefined && SPORT_KEYS.includes(patch.sport_key)) u.sport_key = patch.sport_key;
   if (patch.entry_type === "individual" || patch.entry_type === "team") u.entry_type = patch.entry_type;
   if (patch.visibility === "public" || patch.visibility === "unlisted") u.visibility = patch.visibility;
@@ -486,10 +496,22 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
   // Merge format_config (don't clobber): callers may patch just their slice
   // (e.g. only `legal`, or only the format fields), and we must preserve the
   // rest — schedule settings, published snapshot, court count, etc.
+  // format_config is merged in the DATABASE, not in app memory (K2-04,
+  // migration 0179). The old read-merge-write lost updates: two organizers
+  // saving different settings tabs at the same moment both read the same base,
+  // and the second write silently discarded the first — reproduced in a
+  // scratch cluster before the fix. `jsonb ||` is a shallow merge, the same
+  // semantics as the object spread it replaces.
+  let fcMerge: Record<string, unknown> | null = null;
   if (patch.format_config !== undefined) {
-    const { data: cur } = await supabase.from("tournaments").select("format_config").eq("id", id).maybeSingle();
-    const base = (cur?.format_config ?? {}) as Record<string, unknown>;
-    u.format_config = { ...base, ...(patch.format_config as Record<string, unknown>) } as Json;
+    const fcPatch = { ...(patch.format_config as Record<string, unknown>) };
+    // Organizer rich text is sanitized at WRITE (audit SEC-002) — render
+    // sanitizes again for defence-in-depth, same as events.
+    const legalPatch = fcPatch.legal as Record<string, unknown> | undefined;
+    if (legalPatch && typeof legalPatch.rules_text === "string") {
+      fcPatch.legal = { ...legalPatch, rules_text: sanitizeRichText(legalPatch.rules_text) };
+    }
+    fcMerge = fcPatch;
   }
 
   // Pin resolution (0149): when the location changed, resolve the organizer's
@@ -524,6 +546,23 @@ export async function updateTournamentDraft(id: string, patch: TournamentDraftPa
 
   const { error } = await supabase.from("tournaments").update(u).eq("id", id);
   if (error) return { ok: false as const, error: error.message };
+
+  // Merge config AFTER the scalar update so both land, and so the merge reads
+  // the freshest row under its own lock (K2-04, migration 0179).
+  if (fcMerge) {
+    const { error: mergeErr } = await supabase.rpc("merge_format_config", {
+      p_id: id,
+      p_patch: fcMerge as Json,
+      p_expected_updated_at: expectedUpdatedAt ?? null,
+    });
+    if (mergeErr) {
+      // 40001 = the row moved under an editor who supplied a precondition.
+      if (mergeErr.code === "40001" || /stale_write/.test(mergeErr.message)) {
+        return { ok: false as const, error: "Someone else changed these settings while you were editing. Reload the page and reapply your changes." };
+      }
+      return { ok: false as const, error: mergeErr.message };
+    }
+  }
 
   // Capacity / format rules ACTUALLY changed (value comparison, not key
   // presence — sections resend their whole slice on every save).

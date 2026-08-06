@@ -45,14 +45,14 @@ function ModButtons({ kind, id }: { kind: "post" | "comment"; id: string }) {
       <form action={action}>
         <input type="hidden" name={field} value={id} />
         <input type="hidden" name="status" value="approved" />
-        <button className="press rounded-full bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95">
+        <button type="submit" className="press rounded-lg bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95">
           Publish
         </button>
       </form>
       <form action={action}>
         <input type="hidden" name={field} value={id} />
         <input type="hidden" name="status" value="rejected" />
-        <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink hover:border-faint">
+        <button type="submit" className="press rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-ink hover:border-faint">
           Reject
         </button>
       </form>

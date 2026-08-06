@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { randomInt } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { gateCookieName, gateToken } from "@/lib/gate";
-import { clientIp, rateLimit } from "@/lib/ratelimit";
+import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
 import { codeLockSeconds, noteCodeFailure, clearCodeAttempts } from "@/lib/lockout";
 import { verifyTurnstile } from "@/lib/captcha";
 import { normalizeInviteCode } from "@/lib/invite";
@@ -131,8 +131,8 @@ export async function requestAccessCode(formData: FormData) {
   const looksLikeEmail = email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   // Throttle by IP (abuse) and by address (email-bombing). Over limit → simply
   // don't send; the user still sees the same neutral message.
-  const underIpLimit = await rateLimit(`gateemail:ip:${ip}`, 5, 900);
-  const underAddrLimit = looksLikeEmail ? await rateLimit(`gateemail:addr:${email}`, 3, 3600) : true;
+  const underIpLimit = await rateLimitStrict(`gateemail:ip:${ip}`, 5, 900);
+  const underAddrLimit = looksLikeEmail ? await rateLimitStrict(`gateemail:addr:${email}`, 3, 3600) : true;
 
   if (okCaptcha && looksLikeEmail && underIpLimit && underAddrLimit) {
     const admin = createAdminClient();

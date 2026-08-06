@@ -246,7 +246,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                            for your number in line to come up. */
                         <div className="border-b border-rule bg-ink px-4 py-3 text-white sm:px-5">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-1.5 font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-white/60">
+                            <span className="inline-flex items-center gap-1.5 font-mono text-floor font-bold uppercase tracking-[.18em] text-white/60">
                               <Radio size={12} className="text-brand" /> Live on this court
                             </span>
                             <span className="font-mono text-[10px] font-semibold text-white/50">
@@ -328,7 +328,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                                 <button type="button" disabled={pending} onClick={() => submitTeam(c)} className="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand py-3 text-base font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-50">
                                   {busy ? <Loader2 size={18} className="animate-spin" /> : <Users size={18} />} Add team to the line
                                 </button>
-                                <button type="button" disabled={pending} onClick={closeTeam} className="press rounded-full border-2 border-rule px-4 py-3 text-sm font-bold text-mute hover:bg-bg">
+                                <button type="button" disabled={pending} onClick={closeTeam} className="press rounded-lg border-2 border-rule px-4 py-3 text-sm font-bold text-mute hover:bg-bg">
                                   Cancel
                                 </button>
                               </div>

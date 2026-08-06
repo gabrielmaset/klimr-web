@@ -30,14 +30,14 @@ export function TagRequests({ items }: { items: TagRequestItem[] }) {
               <form action={respondToTag}>
                 <input type="hidden" name="tagId" value={it.tagId} />
                 <input type="hidden" name="decision" value="approved" />
-                <button className="press rounded-full bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95">
+                <button type="submit" className="press rounded-lg bg-success px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95">
                   Approve
                 </button>
               </form>
               <form action={respondToTag}>
                 <input type="hidden" name="tagId" value={it.tagId} />
                 <input type="hidden" name="decision" value="declined" />
-                <button className="press rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:border-faint">
+                <button type="submit" className="press rounded-lg border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:border-faint">
                   Decline
                 </button>
               </form>

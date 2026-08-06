@@ -94,7 +94,7 @@ export default async function BusinessDashboard({ params }: { params: Promise<{ 
             <form action={setBusinessPublished} className="mt-3">
               <input type="hidden" name="businessId" value={b.id} />
               <input type="hidden" name="published" value={b.published ? "false" : "true"} />
-              <button className="press rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink hover:border-faint">
+              <button type="submit" className="press rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink hover:border-faint">
                 {b.published ? "Unlist" : "List this business"}
               </button>
             </form>

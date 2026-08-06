@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 type MatchRow = { id: string; sport_key: string; format: string; scheduled_at: string | null; status: string };
 
-const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]";
+const monoKicker = "font-mono text-floor font-bold uppercase tracking-[.18em]";
 
 function whenLabel(iso: string | null) {
   if (!iso) return "Flexible time";
@@ -202,7 +202,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
               {meta.name} · {matchFormatLabel(m.sport_key, m.format)}
             </span>
             {dim ? (
-              <span className="rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-faint" style={{ background: "#F4EFE5", border: "1px solid var(--color-rule-2)" }}>
+              <span className="rounded-full px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.14em] text-faint" style={{ background: "#F4EFE5", border: "1px solid var(--color-rule-2)" }}>
                 Expired
               </span>
             ) : null}
@@ -343,11 +343,11 @@ function MarketRow({ m, nowMs, dim }: { m: MarketRowT; nowMs: number; dim?: bool
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="truncate text-sm font-bold text-ink">{m.title}</span>
-          <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.12em] ${m.role === "Selling" ? "bg-tint-brand text-flame-text" : "bg-bg text-faint"}`} style={{ boxShadow: m.role === "Selling" ? "inset 0 0 0 1px var(--color-tint-brand-bd)" : "inset 0 0 0 1px #E4DCCB" }}>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-[.12em] ${m.role === "Selling" ? "bg-tint-brand text-flame-text" : "bg-bg text-faint"}`} style={{ boxShadow: m.role === "Selling" ? "inset 0 0 0 1px var(--color-tint-brand-bd)" : "inset 0 0 0 1px #E4DCCB" }}>
             {m.role}
           </span>
           {m.listingStatus !== "active" ? (
-            <span className="shrink-0 rounded-[5px] bg-[#F4EFE5] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.1em] text-[#8A8069]">{m.listingStatus}</span>
+            <span className="shrink-0 rounded-[5px] bg-[#F4EFE5] px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.1em] text-[#8A8069]">{m.listingStatus}</span>
           ) : null}
         </span>
         <span className="mt-0.5 flex items-center gap-2 text-xs text-mute">

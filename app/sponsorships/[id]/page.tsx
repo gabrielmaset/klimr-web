@@ -91,14 +91,14 @@ export default async function SponsorDetailPage({ params }: { params: Promise<{ 
             <form action={respondToOffer}>
               <input type="hidden" name="id" value={rel.id} />
               <input type="hidden" name="decision" value="accept" />
-              <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+              <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
                 Accept offer
               </button>
             </form>
             <form action={respondToOffer}>
               <input type="hidden" name="id" value={rel.id} />
               <input type="hidden" name="decision" value="decline" />
-              <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink">
+              <button type="submit" className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink">
                 Decline
               </button>
             </form>

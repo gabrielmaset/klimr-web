@@ -110,7 +110,7 @@ export function ProviderReviews({
                 className="mt-2 w-full resize-y rounded-[10px] border border-rule-2 bg-bg px-3 py-2 text-[13px] text-ink outline-none placeholder:text-faint focus:border-brand"
               />
               <div className="mt-2 flex flex-wrap items-center gap-3">
-                <button type="button" onClick={save} disabled={pending || stars === 0} className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-xs font-bold text-surface hover:bg-ink-soft disabled:opacity-50">
+                <button type="button" onClick={save} disabled={pending || stars === 0} className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-xs font-bold text-surface hover:bg-ink-soft disabled:opacity-50">
                   {pending ? <Loader2 size={13} className="animate-spin" /> : null} {mine ? "Update review" : "Post review"}
                 </button>
                 {mine ? (

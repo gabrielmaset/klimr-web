@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { parseUserAgent } from "@/lib/useragent";
+import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
+import { secondsLockedOut, recordTotpFailure, clearTotpFailures } from "@/lib/mfa-lockout";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/emails/templates";
 
@@ -64,4 +66,51 @@ export async function signOutEverywhereAction() {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "global" });
   redirect("/");
+}
+
+/** Server-fronted TOTP verification (audit SEC-006 · D6 amended · K1-02).
+ *  Every 6-digit code — login challenge AND enrollment activation — verifies
+ *  here so the 0055 lockout policy (5 wrong codes / 15 min → 15-min lock)
+ *  and a per-IP throttle apply. The browser never calls mfa.verify directly.
+ *  Session cookies are updated by the server client, so success leaves the
+ *  browser at AAL2 exactly as before. */
+export async function verifyTotpAction(
+  factorId: string,
+  code: string,
+): Promise<{ ok: true } | { ok: false; error: string; lockedForSeconds?: number }> {
+  const clean = String(code ?? "").replace(/\D/g, "");
+  const fid = String(factorId ?? "");
+  if (!fid || clean.length !== 6) return { ok: false, error: "Enter the 6-digit code from your authenticator app." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Your session expired — sign in again." };
+
+  const ip = await clientIp();
+  if (!(await rateLimitStrict(`totp:ip:${ip}`, 10, 60))) {
+    return { ok: false, error: "Too many attempts from this connection — wait a minute and try again." };
+  }
+
+  const lockedFor = await secondsLockedOut(user.id, fid);
+  if (lockedFor > 0) {
+    const mins = Math.max(1, Math.ceil(lockedFor / 60));
+    return { ok: false, error: `Too many incorrect codes. Try again in about ${mins} minute${mins === 1 ? "" : "s"}.`, lockedForSeconds: lockedFor };
+  }
+
+  const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({ factorId: fid });
+  if (cErr || !ch) return { ok: false, error: "Something went wrong verifying that code. Try again." };
+  const { error: vErr } = await supabase.auth.mfa.verify({ factorId: fid, challengeId: ch.id, code: clean });
+
+  if (vErr) {
+    const nowLocked = await recordTotpFailure(user.id, fid);
+    if (nowLocked > 0) {
+      return { ok: false, error: "Too many incorrect codes. Your account is locked for 15 minutes.", lockedForSeconds: nowLocked };
+    }
+    return { ok: false, error: "That code didn't match. Check your authenticator app and try again." };
+  }
+
+  await clearTotpFailures(user.id, fid).catch(() => {});
+  return { ok: true };
 }

@@ -35,14 +35,12 @@ This must pass clean. It is the gate for every phase.
 
 ## Environment variables
 
-Copy `.env.example` to `.env.local` and fill in:
-
-- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project (Settings -> API)
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — same place
-- `SUPABASE_SERVICE_ROLE_KEY` — server-only; never exposed to the browser
-- `NEXT_PUBLIC_SITE_URL` — optional; your deployed URL, used as a magic-link redirect fallback
-
-`.env.local` is gitignored. Never commit real keys.
+The complete inventory lives in **`.env.example`** — copy it to `.env.local`
+and fill in what you need. The REQUIRED block (Supabase keys, `CRON_SECRET`,
+`WAITLIST_CRON_SECRET`, `GATE_SECRET`) is asserted at boot in production by
+`lib/env.ts` via `instrumentation.ts`: a deploy missing any of them refuses to
+serve instead of running half-configured. Recommended vars (Resend, Turnstile,
+Anthropic, Google Maps) warn at boot; each has a documented in-app degradation.
 
 ## Database
 
@@ -63,6 +61,15 @@ In your Supabase project:
 
 First-run loop: enter an invite code + email → confirm your email → create a password (the email is locked to the invited address) → set up 2FA (scan QR, enter code) → onboarding → account. If you ever lock yourself out during testing, delete your TOTP factor under **Authentication → Users**.
 
+## Migrations
+
+Database changes ship as numbered files in `supabase/migrations/`, pasted
+manually into the Supabase SQL editor in order. **`docs/MIGRATIONS_LEDGER.md`
+is the authoritative record of what production has applied** — update it every
+time a migration runs. The app probes sentinel columns at boot
+(`lib/schema-check.ts`) and refuses to serve production against a stale
+database.
+
 ## Build roadmap
 
 - Phase 0 — skeleton (done): Next.js + Tailwind baseline, app shell, reserved ad slots.
@@ -82,11 +89,6 @@ The web app carries the Klimr brand from the investor demo into product UI:
 - **Palette** — paper `#FAFAFA`, ink `#0A0A0B`, signal orange `#FF4E1B`, pop yellow `#FFE249` (pending states), hairline rules `#E4E4E7`.
 - **Type roles** — Fraunces 600 (logotype only), Instrument Serif (display), Archivo Black (kickers), DM Sans (body), JetBrains Mono (points, ZIPs, emails). Self-hosted via `@fontsource` packages: no runtime Google Fonts dependency.
 - **Motion** — functional only: load stagger, hover lift, press feedback. `prefers-reduced-motion` disables everything. Keyboard focus is always visible.
-
-## Environment variables
-
-Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
-Optional: `NEXT_PUBLIC_SITE_URL` (magic-link fallback origin + metadata base), `NEXT_PUBLIC_INVESTOR_DEMO_URL` (when set, /investors links straight to the deployed interactive demo).
 
 ## Brand
 

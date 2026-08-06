@@ -50,20 +50,20 @@ export function LogViewer() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <button type="button"
           onClick={download}
           disabled={entries.length === 0}
-          className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+          className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
         >
           <Download size={15} /> Download log file
         </button>
-        <button onClick={refresh} className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg">
+        <button type="button" onClick={refresh} className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg">
           <RefreshCw size={15} className="text-mute" /> Refresh
         </button>
-        <button
+        <button type="button"
           onClick={clear}
           disabled={entries.length === 0}
-          className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-brand-deep disabled:opacity-50"
+          className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-brand-deep disabled:opacity-50"
         >
           <Trash2 size={15} /> Clear
         </button>

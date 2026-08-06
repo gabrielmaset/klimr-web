@@ -159,7 +159,7 @@ export function DivisionsEditor({
                         {entryType === "team" ? (
                           r.teamSize.trim() === "" ? (
                             <div className="flex flex-col gap-1">
-                              <span className="whitespace-nowrap font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
+                              <span className="whitespace-nowrap font-mono text-floor font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
                               <button
                                 type="button"
                                 onClick={() => update(i, { teamSize: String(inheritTeamSize ?? 2) })}
@@ -170,7 +170,7 @@ export function DivisionsEditor({
                             </div>
                           ) : (
                             <label className="flex flex-col gap-1">
-                              <span className="whitespace-nowrap font-mono text-[9.5px] font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
+                              <span className="whitespace-nowrap font-mono text-floor font-semibold uppercase tracking-[0.12em] text-faint">Team size</span>
                               <div className="flex items-stretch gap-1.5">
                                 <input type="number" min={1} max={12} className={`${inputCls} w-20`} value={r.teamSize} onChange={(e) => update(i, { teamSize: e.target.value })} aria-label="Required players per team (override)" />
                                 <button type="button" onClick={() => update(i, { teamSize: "" })} title="Back to the event team size" aria-label="Use the event team size" className="press grid w-8 place-items-center self-stretch rounded-[9px] border border-rule text-mute hover:border-brand hover:text-brand-deep">

@@ -103,7 +103,7 @@ export function ProfileBasicsForm({ initial }: { initial: ProfileInitial }) {
         <button
           type="submit"
           disabled={pending}
-          className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+          className="press rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save changes"}
         </button>

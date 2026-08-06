@@ -144,7 +144,7 @@ export default async function ExpiredContentPage({
           Organizer
           <input name="q" defaultValue={q} placeholder="Name…" className="rounded-[10px] border border-rule-2 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" />
         </label>
-        <button className="press rounded-[10px] bg-ink px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2A2622]">Search</button>
+        <button type="submit" className="press rounded-[10px] bg-ink px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2A2622]">Search</button>
       </form>
 
       <div className="mt-5 overflow-hidden rounded-2xl border border-rule bg-surface">

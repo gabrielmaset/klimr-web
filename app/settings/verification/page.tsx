@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { BadgeCheck, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { VerificationDataPanel } from "@/components/verification-privacy";
-import { startVerification, approveVerification } from "@/app/account/actions";
+import { startVerification } from "@/app/account/actions";
 
 export const metadata: Metadata = { title: "Identity verification · Settings" };
 
@@ -22,7 +22,7 @@ export default async function VerificationSettingsPage() {
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
       <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Verification" }]} />
       <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Identity verification</h1>
-      <p className="mt-2 text-sm text-mute">Every Klimr player is verified — it&rsquo;s the trust floor for rankings and matches, and it keeps the community real.</p>
+      <p className="mt-2 text-sm text-mute">Identity review is manual today — automated checks are in preview. Verification is the trust floor for rankings and matches, and it keeps the community real.</p>
 
       <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-6">
         <div className="kicker text-faint">Status</div>
@@ -35,18 +35,13 @@ export default async function VerificationSettingsPage() {
             <div className="space-y-3">
               <span className="inline-flex items-center rounded-full bg-pop px-3 py-1.5 text-sm font-bold text-ink">Under review</span>
               <p className="text-sm text-mute">We&rsquo;ll let you know as soon as your verification is approved.</p>
-              <form action={approveVerification}>
-                <button className="block text-xs font-semibold text-faint underline underline-offset-2 transition-colors hover:text-mute">
-                  Demo only: approve (admin)
-                </button>
-              </form>
             </div>
           ) : (
             <div className="space-y-3">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-bg px-3 py-1.5 text-sm font-semibold text-mute">Not verified yet</span>
               <p className="text-sm text-mute">Start verification to unlock your rankings and join matches.</p>
               <form action={startVerification}>
-                <button className="press rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep">
+                <button type="submit" className="press rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep">
                   Start verification
                 </button>
               </form>

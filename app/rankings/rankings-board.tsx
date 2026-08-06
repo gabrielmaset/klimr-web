@@ -328,7 +328,7 @@ export function RankingsBoard({
           {SPORTS.map((s, i) => {
             const on = i === sportIdx;
             return (
-              <button
+              <button type="button"
                 key={s.key}
                 onClick={() => setSportIdx(i)}
                 aria-pressed={on}
@@ -365,12 +365,12 @@ export function RankingsBoard({
           <path d="M921,78 L921,54 L940,60 L921,66" fill="var(--color-flame-deep)" />
         </svg>
         <div className="absolute left-5 top-4">
-          <p className={`font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-[9px]`} style={{ color: "var(--color-ink-4)" }}>The ascent</p>
+          <p className={`font-mono text-floor font-bold uppercase tracking-[.18em] text-floor`} style={{ color: "var(--color-ink-4)" }}>The ascent</p>
           <p className="mt-0.5 font-display text-[21px] font-bold leading-none tracking-[-0.015em] text-ink">{scope.place}</p>
           <p className="mt-1 font-mono text-[10px] font-semibold" style={{ color: "var(--color-ink-4)" }}>{countReady(scope.key) ? `${compact(countFor(scope.key))} climbers` : "…"}</p>
         </div>
         {me ? (
-          <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[.14em]" style={{ background: "var(--color-tint-brand)", borderColor: "var(--color-tint-brand-bd)", color: "var(--color-flame-text)" }}>
+          <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-floor font-bold uppercase tracking-[.14em]" style={{ background: "var(--color-tint-brand)", borderColor: "var(--color-tint-brand-bd)", color: "var(--color-flame-text)" }}>
             <span className="live-dot h-1.5 w-1.5 rounded-full bg-brand" aria-hidden />
             You · #{fmt(me.rank)} · {bandLabel(pct, me.rank)}
           </span>
@@ -379,7 +379,7 @@ export function RankingsBoard({
           const on = i === scopeIdx;
           const pos = [{x:"7%",top:258},{x:"29%",top:214},{x:"51%",top:168},{x:"73%",top:120},{x:"92%",top:76}][i];
           return (
-            <button
+            <button type="button"
               key={s.key}
               onClick={() => setScopeIdx(i)}
               aria-pressed={on}
@@ -395,7 +395,7 @@ export function RankingsBoard({
               >
                 {i + 1}
               </span>
-              <span className={`font-mono text-[9.5px] font-bold uppercase tracking-[.18em] mt-1.5 block text-[8.5px] ${on ? "text-flame-text" : ""}`} style={{ textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2, 0 0 2px #F3EFE2", ...(on ? {} : { color: "var(--color-ink-4)" }) }}>{s.label}</span>
+              <span className={`font-mono text-floor font-bold uppercase tracking-[.18em] mt-1.5 block text-floor ${on ? "text-flame-text" : ""}`} style={{ textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2, 0 0 2px #F3EFE2", ...(on ? {} : { color: "var(--color-ink-4)" }) }}>{s.label}</span>
               <span className="block max-w-[110px] truncate text-[12.5px] font-bold leading-tight text-ink max-sm:hidden" style={{ textShadow: "0 0 6px #F3EFE2, 0 0 3px #F3EFE2, 0 0 2px #F3EFE2" }}>{s.place}</span>
               <span className="mx-auto mt-0.5 inline-flex items-center justify-center rounded-md border border-black/[0.07] bg-white/90 px-1.5 py-[1.5px] font-mono text-[10px] font-bold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
                 {countReady(s.key) ? compact(countFor(s.key)) : "·"}
@@ -439,7 +439,7 @@ export function RankingsBoard({
               <>
                 {/* your standing */}
                 <div className={CARD}>
-                  <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Your standing · {scope.place}</div>
+                  <div className="font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">Your standing · {scope.place}</div>
                   <div className="mt-3 flex gap-5">
                     {/* position spine */}
                     <div className="relative h-[156px] w-7 shrink-0">
@@ -473,7 +473,7 @@ export function RankingsBoard({
 
                 {/* contention */}
                 <div className={CARD}>
-                  <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Contention · who&rsquo;s near you</div>
+                  <div className="font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">Contention · who&rsquo;s near you</div>
                   <div className="mt-4 space-y-2">
                     {windowRows.map((r) => {
                       const you = r.user_id === userId;
@@ -491,7 +491,7 @@ export function RankingsBoard({
                               <span className="truncate text-sm font-bold text-ink">{you ? "You" : r.display_name}</span>
                               {r.verification_status === "verified" ? <BadgeCheck size={13} className="shrink-0 text-brand" aria-label="Verified" /> : null}
                               {r.last_result_at ? (
-                                <span className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-wider text-faint">{agoShort(r.last_result_at)}</span>
+                                <span className="shrink-0 font-mono text-floor font-bold uppercase tracking-wider text-faint">{agoShort(r.last_result_at)}</span>
                               ) : null}
                             </div>
                             <div className="font-mono text-[11px] text-faint">{fmt(r.points)} pts</div>
@@ -516,7 +516,7 @@ export function RankingsBoard({
               </>
             ) : (
               <div className={CARD}>
-                <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Your standing · {scope.place}</div>
+                <div className="font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">Your standing · {scope.place}</div>
                 <h2 className="mt-3 font-display text-2xl text-ink">You&rsquo;re not on this board yet</h2>
                 <p className="mt-2 text-sm leading-relaxed text-mute">
                   You don&rsquo;t have a {sport.name.toLowerCase()} ranking in {scope.place} yet. Rankings build as you log results — match scoring happens in the Klimr app.
@@ -524,7 +524,7 @@ export function RankingsBoard({
               </div>
             )}
             <div className={CARD}>
-              <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">How points work</div>
+              <div className="font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">How points work</div>
               <p className="mt-2 text-[12.5px] leading-relaxed text-mute">
                 Ranked wins earn points for the sport you played, and every board — ZIP to World — reads the same
                 totals at a different zoom. Log results in the Klimr app; the mountain updates as matches are confirmed.
@@ -554,7 +554,7 @@ export function RankingsBoard({
 function Tile({ label, value, mono, color, pop }: { label: string; value: string; mono?: boolean; color?: string; pop?: boolean }) {
   return (
     <div className="rounded-xl px-3 py-2" style={{ background: "var(--color-bg)", border: `1px solid ${pop ? "var(--color-tint-sun-bd)" : "#EFE9DC"}` }}>
-      <div className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-[8px] text-faint">{label}</div>
+      <div className="font-mono text-floor font-bold uppercase tracking-[.18em] text-floor text-faint">{label}</div>
       <div className={`mt-0.5 text-[14px] font-bold ${mono ? "font-mono" : ""}`} style={{ color: color ?? "var(--color-ink)" }}>
         {value}
       </div>

@@ -12,7 +12,7 @@ export function SendSignInLinkButton({ userId }: { userId: string }) {
       <button
         type="submit"
         disabled={pending || state?.ok}
-        className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:border-faint disabled:opacity-60"
+        className="press inline-flex items-center gap-1.5 rounded-lg border border-rule px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:border-faint disabled:opacity-60"
       >
         {pending ? (
           <Loader2 size={14} className="animate-spin" />

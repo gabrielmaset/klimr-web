@@ -124,7 +124,7 @@ export default async function AdminUpdatesPage({
           To <input type="date" name="to" defaultValue={sp.to ?? ""} className={`${ff} flex-1`} />
         </label>
         <div className="flex justify-end sm:col-span-2 lg:col-span-3">
-          <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+          <button type="submit" className="press rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
             Apply filters
           </button>
         </div>
@@ -138,7 +138,7 @@ export default async function AdminUpdatesPage({
             <div key={it.id} className="flex items-start justify-between gap-3 rounded-xl border border-rule bg-surface shadow-e1 px-4 py-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="kicker rounded-full bg-bg px-2 py-0.5 text-[9px] text-mute">{KIND_LABEL[it.kind] ?? it.kind}</span>
+                  <span className="kicker rounded-full bg-bg px-2 py-0.5 text-floor text-mute">{KIND_LABEL[it.kind] ?? it.kind}</span>
                   {it.sport_key ? <span className="text-xs capitalize text-faint">{it.sport_key}</span> : null}
                   <span className="text-xs text-faint">· {new Date(it.published_at).toLocaleString("en-US")}</span>
                   {it.created_by ? <span className="text-xs text-faint">· {nameMap.get(it.created_by) ?? "—"}</span> : null}
@@ -148,7 +148,7 @@ export default async function AdminUpdatesPage({
               </div>
               <form action={deleteFeedItem}>
                 <input type="hidden" name="id" value={it.id} />
-                <button aria-label="Delete update" className="press grid h-8 w-8 shrink-0 place-items-center rounded-full border border-rule text-mute hover:border-brand/40 hover:text-brand-deep">
+                <button type="submit" aria-label="Delete update" className="press grid h-8 w-8 shrink-0 place-items-center rounded-full border border-rule text-mute hover:border-brand/40 hover:text-brand-deep">
                   <Trash2 size={14} />
                 </button>
               </form>

@@ -407,7 +407,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
             <span className="logotype text-[clamp(1.35rem,2.35vw,2.25rem)] leading-none">klimr</span>
           </span>
           <p className="max-w-[52%] truncate text-center text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
-          {isApp ? null : <button type="button" onClick={toggleFullscreen} className="press absolute right-0 top-1/2 inline-flex shrink-0 -translate-y-1/2 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
+          {isApp ? null : <button type="button" onClick={toggleFullscreen} className="press absolute right-0 top-1/2 inline-flex shrink-0 -translate-y-1/2 items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
             {isFs ? <Minimize size={15} /> : <Maximize size={15} />} {isFs ? "Exit full screen" : "Full screen"}
           </button>}
         </div>
@@ -432,7 +432,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
             {codesRotated ? "The organizer issued fresh codes — grab the new display code from Organizer tools and start over." : sessionOver ? "Thanks for playing — the organizer can start a new session from the queue page." : "Heading back to the sign-in screen…"}
           </p>
           {isApp && displayDead ? (
-            <button type="button" onClick={exitToSetup} className="press mt-[1vh] rounded-full bg-white px-8 py-3.5 font-display text-[clamp(1rem,1.7vw,1.5rem)] font-bold text-[#0a0f1f]">
+            <button type="button" onClick={exitToSetup} className="press mt-[1vh] rounded-lg bg-white px-8 py-3.5 font-display text-[clamp(1rem,1.7vw,1.5rem)] font-bold text-[#0a0f1f]">
               Start over
             </button>
           ) : null}

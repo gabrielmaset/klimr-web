@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { awardTournamentPointsSystem } from "@/app/tournaments/actions";
+import { isAuthorizedCron } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -11,8 +12,8 @@ export const maxDuration = 300;
  *  the exact award math (one code path); safe to re-run — the stamp is
  *  written only once and the awarder is idempotent. */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+  // Fail closed (audit SEC-003): a deploy without CRON_SECRET authorizes nothing.
+  if (!isAuthorizedCron(req.headers, process.env.CRON_SECRET)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
   const admin = createAdminClient();

@@ -73,7 +73,7 @@ export function DangerConfirm({
       <button
         type="button"
         onClick={openModal}
-        className={triggerClassName ?? "press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-[#dc2626] hover:text-[#dc2626]"}
+        className={triggerClassName ?? "press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-[#dc2626] hover:text-[#dc2626]"}
       >
         {triggerIcon} {triggerLabel}
       </button>
@@ -133,14 +133,14 @@ export function DangerConfirm({
             </div>
             {err ? <p className="mt-3 rounded-lg bg-[#fef2f2] px-3 py-2 text-xs font-semibold text-[#b91c1c]">{err}</p> : null}
             <div className="mt-5 flex items-center justify-end gap-2">
-              <button type="button" onClick={close} disabled={pending} className="press rounded-full px-4 py-2 text-sm font-semibold text-mute hover:text-ink">
+              <button type="button" onClick={close} disabled={pending} className="press rounded-lg px-4 py-2 text-sm font-semibold text-mute hover:text-ink">
                 Keep it
               </button>
               <button
                 type="button"
                 onClick={confirm}
                 disabled={!ready || pending}
-                className="press inline-flex items-center gap-1.5 rounded-full bg-[#dc2626] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#b91c1c] disabled:opacity-40"
+                className="press inline-flex items-center gap-1.5 rounded-lg bg-[#dc2626] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#b91c1c] disabled:opacity-40"
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : null} {confirmLabel}
               </button>

@@ -152,7 +152,7 @@ export default async function SecurityPage() {
             can sign back in here whenever you like.
           </p>
           <form action={signOutEverywhere}>
-            <button className="press mt-4 inline-flex items-center gap-2 rounded-full border border-rule px-4 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:border-ink hover:text-ink">
+            <button type="submit" className="press mt-4 inline-flex items-center gap-2 rounded-lg border border-rule px-4 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:border-ink hover:text-ink">
               <LogOut size={15} aria-hidden /> Sign out of all devices
             </button>
           </form>

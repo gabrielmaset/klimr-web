@@ -10,6 +10,7 @@ import { isRegistrationOpen, type TournamentFormatConfig,
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventLocationMap } from "@/components/event-location-map";
 import { resolveEventPin } from "@/lib/maps-url";
+import { sanitizeRichText, looksLikeHtml } from "@/lib/rich-text";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EventPinRecheck } from "@/components/event-pin-recheck";
 import { reopenTournament } from "@/app/tournaments/actions";
@@ -143,7 +144,12 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const sponsors: Sponsor[] = Array.isArray(fc.sponsors) ? fc.sponsors : [];
   const prizes: Prize[] = Array.isArray(fc.prizes) ? fc.prizes : [];
   const premiumSponsors = sponsors.filter((s) => s.tier === "premium");
-  const rulesText = fc.legal?.rules_text?.trim() || null;
+  const rulesRaw = fc.legal?.rules_text?.trim() || null;
+  // Sanitize at render too (audit SEC-002) — protects legacy rows written
+  // before write-time sanitization existed; legacy plain text renders as text.
+  const rulesHtml = rulesRaw && looksLikeHtml(rulesRaw) ? sanitizeRichText(rulesRaw) : null;
+  const rulesText = rulesRaw;
+  const descHtml = t.description && looksLikeHtml(t.description) ? sanitizeRichText(t.description) : null;
   const announcements = (Array.isArray(fc.announcements) ? (fc.announcements as Announcement[]) : [])
     .slice()
     .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || Date.parse(b.createdAt) - Date.parse(a.createdAt))
@@ -444,7 +450,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
               <p className="mt-0.5 text-xs text-[#6B6E60]">Sign-ups are closed. If you registered, reach out to the organizer about any refunds.</p>
               {user && t.owner_id === user.id ? (withinRecoverWindow(t.cancelled_at) ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <form action={reopenTournament}><input type="hidden" name="tournamentId" value={t.id} /><button className="inline-flex items-center gap-1.5 rounded-full bg-[#E4713A] px-4 py-2 text-sm font-semibold text-white hover:brightness-95"><RotateCcw size={14} /> Recover tournament</button></form>
+                  <form action={reopenTournament}><input type="hidden" name="tournamentId" value={t.id} /><button type="submit" className="inline-flex items-center gap-1.5 rounded-lg bg-[#E4713A] px-4 py-2 text-sm font-semibold text-white hover:brightness-95"><RotateCcw size={14} /> Recover tournament</button></form>
                   <span className="text-xs text-[#8A8D80]">Recoverable for {recoverDaysLeft(t.cancelled_at)} more day{recoverDaysLeft(t.cancelled_at) === 1 ? "" : "s"}.</span>
                 </div>
               ) : (<p className="mt-2 text-xs text-[#8A8D80]">The 90-day recovery window has passed — archived.</p>)) : null}
@@ -502,7 +508,11 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           {t.description ? (
             <Panel id="about">
               <Heading>About the event</Heading>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#3F423A]">{t.description}</p>
+              {descHtml ? (
+                <div className={"text-sm leading-relaxed text-[#3F423A] " + "[&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2"} dangerouslySetInnerHTML={{ __html: descHtml }} />
+              ) : (
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#3F423A]">{t.description}</p>
+              )}
             </Panel>
           ) : null}
 
@@ -557,7 +567,11 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
           {rulesText ? (
             <Panel id="rules">
               <Heading>Rules &amp; format</Heading>
-              <div className="text-sm leading-relaxed text-[#3F423A] [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2" dangerouslySetInnerHTML={{ __html: rulesText }} />
+              {rulesHtml ? (
+                <div className="text-sm leading-relaxed text-[#3F423A] [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2" dangerouslySetInnerHTML={{ __html: rulesHtml }} />
+              ) : (
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-[#3F423A]">{rulesText}</div>
+              )}
             </Panel>
           ) : null}
 
@@ -592,7 +606,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
                 {sponsors.map((s) => {
                   const inner = (
                     <div className="relative flex h-full flex-col rounded-2xl border border-[#E7E7E1] bg-white p-4">
-                      {s.tier === "premium" ? <span className="tp-mono absolute right-3 top-3 rounded-full bg-[#F7F0D9] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#8E4720]">Premium</span> : null}
+                      {s.tier === "premium" ? <span className="tp-mono absolute right-3 top-3 rounded-full bg-[#F7F0D9] px-2 py-0.5 text-floor font-bold uppercase tracking-wide text-[#8E4720]">Premium</span> : null}
                       {s.logo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={s.logo} alt="" className="h-16 w-full rounded-lg border border-[#EDEDE6] bg-white object-contain p-2" />

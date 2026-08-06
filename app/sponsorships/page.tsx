@@ -21,7 +21,7 @@ type Sponsor = {
 };
 type Mine = { id: string; status: string; category: string; term: string; sponsor_id: string };
 
-const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]";
+const monoKicker = "font-mono text-floor font-bold uppercase tracking-[.18em]";
 
 // Category identity — deterministic tones per partner type (spec palette).
 const TYPE_TONES: { match: RegExp; fg: string; bg: string; bd: string }[] = [
@@ -98,7 +98,7 @@ export default async function SponsorshipsPage() {
           ].map((s) => (
             <div key={s.l} className="rounded-[12px] bg-bg px-3 py-2.5" style={{ border: "1px solid #EFE9DC" }}>
               <p className="font-display text-[22px] font-bold leading-none text-ink">{s.v}</p>
-              <p className={`${monoKicker} mt-1 text-[8.5px] text-faint`}>{s.l}</p>
+              <p className={`${monoKicker} mt-1 text-floor text-faint`}>{s.l}</p>
             </div>
           ))}
         </div>
@@ -143,12 +143,12 @@ export default async function SponsorshipsPage() {
                     <form action={respondToOffer}>
                       <input type="hidden" name="id" value={o.id} />
                       <input type="hidden" name="decision" value="accept" />
-                      <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Accept</button>
+                      <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Accept</button>
                     </form>
                     <form action={respondToOffer}>
                       <input type="hidden" name="id" value={o.id} />
                       <input type="hidden" name="decision" value="decline" />
-                      <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink">Decline</button>
+                      <button type="submit" className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink">Decline</button>
                     </form>
                     <Link href={`/sponsorships/${s.id}`} className="press ml-auto text-sm font-semibold text-flame-text">Details</Link>
                   </div>
@@ -220,7 +220,7 @@ export default async function SponsorshipsPage() {
                     <BrandTile name={s.name} hue={s.hue} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-display text-[17px] font-bold leading-tight tracking-[-0.01em] text-ink">{s.name}</p>
-                      <span className="mt-1 inline-flex rounded-full px-2 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em]" style={{ background: tone.bg, color: tone.fg, boxShadow: `inset 0 0 0 1px ${tone.bd}` }}>
+                      <span className="mt-1 inline-flex rounded-full px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-[.14em]" style={{ background: tone.bg, color: tone.fg, boxShadow: `inset 0 0 0 1px ${tone.bd}` }}>
                         {s.type}
                       </span>
                     </div>
@@ -236,7 +236,7 @@ export default async function SponsorshipsPage() {
                     </div>
                   ) : null}
                   {s.location ? (
-                    <p className="mt-3 flex items-center gap-1 border-t border-rule-soft pt-2.5 font-mono text-[9.5px] font-semibold uppercase tracking-[.14em] text-faint">
+                    <p className="mt-3 flex items-center gap-1 border-t border-rule-soft pt-2.5 font-mono text-floor font-semibold uppercase tracking-[.14em] text-faint">
                       <MapPin size={11} /> {s.location}
                     </p>
                   ) : null}

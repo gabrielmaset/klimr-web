@@ -150,13 +150,13 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
           {c.status === "draft" ? (
             <form action={publishClass}>
               <input type="hidden" name="classId" value={c.id} />
-              <button className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Publish</button>
+              <button type="submit" className="press rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Publish</button>
             </form>
           ) : null}
           {c.status !== "cancelled" ? (
             <form action={cancelClass}>
               <input type="hidden" name="classId" value={c.id} />
-              <button className="press rounded-full border border-rule px-4 py-1.5 text-sm font-semibold text-mute transition-colors hover:text-brand-deep">
+              <button type="submit" className="press rounded-lg border border-rule px-4 py-1.5 text-sm font-semibold text-mute transition-colors hover:text-brand-deep">
                 Cancel class
               </button>
             </form>
@@ -246,7 +246,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                           !isPast ? (
                             <form action={enrollInSession}>
                               <input type="hidden" name="sessionId" value={s.id} />
-                              <button className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+                              <button type="submit" className="press rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
                                 {left === 0 ? "Join waitlist" : "Sign up"}
                               </button>
                             </form>
@@ -268,7 +268,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                               <form action={confirmAttendance}>
                                 <input type="hidden" name="enrollmentId" value={mine.id} />
                                 <input type="hidden" name="classId" value={c.id} />
-                                <button className="press rounded-full border border-success/40 bg-success/5 px-3 py-1.5 text-xs font-semibold text-success transition-colors hover:bg-success/10">
+                                <button type="submit" className="press rounded-lg border border-success/40 bg-success/5 px-3 py-1.5 text-xs font-semibold text-success transition-colors hover:bg-success/10">
                                   Confirm attendance
                                 </button>
                               </form>
@@ -288,7 +288,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                       <form action={cancelSession}>
                         <input type="hidden" name="sessionId" value={s.id} />
                         <input type="hidden" name="classId" value={c.id} />
-                        <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:text-brand-deep">
+                        <button type="submit" className="press rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:text-brand-deep">
                           Cancel session
                         </button>
                       </form>
@@ -326,7 +326,7 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
                                       <input type="hidden" name="enrollmentId" value={e.id} />
                                       <input type="hidden" name="classId" value={c.id} />
                                       <input type="hidden" name="value" value={e.payment_status === "paid" ? "pending" : "paid"} />
-                                      <button className="press rounded-full border border-rule px-2.5 py-1 text-[11px] font-semibold text-ink transition-colors hover:bg-surface">
+                                      <button type="submit" className="press rounded-lg border border-rule px-2.5 py-1 text-[11px] font-semibold text-ink transition-colors hover:bg-surface">
                                         {e.payment_status === "paid" ? "Mark unpaid" : "Mark paid"}
                                       </button>
                                     </form>
@@ -362,7 +362,7 @@ function CancelBtn({ enrollmentId, classId }: { enrollmentId: string; classId: s
     <form action={cancelEnrollment}>
       <input type="hidden" name="enrollmentId" value={enrollmentId} />
       <input type="hidden" name="classId" value={classId} />
-      <button className="press inline-flex items-center gap-1 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:text-brand-deep">
+      <button type="submit" className="press inline-flex items-center gap-1 rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:text-brand-deep">
         <X size={13} /> Cancel
       </button>
     </form>
@@ -375,8 +375,8 @@ function AttBtn({ enrollmentId, classId, value, label, active }: { enrollmentId:
       <input type="hidden" name="enrollmentId" value={enrollmentId} />
       <input type="hidden" name="classId" value={classId} />
       <input type="hidden" name="value" value={active ? "enrolled" : value} />
-      <button
-        className={`press rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+      <button type="submit"
+        className={`press rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
           active ? "bg-ink text-pop" : "border border-rule text-mute hover:text-ink"
         }`}
       >

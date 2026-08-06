@@ -68,7 +68,7 @@ export default async function AdminReports() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-display text-lg text-ink">{REASON[r.reason] ?? r.reason}</span>
-                    <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[r.status] ?? "var(--color-mute)" }}>
+                    <span className="kicker rounded-full px-2 py-0.5 text-floor" style={{ background: "var(--color-bg)", color: STATUS_TONE[r.status] ?? "var(--color-mute)" }}>
                       {r.status}
                     </span>
                   </div>
@@ -95,7 +95,7 @@ export default async function AdminReports() {
                   <option value="dismissed">Dismiss</option>
                 </select>
                 <input name="resolution" defaultValue={r.resolution ?? ""} placeholder="Resolution note (optional)" className="min-w-0 flex-1 rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
-                <button className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Save</button>
+                <button type="submit" className="press rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Save</button>
               </form>
             </div>
           ))}

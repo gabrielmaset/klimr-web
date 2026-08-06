@@ -64,7 +64,7 @@ export default async function BusinessSponsorshipsPage({ params }: { params: Pro
                     <form action={withdrawSponsorship}>
                       <input type="hidden" name="sponsorshipId" value={s.id} />
                       <input type="hidden" name="businessId" value={id} />
-                      <button className="press text-[10px] font-bold uppercase tracking-wide text-faint hover:text-danger">
+                      <button type="submit" className="press text-[10px] font-bold uppercase tracking-wide text-faint hover:text-danger">
                         Withdraw
                       </button>
                     </form>

@@ -48,7 +48,7 @@ export default async function LocationSettingsPage({ searchParams }: { searchPar
             />
           </label>
           <div className="mt-3 flex items-center gap-3">
-            <button className="press rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:bg-ink-soft">Save area</button>
+            <button type="submit" className="press rounded-[10px] bg-ink px-4 py-2 text-sm font-semibold text-surface hover:bg-ink-soft">Save area</button>
             {flags.saved ? <span className="text-xs font-semibold text-brand-deep">Saved — neighborhood updated.</span> : null}
             {flags.err === "zip" ? <span className="text-xs font-semibold text-[#B42318]">Enter a 5-digit ZIP.</span> : null}
             {flags.err === "us" ? <span className="text-xs font-semibold text-[#B42318]">That ZIP doesn&rsquo;t match a U.S. location.</span> : null}

@@ -129,12 +129,12 @@ export default async function TeamsPage({
                     <form action={respondTeamInvite}>
                       <input type="hidden" name="inviteId" value={inviteId} />
                       <input type="hidden" name="decision" value="accept" />
-                      <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Accept</button>
+                      <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Accept</button>
                     </form>
                     <form action={respondTeamInvite}>
                       <input type="hidden" name="inviteId" value={inviteId} />
                       <input type="hidden" name="decision" value="decline" />
-                      <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink">Decline</button>
+                      <button type="submit" className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink">Decline</button>
                     </form>
                   </div>
                 </div>
@@ -180,10 +180,10 @@ export default async function TeamsPage({
                       <span className="flex flex-wrap items-center gap-1.5">
                         <span className="truncate font-athletic text-[15px] leading-tight text-ink">{t.name}</span>
                         {t.category === "pro" ? (
-                          <span className="shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-surface">Pro</span>
+                          <span className="shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-floor font-bold uppercase tracking-wide text-surface">Pro</span>
                         ) : null}
                         {t.deleted_at ? (
-                          <span className="shrink-0 rounded-full bg-tint-danger px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-danger">Disbanded</span>
+                          <span className="shrink-0 rounded-full bg-tint-danger px-1.5 py-0.5 text-floor font-bold uppercase tracking-wide text-danger">Disbanded</span>
                         ) : null}
                       </span>
                       <span className="mt-1 flex items-center gap-1 text-xs text-mute">

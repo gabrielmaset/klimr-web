@@ -78,11 +78,11 @@ export default async function QueueHubPage() {
                       {meta.emoji} {s.title}
                     </p>
                     {s.live && !s.paused ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-[7px] bg-[#F1F8E3] px-2 py-0.5 font-mono text-[9px] font-bold tracking-[0.12em] text-[#4D7C0F]">
+                      <span className="inline-flex items-center gap-1.5 rounded-[7px] bg-[#F1F8E3] px-2 py-0.5 font-mono text-floor font-bold tracking-[0.12em] text-[#4D7C0F]">
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#4D7C0F]" /> LIVE
                       </span>
                     ) : (
-                      <span className="rounded-[7px] bg-surface px-2 py-0.5 font-mono text-[9px] font-bold tracking-[0.12em] text-mute">
+                      <span className="rounded-[7px] bg-surface px-2 py-0.5 font-mono text-floor font-bold tracking-[0.12em] text-mute">
                         {s.paused ? "PAUSED" : "OFF"}
                       </span>
                     )}

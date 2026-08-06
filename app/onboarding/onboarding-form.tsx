@@ -826,12 +826,12 @@ export function OnboardingWizard({
                       </button>
 
                       <div aria-disabled className="relative rounded-2xl border-2 border-dashed border-rule bg-bg/40 p-4 opacity-70">
-                        <span className="absolute -top-2.5 right-3 rounded-full bg-ink px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-pop">Soon</span>
+                        <span className="absolute -top-2.5 right-3 rounded-full bg-ink px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-[.14em] text-pop">Soon</span>
                         <p className="text-[15px] font-bold text-ink-soft">Government ID + selfie match</p>
                         <p className="mt-1 text-[13px] leading-snug text-mute">Scan your ID and take a quick selfie — automated in about two minutes, powered by our verification partner.</p>
                       </div>
                       <div aria-disabled className="relative rounded-2xl border-2 border-dashed border-rule bg-bg/40 p-4 opacity-70">
-                        <span className="absolute -top-2.5 right-3 rounded-full bg-ink px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-pop">Soon</span>
+                        <span className="absolute -top-2.5 right-3 rounded-full bg-ink px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-[.14em] text-pop">Soon</span>
                         <p className="text-[15px] font-bold text-ink-soft">Driver&rsquo;s license barcode scan</p>
                         <p className="mt-1 text-[13px] leading-snug text-mute">One flip of the card — we read the barcode and confirm it matches your profile.</p>
                       </div>
@@ -860,7 +860,7 @@ export function OnboardingWizard({
                             </button>
                             <span className="relative inline-flex items-center gap-1.5 rounded-full border border-dashed border-rule px-3.5 py-2 text-[13px] font-bold text-faint">
                               Text me the link
-                              <span className="rounded-full bg-ink px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.12em] text-pop">Soon</span>
+                              <span className="rounded-full bg-ink px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.12em] text-pop">Soon</span>
                             </span>
                           </div>
                         </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { safeJsonLd } from "@/lib/jsonld";
 import { ChevronRight } from "lucide-react";
 
 /**
@@ -53,7 +54,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
           );
         })}
       </ol>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
     </nav>
   );
 }

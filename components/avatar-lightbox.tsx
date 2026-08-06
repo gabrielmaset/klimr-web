@@ -69,7 +69,7 @@ export function AvatarLightbox({
           <div className="rise relative" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt={`${name || "Player"}'s profile photo`} className="max-h-[80vh] max-w-[86vw] rounded-3xl object-contain shadow-[0_30px_90px_-20px_rgba(0,0,0,0.65)]" />
-            <button
+            <button type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
               className="press absolute -right-3 -top-3 grid h-9 w-9 place-items-center rounded-full border border-rule bg-surface text-ink shadow-lg"

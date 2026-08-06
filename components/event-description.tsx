@@ -66,7 +66,7 @@ export function EventDescription({
               >
                 <Languages size={12} /> Show original
               </button>
-              <span className="font-mono text-[9px] font-semibold tracking-[0.14em] text-faint">TRANSLATED BY AI</span>
+              <span className="font-mono text-floor font-semibold tracking-[0.14em] text-faint">TRANSLATED BY AI</span>
             </>
           ) : (
             <button

@@ -149,7 +149,7 @@ export function TournamentNav({ tournament, role, personal }: { tournament: Tour
           {collapsed ? null : (
             <>
               {label}
-              <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rail-muted">Soon</span>
+              <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-floor font-bold uppercase tracking-wide text-rail-muted">Soon</span>
             </>
           )}
         </span>

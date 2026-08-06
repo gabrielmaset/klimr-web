@@ -7,6 +7,7 @@ const nowMs = () => Date.now();
 import { createClient } from "@/lib/supabase/server";
 import type { SearchResult, SearchResultType } from "./types";
 import { blockSetsFor } from "@/lib/social-server";
+import { interpretQuery } from "@/lib/search-query";
 
 const joinLoc = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(", ") || null;
 
@@ -40,33 +41,9 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
   // never reach the matcher. "beach volleyball events in August" → kinds:
   // {event}, matcher input: "beach volleyball" — no court noise, and the
   // "name"⊂"tournaments" substring class of bug is structurally dead.
-  const KIND_HINTS: Record<string, SearchResultType> = {
-    event: "event", events: "event", meetup: "event", meetups: "event",
-    tournament: "tournament", tournaments: "tournament", bracket: "tournament",
-    court: "court", courts: "court", venue: "court", venues: "court",
-    player: "player", players: "player", people: "player",
-    team: "team", teams: "team",
-    listing: "listing", listings: "listing", marketplace: "listing", gear: "listing",
-    class: "class", classes: "class", coach: "class", coaches: "class",
-    lesson: "class", lessons: "class", coaching: "class",
-    dietitian: "class", dietitians: "class", nutritionist: "class",
-    physio: "class", trainer: "class", instructor: "class",
-  };
-  const STOP = new Set(["any","all","some","the","a","an","in","on","at","for","to","of","with","near","me","my","our","is","are","there","what","when","where","which","who","how","do","does","can","i","you","we","next","this","week","weekly","month","monthly","today","tomorrow","upcoming","find","show","looking","want","january","february","march","april","may","june","july","august","september","october","november","december"]);
-  const words = q.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-  const kindHints = new Set<SearchResultType>();
-  for (const w of words) {
-    const k = KIND_HINTS[w.toLowerCase()];
-    if (k) kindHints.add(k);
-  }
-  // Gabriel's definition, encoded: "events" is an UMBRELLA — it includes
-  // tournaments. The reverse is not true (tournaments stays specific).
-  if (kindHints.has("event")) kindHints.add("tournament");
-  const informative = words.filter((w) => {
-    const lw = w.toLowerCase();
-    return !STOP.has(lw) && !KIND_HINTS[lw];
-  });
-  const condensed = informative.slice(0, 4).join(" ");
+  // Deterministic interpretation extracted to lib/search-query.ts so the exact
+  // hot-path logic is unit-tested against the K1-04 golden corpus in CI.
+  const { kinds: kindHints, condensed } = interpretQuery(q);
 
   // BROWSE INTENT: a kind word with zero informative words ("events next
   // month", "tournaments") is a request to SEE that kind — not a text

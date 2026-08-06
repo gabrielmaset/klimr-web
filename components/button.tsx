@@ -49,10 +49,14 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: Size;
 };
 
-export function Button({ variant, size, className, type, ...props }: ButtonProps) {
+export function Button({ variant, size, className, type = "button", ...props }: ButtonProps) {
   return (
     <button
-      type={type ?? "button"}
+      // The single legitimate dynamic type in the codebase: this wrapper
+      // forwards whatever the caller asked for, defaulting to "button" so a
+      // Button dropped inside a form never submits by accident (UX-002).
+      // eslint-disable-next-line react/button-has-type
+      type={type}
       className={buttonVariants({ variant, size, className })}
       {...props}
     />

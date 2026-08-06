@@ -121,7 +121,7 @@ export default async function TeamProfile({ params }: { params: Promise<{ teamId
                   <div className="flex flex-wrap items-center gap-3">
                     <form action={restoreTeam}>
                       <input type="hidden" name="teamId" value={team.id} />
-                      <button className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep"><RotateCcw size={14} /> Restore team</button>
+                      <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep"><RotateCcw size={14} /> Restore team</button>
                     </form>
                     <span className="text-xs text-mute">Disbanded — recoverable for {recoverDaysLeft(team.deleted_at)} more day{recoverDaysLeft(team.deleted_at) === 1 ? "" : "s"}, then archived.</span>
                   </div>
@@ -154,7 +154,7 @@ export default async function TeamProfile({ params }: { params: Promise<{ teamId
             <p className="mt-1 text-xs text-mute">Leaving removes you from the roster and this workspace.</p>
             <form action={leaveTeam} className="mt-3">
               <input type="hidden" name="teamId" value={team.id} />
-              <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-brand-deep transition-colors hover:bg-tint-brand">
+              <button type="submit" className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-brand-deep transition-colors hover:bg-tint-brand">
                 Leave team
               </button>
             </form>

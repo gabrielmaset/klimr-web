@@ -21,3 +21,17 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
     /* logging must never take a request down */
   }
 };
+
+/** Boot assertions (Aug 2026, audit DEP-001/DEP-002/QUEUE-002): refuse to
+ *  serve a production deploy that is missing required env or running against
+ *  a database behind the code. Gated to Vercel so CI's env-less `next build`
+ *  is untouched; on Vercel the env is present at build and runtime, and a
+ *  stale schema blocks the deploy — which is exactly the point. Transient
+ *  DB errors only warn (availability doctrine). */
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== "nodejs" || !process.env.VERCEL) return;
+  const { assertServerEnv } = await import("@/lib/env");
+  assertServerEnv();
+  const { assertSchemaCurrent } = await import("@/lib/schema-check");
+  await assertSchemaCurrent();
+}

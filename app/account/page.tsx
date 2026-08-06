@@ -8,7 +8,7 @@ import {
   Trophy, UserRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { startVerification, approveVerification } from "./actions";
+import { startVerification } from "./actions";
 import { signOutAction } from "@/app/auth/actions";
 import { Avatar } from "@/components/avatar";
 import { PresenceControl } from "@/app/settings/presence-control";
@@ -111,7 +111,7 @@ export default async function AccountPage({
       <div className="flex items-center justify-between">
         <h1 className="font-display text-4xl text-ink sm:text-5xl">Your account</h1>
         <form action={signOutAction}>
-          <button className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out</button>
+          <button type="submit" className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out</button>
         </form>
       </div>
 
@@ -140,7 +140,7 @@ export default async function AccountPage({
             </span>
             <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{label}</span>
             {soon ? (
-              <span className="shrink-0 rounded-full bg-bg px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
+              <span className="shrink-0 rounded-full bg-bg px-1.5 py-0.5 text-floor font-bold uppercase tracking-wide text-faint">Soon</span>
             ) : (
               <ChevronRight size={16} className="shrink-0 text-faint" />
             )}
@@ -260,7 +260,7 @@ export default async function AccountPage({
           <div id="verification" className="rise scroll-mt-24 rounded-3xl border border-rule bg-surface shadow-e1 p-6" style={{ animationDelay: "90ms" }}>
             <div className="kicker text-faint">Identity verification</div>
             <p className="mt-2 text-sm leading-relaxed text-mute">
-              Every Klimr player is verified — it&apos;s the trust floor for rankings and matches.
+              Identity review is manual today — automated checks are in preview. It&apos;s the trust floor for rankings and matches.
             </p>
             <div className="mt-4">
               {v === "verified" ? (
@@ -270,15 +270,10 @@ export default async function AccountPage({
               ) : v === "pending" ? (
                 <div className="space-y-3">
                   <span className="inline-flex items-center rounded-full bg-pop px-3 py-1.5 text-sm font-bold text-ink">Under review</span>
-                  <form action={approveVerification}>
-                    <button className="block text-xs font-semibold text-faint underline underline-offset-2 transition-colors hover:text-mute">
-                      Demo only: approve (admin)
-                    </button>
-                  </form>
                 </div>
               ) : (
                 <form action={startVerification}>
-                  <button className="press rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep">
+                  <button type="submit" className="press rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep">
                     Start verification
                   </button>
                 </form>

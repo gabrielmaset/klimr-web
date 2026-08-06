@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getStepUpDecision } from "@/lib/step-up";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -444,6 +445,8 @@ export async function setMemberDesignation(formData: FormData) {
 
 /** Owner hands ownership to another member; the old owner becomes a manager. */
 export async function transferOwnership(formData: FormData) {
+  // D8 step-up (audit SEC-006): ownership transfer requires an AAL2 session.
+  if ((await getStepUpDecision()) !== "ok") redirect("/mfa?next=/teams");
   const { supabase, user } = await me();
   if (!user) return;
   const teamId = String(formData.get("teamId"));

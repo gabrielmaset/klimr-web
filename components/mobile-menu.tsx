@@ -87,7 +87,7 @@ export function MobileMenu({
           <Avatar url={avatarUrl} hue={avatarHue} name={avatarName} size={34} ring />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-ink">{avatarName}</p>
-            <p className="font-mono text-[8.5px] font-bold uppercase tracking-[.18em] text-faint">Menu</p>
+            <p className="font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">Menu</p>
           </div>
           <button
             type="button"
@@ -103,7 +103,7 @@ export function MobileMenu({
           {NAV_GROUPS.map((g) => (
             <div key={g.header ?? "primary"}>
               {g.header ? (
-                <p className="px-3 pb-1 pt-3.5 font-mono text-[9px] font-bold uppercase tracking-[.18em] text-faint">{g.header}</p>
+                <p className="px-3 pb-1 pt-3.5 font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">{g.header}</p>
               ) : null}
               <div className="flex flex-col gap-0.5">{g.items.map(renderItem)}</div>
             </div>
@@ -117,7 +117,7 @@ export function MobileMenu({
           <Link href="/invite" onClick={onClose} className={row(isActive("/invite"))}>
             <Gift size={17} className="text-faint" />
             Invite friends
-            <span className="ml-auto rounded-full bg-bg px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-faint">Soon</span>
+            <span className="ml-auto rounded-full bg-bg px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.14em] text-faint">Soon</span>
           </Link>
           <form action={signOutAction}>
             <button type="submit" className={`${row(false)} w-full`}>

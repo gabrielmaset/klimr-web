@@ -76,7 +76,7 @@ export default async function NewBusiness() {
           </div>
         </div>
 
-        <button className="press rounded-[10px] bg-ink px-5 py-2.5 text-sm font-semibold text-surface hover:opacity-90">
+        <button type="submit" className="press rounded-[10px] bg-ink px-5 py-2.5 text-sm font-semibold text-surface hover:opacity-90">
           Create draft
         </button>
       </form>

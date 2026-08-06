@@ -501,7 +501,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
               <circle cx="300" cy="44" r="3" fill="#FFE249" />
             </svg>
             <div className="relative">
-              <p className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.18em] text-white/75">Your altitude · {sportMeta(altSport).name}</p>
+              <p className="font-mono text-floor font-semibold uppercase tracking-[0.18em] text-white/75">Your altitude · {sportMeta(altSport).name}</p>
               {altitude ? (
                 <>
                   <p className="mt-2 font-display text-[34px] font-bold leading-none tracking-[-0.02em] text-white">
@@ -549,7 +549,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       </div>
 
       <footer className="mt-[22px] flex items-center gap-3 border-t border-rule pb-5 pt-4">
-        <span className="font-mono text-[9.5px] tracking-[0.14em] text-faint">© 2026 KLIMR · LOS ANGELES</span>
+        <span className="font-mono text-floor tracking-[0.14em] text-faint">© 2026 KLIMR · LOS ANGELES</span>
         <span className="flex-1" />
         <Link href="/support" className="text-xs font-semibold text-mute hover:text-ink">Contact</Link>
       </footer>

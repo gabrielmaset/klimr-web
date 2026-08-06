@@ -41,7 +41,7 @@ function Section({ title, rows }: { title: string; rows: RowDef[] }) {
                 <span className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-ink">{r.title}</span>
                   {r.soon ? (
-                    <span className="rounded-full bg-bg px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-faint">Soon</span>
+                    <span className="rounded-full bg-bg px-2 py-0.5 text-floor font-bold uppercase tracking-wide text-faint">Soon</span>
                   ) : null}
                 </span>
                 <span className="mt-0.5 block text-xs text-mute">{r.desc}</span>
@@ -211,10 +211,10 @@ export default async function SettingsPage() {
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-1">
             <form action={signOutAction}>
-              <button className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out</button>
+              <button type="submit" className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out</button>
             </form>
             <form action={signOutEverywhereAction}>
-              <button className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out of all devices</button>
+              <button type="submit" className="press text-sm font-semibold text-mute transition-colors hover:text-ink">Sign out of all devices</button>
             </form>
           </div>
         </div>

@@ -328,7 +328,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
               <Search size={15} className="shrink-0 text-faint" />
               <input name="near" defaultValue={nearRaw} placeholder="ZIP or city" className="w-32 bg-transparent text-sm text-ink outline-none placeholder:text-faint" />
             </div>
-            <button type="submit" className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+            <button type="submit" className="press rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
               Search
             </button>
             {nearRaw ? (

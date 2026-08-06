@@ -25,7 +25,7 @@ export function VerificationDataPanel({ compact }: { compact?: boolean }) {
       </p>
       <div className={`mt-3 grid gap-3 ${compact ? "" : "sm:grid-cols-2"}`}>
         <div className="rounded-xl border border-[#CFE3D2] bg-[#F2F8F3] px-3.5 py-3">
-          <p className="font-mono text-[9.5px] font-bold uppercase tracking-[.14em] text-[#1F6B33]">What we store</p>
+          <p className="font-mono text-floor font-bold uppercase tracking-[.14em] text-[#1F6B33]">What we store</p>
           <ul className="mt-1.5 space-y-1">
             {keep.map((k) => (
               <li key={k} className={`flex items-start gap-1.5 text-ink-soft ${compact ? "text-[12.5px]" : "text-[13px]"}`}>
@@ -35,7 +35,7 @@ export function VerificationDataPanel({ compact }: { compact?: boolean }) {
           </ul>
         </div>
         <div className="rounded-xl border border-[#EBD3C6] bg-[#FBF2ED] px-3.5 py-3">
-          <p className="font-mono text-[9.5px] font-bold uppercase tracking-[.14em] text-brand-deep">What we never store</p>
+          <p className="font-mono text-floor font-bold uppercase tracking-[.14em] text-brand-deep">What we never store</p>
           <ul className="mt-1.5 space-y-1">
             {never.map((k) => (
               <li key={k} className={`flex items-start gap-1.5 text-ink-soft ${compact ? "text-[12.5px]" : "text-[13px]"}`}>

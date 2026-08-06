@@ -55,18 +55,18 @@ export default async function ProfilePageSettings({ searchParams }: { searchPara
         </section>
 
         <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5">
-          <h2 className="text-sm font-bold text-ink">Gear bag <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-wider text-faint">Optional</span></h2>
+          <h2 className="text-sm font-bold text-ink">Gear bag <span className="ml-1 font-mono text-floor font-bold uppercase tracking-wider text-faint">Optional</span></h2>
           <p className="mt-0.5 text-xs text-mute">What you play with — shows on your profile only when you list something.</p>
           <div className="mt-3"><GearEditor initial={gear} /></div>
         </section>
 
         <section className="rounded-3xl border border-rule bg-surface shadow-e1 p-5">
-          <h2 className="text-sm font-bold text-ink">Usual times <span className="ml-1 font-mono text-[9px] font-bold uppercase tracking-wider text-faint">Optional</span></h2>
+          <h2 className="text-sm font-bold text-ink">Usual times <span className="ml-1 font-mono text-floor font-bold uppercase tracking-wider text-faint">Optional</span></h2>
           <p className="mt-0.5 text-xs text-mute">Shown under your courts — helps people know when to challenge you.</p>
           <input name="usual_times" defaultValue={p?.usual_times ?? ""} maxLength={90} placeholder="Weekday evenings · weekend mornings" className="mt-3 h-10 w-full rounded-[12px] border border-rule-2 bg-bg px-3.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand" />
         </section>
 
-        <button className="press w-fit rounded-full px-5 py-2.5 text-sm font-bold text-white hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
+        <button type="submit" className="press w-fit rounded-lg px-5 py-2.5 text-sm font-bold text-white hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
           Save profile page
         </button>
       </form>

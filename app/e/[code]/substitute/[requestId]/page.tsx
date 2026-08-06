@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sanitizeRichText, looksLikeHtml } from "@/lib/rich-text";
 import type { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
 import { ArrowLeft, Repeat } from "lucide-react";
@@ -123,6 +124,7 @@ export default async function SubstitutePage({ params }: { params: Promise<{ cod
           fields={fields}
           waiverText={legal.waiver_text ?? ""}
           rulesText={legal.rules_text ?? ""}
+        rulesHtml={legal.rules_text && looksLikeHtml(legal.rules_text) ? sanitizeRichText(legal.rules_text) : null}
           requireWaiver={!!legal.require_waiver}
           requireRules={!!legal.require_rules}
         />

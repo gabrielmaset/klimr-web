@@ -332,7 +332,7 @@ export function ChatRoom({
           </div>
         </div>
         {!expired && expiresInHrs !== null && expiresInHrs <= 24 ? (
-          <span className="rounded-full border border-tint-brand-bd bg-tint-brand px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">
+          <span className="rounded-full border border-tint-brand-bd bg-tint-brand px-2 py-1 font-mono text-floor font-bold uppercase tracking-[.14em] text-flame-text">
             {expiresInHrs <= 0 ? "Expiring" : `Expires ${expiresInHrs}h`}
           </span>
         ) : null}

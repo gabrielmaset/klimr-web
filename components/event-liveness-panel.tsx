@@ -48,7 +48,7 @@ export function EventLivenessPanel({
           This series has ended — no new dates are scheduled.
           <form action={resumeSeries} className="mt-2">
             <input type="hidden" name="eventId" value={eventId} />
-            <button className="press inline-flex items-center gap-1.5 rounded-[10px] bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
+            <button type="submit" className="press inline-flex items-center gap-1.5 rounded-[10px] bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
               <PlayCircle size={13} /> Restart the series
             </button>
           </form>
@@ -63,7 +63,7 @@ export function EventLivenessPanel({
               </p>
               <form action={resumeSeries}>
                 <input type="hidden" name="eventId" value={eventId} />
-                <button className="press inline-flex shrink-0 items-center gap-1.5 rounded-[10px] bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
+                <button type="submit" className="press inline-flex shrink-0 items-center gap-1.5 rounded-[10px] bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
                   <PlayCircle size={13} /> Resume
                 </button>
               </form>
@@ -89,7 +89,7 @@ export function EventLivenessPanel({
                       <form action={unskipOccurrence}>
                         <input type="hidden" name="eventId" value={eventId} />
                         <input type="hidden" name="date" value={o.date} />
-                        <button className="press inline-flex items-center gap-1 rounded-[9px] border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink hover:bg-bg">
+                        <button type="submit" className="press inline-flex items-center gap-1 rounded-[9px] border border-rule bg-surface px-2.5 py-1 text-xs font-semibold text-ink hover:bg-bg">
                           <CalendarCheck2 size={12} /> Restore
                         </button>
                       </form>
@@ -113,7 +113,7 @@ export function EventLivenessPanel({
                         placeholder="Why? (optional — shown to players)"
                         className="w-full rounded-[9px] border border-rule bg-surface px-3 py-1.5 text-xs text-ink placeholder:text-faint focus:outline-none"
                       />
-                      <button className="press shrink-0 rounded-[10px] bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
+                      <button type="submit" className="press shrink-0 rounded-[10px] bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
                         Skip date
                       </button>
                     </form>
@@ -141,7 +141,7 @@ export function EventLivenessPanel({
                 min={minPauseDate}
                 className="rounded-[9px] border border-rule bg-surface px-3 py-1.5 text-xs text-ink focus:outline-none"
               />
-              <button className="press rounded-[9px] border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:bg-bg">
+              <button type="submit" className="press rounded-[9px] border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink hover:bg-bg">
                 Pause series
               </button>
             </form>

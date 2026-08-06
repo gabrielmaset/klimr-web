@@ -21,10 +21,10 @@ export async function clearSessionPlay(admin: Admin, sessionId: string): Promise
   await admin.from("queue_join_requests").delete().eq("session_id", sessionId);
 }
 
-/** Update a session, tolerating a not-yet-applied 0124: if Postgres rejects
- *  the unknown `paused_by` column, retry once without it. The queue keeps
- *  working; only "paused by <name>" waits for the migration. Returns the final
- *  error message, or null on success. */
+/** Update a session. Returns the error message, or null on success.
+ *  The old drop-and-retry schema shims are gone (audit QUEUE-002, prod at
+ *  0173+ per D14): a stale database now fails LOUDLY at boot via
+ *  lib/schema-check.ts instead of degrading silently per request. */
 type SessionUpdate = Database["public"]["Tables"]["court_sessions"]["Update"];
 
 export async function sessionPatch(
@@ -33,18 +33,7 @@ export async function sessionPatch(
   patch: SessionUpdate,
 ): Promise<string | null> {
   const { error } = await admin.from("court_sessions").update(patch).eq("id", sessionId);
-  if (!error) return null;
-  // Schema tolerance: columns from newer migrations (0124 paused_by,
-  // 0127 activated_at) degrade gracefully instead of failing the whole patch.
-  const missing = (["paused_by", "activated_at"] as const).filter((k) => k in patch && new RegExp(k).test(error.message));
-  if (missing.length) {
-    console.error(`[queue] column(s) ${missing.join(", ")} missing — apply migrations 0124/0127. Retrying without.`);
-    const rest: SessionUpdate = { ...patch };
-    for (const k of missing) delete rest[k];
-    const { error: e2 } = await admin.from("court_sessions").update(rest).eq("id", sessionId);
-    return e2 ? e2.message : null;
-  }
-  return error.message;
+  return error ? error.message : null;
 }
 
 const SESSION_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -82,13 +71,7 @@ export async function ensureQueueLive(
     const { data: ev } = await admin.from(owner.eventId ? "events" : "tournaments").select("title, sport_key").eq("id", ownerId).maybeSingle();
     for (let attempt = 0; attempt < 5; attempt++) {
       const payload = { code: sessionCode(), display_code: sessionCode(), event_id: owner.eventId, organizer_id: organizerId, title: ev?.title ?? "Live queue", sport_key: ev?.sport_key ?? "tennis", status: "live", ...(owner.tournamentId ? { tournament_id: owner.tournamentId } : {}) };
-      let { data, error } = await admin.from("court_sessions").insert(payload).select("id").maybeSingle();
-      if (error && error.code !== "23505" && /display_code/.test(error.message)) {
-        console.error("[queue] display_code missing — apply migration 0128. Retrying without it.");
-        const { display_code: _omit, ...rest } = payload;
-        void _omit;
-        ({ data, error } = await admin.from("court_sessions").insert(rest).select("id").maybeSingle());
-      }
+      const { data, error } = await admin.from("court_sessions").insert(payload).select("id").maybeSingle();
       if (data?.id) return { id: data.id, error: null };
       if (error && error.code !== "23505") {
         console.error("[queue] session insert failed:", error.message);

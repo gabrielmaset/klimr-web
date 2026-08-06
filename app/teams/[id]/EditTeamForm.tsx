@@ -126,7 +126,7 @@ export function EditTeamForm({
         <button
           type="submit"
           disabled={pending || zipVal.length !== 5}
-          className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-60"
+          className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-60"
         >
           {pending ? (<><Loader2 size={14} className="animate-spin" /> Saving…</>) : (<><Check size={14} /> Save</>)}
         </button>

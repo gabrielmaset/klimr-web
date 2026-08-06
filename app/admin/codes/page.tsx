@@ -119,14 +119,14 @@ export default async function AdminCodesPage() {
                         <form action={setInviteCodeActive}>
                           <input type="hidden" name="code" value={c.code} />
                           <input type="hidden" name="active" value={c.active ? "false" : "true"} />
-                          <button className="press rounded-full border border-rule px-2.5 py-1 text-xs font-semibold text-mute hover:text-ink">
+                          <button type="submit" className="press rounded-lg border border-rule px-2.5 py-1 text-xs font-semibold text-mute hover:text-ink">
                             {c.active ? "Disable" : "Enable"}
                           </button>
                         </form>
                         {canDelete ? (
                           <form action={deleteInviteCode}>
                             <input type="hidden" name="code" value={c.code} />
-                            <button
+                            <button type="submit"
                               aria-label="Delete code"
                               className="press grid h-7 w-7 place-items-center rounded-full border border-rule text-mute hover:border-brand/40 hover:text-brand-deep"
                             >
@@ -198,14 +198,14 @@ export default async function AdminCodesPage() {
                         <form action={setInvestorCodeActive}>
                           <input type="hidden" name="code" value={c.code} />
                           <input type="hidden" name="active" value={c.active ? "false" : "true"} />
-                          <button className="press rounded-full border border-rule px-2.5 py-1 text-xs font-semibold text-mute hover:text-ink">
+                          <button type="submit" className="press rounded-lg border border-rule px-2.5 py-1 text-xs font-semibold text-mute hover:text-ink">
                             {c.active ? "Disable" : "Enable"}
                           </button>
                         </form>
                         {canDelete ? (
                           <form action={deleteInvestorCode}>
                             <input type="hidden" name="code" value={c.code} />
-                            <button
+                            <button type="submit"
                               aria-label="Delete code"
                               className="press grid h-7 w-7 place-items-center rounded-full border border-rule text-mute hover:border-brand/40 hover:text-brand-deep"
                             >

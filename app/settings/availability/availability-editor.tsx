@@ -101,7 +101,7 @@ export function AvailabilityEditor({ initial }: { initial: Range[] }) {
         </ul>
       )}
 
-      <button type="button" onClick={add} className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg">
+      <button type="button" onClick={add} className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg">
         <Plus size={15} /> Add a time block
       </button>
 
@@ -109,7 +109,7 @@ export function AvailabilityEditor({ initial }: { initial: Range[] }) {
         <button
           type="submit"
           disabled={pending}
-          className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+          className="press rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save changes"}
         </button>

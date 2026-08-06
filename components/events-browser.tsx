@@ -57,7 +57,7 @@ function toggleIn(set: Set<string>, v: string): Set<string> {
 function ClearLink({ n, onClear }: { n: number; onClear: () => void }) {
   if (n === 0) return null;
   return (
-    <button type="button" onClick={onClear} className="press font-mono text-[9px] font-bold uppercase tracking-[.14em] text-brand-deep hover:underline">
+    <button type="button" onClick={onClear} className="press font-mono text-floor font-bold uppercase tracking-[.14em] text-brand-deep hover:underline">
       {n} · Clear
     </button>
   );
@@ -322,7 +322,7 @@ export function EventsBrowser({ events, myEvents = [], nowMs, mapboxToken = null
                   aria-label="Search events near a city or ZIP"
                   className="h-8 w-full min-w-0 rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand"
                 />
-                <button className="press shrink-0 rounded-full border border-rule-2 bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft hover:text-ink">Go</button>
+                <button type="submit" className="press shrink-0 rounded-lg border border-rule-2 bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft hover:text-ink">Go</button>
               </form>
               {geoErr ? <span className="block pt-1 text-xs text-danger">{geoErr}</span> : null}
             </>

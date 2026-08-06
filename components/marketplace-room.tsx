@@ -328,12 +328,12 @@ export function MarketplaceRoom(props: {
             <p className="truncate text-sm font-bold text-ink">{listing.title}</p>
             <p className="flex items-center gap-2 text-xs text-mute">
               <span className="font-mono font-bold" style={{ color: priceTone }}>{listing.priceText}</span>
-              {listing.mode === "sale" && listing.obo ? <span className="font-mono text-[9px] font-bold text-faint">OBO</span> : null}
+              {listing.mode === "sale" && listing.obo ? <span className="font-mono text-floor font-bold text-faint">OBO</span> : null}
               <span className="truncate">· with {other.name}{other.verified ? " ✓" : ""}</span>
             </p>
           </div>
           {listing.status !== "active" ? (
-            <span className="shrink-0 rounded-[6px] px-2 py-1 font-mono text-[8.5px] font-bold uppercase tracking-[.12em]" style={{ background: PENDING_TONE.bg, color: PENDING_TONE.fg, boxShadow: `inset 0 0 0 1px ${PENDING_TONE.bd}` }}>
+            <span className="shrink-0 rounded-[6px] px-2 py-1 font-mono text-floor font-bold uppercase tracking-[.12em]" style={{ background: PENDING_TONE.bg, color: PENDING_TONE.fg, boxShadow: `inset 0 0 0 1px ${PENDING_TONE.bd}` }}>
               {listing.status}
             </span>
           ) : null}
@@ -385,8 +385,8 @@ export function MarketplaceRoom(props: {
                 <div key={`o-${o.id}`} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                   <div className="w-[min(320px,86%)] rounded-[16px] border bg-surface p-3.5 shadow-e1" style={{ borderColor: shown === "open" ? "var(--color-tint-brand-bd)" : "var(--color-rule)" }}>
                     <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-faint">{mine ? "Your offer" : `${other.name}'s offer`}</span>
-                      <span className="rounded-[5px] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.1em]" style={{ background: stateTone.bg, color: stateTone.fg, boxShadow: `inset 0 0 0 1px ${stateTone.bd}` }}>{shown}</span>
+                      <span className="font-mono text-floor font-bold uppercase tracking-[.14em] text-faint">{mine ? "Your offer" : `${other.name}'s offer`}</span>
+                      <span className="rounded-[5px] px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.1em]" style={{ background: stateTone.bg, color: stateTone.fg, boxShadow: `inset 0 0 0 1px ${stateTone.bd}` }}>{shown}</span>
                     </div>
                     <p className="mt-1 font-mono text-[22px] font-bold tabular text-ink">${Math.round((o.amount_cents ?? 0) / 100).toLocaleString("en-US")}</p>
                     {o.note ? <p className="mt-0.5 text-[12px] leading-relaxed text-mute">&ldquo;{o.note}&rdquo;</p> : null}
@@ -414,8 +414,8 @@ export function MarketplaceRoom(props: {
               <div key={`u-${u.id}`} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className="w-[min(320px,86%)] rounded-[16px] border bg-surface p-3.5 shadow-e1" style={{ borderColor: u.status === "proposed" ? "var(--color-tint-brand-bd)" : "var(--color-rule)" }}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-faint">Meetup {mine ? "you proposed" : `${other.name} proposed`}</span>
-                    <span className="rounded-[5px] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-[.1em]" style={{ background: uTone.bg, color: uTone.fg, boxShadow: `inset 0 0 0 1px ${uTone.bd}` }}>{u.status}</span>
+                    <span className="font-mono text-floor font-bold uppercase tracking-[.14em] text-faint">Meetup {mine ? "you proposed" : `${other.name} proposed`}</span>
+                    <span className="rounded-[5px] px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.1em]" style={{ background: uTone.bg, color: uTone.fg, boxShadow: `inset 0 0 0 1px ${uTone.bd}` }}>{u.status}</span>
                   </div>
                   <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-ink"><MapPin size={13} className="shrink-0 text-mute" /> {u.courtName ?? u.place_text ?? "Public place"}</p>
                   <p className="mt-0.5 text-[12.5px] text-mute">{fmtWhen(u.starts_at)}</p>
@@ -450,7 +450,7 @@ export function MarketplaceRoom(props: {
 
             {offerOpen ? (
               <div className="mb-2.5 flex flex-wrap items-center gap-2 rounded-[12px] border border-tint-brand-bd bg-tint-brand/60 p-2.5">
-                <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">{counterOf ? "Counter" : "Your offer"}</span>
+                <span className="font-mono text-floor font-bold uppercase tracking-[.14em] text-flame-text">{counterOf ? "Counter" : "Your offer"}</span>
                 <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="$" aria-label="Offer amount" className="h-8 w-24 rounded-[9px] border border-rule-2 bg-surface px-2 font-mono text-[13px] font-bold text-ink outline-none" />
                 <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={240} placeholder="Note (optional)" aria-label="Offer note" className="h-8 min-w-0 flex-1 rounded-[9px] border border-rule-2 bg-surface px-2 text-xs text-ink outline-none placeholder:text-faint" />
                 <button type="button" disabled={busy} onClick={() => runAction(() => makeOffer({ listingId: listing.id, buyerId, convId, amount, note, parentOfferId: counterOf?.id ?? null }))} className="press h-8 rounded-full px-3.5 text-xs font-bold text-white shadow-flame disabled:opacity-50" style={{ background: flame }}>Send offer</button>
@@ -460,7 +460,7 @@ export function MarketplaceRoom(props: {
 
             {meetOpen ? (
               <div className="mb-2.5 flex flex-wrap items-center gap-2 rounded-[12px] border border-tint-brand-bd bg-tint-brand/60 p-2.5">
-                <span className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">Meetup</span>
+                <span className="font-mono text-floor font-bold uppercase tracking-[.14em] text-flame-text">Meetup</span>
                 <select value={spot} onChange={(e) => setSpot(e.target.value)} aria-label="Meet spot" className="h-8 rounded-[9px] border border-rule-2 bg-surface px-2 text-xs font-semibold text-ink outline-none">
                   {meetSpots.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>

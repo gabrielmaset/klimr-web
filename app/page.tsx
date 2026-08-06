@@ -198,10 +198,10 @@ export default async function Home() {
             className="rise mt-6 max-w-lg text-lg leading-relaxed text-ink-soft"
             style={{ animationDelay: "180ms" }}
           >
-            Klimr is the social network for sports players. Match with verified
-            people nearby, log real results, and watch where you stand — from
-            your ZIP code to the world. We’re launching with a starting lineup
-            of sports and adding more soon.
+            Klimr is the social network for sports players. Match with players
+            nearby, log real results, and watch where you stand — from your
+            ZIP code to the world. Five launch sports — tennis, pickleball,
+            padel, racquetball, and beach volleyball — with more on the way.
           </p>
           <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "270ms" }}>
             <Link

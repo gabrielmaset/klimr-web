@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = { title: "The playbook" };
 
-const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]";
+const monoKicker = "font-mono text-floor font-bold uppercase tracking-[.18em]";
 
 export default function ResourcesPage() {
   return (

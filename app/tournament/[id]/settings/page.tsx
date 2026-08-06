@@ -120,7 +120,7 @@ export default async function TournamentSettingsPage({ params }: { params: Promi
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       <form action={reopenTournament}>
                         <input type="hidden" name="tournamentId" value={t.id} />
-                        <button className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"><RotateCcw size={15} /> Recover tournament</button>
+                        <button type="submit" className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"><RotateCcw size={15} /> Recover tournament</button>
                       </form>
                       <span className="text-xs text-mute">Recoverable for {recoverDaysLeft(t.cancelled_at)} more day{recoverDaysLeft(t.cancelled_at) === 1 ? "" : "s"}, then archived.</span>
                     </div>

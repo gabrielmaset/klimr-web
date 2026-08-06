@@ -5,7 +5,7 @@ _Stack: Next.js 16 (App Router) · React 19 · TypeScript · Supabase (Postgres 
 
 This document records Klimr's security posture: the controls that are in place and
 verified, the items that **must** be done before external users, a hardening backlog,
-and the rules every future change must follow. It is paired with `GO_LIVE.md`
+and the rules every future change must follow. It is paired with `docs/MIGRATIONS_LEDGER.md`
 (operational launch checklist) — the migration-run requirement appears in both.
 
 ---
@@ -140,8 +140,8 @@ Reviewed against current known issues for this stack:
       protection / GitHub secret scanning.
 - [ ] **Verify Storage bucket object policies** (`avatars` is public-read by design;
       `post-media` and the safety/quarantine bucket should stay locked while unused).
-- [ ] Custom SMTP (Resend) configured — also a deliverability requirement (see `GO_LIVE.md`).
-- [ ] Vercel Pro + Supabase Pro for backups and to stop project pausing (see `GO_LIVE.md`).
+- [ ] Custom SMTP (Resend) configured — also a deliverability requirement.
+- [ ] Vercel Pro for commercial use at launch. Supabase Pro: ACTIVE since Aug 2026 (backups, no pausing).
 
 ---
 

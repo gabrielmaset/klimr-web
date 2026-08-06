@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getStepUpDecision } from "@/lib/step-up";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { lookupZip } from "@/lib/us-places";
@@ -155,6 +156,8 @@ export async function unblockPlayer(formData: FormData) {
 }
 
 export async function deleteAccount(_prev: DeleteState, formData: FormData): Promise<DeleteState> {
+  // D8 step-up (audit SEC-006): account deletion requires a fresh-AAL2 session.
+  if ((await getStepUpDecision()) !== "ok") redirect("/mfa?next=/settings");
   const confirm = String(formData.get("confirm") ?? "").trim().toUpperCase();
   if (confirm !== "DELETE") return { error: 'Type DELETE to confirm.' };
 

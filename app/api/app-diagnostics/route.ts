@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
+import { createHash } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +12,13 @@ export const dynamic = "force-dynamic";
  *  reports from website ones. Nothing is reflected back to the caller. */
 export async function POST(req: Request) {
   if (!(req.headers.get("x-klimr-app") ?? "").startsWith("KlimrCourtside")) {
+    return new NextResponse(null, { status: 204 });
+  }
+  // K1-03 (audit SEC-008): anonymous ingestion is throttled fail-CLOSED —
+  // per-IP rate, per-message dedupe, and a global daily row cap. The caller
+  // always gets 204 (nothing is reflected); over-limit reports are dropped.
+  const ip = await clientIp();
+  if (!(await rateLimitStrict(`diag:ip:${ip}`, 20, 3600))) {
     return new NextResponse(null, { status: 204 });
   }
   let body: unknown = null;
@@ -23,7 +32,23 @@ export async function POST(req: Request) {
   const message = String(b.message ?? "").trim().slice(0, 500);
   if (!message) return new NextResponse(null, { status: 204 });
   const detail = b.detail == null ? null : String(b.detail).slice(0, 4000);
+  // Dedupe: the same message from the same IP writes at most once per 10 min.
+  const digest = createHash("sha1").update(message).digest("hex").slice(0, 16);
+  if (!(await rateLimitStrict(`diag:dupe:${ip}:${digest}`, 1, 600))) {
+    return new NextResponse(null, { status: 204 });
+  }
   const admin = createAdminClient();
+  // Global daily cap: a chatty (or hostile) fleet cannot flood error_logs.
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const { count } = await admin
+    .from("error_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("url", "app://courtside")
+    .gte("created_at", dayStart.toISOString());
+  if ((count ?? 0) >= 500) {
+    return new NextResponse(null, { status: 204 });
+  }
   await admin.from("error_logs").insert({
     user_id: null,
     level,

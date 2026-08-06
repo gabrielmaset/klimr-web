@@ -232,13 +232,13 @@ export function ScheduleBuilder({
           type="button"
           onClick={build}
           disabled={busy}
-          className="press inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-50"
+          className="press inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-50"
         >
           {busy ? <Loader2 size={15} className="animate-spin" /> : <CalendarClock size={15} />}
           {built ? "Rebuild schedule" : "Build schedule"}
         </button>
         {built && rows.length > 0 ? (
-          <button type="button" onClick={print} className="press inline-flex items-center gap-2 rounded-full border border-rule bg-surface px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-bg">
+          <button type="button" onClick={print} className="press inline-flex items-center gap-2 rounded-lg border border-rule bg-surface px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-bg">
             <Printer size={15} /> Print
           </button>
         ) : null}
@@ -247,14 +247,14 @@ export function ScheduleBuilder({
             type="button"
             onClick={publish}
             disabled={!!pubBusy}
-            className="press inline-flex items-center gap-2 rounded-full border border-rule bg-surface px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-bg disabled:opacity-50"
+            className="press inline-flex items-center gap-2 rounded-lg border border-rule bg-surface px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-bg disabled:opacity-50"
           >
             {pubBusy === "publish" ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />}
             {published ? "Update public schedule" : "Publish to public page"}
           </button>
         ) : null}
         {built && published ? (
-          <button type="button" onClick={unpublish} disabled={!!pubBusy} className="press inline-flex items-center gap-2 rounded-full px-3 py-2.5 text-sm font-semibold text-mute transition hover:text-ink disabled:opacity-50">
+          <button type="button" onClick={unpublish} disabled={!!pubBusy} className="press inline-flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-mute transition hover:text-ink disabled:opacity-50">
             {pubBusy === "unpublish" ? <Loader2 size={15} className="animate-spin" /> : null}
             Unpublish
           </button>

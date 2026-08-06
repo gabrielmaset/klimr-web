@@ -85,7 +85,7 @@ export function EventQueueAdmin({
             <button
               type="submit"
               disabled={togglePending}
-              className="press inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3 text-base font-bold text-white transition hover:bg-brand-deep disabled:opacity-60"
+              className="press inline-flex items-center gap-2 rounded-lg bg-brand px-6 py-3 text-base font-bold text-white transition hover:bg-brand-deep disabled:opacity-60"
             >
               <Power size={17} /> {togglePending ? "Turning on\u2026" : "Turn on the queue"}
             </button>
@@ -118,7 +118,7 @@ export function EventQueueAdmin({
               <button
                 type="submit"
                 disabled={togglePending}
-                className="press ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
+                className="press ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
                 title="Clears courts, players, and settings — the code survives for printed posters"
               >
                 <Power size={14} /> Turn off

@@ -70,7 +70,7 @@ export default async function ChallengesPage() {
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <SportChip sport={c.sport_key} size="sm" />
                   {repping ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[.14em]" style={{ background: "var(--color-tint-brand)", borderColor: "var(--color-tint-brand-bd)", color: "var(--color-flame-text)" }}>
+                    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-[.14em]" style={{ background: "var(--color-tint-brand)", borderColor: "var(--color-tint-brand-bd)", color: "var(--color-flame-text)" }}>
                       <Flag size={10} /> Repping {repping}
                     </span>
                   ) : null}

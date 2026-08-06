@@ -168,6 +168,85 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ---
 
+## Security & trust conventions (Aug 2026 audit remediation)
+
+- **Verification transitions have ONE write path**: `lib/verification.ts`
+  (service-role, unverified → pending only). Admin approval lives in
+  `app/admin/actions.ts` and nowhere else; the demo self-approve stub is
+  deleted and `tests/guardrails.test.ts` trips if it ever returns. Member-facing
+  copy states the honest mechanism: "manual today, automated checks in preview".
+- **Organizer rich text is sanitized at WRITE and again at RENDER** through
+  `lib/rich-text.ts` — events description, tournament description, and
+  tournament rules (`format_config.legal.rules_text`). The signup, confirm, and
+  substitution forms render server-sanitized `rulesHtml`; legacy plain-text rows
+  fall back to `whitespace-pre-wrap` text.
+- **`dangerouslySetInnerHTML` inventory** (every use must be on this list):
+  breadcrumbs JSON-LD (escaped via `lib/jsonld.ts`), courtside QR (server-built
+  SVG), event description ×2 (sanitized), `/e/[code]` rules + description
+  (sanitized), signup-flow rules ×3 (sanitized). Anything new needs a
+  sanitizer or escaper and a line here.
+- **Queue payloads are projected per audience** (`lib/queue-projection.ts`):
+  only the organizer/admin poll receives the geofence centre, organizer id, and
+  pending join requests. The join `code`/`displayCode` stay public — the
+  courtside display renders them as the walk-up QR by design; remote joins are
+  still gated server-side by geofence + approval.
+- **Cron routes fail closed** through `lib/cron-auth.ts` (Vercel `Bearer` or
+  pg_cron `x-cron-secret`); an unset secret authorizes nothing.
+- **Boot assertions**: `instrumentation.ts` asserts required env
+  (`lib/env.ts`, mirror of `.env.example`) and probes sentinel schema columns
+  (`lib/schema-check.ts`) on Vercel. A stale database blocks the deploy —
+  the old silent drop-and-retry shims in `lib/queue-state.ts` are deleted.
+- **`docs/MIGRATIONS_LEDGER.md` is the authoritative applied-migrations
+  record**, superseding the deleted `GO_LIVE.md` and `schema_combined` snapshots.
+- **Identifiers use crypto randomness** (`randomInt`) everywhere — tournament
+  codes joined queue codes; `Math.random` for ids is lint-bait and test-tripped.
+
+## Safety & trust conventions — Phase 1 (Aug 2026 audit remediation)
+
+- **Privilege layer (K1-01).** New code obtains the service-role client only
+  through `lib/privileged` (explicit reason + audit event). ESLint
+  `no-restricted-imports` bans raw `@/lib/supabase/admin` everywhere except the
+  frozen grandfather list (`eslint-admin-grandfather.mjs`, 87 legacy files —
+  bracket route paths escaped so minimatch treats them literally) and the two
+  legitimate importers. Entries leave the list only as files migrate.
+- **Step-up auth (K1-02).** `requireAdmin` and the D8 mutation list (account
+  deletion, ownership transfer, admin actions) assert AAL2 via
+  `lib/step-up.ts`, failing closed to `/mfa`. TOTP verification is fronted by
+  the `verifyTotpAction` server action — the browser never calls
+  `mfa.verify` directly — which enforces the 0055 lockout policy at the app
+  layer (`lib/mfa-lockout.ts`, the Supabase hook being Team/Enterprise-gated).
+- **Limiter classification (K1-02/03).** Cost-bearing / enumerable endpoints
+  (AI search, gate, queue-validate, diagnostics) use `rateLimitStrict` — DB
+  limiter verdict when available, else an in-process secondary bucket
+  (`lib/ratelimit-bucket.ts`) — so an outage bounds rather than opens them.
+  Ordinary UX actions keep the fail-open `rateLimit`. Diagnostics adds per-IP
+  throttle + message dedupe + a daily row cap.
+- **AI search resilience (K1-04).** Whole-run 25s deadline, 12s per-round
+  fetch timeout, and an `AI_SEARCH_DISABLED` kill switch. The deterministic
+  query interpretation is extracted to `lib/search-query.ts` and locked by the
+  golden-query corpus in CI (which already caught conjunctions leaking into
+  the matcher).
+- **Courts self-invalidation fix (K1-05 · D9 Option A).** The "newer intel ⇒
+  go live" fall-through is removed — it made every live pass invalidate its own
+  cache row and re-burn the cap. The read-time overlay reconciles instead. The
+  API-key check moved below the cache consult (cached areas survive key
+  rotations); an intel-only fallback serves confirmed venues when keys are
+  absent or the judge is down; a `verifying_at` attempt-stamp (0175) prevents
+  concurrent duplicate verifications; results carry a third
+  `listedUnverified` state ("Listed · Unverified").
+- **Safety suite (K1-07).** Vitest now covers identity transitions, ranking
+  and bracket math, waitlist windows, the AI parser adversarials, the XSS
+  corpus, and a queue public-contract snapshot. A SQL RLS/invariant/IDOR suite
+  (`supabase/tests/rls_and_invariants_checks.sql`) runs in the SQL editor. CI
+  is lint → typecheck → vitest → build. **The vitest include was widened to
+  `tests/**` — the guardrail tripwires had never actually been collected
+  before, a gap this batch closes. This task lifts the D16 freeze.**
+- **Governance docs (K1-08).** `DATA-GOVERNANCE.md` gains an object-level data
+  map, an AI-vendor data-flow section, and a courts location-handling section;
+  `MINOR-SAFETY.md` and `MODERATION-SLA.md` cover 18+ enforcement and ~24h
+  triage across all shipped surfaces; `METRICS.md` and `CLAIMS-REGISTER.md`
+  define quotable metrics and govern claim wording.
+
 ## Change Log
 
 ### 2026-08-04 (g) — Match waitlist offers: reserved spots, timed confirmations, automatic cascade
@@ -4290,3 +4369,237 @@ tuning never needs a migration.
 - **DB invariant:** team roster cap now enforced by a database trigger (migration
   `0090_team_size_guard.sql`) so no path — app, SQL, or seed — can exceed a team's
   cap; existing over-cap demo teams reconciled non-destructively.
+
+### 2026-08-05 — Phase 0 security batch (audit remediation)
+- **Verification integrity:** demo self-approve stub deleted from `/account`
+  and `/settings/verification`; every request path (account, onboarding wizard,
+  phone handoff) now routes through the single service-role transition in
+  `lib/verification.ts` — the onboarding path previously no-opped silently.
+  Copy now says "manual today, automated checks in preview" (decision D2).
+- **Public-page safety:** tournament rules & description sanitized at write and
+  render (shared `lib/rich-text.ts`); signup/confirm/substitution forms render
+  the same sanitized HTML; breadcrumb JSON-LD escaped (`lib/jsonld.ts`).
+- **Queue:** `/api/queue/[id]` responses projected per audience (D7); schema
+  shims removed in favor of boot-time schema assertion.
+- **Ops:** both cron routes fail closed via `lib/cron-auth.ts`; `/api/q/validate`
+  rate-limited per IP; tournament codes on `randomInt`; env inventory in
+  `.env.example` with production boot asserts; CI runs the vitest suite;
+  migration ledger `docs/MIGRATIONS_LEDGER.md` supersedes `GO_LIVE.md`.
+- **AI search:** model output hydrates from server-minted ids only
+  (`lib/ai-search-hydrate.ts`) — model-shaped objects and `//` externals dropped.
+- **Landing:** five launch sports named; "verified people" claim precised.
+- Migration **0174** (rank_snapshots RLS lockdown) delivered.
+
+### 2026-08-05 — Phase 1 safety foundation (audit remediation)
+- **Privilege layer + step-up:** `lib/privileged` with an ESLint import ban and
+  87-file grandfather list; AAL2 assertions on admin + D8 mutations; server-side
+  TOTP verification with app-level 0055 lockout; fail-closed `rateLimitStrict`
+  on cost-bearing endpoints; diagnostics dedupe + daily cap.
+- **AI search:** 25s/12s deadlines, `AI_SEARCH_DISABLED` kill switch,
+  deterministic interpretation extracted (`lib/search-query.ts`) + golden corpus.
+- **Courts:** removed the ADD-01 self-invalidation fall-through (D9 Option A);
+  key check after cache; intel-only fallback; `verifying_at` concurrency stamp;
+  `source_url`/excerpt evidence; "Listed · Unverified" third state.
+- **Safety suite:** ranking/bracket/waitlist/contract vitest, SQL RLS/IDOR
+  suite, CI grown to lint→typecheck→test→build. **Fixed vitest include to
+  collect `tests/**` — guardrails were previously never run.** Freeze lifted.
+- **Docs:** data map + AI-vendor + courts-location in DATA-GOVERNANCE;
+  MINOR-SAFETY, MODERATION-SLA, METRICS, CLAIMS-REGISTER added.
+- Migrations **0174** (confirmed run) and **0175** (delivered) — additive.
+
+### 2026-08-05 — Phase 2 begins: atomic queue placement (K2-01)
+- **The race, reproduced first.** In a scratch Postgres 16 cluster, two joins
+  fired at the same instant on an empty size-2 court both read "no forming
+  team" and both inserted one — two forming teams on one court, two players
+  stranded on separate half-empty teams. The same window over-fills teams and
+  double-fires forming→queued.
+- **The fix.** Migration **0176** moves the whole read-then-write into
+  `public.place_on_team()`, serialized per court by a transaction-scoped
+  advisory lock; different courts stay fully parallel. Adds an idempotency key
+  so a retry or double-tap returns the original team.
+- **Lock ordering is the subtle part.** The first draft checked the
+  idempotency log *before* taking a lock; the harness proved three concurrent
+  replays of one key all pass that check and insert three member rows. The key
+  lock now comes first, then the log read, then the court lock — a fixed order,
+  so the two locks cannot deadlock (verified with 12 concurrent mixed calls).
+- Proven probes: pair completes and queues · 8 concurrent joins → 4 full teams,
+  0 overfilled, 0 stranded · 5 replays of one key → 1 member row · no deadlocks.
+- `app/queue/actions.ts::placeOnTeam` now calls the RPC; a guardrail test trips
+  if the racy read-then-write pattern ever returns.
+
+### 2026-08-05 — K2-02: cheap-unchanged queue polls
+- **The shape of the problem.** `loadSessionState` was already tight (no N+1;
+  five round trips behind one `Promise.all`). The cost is FAN-OUT: at pilot×10
+  — 10 venues × (1 display + ~20 phones) — ~210 clients poll every 3 s, ~4,200
+  polls/minute, nearly all returning byte-identical state.
+- **Migration 0177** adds a per-session version counter in its own narrow table
+  (not a column on the hot `court_sessions` row), bumped by AFTER triggers on
+  every table the snapshot reads. `queue_team_members.session_id` is nullable,
+  so that trigger falls back to resolving the session through `team_id` —
+  proven in the harness.
+- **The route reads the version first** and answers an unchanged poll with 304
+  and no body. The **ETag encodes the audience and viewer**, not just the
+  version: organizer and public payloads differ (K0-04), so a shared tag would
+  leak the organizer view through the HTTP cache instead of the payload. A
+  version of 0 (counter unwritten or RPC failed) never serves a 304 — otherwise
+  a client could pin a stale snapshot forever.
+- **Measured honestly.** With realistic venue data (24 teams, 48 members, 12
+  pending requests) the DB-side CPU saving is only **~1.4×** — the five
+  snapshot queries are individually cheap. The real saving is elsewhere and is
+  large: **round trips 7 → 1** per unchanged poll (each a Vercel→Supabase hop),
+  no JSON serialization, and **full payload → 0 bytes** on the wire. The
+  courtside display on venue Wi-Fi is the biggest beneficiary.
+- Realtime pings still short-circuit the poll for instant updates; this only
+  makes the safety-net poll nearly free.
+
+### 2026-08-05 — K2-03: durable background jobs + operator tooling
+- **The gap.** Courts verification ran as `after(() => verifyVenues(...))` —
+  pure fire-and-forget. A recycled serverless instance dropped the work with no
+  record, so a venue simply stayed unverified forever and nobody could tell.
+- **Migration 0178** adds one small `jobs` table with the four properties that
+  make background work survivable: exclusive **lease** (`FOR UPDATE SKIP
+  LOCKED`, so N workers claim disjoint sets and a dead worker's lease expires
+  and returns the job), exponential **backoff**, **dead-letter** at
+  max_attempts, and **replay**. Plus `dedupe_key` (same logical work enqueued
+  twice is a no-op) and `correlation_id` (trace every job back to its request).
+- **Proven in the harness before delivery:** 5 concurrent workers vs 20 jobs →
+  each claimed exactly once · a live lease blocks a second claim, an expired one
+  is reclaimed · 10s→20s→dead backoff ladder · dedupe returns the same id ·
+  replay restores a fresh budget.
+- **Adopters.** Courts verification enqueues per venue+sport alongside the
+  inline fast path. The every-minute waitlist cron doubles as the worker, so
+  durable work has a guaranteed heartbeat without a second cron entry.
+- **Handlers must be idempotent** — a lease gives at-least-once, not
+  exactly-once. `runVerifyVenueJob` short-circuits venues verified in the last
+  7 days, which also makes operator replays cheap.
+- **Operator surface:** `/admin/jobs` lists dead-lettered work with its last
+  error and a Replay button (admin-gated, so AAL2 per K1-02).
+  `docs/RUNBOOKS.md` covers the three likeliest pilot incidents — queue stuck,
+  cron missed, verification backlog — each ending in a manual fallback.
+
+### 2026-08-05 — K2-04: atomic tournament config merges
+- **Reproduced first.** `updateTournament` merged `format_config` by reading
+  the JSON, spreading a patch over it in app memory, and writing back. In the
+  harness, organizer A publishing the schedule while organizer B saved the
+  rules text produced a final row containing only B's change — A's edit gone,
+  no error shown to either. Settings tabs are exactly what two staff edit
+  simultaneously the night before an event.
+- **Migration 0179** moves the merge into the database under a row lock.
+  `jsonb ||` is a shallow merge — identical semantics to the object spread it
+  replaces, so uncontended behaviour is unchanged.
+- **Optional optimistic concurrency.** Callers may pass the `updated_at` their
+  form was rendered from; a moved row raises `stale_write` (40001) and the
+  organizer sees "someone else changed this — reload" instead of silently
+  clobbering. Callers that pass nothing still get the lock, which is strictly
+  better than before.
+- **Precision was tuned by evidence.** Second-level truncation was tried first
+  and proved too coarse — two edits inside one second compared equal and the
+  stale write went through. Millisecond truncation catches it while still
+  surviving a JS ISO-string round-trip (JS carries ms, Postgres carries µs, so
+  an exact comparison would reject every legitimate save). Both cases tested.
+- Proven: two concurrent tab edits both survive · 10 concurrent merges lose
+  nothing · stale precondition rejected · fresh precondition accepted · ISO
+  round-trip produces no false conflict.
+
+### 2026-08-05 — K2-05: courtside device ops + venue playbook
+- **The gap.** The iPad fleet was operationally invisible: no way to know a
+  unit was offline, on a stale build, or which venue it sat at until someone
+  called. Fine for two pilot iPads, untenable at ten venues.
+- **Migration 0180** adds a registry keyed by **install id** — a UUID the app
+  mints on first run. The device heartbeats build, network state, battery, and
+  current session; `/admin/devices` shows up/NOT-SEEN (15-minute window ≈ three
+  missed beats, so one flaky beat doesn't cry wolf) and flags STALE BUILD by
+  comparing against the newest version any unit reports.
+- **The install id is an operations identifier, NOT a credential.** Nothing is
+  authorized by it, so a spoofed id can at worst create a bogus row an operator
+  retires. This is also where SEC-008 device attestation lands.
+- **Privacy by construction:** no precise location is stored — the venue label
+  is human-entered, and IP is kept only as a 12-char SHA-256 prefix, enough to
+  notice a venue's connection changed and not enough to reconstruct it.
+- **Telemetry and naming are separated:** the heartbeat upsert deliberately
+  leaves `label`, `venue_name`, and `notes` untouched, so a device
+  re-registering never wipes operator context. A guardrail test enforces it.
+- **`docs/VENUE-PLAYBOOK.md`** covers install (power and captive-portal Wi-Fi
+  are the two failure modes that matter), daily checks, replacement — retire
+  on suspicion, never reuse an install id — and what to add past ten venues.
+
+### 2026-08-05 — K2-06: measurement + resilience groundwork (Phase 2 complete)
+- **Normalized evidence (0181).** A verdict could carry only ONE source, which
+  cannot express what verification actually does — read several pages and weigh
+  them — nor show an organizer disputing a verdict why Klimr concluded it. The
+  new `court_evidence` table is one-verdict-to-many-sources; the denormalized
+  0175 columns stay as the headline source so nothing breaks.
+- **Data-quality scorecards.** "AI-verified court data" is a claim in the
+  investor materials, so it needs a recomputable number behind it.
+  `/admin/data-quality` reports coverage, median verdict age, stale share,
+  **disagreement rate** (how often the judge changed its mind about the same
+  venue — deliberately unflattering), evidence-per-verdict, and ranking
+  freshness. Verified against seeded data with known answers before delivery.
+- **CI bundle report.** The build output is captured and the per-route table
+  published as a job summary, so a size regression is visible in the PR rather
+  than discovered on a venue's Wi-Fi.
+- **`docs/RESILIENCE.md`.** RPO ≤ 24 h (daily Pro backups), RTO ≤ 4 h, code-only
+  rollback ≤ 15 min, and degraded mode immediate (paper). Includes the restore
+  drill — scratch project, stopwatch, RLS suite, app boot against the restore,
+  delete the scratch — plus what a restore does NOT bring back (secrets, auth
+  config, pg_cron schedules) and the upgrade path led by PITR. **A backup never
+  restored is a hypothesis; the drill log starts empty on purpose.**
+- **Venue-cohort unit economics** added to the financial model as a skeleton.
+  It shows NEGATIVE contribution per venue at pilot scale, which is correct and
+  explained in the sheet: fixed platform cost spread over ten venues, with no
+  revenue flowing in v1 by design. Labeled illustrative per the claims register.
+
+### 2026-08-05 — Courtside fleet counter: open vs actually working (founder request)
+- **The right question.** "How many iPads are on?" is the wrong one — an app can
+  sit open on a charger in a back office all week and heartbeat perfectly while
+  running no play at all. Migration **0182** reports four tiers:
+  `registered` → `app_open` (heartbeat < 15 min) → `on_live_session` (pointed at
+  a live session) → **`in_active_play`** (that session has a team waiting or a
+  match in progress). The last is the number that means a venue is working.
+- **The definition was tightened by evidence.** The first draft also counted a
+  queue-version bump in the last 20 minutes as activity. The harness showed that
+  is wrong: the K2-02 counter is bumped by session-level edits too, so merely
+  CREATING an empty session marked a device as "in active play" for twenty
+  minutes. Presence of a waiting team or a live match cannot be faked by setup.
+  A guardrail test asserts the version table is NOT consulted by that function.
+- **A venue between games briefly drops out of the top tier, and that is
+  correct** — the number answers "is there play happening right now", not "was
+  there". The console says so explicitly rather than flagging the gap as a fault.
+- Surfaces in two places: a strip on the admin dashboard (headline number =
+  running live play) and the four-tier funnel on `/admin/devices`, where each
+  unit also carries its own tier badge (RUNNING LIVE PLAY / LIVE SESSION · IDLE).
+- Verified against a seeded fleet covering every case — busy venue, live-but-
+  empty, open with no session, session ended, offline, and retired (excluded).
+
+### 2026-08-05 — K3-01: typography floor + button hygiene (Phase 3 begins)
+- **Root font floor 100% (D4, audit UX-001).** The desktop root font was
+  `clamp(0.8rem, 0.833vw, 1rem)` — a fluid downscale that settled at ~80% on
+  laptop widths, so a typical desktop rendered the WHOLE interface, body copy
+  included, at 12.8px root instead of 16px. That is below the accessible floor
+  and it silently overrode the user's own browser font-size preference. The
+  scale is removed rather than re-tuned. **Accepted consequence: every rem-based
+  size on desktop is ~25% larger than before.** Dense surfaces get re-tuned per
+  component, never by shrinking the root again.
+- **Minimum text sizes (UX-003).** `--text-floor` (11px) and `--text-micro`
+  (12px), both rem so they scale with user preference. 203 hard-coded sub-11px
+  usages across 67 files swept onto the floor token; the two px-pinned utility
+  classes (`.kicker`, `.bkt-col-label`) now use the tokens. Sizes of 10–11px
+  were deliberately left for the visual QA pass to judge case by case rather
+  than swept blind.
+- **Button hygiene (UX-002).** An untyped `<button>` defaults to
+  `type="submit"`, so one inside a form fires it by accident. All 153 untyped
+  buttons now declare intent — **behaviour-preserving by construction**: the 126
+  inside forms got `type="submit"` (exactly what HTML was already doing) and the
+  27 outside got `type="button"`. `react/button-has-type` is now an ESLint
+  **error**. The shared `Button` wrapper is the single justified exception: it
+  forwards a caller-specified type, defaulted to `"button"` so a Button dropped
+  into a form never submits by accident.
+  **Note for the QA pass:** making the implicit submits explicit did not FIX the
+  ones that are wrong — a form with two untyped buttons was submitting on both,
+  and those now read `type="submit"` twice. Reviewing which should be
+  `type="button"` (cancel, toggle, secondary actions) is a per-site judgement
+  call and belongs in the visual pass.
+- **Pill buttons removed (standing design rule).** 136 `rounded-full` buttons
+  across 72 files became `rounded-lg`. The 5 survivors are genuine icon circles
+  (`h-8 w-8`, aria-labelled) and are correctly exempt; avatars and status dots
+  were never touched.

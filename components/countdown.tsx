@@ -17,11 +17,11 @@ export function Countdown({ startsAt }: { startsAt: string }) {
   const m = totalMin % 60;
   return (
     <div className="text-right">
-      <p className="font-mono text-[9.5px] font-bold uppercase tracking-[.2em] text-flame-text">First serve in</p>
+      <p className="font-mono text-floor font-bold uppercase tracking-[.2em] text-flame-text">First serve in</p>
       <p className="mt-1 font-display text-[54px] font-bold leading-none tracking-[-0.02em] text-ink">
         {started ? "NOW" : `${h}:${String(m).padStart(2, "0")}`}
       </p>
-      <p className="mt-1 font-mono text-[9.5px] font-bold uppercase tracking-[.2em] text-faint">
+      <p className="mt-1 font-mono text-floor font-bold uppercase tracking-[.2em] text-faint">
         {started ? "Match time" : "HRS : MIN"}
       </p>
     </div>

@@ -129,7 +129,7 @@ export default async function ProfessionalSettingsPage({ searchParams }: { searc
                   {a.status === "pending" ? (
                     <form action={withdrawProfessionalApplication}>
                       <input type="hidden" name="applicationId" value={a.id} />
-                      <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:text-ink">Withdraw</button>
+                      <button type="submit" className="press rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:text-ink">Withdraw</button>
                     </form>
                   ) : null}
                 </div>

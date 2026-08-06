@@ -1,6 +1,7 @@
 import "server-only";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { bucketAllow } from "@/lib/ratelimit-bucket";
 
 /** Best-effort end-user IP from proxy headers (Vercel sets x-forwarded-for). */
 export async function clientIp(): Promise<string> {
@@ -28,4 +29,22 @@ export async function rateLimit(key: string, max: number, windowSeconds: number)
     console.error("[ratelimit] threw", e);
     return true;
   }
+}
+
+/** Fail-CLOSED variant for cost-bearing / enumerable endpoints (audit
+ *  SEC-007 · O-4 · K1-02): AI search, gate & code validation, diagnostics.
+ *  When the DB limiter answers, its verdict stands; when the limiter
+ *  infrastructure errors, the in-process secondary bucket enforces the same
+ *  rate instead of allowing everything. Ordinary UX actions keep the
+ *  fail-open `rateLimit` above — that doctrine is unchanged. */
+export async function rateLimitStrict(key: string, max: number, windowSeconds: number): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("check_rate_limit", { p_key: key, p_max: max, p_window_seconds: windowSeconds });
+    if (!error) return data !== false;
+    console.error("[ratelimit:strict] rpc error — secondary bucket engaged", error);
+  } catch (e) {
+    console.error("[ratelimit:strict] threw — secondary bucket engaged", e);
+  }
+  return bucketAllow(key, max, windowSeconds * 1000);
 }

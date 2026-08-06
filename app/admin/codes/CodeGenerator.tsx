@@ -110,7 +110,7 @@ export function CodeGenerator() {
         <button
           type="submit"
           disabled={pending}
-          className="press mt-4 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-60"
+          className="press mt-4 rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-60"
         >
           {pending ? (hasEmail ? "Sending…" : "Generating…") : hasEmail ? "Generate & send code" : "Generate codes"}
         </button>
@@ -134,14 +134,14 @@ export function CodeGenerator() {
               <button
                 type="button"
                 onClick={copy}
-                className="press inline-flex items-center gap-1 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-mute hover:text-ink"
+                className="press inline-flex items-center gap-1 rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-mute hover:text-ink"
               >
                 {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
               </button>
               <button
                 type="button"
                 onClick={download}
-                className="press inline-flex items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:bg-ink-soft"
+                className="press inline-flex items-center gap-1 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-surface hover:bg-ink-soft"
               >
                 <Download size={13} /> Download .txt
               </button>

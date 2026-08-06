@@ -16,7 +16,7 @@ type Item = NavItem;
 // live destinations kept beyond the spec's list — flagged in DESIGN_DECISIONS.
 const GROUPS = NAV_GROUPS;
 
-const kicker = "font-mono text-[9px] font-semibold uppercase tracking-[.18em] text-faint";
+const kicker = "font-mono text-floor font-semibold uppercase tracking-[.18em] text-faint";
 
 export function SideNav({
   avatarUrl,
@@ -271,7 +271,7 @@ export function SideNav({
                   </Link>
                   <Link href="/invite" role="menuitem" onClick={() => setMenuOpen(false)} className={menuItem}>
                     <Gift size={15} className="text-mute" /> Invite friends
-                    <span className="ml-auto rounded-full bg-bg px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[.14em] text-faint">Soon</span>
+                    <span className="ml-auto rounded-full bg-bg px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-[.14em] text-faint">Soon</span>
                   </Link>
                 </div>
                 <div className="border-t border-rule-soft py-1">

@@ -43,7 +43,7 @@ export function InviteShare({ code }: { code: string }) {
         <p className="kicker text-faint">Your invite code</p>
         <div className="mt-1.5 flex items-center justify-between gap-3">
           <span className="font-mono text-2xl font-bold tracking-[0.12em] text-ink">{code}</span>
-          <button
+          <button type="button"
             onClick={() => copy("code")}
             className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-bg"
           >
@@ -61,7 +61,7 @@ export function InviteShare({ code }: { code: string }) {
           <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-soft">{link}</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button
+          <button type="button"
             onClick={() => copy("link")}
             className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft"
           >
@@ -69,9 +69,9 @@ export function InviteShare({ code }: { code: string }) {
             {copied === "link" ? "Link copied" : "Copy link"}
           </button>
           {canShare ? (
-            <button
+            <button type="button"
               onClick={share}
-              className="press inline-flex items-center gap-1.5 rounded-full border border-rule px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+              className="press inline-flex items-center gap-1.5 rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
             >
               <Share2 size={15} /> Share
             </button>

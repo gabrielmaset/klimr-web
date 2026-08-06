@@ -245,7 +245,7 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
                 role="listbox"
                 className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-rule-2 bg-surface p-1 shadow-e3"
               >
-                <p className="px-2.5 pb-1 pt-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Who can see this</p>
+                <p className="px-2.5 pb-1 pt-1.5 font-mono text-floor font-semibold uppercase tracking-[0.16em] text-faint">Who can see this</p>
                 {AUDIENCES.map(({ key, label, sub, Icon }) => (
                   <button
                     key={key}

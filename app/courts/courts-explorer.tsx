@@ -82,7 +82,7 @@ function CourtRow({ c, n }: { c: CourtResult; n: number }) {
           onClick={scheduleHere}
           disabled={creating}
           aria-label={`Schedule a match at ${c.name}`}
-          className="press inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-ink px-3.5 text-xs font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+          className="press inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-ink px-3.5 text-xs font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
         >
           {creating ? <Loader2 size={13} className="animate-spin" /> : <CalendarPlus size={14} />}
           <span className="hidden sm:inline">Schedule a match</span>
@@ -253,7 +253,7 @@ export function CourtsExplorer({
               </ul>
             ) : null}
           </div>
-          <button
+          <button type="button"
             onClick={run}
             disabled={loading || !selected}
             aria-busy={loading}

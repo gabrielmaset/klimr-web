@@ -66,7 +66,7 @@ export function ProfessionalStatusForm({ existingRoles }: { existingRoles: strin
           {/* Credential block */}
           {meta.requiresPhone ? (
             <label className="grid gap-1.5">
-              <span className="text-sm font-bold text-ink">Phone number <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-brand-deep">Required</span></span>
+              <span className="text-sm font-bold text-ink">Phone number <span className="font-mono text-floor font-bold uppercase tracking-wider text-brand-deep">Required</span></span>
               <input name="phone" type="tel" required inputMode="tel" maxLength={24} placeholder="(310) 555-0142" className={field} />
               <span className="text-[11px] text-faint">Used to verify your application and reach you about events you host — never shown publicly.</span>
             </label>
@@ -152,7 +152,7 @@ export function ProfessionalStatusForm({ existingRoles }: { existingRoles: strin
             <textarea name="applicant_note" rows={2} maxLength={400} className={field} />
 
             <label className="grid gap-1.5">
-              <span className="text-xs font-semibold text-ink-soft">Credential document <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-faint">Optional</span></span>
+              <span className="text-xs font-semibold text-ink-soft">Credential document <span className="font-mono text-floor font-bold uppercase tracking-wider text-faint">Optional</span></span>
               <input type="file" name="credential_doc" accept=".pdf,.png,.jpg,.jpeg" className="block w-full cursor-pointer rounded-[12px] border border-rule-2 bg-bg px-3 py-2.5 text-xs text-ink-soft file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-surface" />
               <span className="text-[11px] text-faint">A copy of your license or certificate (PDF/JPG/PNG, ≤5 MB) — visible only to Klimr admins during review.</span>
             </label>
@@ -165,7 +165,7 @@ export function ProfessionalStatusForm({ existingRoles }: { existingRoles: strin
             </p>
           </div>
 
-          <button className="press w-full rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <button type="submit" className="press w-full rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
             Submit request
           </button>
         </>

@@ -294,36 +294,25 @@ async function validateJoin(admin: Admin, court: CourtLite, s: Session, member: 
   return { ok: true };
 }
 
-/** Find an open forming team (oldest with a free slot) or open a new one, then add the member. */
-async function placeOnTeam(admin: Admin, court: CourtLite, member: Member): Promise<Result> {
-  const { data: forming } = await admin.from("queue_teams").select("id, created_at").eq("court_id", court.id).eq("status", "forming").order("created_at");
-  let targetId = "";
-  let currentCount = 0;
-  if ((forming ?? []).length) {
-    const fIds = (forming ?? []).map((t) => t.id);
-    const { data: fm } = await admin.from("queue_team_members").select("team_id").in("team_id", fIds);
-    const counts = new Map<string, number>();
-    for (const m of fm ?? []) counts.set(m.team_id, (counts.get(m.team_id) ?? 0) + 1);
-    for (const t of forming ?? []) {
-      if ((counts.get(t.id) ?? 0) < court.team_size) {
-        targetId = t.id;
-        currentCount = counts.get(t.id) ?? 0;
-        break;
-      }
-    }
-  }
-  if (!targetId) {
-    const { data: created, error } = await admin.from("queue_teams").insert({ session_id: court.session_id, court_id: court.id, status: "forming" }).select("id").single();
-    if (error || !created) return { error: "Couldn't open a team." };
-    targetId = created.id;
-    currentCount = 0;
-  }
-
-  const { error: memErr } = await admin.from("queue_team_members").insert({ team_id: targetId, user_id: member.user_id ?? null, guest_name: member.guest_name ?? null, session_id: court.session_id });
-  if (memErr) return { error: "Couldn't join — try again." };
-
-  if (currentCount + 1 >= court.team_size) {
-    await admin.from("queue_teams").update({ status: "queued", queued_at: new Date().toISOString(), hold_court: false }).eq("id", targetId);
+/** Place a member on a team at this court — ATOMIC (K2-01, migration 0176).
+ *
+ *  The whole read-then-write now happens inside one transaction in
+ *  `public.place_on_team()`, serialized per court by an advisory lock. The old
+ *  multi-statement version raced: two joins fired at the same instant on an
+ *  empty court both found "no forming team" and both opened one, stranding two
+ *  players on separate half-empty teams (reproduced in a scratch Postgres
+ *  cluster before the fix). `idempotencyKey` makes a retry or double-tap
+ *  return the original team instead of adding the member twice. */
+async function placeOnTeam(admin: Admin, court: CourtLite, member: Member, idempotencyKey?: string | null): Promise<Result> {
+  const { error } = await admin.rpc("place_on_team", {
+    p_court_id: court.id,
+    p_user_id: member.user_id ?? null,
+    p_guest_name: member.guest_name ?? null,
+    p_idempotency_key: idempotencyKey ?? null,
+  });
+  if (error) {
+    console.error("[queue] place_on_team failed", error.message);
+    return { error: "Couldn't join — try again." };
   }
   return { ok: true };
 }

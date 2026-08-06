@@ -14,7 +14,7 @@ import { messageSeller, buyNow } from "../chat-actions";
 export const metadata: Metadata = { title: "Listing — Second Serve" };
 export const dynamic = "force-dynamic";
 
-const monoKicker = "font-mono text-[9.5px] font-bold uppercase tracking-[.18em]";
+const monoKicker = "font-mono text-floor font-bold uppercase tracking-[.18em]";
 
 export default async function ListingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string }> }) {
   const { id } = await params;
@@ -108,7 +108,7 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
             </span>
             {l.mode === "sale" && l.obo ? <span className="font-mono text-[10px] font-bold uppercase tracking-[.12em] text-faint">or best offer</span> : null}
             {statusBadge ? (
-              <span className="rounded-[6px] px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[.12em]" style={{ background: statusBadge.bg, color: statusBadge.fg, boxShadow: `inset 0 0 0 1px ${statusBadge.bd}` }}>
+              <span className="rounded-[6px] px-2 py-1 font-mono text-floor font-bold uppercase tracking-[.12em]" style={{ background: statusBadge.bg, color: statusBadge.fg, boxShadow: `inset 0 0 0 1px ${statusBadge.bd}` }}>
                 {statusBadge.label}
               </span>
             ) : null}
@@ -169,12 +169,12 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
                     <form action={setListingStatus}>
                       <input type="hidden" name="listing_id" value={l.id} />
                       <input type="hidden" name="status_action" value="pending" />
-                      <button className="press h-[36px] rounded-[10px] border border-rule-2 bg-surface px-3.5 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink">Mark pending</button>
+                      <button type="submit" className="press h-[36px] rounded-[10px] border border-rule-2 bg-surface px-3.5 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink">Mark pending</button>
                     </form>
                     <form action={setListingStatus}>
                       <input type="hidden" name="listing_id" value={l.id} />
                       <input type="hidden" name="status_action" value="sold" />
-                      <button className="press h-[36px] rounded-[10px] border border-rule-2 bg-surface px-3.5 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink">Mark as sold</button>
+                      <button type="submit" className="press h-[36px] rounded-[10px] border border-rule-2 bg-surface px-3.5 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink">Mark as sold</button>
                     </form>
                   </>
                 ) : null}
@@ -183,12 +183,12 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
                     <form action={setListingStatus}>
                       <input type="hidden" name="listing_id" value={l.id} />
                       <input type="hidden" name="status_action" value="activate" />
-                      <button className="press h-[36px] rounded-[10px] border border-rule-2 bg-surface px-3.5 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink">Back to active</button>
+                      <button type="submit" className="press h-[36px] rounded-[10px] border border-rule-2 bg-surface px-3.5 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink">Back to active</button>
                     </form>
                     <form action={setListingStatus}>
                       <input type="hidden" name="listing_id" value={l.id} />
                       <input type="hidden" name="status_action" value="sold" />
-                      <button className="press h-[36px] rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>Mark as sold</button>
+                      <button type="submit" className="press h-[36px] rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>Mark as sold</button>
                     </form>
                   </>
                 ) : null}
@@ -196,14 +196,14 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
                   <form action={setListingStatus}>
                     <input type="hidden" name="listing_id" value={l.id} />
                     <input type="hidden" name="status_action" value="relist" />
-                    <button className="press h-[36px] rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>Relist</button>
+                    <button type="submit" className="press h-[36px] rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>Relist</button>
                   </form>
                 ) : null}
                 {l.status === "active" || l.status === "pending" ? (
                   <form action={setListingStatus}>
                     <input type="hidden" name="listing_id" value={l.id} />
                     <input type="hidden" name="status_action" value="unpublish" />
-                    <button className="press h-[36px] rounded-[10px] px-3 text-[13px] font-semibold text-mute transition-colors hover:text-ink">Unpublish</button>
+                    <button type="submit" className="press h-[36px] rounded-[10px] px-3 text-[13px] font-semibold text-mute transition-colors hover:text-ink">Unpublish</button>
                   </form>
                 ) : null}
               </>
@@ -212,7 +212,7 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
                 {canBuy ? (
                   <form action={buyNow}>
                     <input type="hidden" name="listing_id" value={l.id} />
-                    <button className="press inline-flex h-[36px] items-center rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
+                    <button type="submit" className="press inline-flex h-[36px] items-center rounded-[10px] px-4 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
                       Buy at {priceLabel({ mode: l.mode, priceCents: l.price_cents })}
                     </button>
                   </form>
@@ -220,7 +220,7 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
                 {canContact ? (
                   <form action={messageSeller}>
                     <input type="hidden" name="listing_id" value={l.id} />
-                    <button
+                    <button type="submit"
                       className={
                         canBuy
                           ? "press inline-flex h-[36px] items-center rounded-[10px] border border-rule-2 bg-surface px-4 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink"
@@ -234,7 +234,7 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
                 ) : null}
                 <form action={toggleSave}>
                   <input type="hidden" name="listing_id" value={l.id} />
-                  <button className={`press inline-flex h-[36px] items-center gap-1.5 rounded-[10px] border px-4 text-[13px] font-semibold transition-colors ${saved ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule-2 bg-surface text-ink-soft hover:text-ink"}`}>
+                  <button type="submit" className={`press inline-flex h-[36px] items-center gap-1.5 rounded-[10px] border px-4 text-[13px] font-semibold transition-colors ${saved ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule-2 bg-surface text-ink-soft hover:text-ink"}`}>
                     <Heart size={14} fill={saved ? "currentColor" : "none"} /> {saved ? "Saved" : "Save"}
                   </button>
                 </form>
@@ -267,7 +267,7 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
                 placeholder="What's wrong with this listing?"
                 className="h-[34px] rounded-[10px] border border-rule-2 bg-surface px-2.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
               />
-              <button className="press h-8 self-end rounded-[10px] border border-rule-2 bg-surface px-3 text-xs font-semibold text-mute hover:text-ink">Send report</button>
+              <button type="submit" className="press h-8 self-end rounded-[10px] border border-rule-2 bg-surface px-3 text-xs font-semibold text-mute hover:text-ink">Send report</button>
             </form>
           </details>
         ) : null}

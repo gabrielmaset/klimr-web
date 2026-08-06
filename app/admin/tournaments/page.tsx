@@ -73,10 +73,10 @@ export default async function AdminTournaments() {
                     <div className="flex flex-wrap items-center gap-2">
                       <SportIcon sport={t.sport_key} variant="glyph" size={22} />
                       <span className="font-display text-lg text-ink">{t.title}</span>
-                      <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[t.status] ?? "var(--color-mute)" }}>
+                      <span className="kicker rounded-full px-2 py-0.5 text-floor" style={{ background: "var(--color-bg)", color: STATUS_TONE[t.status] ?? "var(--color-mute)" }}>
                         {t.status}
                       </span>
-                      {suspended ? <span className="kicker rounded-full bg-brand px-2 py-0.5 text-[9px] text-white">Suspended</span> : null}
+                      {suspended ? <span className="kicker rounded-full bg-brand px-2 py-0.5 text-floor text-white">Suspended</span> : null}
                     </div>
                     <p className="mt-1 text-sm text-mute">
                       {meta.name} · by {ownerOf(t.owner_id)} · {new Date(t.created_at).toLocaleDateString()} · /e/{t.code}

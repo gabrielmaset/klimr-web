@@ -32,7 +32,7 @@ function timeChip(iso: string | null, now: Date): string {
 function Disc({ name, url, hue, z }: { name: string; url: string | null; hue: number; z: number }) {
   return (
     <span
-      className="relative inline-grid h-[22px] w-[22px] shrink-0 place-items-center overflow-hidden rounded-full text-[9px] font-bold text-white ring-2 ring-white first:ml-0"
+      className="relative inline-grid h-[22px] w-[22px] shrink-0 place-items-center overflow-hidden rounded-full text-floor font-bold text-white ring-2 ring-white first:ml-0"
       style={{ zIndex: z, marginLeft: -7, background: url ? undefined : `linear-gradient(140deg, hsl(${hue} 72% 60%), hsl(${hue} 72% 42%))` }}
       title={name}
     >

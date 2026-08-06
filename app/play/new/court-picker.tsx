@@ -190,7 +190,7 @@ export function CourtPicker({
               type="button"
               onClick={searchNearby}
               disabled={searching || !sport || zip.length !== 5}
-              className="press inline-flex h-9 items-center justify-center gap-2 rounded-full border border-rule bg-surface px-4 text-xs font-semibold text-ink transition-colors hover:bg-bg disabled:opacity-50"
+              className="press inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rule bg-surface px-4 text-xs font-semibold text-ink transition-colors hover:bg-bg disabled:opacity-50"
             >
               {searching ? (
                 <>

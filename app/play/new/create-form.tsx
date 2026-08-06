@@ -98,7 +98,7 @@ export function CreateMatchForm({
                       <span className="flex items-center gap-1.5">
                         <span className={`text-sm font-bold ${on ? "text-brand-deep" : "text-ink"}`}>{f.label}</span>
                         {f.casual ? (
-                          <span className="rounded-[6px] bg-bg px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wide text-faint">Pickup</span>
+                          <span className="rounded-[6px] bg-bg px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-wide text-faint">Pickup</span>
                         ) : null}
                       </span>
                       <span className="mt-0.5 block font-mono text-[11px] font-semibold text-mute">{f.short} · {f.totalPlayers} players</span>

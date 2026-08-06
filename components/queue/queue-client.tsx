@@ -577,7 +577,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                           <div key={t.id} className="flex items-center justify-between gap-2 rounded-xl border-l-[3px] bg-surface px-3 py-2" style={{ borderLeftColor: sc }}>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold text-white" style={{ background: sc }}>{idx === 0 ? "A" : "B"}</span>
+                                <span className="grid h-4 w-4 place-items-center rounded-full text-floor font-bold text-white" style={{ background: sc }}>{idx === 0 ? "A" : "B"}</span>
                                 {t.hold ? <Crown size={13} className="text-[#e8b007]" /> : null}
                                 {t.wins > 0 ? <span className="rounded-full bg-tint-success px-1.5 text-[10px] font-bold text-success">{t.wins}W</span> : null}
                               </div>
@@ -756,8 +756,8 @@ function CourtEditor({ court, sizeOptions, pending, run, onDone }: { court: { id
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" onClick={onDone} className="press rounded-full border border-rule bg-white px-3.5 py-2 text-xs font-semibold text-mute hover:text-ink">Cancel</button>
-          <button type="button" disabled={pending} onClick={save} className="press rounded-full bg-ink px-4 py-2 text-xs font-bold text-white hover:bg-ink-soft disabled:opacity-50">Save</button>
+          <button type="button" onClick={onDone} className="press rounded-lg border border-rule bg-white px-3.5 py-2 text-xs font-semibold text-mute hover:text-ink">Cancel</button>
+          <button type="button" disabled={pending} onClick={save} className="press rounded-lg bg-ink px-4 py-2 text-xs font-bold text-white hover:bg-ink-soft disabled:opacity-50">Save</button>
         </div>
       </div>
       <p className="mt-2 text-[11px] text-faint">Name and level changes show on the courtside screen within seconds. A formation change applies from the next match — the running game keeps the formation it started with.</p>

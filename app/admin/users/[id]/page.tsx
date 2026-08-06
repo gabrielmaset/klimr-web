@@ -98,7 +98,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
               <h2 className="font-display text-2xl text-ink">{p.display_name || "Player"}</h2>
               {p.verification_status === "verified" ? <BadgeCheck size={18} className="text-brand" /> : null}
               {p.account_status !== "active" ? (
-                <span className="kicker rounded-full px-2 py-0.5 text-[9px]" style={{ background: "var(--color-bg)", color: STATUS_TONE[p.account_status] }}>{p.account_status}</span>
+                <span className="kicker rounded-full px-2 py-0.5 text-floor" style={{ background: "var(--color-bg)", color: STATUS_TONE[p.account_status] }}>{p.account_status}</span>
               ) : null}
             </div>
             <p className="mt-1 text-sm text-mute">{place} · {p.primary_sport ? sportMeta(p.primary_sport).name : "no primary sport"}</p>
@@ -123,13 +123,13 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
               <form action={setVerification}>
                 <input type="hidden" name="userId" value={p.id} />
                 <input type="hidden" name="value" value="unverified" />
-                <button className="press rounded-full border border-rule px-3.5 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">Remove verification</button>
+                <button type="submit" className="press rounded-lg border border-rule px-3.5 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">Remove verification</button>
               </form>
             ) : (
               <form action={setVerification}>
                 <input type="hidden" name="userId" value={p.id} />
                 <input type="hidden" name="value" value="verified" />
-                <button className="press rounded-full bg-brand px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Verify identity</button>
+                <button type="submit" className="press rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Verify identity</button>
               </form>
             )
           ) : (
@@ -143,13 +143,13 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
                 <input type="hidden" name="userId" value={p.id} />
                 <input type="hidden" name="status" value="suspended" />
                 <input name="days" type="number" min={1} max={365} defaultValue={7} className="w-16 rounded-[10px] border border-rule-2 bg-surface px-2.5 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" aria-label="Suspension days" />
-                <button className="press rounded-full border border-rule px-3.5 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">Suspend (days)</button>
+                <button type="submit" className="press rounded-lg border border-rule px-3.5 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">Suspend (days)</button>
               </form>
               {canVerifyOrBan ? (
                 <form action={setAccountStatus}>
                   <input type="hidden" name="userId" value={p.id} />
                   <input type="hidden" name="status" value="banned" />
-                  <button className="press rounded-full px-3.5 py-2 text-sm font-semibold text-white transition-colors" style={{ background: "var(--color-danger)" }}>Ban</button>
+                  <button type="submit" className="press rounded-lg px-3.5 py-2 text-sm font-semibold text-white transition-colors" style={{ background: "var(--color-danger)" }}>Ban</button>
                 </form>
               ) : null}
             </>
@@ -157,7 +157,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
             <form action={setAccountStatus}>
               <input type="hidden" name="userId" value={p.id} />
               <input type="hidden" name="status" value="active" />
-              <button className="press rounded-full bg-ink px-3.5 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Reinstate</button>
+              <button type="submit" className="press rounded-lg bg-ink px-3.5 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">Reinstate</button>
             </form>
           )}
         </div>
@@ -211,7 +211,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
                   <form action={removePost}>
                     <input type="hidden" name="postId" value={post.id} />
                     <input type="hidden" name="authorId" value={p.id} />
-                    <button className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:border-faint hover:text-ink" aria-label="Remove post">
+                    <button type="submit" className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-mute transition-colors hover:border-faint hover:text-ink" aria-label="Remove post">
                       <Trash2 size={13} /> Remove
                     </button>
                   </form>
@@ -242,7 +242,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
               </p>
               <form action={recoverUser}>
                 <input type="hidden" name="userId" value={p.id} />
-                <button className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-3.5 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+                <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
                   Recover account
                 </button>
               </form>

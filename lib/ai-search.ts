@@ -15,6 +15,7 @@
 // only echo them, never mint them).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { hydrateItems } from "@/lib/ai-search-hydrate";
 import type { Database } from "@/lib/database.types";
 import { SPORT_KEYS, sportMeta } from "@/lib/sports";
 import { filterHref } from "@/lib/filter-params";
@@ -25,6 +26,12 @@ import { SEARCH_REGISTRY, registryDescription, registryKeys } from "@/lib/search
 import { findPages } from "@/lib/site-index";
 
 const MODEL = "claude-haiku-4-5-20251001";
+
+// K1-04 (audit SRCH-002/SRCH-005): hard wall-clock budget across the whole
+// tool loop, a per-request kill switch, and a per-round fetch timeout so a
+// slow upstream can't hold a serverless invocation open indefinitely.
+const AI_TOTAL_DEADLINE_MS = 25_000; // whole-run ceiling across all rounds
+const AI_ROUND_TIMEOUT_MS = 12_000;  // single model call ceiling
 
 type DB = SupabaseClient<Database>;
 
@@ -423,6 +430,10 @@ const SYSTEM =
   `Omit empty groups. If nothing matched, say so plainly in summary and return groups: [].`;
 
 export async function runAiSearch(db: DB, userId: string, homeZip: string | null, query: string): Promise<AiSearchResult | null> {
+  // Ops kill switch: flip AI_SEARCH_DISABLED=1 in Vercel to shed the feature
+  // instantly (cost spike, vendor incident) — callers fall back to plain search.
+  if (process.env.AI_SEARCH_DISABLED === "1") return null;
+  const startedAt = Date.now();
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
   const messages: { role: "user" | "assistant"; content: unknown }[] = [
@@ -447,9 +458,17 @@ export async function runAiSearch(db: DB, userId: string, homeZip: string | null
   };
 
   for (let round = 0; round < 4; round++) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+    // Whole-run wall clock: stop before starting a round we can't afford.
+    if (Date.now() - startedAt > AI_TOTAL_DEADLINE_MS) {
+      console.error("[ai-search] total deadline exceeded — aborting");
+      return null;
+    }
+    let res: Response;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        signal: AbortSignal.timeout(AI_ROUND_TIMEOUT_MS),
+        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 1000,
@@ -459,7 +478,11 @@ export async function runAiSearch(db: DB, userId: string, homeZip: string | null
         tools: TOOLS,
         messages,
       }),
-    });
+      });
+    } catch (e) {
+      console.error("[ai-search] round fetch aborted/failed", e instanceof Error ? e.message : e);
+      return null;
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error("[ai-search] api error", res.status, body.slice(0, 300));
@@ -538,18 +561,9 @@ export async function runAiSearch(db: DB, userId: string, homeZip: string | null
         .map((g) => ({
           kind: String(g.kind ?? "results").slice(0, 24),
           label: String(g.label ?? "Results").slice(0, 48),
-          items: (g.items ?? [])
-            // id strings hydrate from the bank; stray objects still pass the
-            // old validation so a model regression degrades, never breaks.
-            .map((i) => (typeof i === "string" ? bank.get(i.trim()) : (i as AiItem)))
-            .filter((i): i is AiItem => !!i && typeof i.href === "string" && i.href.startsWith("/"))
-            .slice(0, 8)
-            .map((i) => ({
-              title: String(i.title ?? "").slice(0, 90),
-              subtitle: i.subtitle ? String(i.subtitle).slice(0, 90) : undefined,
-              meta: i.meta ? String(i.meta).slice(0, 90) : undefined,
-              href: i.href,
-            })),
+          // IDs ONLY (audit SRCH-001/ADD-02): model-shaped objects are
+          // rejected — grounding is the guarantee; see lib/ai-search-hydrate.
+          items: hydrateItems(g.items, bank),
         }))
         .filter((g) => g.items.length > 0);
       let steps = Array.isArray(parsed.steps) ? parsed.steps.map((x) => String(x).slice(0, 200)).slice(0, 10) : undefined;

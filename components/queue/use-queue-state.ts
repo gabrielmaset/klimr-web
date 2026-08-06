@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { QSessionState } from "@/lib/queue";
 
@@ -14,11 +14,20 @@ const DYNAMIC_TABLES = ["queue_teams", "queue_matches", "queue_team_members", "q
  */
 export function useQueueState(sessionId: string, initial: QSessionState, pollMs = 3000) {
   const [state, setState] = useState(initial);
+  // K2-02: the server answers an unchanged session with 304 and no body, so a
+  // quiet venue costs one cheap query per poll instead of a full snapshot.
+  const etagRef = useRef<string | null>(null);
 
   const refetch = useCallback(async () => {
     try {
-      const r = await fetch(`/api/queue/${sessionId}`, { cache: "no-store" });
-      if (r.ok) setState(await r.json());
+      const headers: HeadersInit = {};
+      if (etagRef.current) headers["If-None-Match"] = etagRef.current;
+      const r = await fetch(`/api/queue/${sessionId}`, { cache: "no-store", headers });
+      if (r.status === 304) return; // unchanged — keep the state we have
+      if (r.ok) {
+        etagRef.current = r.headers.get("etag");
+        setState(await r.json());
+      }
     } catch {
       /* keep last good state */
     }

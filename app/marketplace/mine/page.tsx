@@ -102,7 +102,7 @@ export default async function MyListingsPage({ searchParams }: { searchParams: P
                       {priceLabel({ mode: l.mode, priceCents: l.price_cents })}
                     </span>
                     {tab === "active" ? <span>· {daysLeft}d left</span> : null}
-                    {tab === "pending" ? <span className="rounded-[5px] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase" style={{ background: PENDING_TONE.bg, color: PENDING_TONE.fg }}>Pending</span> : null}
+                    {tab === "pending" ? <span className="rounded-[5px] px-1.5 py-0.5 font-mono text-floor font-bold uppercase" style={{ background: PENDING_TONE.bg, color: PENDING_TONE.fg }}>Pending</span> : null}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
@@ -110,21 +110,21 @@ export default async function MyListingsPage({ searchParams }: { searchParams: P
                     <form action={setListingStatus}>
                       <input type="hidden" name="listing_id" value={l.id} />
                       <input type="hidden" name="status_action" value="activate" />
-                      <button className="press h-8 rounded-[9px] px-3 text-[12px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>Publish</button>
+                      <button type="submit" className="press h-8 rounded-[9px] px-3 text-[12px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>Publish</button>
                     </form>
                   ) : null}
                   {tab === "expired" || tab === "sold" ? (
                     <form action={setListingStatus}>
                       <input type="hidden" name="listing_id" value={l.id} />
                       <input type="hidden" name="status_action" value="relist" />
-                      <button className="press h-8 rounded-[9px] px-3 text-[12px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>Relist</button>
+                      <button type="submit" className="press h-8 rounded-[9px] px-3 text-[12px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>Relist</button>
                     </form>
                   ) : null}
                   {tab === "active" ? (
                     <form action={setListingStatus}>
                       <input type="hidden" name="listing_id" value={l.id} />
                       <input type="hidden" name="status_action" value="sold" />
-                      <button className={ghostBtn}>Mark sold</button>
+                      <button type="submit" className={ghostBtn}>Mark sold</button>
                     </form>
                   ) : null}
                   {tab === "pending" ? (
@@ -132,12 +132,12 @@ export default async function MyListingsPage({ searchParams }: { searchParams: P
                       <form action={setListingStatus}>
                         <input type="hidden" name="listing_id" value={l.id} />
                         <input type="hidden" name="status_action" value="sold" />
-                        <button className={ghostBtn}>Mark sold</button>
+                        <button type="submit" className={ghostBtn}>Mark sold</button>
                       </form>
                       <form action={setListingStatus}>
                         <input type="hidden" name="listing_id" value={l.id} />
                         <input type="hidden" name="status_action" value="activate" />
-                        <button className={ghostBtn}>Back to active</button>
+                        <button type="submit" className={ghostBtn}>Back to active</button>
                       </form>
                     </>
                   ) : null}
@@ -150,12 +150,12 @@ export default async function MyListingsPage({ searchParams }: { searchParams: P
                     <form action={setListingStatus}>
                       <input type="hidden" name="listing_id" value={l.id} />
                       <input type="hidden" name="status_action" value="unpublish" />
-                      <button className={ghostBtn}>Unpublish</button>
+                      <button type="submit" className={ghostBtn}>Unpublish</button>
                     </form>
                   ) : null}
                   <form action={removeListing}>
                     <input type="hidden" name="listing_id" value={l.id} />
-                    <button className="press h-8 rounded-[9px] px-2.5 text-[12px] font-semibold text-mute transition-colors hover:text-danger">Delete</button>
+                    <button type="submit" className="press h-8 rounded-[9px] px-2.5 text-[12px] font-semibold text-mute transition-colors hover:text-danger">Delete</button>
                   </form>
                 </div>
               </div>

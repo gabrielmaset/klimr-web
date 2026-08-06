@@ -116,17 +116,17 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-display text-lg text-ink">{b.name}</span>
-                    <span className="rounded-full bg-bg px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-mute">
+                    <span className="rounded-full bg-bg px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-wide text-mute">
                       {kindLabel(b.kind)}
                     </span>
                     <span
-                      className="rounded-full bg-bg px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide"
+                      className="rounded-full bg-bg px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-wide"
                       style={{ color: TIER_TONE[b.verification_level] }}
                     >
                       {TIER_LABEL[b.verification_level] ?? b.verification_level}
                     </span>
                     {b.published ? (
-                      <span className="rounded-full bg-tint-success px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-success">
+                      <span className="rounded-full bg-tint-success px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-wide text-success">
                         Listed
                       </span>
                     ) : null}
@@ -149,7 +149,7 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
                     <form action={reviewBusiness}>
                       <input type="hidden" name="businessId" value={b.id} />
                       <input type="hidden" name="decision" value="activate" />
-                      <button className="press rounded-full bg-success px-3.5 py-1.5 text-xs font-semibold text-white hover:brightness-95">
+                      <button type="submit" className="press rounded-lg bg-success px-3.5 py-1.5 text-xs font-semibold text-white hover:brightness-95">
                         Approve
                       </button>
                     </form>
@@ -158,7 +158,7 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
                     <form action={reviewBusiness}>
                       <input type="hidden" name="businessId" value={b.id} />
                       <input type="hidden" name="decision" value="suspend" />
-                      <button className="press rounded-full border border-danger/40 px-3.5 py-1.5 text-xs font-semibold text-danger hover:bg-tint">
+                      <button type="submit" className="press rounded-lg border border-danger/40 px-3.5 py-1.5 text-xs font-semibold text-danger hover:bg-tint">
                         Suspend
                       </button>
                     </form>
@@ -167,7 +167,7 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
                     <form action={reviewBusiness}>
                       <input type="hidden" name="businessId" value={b.id} />
                       <input type="hidden" name="decision" value="reactivate" />
-                      <button className="press rounded-full border border-rule px-3.5 py-1.5 text-xs font-semibold text-ink hover:border-faint">
+                      <button type="submit" className="press rounded-lg border border-rule px-3.5 py-1.5 text-xs font-semibold text-ink hover:border-faint">
                         Reactivate
                       </button>
                     </form>
@@ -199,7 +199,7 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
                     <form action={decideTierApplication} className="flex items-center gap-1.5">
                       <input type="hidden" name="applicationId" value={appByBiz.get(b.id)!.id} />
                       <input type="hidden" name="decision" value="approved" />
-                      <button className="press rounded-full bg-success px-3.5 py-1.5 text-xs font-semibold text-white hover:brightness-95">
+                      <button type="submit" className="press rounded-lg bg-success px-3.5 py-1.5 text-xs font-semibold text-white hover:brightness-95">
                         Approve → Sponsor-ready
                       </button>
                     </form>
@@ -212,7 +212,7 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
                         placeholder="Reason (sent to the owner)"
                         className="rounded-[10px] border border-rule-2 bg-surface px-3 py-1.5 text-xs text-ink outline-none placeholder:text-faint focus:border-brand"
                       />
-                      <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink hover:border-faint">
+                      <button type="submit" className="press rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-ink hover:border-faint">
                         Reject
                       </button>
                     </form>
@@ -238,7 +238,7 @@ export default async function AdminBusinesses({ searchParams }: { searchParams: 
                   placeholder="Review note (kept in the admin log)"
                   className="min-w-[220px] flex-1 rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
                 />
-                <button className="press rounded-[10px] bg-ink px-3.5 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
+                <button type="submit" className="press rounded-[10px] bg-ink px-3.5 py-1.5 text-xs font-semibold text-surface hover:opacity-90">
                   Apply tier
                 </button>
               </form>

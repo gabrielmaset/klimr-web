@@ -17,6 +17,7 @@ export function SubstitutionAcceptForm({
   fields,
   waiverText,
   rulesText,
+  rulesHtml,
   requireWaiver,
   requireRules,
 }: {
@@ -25,6 +26,7 @@ export function SubstitutionAcceptForm({
   fields: CustomFieldRow[];
   waiverText: string;
   rulesText: string;
+  rulesHtml?: string | null;
   requireWaiver: boolean;
   requireRules: boolean;
 }) {
@@ -115,7 +117,11 @@ export function SubstitutionAcceptForm({
       {rulesText ? (
         <section>
           <h2 className="mb-2 text-sm font-bold text-ink">Rules</h2>
-          <div className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-xl border border-rule bg-bg/40 p-3.5 text-xs leading-relaxed text-ink-soft">{rulesText}</div>
+          {rulesHtml ? (
+            <div className={"max-h-44 overflow-y-auto rounded-xl border border-rule bg-bg/40 p-3.5 text-xs leading-relaxed text-ink-soft [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2"} dangerouslySetInnerHTML={{ __html: rulesHtml }} />
+          ) : (
+            <div className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-xl border border-rule bg-bg/40 p-3.5 text-xs leading-relaxed text-ink-soft">{rulesText}</div>
+          )}
           <button type="button" onClick={() => setAcceptRules((v) => !v)} className="mt-3 flex items-center gap-2.5 text-left text-sm font-medium text-ink-soft">
             <span className={`grid h-5 w-5 shrink-0 place-items-center rounded border ${acceptRules ? "border-brand bg-brand text-white" : "border-faint"}`}>{acceptRules ? <Check size={13} /> : null}</span>
             I acknowledge the rules{requireRules ? <span className="text-brand"> *</span> : null}

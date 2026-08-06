@@ -34,7 +34,7 @@ export type FinderCourt = {
 
 /** Finder rows = confirmed directory courts + live-found Google results (the
  *  "on Google but not on Klimr yet" layer — the Westwood fix). */
-type Row = FinderCourt & { liveFound?: boolean; website?: string | null; isPrivate?: boolean; verified?: boolean; venueKnown?: boolean };
+type Row = FinderCourt & { liveFound?: boolean; website?: string | null; isPrivate?: boolean; verified?: boolean; listedUnverified?: boolean; venueKnown?: boolean };
 
 type Filters = {
   zip: string;
@@ -276,6 +276,7 @@ export function CourtsFinder({
         website: r.website,
         isPrivate: r.private,
         verified: r.verified === true,
+        listedUnverified: r.listedUnverified === true,
       }));
   }, [live, courts, f.radius]);
   const shown = useMemo<Row[]>(() => [...visible, ...liveRows], [visible, liveRows]);
@@ -342,7 +343,7 @@ export function CourtsFinder({
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden font-mono text-[9.5px] font-semibold tracking-[0.14em] text-faint md:inline">WITHIN</span>
+            <span className="hidden font-mono text-floor font-semibold tracking-[0.14em] text-faint md:inline">WITHIN</span>
             <div className="inline-flex gap-0.5 rounded-[11px] bg-ink/5 p-[3px]">
               {RADII.map((r) => (
                 <button
@@ -375,7 +376,7 @@ export function CourtsFinder({
         <div className="mt-3 flex flex-wrap items-center gap-2.5 border-t border-rule-soft pt-3">
           {/* Sport dropdown — searchable, scales to any roster */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <span className="mr-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Sport</span>
+            <span className="mr-1.5 font-mono text-floor font-semibold uppercase tracking-[0.16em] text-faint">Sport</span>
             <button
               type="button"
               onClick={() => {
@@ -437,7 +438,7 @@ export function CourtsFinder({
 
           {/* Venue */}
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Venue</span>
+            <span className="font-mono text-floor font-semibold uppercase tracking-[0.16em] text-faint">Venue</span>
             <div className="inline-flex gap-0.5 rounded-[11px] bg-ink/5 p-[3px]">
               {(
                 [
@@ -483,7 +484,7 @@ export function CourtsFinder({
                 title={auto ? "Indoor courts always have lights" : undefined}
               >
                 <Icon size={13} /> {label}
-                {auto ? <span className="rounded bg-white/70 px-1 font-mono text-[8.5px] font-bold tracking-[0.08em]">AUTO</span> : null}
+                {auto ? <span className="rounded bg-white/70 px-1 font-mono text-floor font-bold tracking-[0.08em]">AUTO</span> : null}
               </button>
             ))}
           </div>
@@ -525,9 +526,9 @@ export function CourtsFinder({
               {pending ? (
                 <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[0.12em] text-mute"><Loader2 size={11} className="animate-spin" /> SEARCHING</span>
               ) : scanKicked ? (
-                <span className="inline-flex items-center gap-1.5 rounded-[8px] border border-[#DCEBC0] bg-[#F1F8E3] px-2 py-0.5 font-mono text-[9.5px] font-semibold tracking-[0.1em] text-[#4D7C0F]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#4D7C0F]" /> EXPANDING COVERAGE</span>
+                <span className="inline-flex items-center gap-1.5 rounded-[8px] border border-[#DCEBC0] bg-[#F1F8E3] px-2 py-0.5 font-mono text-floor font-semibold tracking-[0.1em] text-[#4D7C0F]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#4D7C0F]" /> EXPANDING COVERAGE</span>
               ) : null}
-              <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Sort</span>
+              <span className="font-mono text-floor font-semibold uppercase tracking-[0.16em] text-faint">Sort</span>
               <select
                 value={f.sort}
                 onChange={(e) => set({ sort: e.target.value as Filters["sort"] })}
@@ -642,18 +643,20 @@ function CourtCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[14.5px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
             {c.verified ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#217A34]">VERIFIED ✓</span>
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] text-[#217A34]">VERIFIED ✓</span>
+            ) : c.listedUnverified ? (
+              <span title="Found in search results — Klimr hasn't source-confirmed this venue for this sport yet." className="inline-flex items-center gap-1 rounded-md bg-bg px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] text-mute">LISTED · UNVERIFIED</span>
             ) : null}
             {c.isPrivate ? (
-              <span className="rounded-md bg-bg px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-faint">PRIVATE / MEMBERS</span>
+              <span className="rounded-md bg-bg px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] text-faint">PRIVATE / MEMBERS</span>
             ) : null}
             {c.liveQueue ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] text-[#217A34]">
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] text-[#217A34]">
                 <span aria-hidden className="h-1 w-1 animate-pulse rounded-full bg-[#2FA44F]" /> LIVE QUEUE
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 font-mono text-[9.5px] tracking-[0.1em] text-faint">{meta.join(" · ")}</p>
+          <p className="mt-0.5 font-mono text-floor tracking-[0.1em] text-faint">{meta.join(" · ")}</p>
         </div>
         <div className="shrink-0 text-right">
           {c.memberRating != null ? (
@@ -661,12 +664,12 @@ function CourtCard({
               <p className="inline-flex items-center gap-1 text-sm font-bold text-ink">
                 <Star size={13} className="fill-[#D9A70B] text-[#D9A70B]" /> {c.memberRating.toFixed(1)}
               </p>
-              <p className="font-mono text-[9px] tracking-[0.1em] text-faint">
+              <p className="font-mono text-floor tracking-[0.1em] text-faint">
                 {c.memberReviewCount} KLIMR {c.memberReviewCount === 1 ? "REVIEW" : "REVIEWS"}
               </p>
               {c.googleRating != null ? (
-                <p className="mt-0.5 inline-flex items-center gap-1 font-mono text-[9.5px] tracking-[0.06em] text-faint" title={`${c.googleRatingCount} Google reviews`}>
-                  <span aria-hidden className="grid h-3.5 w-3.5 place-items-center rounded-[4px] border border-rule-2 bg-surface text-[8px] font-bold text-mute">G</span>
+                <p className="mt-0.5 inline-flex items-center gap-1 font-mono text-floor tracking-[0.06em] text-faint" title={`${c.googleRatingCount} Google reviews`}>
+                  <span aria-hidden className="grid h-3.5 w-3.5 place-items-center rounded-[4px] border border-rule-2 bg-surface text-floor font-bold text-mute">G</span>
                   {c.googleRating.toFixed(1)} · {c.googleRatingCount}
                 </p>
               ) : null}
@@ -678,13 +681,13 @@ function CourtCard({
               <p className="inline-flex items-center gap-1 text-sm font-bold text-ink">
                 <Star size={13} className="fill-[#D9A70B] text-[#D9A70B]" /> {c.googleRating.toFixed(1)}
               </p>
-              <p className="font-mono text-[9px] tracking-[0.1em] text-faint">
+              <p className="font-mono text-floor tracking-[0.1em] text-faint">
                 {c.googleRatingCount} GOOGLE {c.googleRatingCount === 1 ? "REVIEW" : "REVIEWS"}
               </p>
             </>
           ) : null}
           {c.busy ? (
-            <span className={`mt-1 inline-block rounded-md px-1.5 py-0.5 font-mono text-[8.5px] font-bold tracking-[0.1em] ${BUSY_STYLE[c.busy]}`}>{c.busy}</span>
+            <span className={`mt-1 inline-block rounded-md px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] ${BUSY_STYLE[c.busy]}`}>{c.busy}</span>
           ) : null}
         </div>
       </div>
@@ -719,7 +722,7 @@ function CourtCard({
                   <span
                     key={p.id}
                     title={p.name}
-                    className="grid h-[22px] w-[22px] place-items-center rounded-full border-2 border-white text-[8px] font-bold text-white"
+                    className="grid h-[22px] w-[22px] place-items-center rounded-full border-2 border-white text-floor font-bold text-white"
                     style={{ background: disc(p.hue) }}
                   >
                     {initialsOf(p.name)}

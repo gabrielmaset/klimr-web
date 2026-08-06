@@ -47,7 +47,7 @@ export function FeedControls({
           })}
         </div>
         <span className="flex-1" />
-        <span className="shrink-0 font-mono text-[9.5px] tracking-[0.12em] text-faint">NEWEST FIRST · ALWAYS</span>
+        <span className="shrink-0 font-mono text-floor tracking-[0.12em] text-faint">NEWEST FIRST · ALWAYS</span>
       </div>
 
       <div className="flex items-stretch gap-0.5 overflow-x-auto border-b border-rule">
@@ -102,7 +102,7 @@ export function WireDigest({ rows }: { rows: WireDigestRow[] }) {
   return (
     <div className="rounded-2xl border border-rule bg-well px-5 py-3.5">
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[9.5px] font-bold tracking-[0.16em] text-faint">THE WIRE · CITY &amp; KLIMR UPDATES</span>
+        <span className="font-mono text-floor font-bold tracking-[0.16em] text-faint">THE WIRE · CITY &amp; KLIMR UPDATES</span>
         <span className="flex-1" />
         {rows.length > 4 ? (
           <button type="button" onClick={() => setExpanded((e) => !e)} className="press text-xs font-semibold text-brand-deep">
@@ -119,7 +119,7 @@ export function WireDigest({ rows }: { rows: WireDigestRow[] }) {
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-[#4A453C]">
                 <strong className="font-semibold text-ink">{w.title}</strong> — {w.sub}
               </span>
-              <span className="shrink-0 font-mono text-[9.5px] text-faint">{w.time}</span>
+              <span className="shrink-0 font-mono text-floor text-faint">{w.time}</span>
             </li>
           );
         })}

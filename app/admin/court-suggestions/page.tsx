@@ -84,12 +84,12 @@ export default async function CourtSuggestionsAdminPage({
                     <form action={updateSuggestionStatus}>
                       <input type="hidden" name="id" value={r.id} />
                       <input type="hidden" name="status" value="reviewed" />
-                      <button className="press rounded-[9px] bg-ink px-3 py-2 text-xs font-bold text-white hover:bg-[#2A2622]">Mark reviewed</button>
+                      <button type="submit" className="press rounded-[9px] bg-ink px-3 py-2 text-xs font-bold text-white hover:bg-[#2A2622]">Mark reviewed</button>
                     </form>
                     <form action={updateSuggestionStatus}>
                       <input type="hidden" name="id" value={r.id} />
                       <input type="hidden" name="status" value="rejected" />
-                      <button className="press rounded-[9px] border border-rule-2 bg-surface px-3 py-2 text-xs font-bold text-mute hover:border-ink hover:text-ink">Reject</button>
+                      <button type="submit" className="press rounded-[9px] border border-rule-2 bg-surface px-3 py-2 text-xs font-bold text-mute hover:border-ink hover:text-ink">Reject</button>
                     </form>
                   </div>
                 ) : null}

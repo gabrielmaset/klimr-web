@@ -180,7 +180,7 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
             </div>
           </div>
         </div>
-        <span className="kicker shrink-0 rounded-full px-2.5 py-1 text-[9px]" style={{ background: statusBg, color: statusColor }}>
+        <span className="kicker shrink-0 rounded-full px-2.5 py-1 text-floor" style={{ background: statusBg, color: statusColor }}>
           {statusLabel}
         </span>
       </div>
@@ -260,7 +260,7 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
               <p className="text-sm text-ink">You&rsquo;re the organizer of this match.</p>
               <form action={cancelMatch}>
                 <input type="hidden" name="matchId" value={id} />
-                <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">
+                <button type="submit" className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">
                   Cancel match
                 </button>
               </form>
@@ -272,14 +272,14 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
                 {myPart && !myPart.confirmed ? (
                   <form action={confirmSpot}>
                     <input type="hidden" name="matchId" value={id} />
-                    <button className="press rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+                    <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
                       Confirm
                     </button>
                   </form>
                 ) : null}
                 <form action={leaveMatch}>
                   <input type="hidden" name="matchId" value={id} />
-                  <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">
+                  <button type="submit" className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">
                     Leave
                   </button>
                 </form>
@@ -297,11 +297,11 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
               <div className="flex items-center gap-2">
                 <form action={confirmWaitlistSpot}>
                   <input type="hidden" name="matchId" value={id} />
-                  <button className="press rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Confirm spot</button>
+                  <button type="submit" className="press rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Confirm spot</button>
                 </form>
                 <form action={declineWaitlistSpot}>
                   <input type="hidden" name="matchId" value={id} />
-                  <button className="press rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">Pass</button>
+                  <button type="submit" className="press rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">Pass</button>
                 </form>
               </div>
             </div>
@@ -311,7 +311,7 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
             <p className="text-sm text-ink">{match.total_slots - filled - activeOffers.length} spot{match.total_slots - filled - activeOffers.length === 1 ? "" : "s"} open. Jump in.</p>
             <form action={joinMatch}>
               <input type="hidden" name="matchId" value={id} />
-              <button className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+              <button type="submit" className="press rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
                 Join match
               </button>
             </form>
@@ -321,7 +321,7 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
             <p className="text-sm text-ink">You&rsquo;re <b>#{myWait.waitlist_position}</b> on the waitlist. When a spot opens you&rsquo;ll get a confirmation window — 20 minutes if the match starts within 4 hours, 1 hour within a day, otherwise 4 hours.</p>
             <form action={leaveWaitlist}>
               <input type="hidden" name="matchId" value={id} />
-              <button className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">
+              <button type="submit" className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-mute transition-colors hover:border-faint hover:text-ink">
                 Leave waitlist
               </button>
             </form>
@@ -331,7 +331,7 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
             <p className="text-sm text-ink">This match is full — join the waitlist and you&rsquo;re next in line.</p>
             <form action={joinWaitlist}>
               <input type="hidden" name="matchId" value={id} />
-              <button className="press rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+              <button type="submit" className="press rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
                 Join waitlist
               </button>
             </form>

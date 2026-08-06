@@ -22,7 +22,7 @@ export function SiteFooter({ authed = false }: { authed?: boolean }) {
     return (
       <footer className="bg-transparent">
         <div className="mx-auto flex max-w-page items-center justify-between px-5 py-5">
-          <p className="font-mono text-[9.5px] font-semibold uppercase tracking-[.18em] text-faint">© 2026 KLIMR · Los Angeles</p>
+          <p className="font-mono text-floor font-semibold uppercase tracking-[.18em] text-faint">© 2026 KLIMR · Los Angeles</p>
           <a href="mailto:hello@klimr.com" className="text-xs font-semibold text-mute transition-colors hover:text-flame-text">Contact</a>
         </div>
       </footer>

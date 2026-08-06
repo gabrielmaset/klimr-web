@@ -53,7 +53,7 @@ function FactorBars({ factors, micro }: { factors: { location: number; skill: nu
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
         {rows.map(([label, v]) => (
           <div key={label}>
-            <span className="font-mono text-[8px] font-bold uppercase tracking-[.14em] text-faint">{label}</span>
+            <span className="font-mono text-floor font-bold uppercase tracking-[.14em] text-faint">{label}</span>
             <span className="mt-0.5 block h-1 overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
               <span className="block h-full rounded-full" style={{ width: `${v}%`, background: scoreColor(v).fg }} />
             </span>
@@ -66,7 +66,7 @@ function FactorBars({ factors, micro }: { factors: { location: number; skill: nu
     <div className="space-y-2.5">
       {rows.map(([label, v]) => (
         <div key={label} className="flex items-center gap-2.5">
-          <span className="w-12 shrink-0 font-mono text-[9px] font-bold uppercase tracking-[.16em] text-faint">{label}</span>
+          <span className="w-12 shrink-0 font-mono text-floor font-bold uppercase tracking-[.16em] text-faint">{label}</span>
           <span className="h-[5px] flex-1 overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
             <span className="block h-full rounded-full transition-all" style={{ width: `${v}%`, background: scoreColor(v).fg }} />
           </span>
@@ -195,7 +195,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
           {/* Top match spotlight */}
           {top ? (
             <div className="mb-4 overflow-hidden rounded-[20px] border p-5 sm:p-6" style={{ borderColor: "var(--color-tint-brand-bd2)", background: "linear-gradient(130deg, #FFF1E8, #FFFFFF 58%)" }}>
-              <span className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-sun-text">Tonight&rsquo;s opponent</span>
+              <span className="font-mono text-floor font-bold uppercase tracking-[.18em] text-sun-text">Tonight&rsquo;s opponent</span>
               <div className="mt-3 grid gap-5 lg:grid-cols-[1.05fr_1fr] lg:items-center">
                 <Link href={`/profile/${top.userId}`} className="flex items-center gap-4">
                   <ScoredAvatar score={top.score} url={aurl(top.avatarPath)} hue={top.avatarHue} name={top.displayName} size={104} />
@@ -222,7 +222,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                   </div>
                 </Link>
                 <div className="rounded-2xl bg-bg/60 p-4 lg:border-l lg:border-rule lg:bg-transparent lg:p-0 lg:pl-6">
-                  <p className="mb-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-faint">Compatibility signals</p>
+                  <p className="mb-2.5 font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">Compatibility signals</p>
                   <FactorBars factors={top.factors} />
                   <Link href={`/profile/${top.userId}`} className="press mt-4 inline-flex h-[34px] items-center gap-1.5 rounded-[10px] px-3.5 text-[13px] font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
                     View profile <ArrowRight size={14} />
@@ -267,7 +267,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
       {needPlayers.length > 0 ? (
         <section className="mt-9">
           <div className="mb-2.5 flex items-center justify-between">
-            <h2 className="flex items-center gap-1.5 font-mono text-[9.5px] font-bold uppercase tracking-[.18em] text-brand-deep">
+            <h2 className="flex items-center gap-1.5 font-mono text-floor font-bold uppercase tracking-[.18em] text-brand-deep">
               <Zap size={13} /> Open matches · {needPlayers.length} need a player
             </h2>
             <Link href="/play" className="press text-xs font-semibold text-brand-deep hover:underline">
@@ -283,7 +283,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
                 <Link key={m.id} href={`/play/${m.id}`} className="lift w-64 shrink-0 snap-start rounded-2xl border border-rule bg-surface shadow-e1 p-4">
                   <div className="flex items-center justify-between">
                     <SportIcon sport={m.sport_key} variant="glyph" size={26} />
-                    <span className="rounded-full bg-tint-brand px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-[.14em] text-flame-text">
+                    <span className="rounded-full bg-tint-brand px-2 py-1 font-mono text-floor font-bold uppercase tracking-[.14em] text-flame-text">
                       {left} spot{left === 1 ? "" : "s"} open
                     </span>
                   </div>

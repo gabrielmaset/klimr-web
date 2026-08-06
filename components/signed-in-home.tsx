@@ -267,7 +267,7 @@ export async function SignedInHome() {
                   </div>
                   {!completed ? (
                     <span
-                      className="kicker shrink-0 rounded-full px-2 py-1 text-[9px]"
+                      className="kicker shrink-0 rounded-full px-2 py-1 text-floor"
                       style={{ background: mine ? "#f0fdf4" : left > 0 ? "#fff1ed" : "#f4f4f5", color: mine ? "#16a34a" : left > 0 ? "#d63a0f" : "#71717a" }}
                     >
                       {mine ? "You're in" : left > 0 ? `${left} open` : "Full"}

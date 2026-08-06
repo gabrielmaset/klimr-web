@@ -173,10 +173,10 @@ export default async function AdminProvidersPage() {
                     placeholder="Review note (optional)"
                     className="min-w-[180px] flex-1 rounded-[10px] border border-rule-2 bg-bg px-3 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                   />
-                  <button name="decision" value="approve" className="press rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+                  <button type="submit" name="decision" value="approve" className="press rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
                     Approve
                   </button>
-                  <button name="decision" value="reject" className="press rounded-full border border-rule px-4 py-1.5 text-sm font-semibold text-mute transition-colors hover:text-brand-deep">
+                  <button type="submit" name="decision" value="reject" className="press rounded-lg border border-rule px-4 py-1.5 text-sm font-semibold text-mute transition-colors hover:text-brand-deep">
                     Reject
                   </button>
                 </form>
@@ -213,7 +213,7 @@ export default async function AdminProvidersPage() {
             />
           </label>
           <input type="hidden" name="action" value="approve" />
-          <button className="press h-[38px] rounded-full bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <button type="submit" className="press h-[38px] rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
             Approve
           </button>
         </form>
@@ -229,7 +229,7 @@ export default async function AdminProvidersPage() {
               {decided.map((d) => (
                 <div key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
                   <span
-                    className={`rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide ${d.status === "approved" ? "bg-[#EFF8F0] text-[#217A34]" : "bg-[#FDECEA] text-[#D92D20]"}`}
+                    className={`rounded-full px-2 py-0.5 font-mono text-floor font-bold uppercase tracking-wide ${d.status === "approved" ? "bg-[#EFF8F0] text-[#217A34]" : "bg-[#FDECEA] text-[#D92D20]"}`}
                   >
                     {d.status}
                   </span>
@@ -280,7 +280,7 @@ export default async function AdminProvidersPage() {
                       <form action={setClassProvider} className="inline">
                         <input type="hidden" name="userId" value={r.user_id} />
                         <input type="hidden" name="action" value={r.status === "approved" ? "revoke" : "approve"} />
-                        <button className="press rounded-full border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-bg">
+                        <button type="submit" className="press rounded-lg border border-rule px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-bg">
                           {r.status === "approved" ? "Revoke" : "Re-approve"}
                         </button>
                       </form>

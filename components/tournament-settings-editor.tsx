@@ -179,7 +179,7 @@ function VisibilityRow({ init }: { init: SettingsInit }) {
       />
       <p className={hintCls}>Public events appear in Explore. Unlisted events are reachable only by their link.</p>
       <div className="mt-3 flex items-center gap-3">
-        <button type="button" onClick={handle} disabled={busy} className="press inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition hover:bg-ink-soft disabled:opacity-50">
+        <button type="button" onClick={handle} disabled={busy} className="press inline-flex items-center gap-2 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition hover:bg-ink-soft disabled:opacity-50">
           {busy ? <Loader2 size={14} className="animate-spin" /> : null} Save
         </button>
         {msg ? <span className={`text-sm font-semibold ${msg.ok ? "text-success" : "text-brand-deep"}`}>{msg.text}</span> : null}
@@ -700,7 +700,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
               type="button"
               onClick={togglePublish}
               disabled={pubBusy || (isDraft && !init.signupFormReady)}
-              className={`press inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${isDraft ? "bg-brand text-white hover:bg-brand-deep" : "border border-rule bg-surface text-ink hover:bg-bg"}`}
+              className={`press inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${isDraft ? "bg-brand text-white hover:bg-brand-deep" : "border border-rule bg-surface text-ink hover:bg-bg"}`}
             >
               {pubBusy ? <Loader2 size={15} className="animate-spin" /> : isDraft ? <Rocket size={15} /> : null}
               {isDraft ? "Publish event" : "Unpublish"}

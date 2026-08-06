@@ -387,7 +387,7 @@ export function CourtsMap({
       <div ref={containerRef} className="absolute inset-0 h-full w-full" />
 
       {debugOn ? (
-        <div className="absolute inset-x-3 bottom-14 z-30 max-h-44 overflow-y-auto rounded-lg bg-ink/90 p-2.5 font-mono text-[9.5px] leading-relaxed text-white/90">
+        <div className="absolute inset-x-3 bottom-14 z-30 max-h-44 overflow-y-auto rounded-lg bg-ink/90 p-2.5 font-mono text-floor leading-relaxed text-white/90">
           <p className="mb-1 font-bold text-white">MAP DEBUG v2 (geometry probe) — token {token ? `${token.slice(0, 6)}…${token.slice(-4)} (${token.startsWith("pk.") ? "public ✓" : "NOT a pk. public token ✗"})` : "MISSING"}</p>
           {logLines.map((l, i) => (
             <p key={i} className="break-all">{l}</p>
@@ -442,7 +442,7 @@ export function CourtsMap({
           style={{ left: callout.x, top: Math.max(8, callout.y - 108) }}
         >
           <p className="truncate text-[12.5px] font-bold text-ink">{callout.court.name}</p>
-          <p className="mt-0.5 font-mono text-[9px] tracking-[0.1em] text-faint">
+          <p className="mt-0.5 font-mono text-floor tracking-[0.1em] text-faint">
             {callout.court.distanceMi} MI
             {callout.court.courtCount ? ` · ${callout.court.courtCount} COURTS` : ""}
             {(callout.court.memberRating ?? callout.court.googleRating) != null
@@ -483,12 +483,12 @@ export function CourtsMap({
       ) : null}
 
       {/* legend + radius badge */}
-      <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-3 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-3 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-floor font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#FF4E1B]" /> COURT</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2FA44F]" /> LIVE QUEUE</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2E77C9]" /> YOU</span>
       </div>
-      <div className="pointer-events-none absolute bottom-10 right-3 z-10 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-[9px] font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
+      <div className="pointer-events-none absolute bottom-10 right-3 z-10 rounded-[10px] border border-rule-2 bg-surface/95 px-3 py-1.5 font-mono text-floor font-semibold tracking-[0.1em] text-mute shadow-e1 backdrop-blur">
         {radiusMi} MI RADIUS · {originLabel}
       </div>
     </div>

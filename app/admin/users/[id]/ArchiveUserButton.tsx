@@ -41,7 +41,7 @@ export function ArchiveUserButton({ userId }: { userId: string }) {
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="submit"
-          className="press rounded-full px-3.5 py-2 text-sm font-semibold text-white transition-colors"
+          className="press rounded-lg px-3.5 py-2 text-sm font-semibold text-white transition-colors"
           style={{ background: "var(--color-danger)" }}
         >
           Delete account
