@@ -34,29 +34,6 @@ export type ProfessionalRole = {
 
 export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
   // ── Organizing (the hosting ladder — no credential; agreement-gated) ──
-  {
-    key: "organizer",
-    label: "Event Organizer",
-    category: "organizing",
-    blurb: "Host paid and larger events — ladder nights, big open plays, recurring series.",
-    requiresCredential: false,
-    verifyUrl: "",
-    verifyNote: "No external registry — review the application, confirm the phone number, and check the member's history on Klimr.",
-    renewalNote: "",
-    agreement: "organizer",
-    requiresPhone: true,
-  },
-  {
-    key: "tournament_director",
-    label: "Tournament Director",
-    category: "organizing",
-    blurb: "Create and run tournaments on Klimr — brackets, registration, results.",
-    requiresCredential: false,
-    verifyUrl: "",
-    verifyNote: "No external registry — review the application; confirm the member's history on Klimr.",
-    renewalNote: "",
-    agreement: "td",
-  },
   // ── Coaching & training (certifications recommended, not state-licensed) ──
   {
     key: "sport_coach",
@@ -107,8 +84,9 @@ export const PROFESSIONAL_ROLES: ProfessionalRole[] = [
     key: "event_organizer",
     label: "Event Organizer",
     category: "organizer",
-    blurb: "Run tournaments, leagues, ladders, clinics, and social play.",
+    blurb: "Host tournaments, leagues, ladders, clinics, and recurring series. Casual events from the Events page need no professional status — this role is for the bigger stuff.",
     requiresCredential: false,
+    requiresPhone: true,
   },
   // ── Health & medical (proof of qualification required) ──
   {
@@ -216,7 +194,7 @@ export function roleMeta(key: string): ProfessionalRole | undefined {
 }
 
 export function roleLabel(key: string): string {
-  return roleMeta(key)?.label ?? key;
+  return roleMeta(key)?.label ?? LEGACY_ROLE_LABEL[key] ?? key;
 }
 
 export const ROLE_CATEGORY_LABEL: Record<RoleCategory, string> = {
@@ -225,3 +203,31 @@ export const ROLE_CATEGORY_LABEL: Record<RoleCategory, string> = {
   organizer: "Events",
   organizing: "Organizing",
 };
+
+/** Labels for roles that were withdrawn from the taxonomy but may still sit in
+ *  a member's stored `roles` array. Keeps badges and admin screens readable
+ *  instead of printing a raw key at anyone who was granted one. */
+const LEGACY_ROLE_LABEL: Record<string, string> = {
+  organizer: "Event Organizer",
+  tournament_director: "Tournament Director",
+};
+
+/** The SINGLE predicate for "may host a tournament" (Aug 2026).
+ *
+ *  There is one organizing role — `event_organizer`. Two earlier entries,
+ *  `organizer` and `tournament_director`, were categorised "organizing" while
+ *  the picker only renders "coaching" | "health" | "organizer", so NEITHER was
+ *  ever selectable — yet the tournament pages gated on `tournament_director`.
+ *  The result was a hosting flow no member could ever unlock. Both dead
+ *  entries are removed; the legacy keys are still honoured here so anyone
+ *  granted one directly keeps their access.
+ *
+ *  Casual events from the Events page deliberately require no professional
+ *  status at all — this gate is only for tournaments. */
+export function canHostTournaments(
+  status: string | null | undefined,
+  roles: unknown,
+): boolean {
+  if (status !== "approved" || !Array.isArray(roles)) return false;
+  return roles.some((r) => r === "event_organizer" || r === "organizer" || r === "tournament_director");
+}

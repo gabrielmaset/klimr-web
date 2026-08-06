@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { canHostTournaments } from "@/lib/professional-roles";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShieldCheck, Trophy } from "lucide-react";
@@ -18,7 +19,7 @@ export default async function NewTournamentPage() {
 
   // Tournament Director status required (hosting ladder).
   const { data: provRow } = await supabase.from("class_providers").select("roles, status").eq("user_id", user.id).maybeSingle();
-  const isTD = provRow?.status === "approved" && Array.isArray(provRow.roles) && provRow.roles.includes("tournament_director");
+  const isTD = canHostTournaments(provRow?.status, provRow?.roles);
   if (!isTD) redirect("/tournaments");
 
   const { data: prof } = await supabase.from("profiles").select("verification_status, primary_sport").eq("id", user.id).maybeSingle();

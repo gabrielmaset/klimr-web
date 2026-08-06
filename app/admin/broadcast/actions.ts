@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin";
 import { sendEmail } from "@/lib/email";
 
+import { canHostTournaments } from "@/lib/professional-roles";
+
 const AUDIENCES = ["all", "organizers", "tournament_directors", "providers"] as const;
 type Audience = (typeof AUDIENCES)[number];
 
@@ -52,7 +54,7 @@ export async function sendBroadcast(formData: FormData) {
       .filter((p) => {
         const roles: string[] = Array.isArray(p.roles) ? p.roles : [];
         if (audience === "organizers") return roles.includes("organizer");
-        if (audience === "tournament_directors") return roles.includes("tournament_director");
+        if (audience === "tournament_directors") return canHostTournaments("approved", roles);
         return roles.some((r) => r !== "organizer" && r !== "tournament_director");
       })
       .map((p) => p.user_id);

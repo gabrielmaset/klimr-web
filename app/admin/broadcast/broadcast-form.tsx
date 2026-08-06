@@ -16,7 +16,7 @@ export function BroadcastForm() {
         <select name="audience" className={field} defaultValue="all">
           <option value="all">All members</option>
           <option value="organizers">Event Organizers</option>
-          <option value="tournament_directors">Tournament Directors</option>
+          <option value="tournament_directors">Tournament hosts</option>
           <option value="providers">Verified pros (coaches &amp; health)</option>
         </select>
       </label>

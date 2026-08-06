@@ -337,3 +337,30 @@ describe("Courtside heartbeat authenticity (0184)", () => {
     expect(sql).toContain("last_seen_at < now() - interval '60 seconds'");
   });
 });
+
+describe("Tournament hosting gate (broken flow, Aug 2026)", () => {
+  it("every gate uses the one shared predicate", () => {
+    for (const p of ["app/tournaments/page.tsx", "app/tournaments/new/page.tsx"]) {
+      const src = read(p);
+      expect(src).toContain("canHostTournaments(");
+      // The old inline check gated on a role no picker could ever offer.
+      expect(src).not.toContain('includes("tournament_director")');
+    }
+  });
+  it("no role is defined in a category the picker cannot render", () => {
+    const roles = read("lib/professional-roles.ts");
+    const form = read("components/professional-status-form.tsx");
+    const rendered = /CATEGORY_ORDER: RoleCategory\[\] = \[([^\]]+)\]/.exec(form)?.[1] ?? "";
+    const cats = [...roles.matchAll(/category: "(\w+)"/g)].map((m) => m[1]);
+    for (const c of new Set(cats)) {
+      // A role in an unrendered category is unrequestable and therefore dead —
+      // exactly how "organizing" hid Event Organizer and Tournament Director.
+      expect(rendered).toContain(`"${c}"`);
+    }
+  });
+  it("legacy role keys still resolve to a readable label", () => {
+    const roles = read("lib/professional-roles.ts");
+    expect(roles).toContain("LEGACY_ROLE_LABEL");
+    expect(roles).toContain('tournament_director: "Tournament Director"');
+  });
+});

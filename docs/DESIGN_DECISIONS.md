@@ -4793,3 +4793,29 @@ tuning never needs a migration.
 - **The de-pill sweep was only half done.** It matched `<button>` tags only, so
   64 `<Link>` elements styled as pill buttons still carried `rounded-full`
   across 42 files. Now swept with the same icon-circle exemption.
+
+### 2026-08-05 — Tournament hosting was gated on an unobtainable role
+- **Symptom.** The "Request tournament-director status" link I added led to a
+  picker with no such option. The flow was unfinishable.
+- **Root cause, and it predates that link.** `lib/professional-roles.ts` held
+  THREE overlapping organizing entries: `organizer` and `tournament_director`
+  (both `category: "organizing"`) plus `event_organizer`
+  (`category: "organizer"`). The picker renders
+  `CATEGORY_ORDER = ["coaching", "health", "organizer"]` — so the two
+  `"organizing"` entries were invisible and unrequestable, while both tournament
+  pages gated on exactly one of them. **No member could ever have unlocked
+  tournament hosting.** A one-letter category difference silently disabled a
+  whole product surface.
+- **Decision (Gabriel): one organizing role.** Casual events from the Events
+  page need no professional status at all, so a separate tournament-director
+  tier was redundant. `event_organizer` is now the single role, with its blurb
+  saying what it unlocks; the two dead entries are removed.
+- **`canHostTournaments()` is now the ONE predicate**, used by the tournaments
+  list, the create page, and the broadcast audience. Duplicated inline checks
+  are how the gate and the taxonomy drifted apart, so there is now nowhere for
+  them to drift. Legacy `organizer` / `tournament_director` keys are still
+  honoured so anyone granted one directly keeps access, and `LEGACY_ROLE_LABEL`
+  keeps their badges readable.
+- **Regression guard:** a test asserts no role is defined in a category the
+  picker cannot render — the exact failure mode, caught structurally rather
+  than by remembering.

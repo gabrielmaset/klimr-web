@@ -1,6 +1,7 @@
 const nowMs = () => Date.now();
 
 import type { Metadata } from "next";
+import { canHostTournaments } from "@/lib/professional-roles";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Trophy, Plus, MapPin, CalendarClock, Sparkles, Search, Navigation, ArrowRight } from "lucide-react";
@@ -177,7 +178,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
 
   const { data: prof } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
   const { data: provRow } = await supabase.from("class_providers").select("roles, status").eq("user_id", user.id).maybeSingle();
-  const isTD = provRow?.status === "approved" && Array.isArray(provRow.roles) && provRow.roles.includes("tournament_director");
+  const isTD = canHostTournaments(provRow?.status, provRow?.roles);
 
   const nearRaw = (near ?? "").trim();
   let center: { lat: number; lng: number; label: string } | null = null;
@@ -267,7 +268,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           // all left people hunting for a button that was never going to
           // appear — name the requirement and link straight to it.
           <Link href="/settings/professional" className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink">
-            <Plus size={16} /> Want to host? Request tournament-director status
+            <Plus size={16} /> Want to host? Request Event Organizer status
           </Link>
         )}
       </div>

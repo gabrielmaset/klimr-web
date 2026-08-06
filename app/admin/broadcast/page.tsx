@@ -21,7 +21,7 @@ export default async function AdminBroadcastPage() {
   }
   const audLabel = (a: unknown) => {
     const v = (a as { audience?: string } | null)?.audience ?? "all";
-    return { all: "All members", organizers: "Organizers", tournament_directors: "Tournament Directors", providers: "Verified pros" }[v] ?? v;
+    return { all: "All members", organizers: "Organizers", tournament_directors: "Tournament hosts", providers: "Verified pros" }[v] ?? v;
   };
 
   return (
