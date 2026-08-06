@@ -15,7 +15,7 @@ export function GateForm({ errorMessage, noticeMessage }: { errorMessage: string
       <form action={enterSite}>
         <input
           name="code"
-          autoFocus
+          
           autoComplete="off"
           autoCapitalize="characters"
           autoCorrect="off"

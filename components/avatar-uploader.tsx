@@ -97,7 +97,7 @@ export function AvatarUploader({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={photoUrl}
-            alt="Your profile photo"
+            alt="Your profile"
             className="h-full w-full rounded-full object-cover ring-2 ring-surface"
             style={{ boxShadow: "0 6px 22px -10px rgba(10,10,11,0.35)" }}
           />

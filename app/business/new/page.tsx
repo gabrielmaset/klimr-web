@@ -36,7 +36,7 @@ export default async function NewBusiness() {
                 key={k.key}
                 className="flex cursor-pointer items-start gap-2.5 rounded-2xl border border-rule bg-surface p-3 transition-colors has-[:checked]:border-brand has-[:checked]:bg-tint-brand/40"
               >
-                <input type="radio" name="kind" value={k.key} defaultChecked={i === 0} className="mt-0.5 accent-[var(--color-brand)]" />
+                <input type="radio" name="kind" value={k.key} defaultChecked={i === 0} aria-label={k.label} className="mt-0.5 accent-[var(--color-brand)]" />
                 <span>
                   <span className="block text-sm font-semibold text-ink">{k.label}</span>
                   <span className="block text-[11.5px] leading-snug text-mute">{k.blurb}</span>

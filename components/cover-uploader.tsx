@@ -78,7 +78,7 @@ export function CoverUploader({ initialUrl, hue }: { initialUrl: string | null; 
     >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="Your cover photo" className="h-full w-full object-cover" />
+        <img src={url} alt="Your cover" className="h-full w-full object-cover" />
       ) : null}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pick} />
 

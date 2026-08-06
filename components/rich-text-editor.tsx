@@ -189,7 +189,7 @@ export function RichTextEditor({ value, onChange, placeholder }: { value: string
         <span className="mx-1 h-5 w-px bg-rule" />
         <button type="button" title="Bulleted list" onClick={() => exec("insertUnorderedList")} className={btn}><List size={15} /></button>
         <button type="button" title="Numbered list" onClick={() => exec("insertOrderedList")} className={btn}><ListOrdered size={15} /></button>
-        <button type="button" title="Add link" onClick={addLink} className={btn}><Link2 size={15} /></button>
+        <button type="button" title="Add link" aria-label="Add link" onClick={addLink} className={btn}><Link2 size={15} /></button>
         <span className="mx-1 h-5 w-px bg-rule" />
         <ColorMenu kind="text" palette={TEXT_PALETTE} apply={applyTextColor} saveSel={saveSel} />
         <ColorMenu kind="hilite" palette={HILITE_PALETTE} apply={applyHiliteColor} saveSel={saveSel} />

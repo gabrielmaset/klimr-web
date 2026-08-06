@@ -66,7 +66,8 @@ export function AppChrome({
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar unreadCount={unread} avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={adminRole} />
         <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} teams={teams} />
-        <main className="flex-1"><AutoBreadcrumbs />{children}</main>
+        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">Skip to content</a>
+        <main id="main" className="flex-1"><AutoBreadcrumbs />{children}</main>
         <SiteFooter authed />
         <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
       </div>

@@ -4603,3 +4603,68 @@ tuning never needs a migration.
   across 72 files became `rounded-lg`. The 5 survivors are genuine icon circles
   (`h-8 w-8`, aria-labelled) and are correctly exempt; avatars and status dots
   were never touched.
+
+### 2026-08-05 — Bug fix: Courts page faked a search on radius change
+- **Reported:** changing the mile-radius filter made the Find-courts button
+  swap to the spinner and showed "SEARCHING" above the results for a second or
+  two — but no search ran.
+- **Cause:** two different `useTransition` flags were being conflated.
+  `pending` belongs to `router.push` (the server-side directory reload that
+  legitimately fires whenever a reload filter like radius changes); `liveBusy`
+  belongs to the actual live Google→screening search. The button's spinner,
+  its disabled state, its armed styling, and the header badge were all keyed
+  off `pending`, so any radius change *looked* like a search.
+- **Fix:** every affordance that represents the live search now reads
+  `liveBusy`. `findCourts()` sets BOTH flags, so the real click path is
+  unchanged. The header badge keeps showing during `pending` — the directory
+  really is reloading — but now reads **UPDATING** rather than SEARCHING; the
+  live search keeps its own "SEARCHING LIVE…" marker beside the result count.
+- **Deliberate:** the button stays ENABLED during `pending`. The user just
+  changed a filter and wants to search now, and `findCourts()` recomputes from
+  `intendedFilters()` regardless of whether the URL has settled. It is disabled
+  only while a live search is genuinely in flight, to stop double-fires.
+- The correct feedback for a radius change was already there and now shows
+  unobstructed: `searchDirty` includes radius, so the button turns orange —
+  "this query changed, press me" — which is the honest signal.
+
+### 2026-08-05 — K3-02: accessibility, statically enforced (manual audit pending)
+- **jsx-a11y is now enforced in CI** (`eslint-config-next` already registered the
+  plugin; the recommended rule set is added on top). This is a ratchet, not a
+  backlog dump — but enabling it surfaced **133 real issues**, which is the
+  headline finding, not a footnote.
+- **A correction worth recording.** My first probe reported only 3 violations
+  and I nearly published that as "the codebase is in great shape". It was
+  wrong: the probe ran without the TypeScript parser, so most `.tsx` files
+  failed to parse and reported nothing. A separate custom probe for unnamed
+  icon-only buttons flagged 30 — spot-checking four showed **all four were
+  false positives** (their labels live inside JSX expressions like
+  `{copied ? "Copied" : "Share"}`). Refined, the true count was **1**. Verify
+  a probe against real source before trusting its count in either direction.
+- **Fixed outright:** the one genuinely unnamed icon button; 3 mis-associated
+  `<label>` elements (one labelled a read-only display, which is wrong markup);
+  3 redundant `alt` values ("Your profile photo" → "Your profile" — a screen
+  reader already announces "image"); 3 `autoFocus` attributes that stole focus
+  on load; and a documented exception for member-uploaded video, which has no
+  caption track to offer.
+- **Skip-to-content links added** to all three chromes (`AppChrome`,
+  `PublicChrome`, `AppShell`), each targeting a new `id="main"` landmark.
+  Keyboard users previously had to tab the entire navigation on every page.
+- **Two families deliberately set to WARN, with the reason recorded rather than
+  buried:**
+  - `label-has-associated-control` — **109 form fields** whose visible `<label>`
+    is a styled SIBLING of its input with no `htmlFor`/`id` pair, so screen
+    readers do not announce the field name. Concentrated in tournament setup,
+    the tournament settings editor, and queue creation.
+  - the keyboard-activation family (`click-events-have-key-events`,
+    `no-static-element-interactions`, `no-noninteractive-element-interactions`)
+    — **20 clickable non-button elements** a keyboard user cannot activate.
+  Both are genuine defects. Neither is safe to mass-edit: pairing 109 labels
+  means generating unique ids without collisions, and each clickable div is a
+  judgement between promoting it to a `<button>` (semantic + styling change) or
+  adding role/tabIndex/onKeyDown. Both need the rendered form and an actual tab
+  pass to verify — which is the manual audit this task is blocked on, so they
+  land together. Raise both to "error" when that backlog clears.
+- **Still requires a browser and devices** (delivered as a checklist): axe run,
+  keyboard and screen-reader passes over pilot-critical flows, 200–400% zoom,
+  and the small-phone device matrix — the untested gap, since iPad/courtside is
+  already field-proven.

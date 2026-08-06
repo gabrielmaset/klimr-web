@@ -137,7 +137,7 @@ export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
             <h2 className="font-display text-xl text-ink">The basics</h2>
             <div>
               <label className={labelCls} htmlFor="t-name">Team name</label>
-              <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus placeholder="e.g. Westside Smash" className={field} />
+              <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60}  placeholder="e.g. Westside Smash" className={field} />
             </div>
             <div>
               <label className={labelCls} htmlFor="t-sport">Sport</label>

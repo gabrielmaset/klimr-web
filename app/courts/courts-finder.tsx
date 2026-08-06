@@ -359,17 +359,26 @@ export function CourtsFinder({
               ))}
             </div>
           </div>
+          {/* This button owns the LIVE search, so every visual state on it is
+              driven by liveBusy. It must NOT react to `pending`: that flag is
+              the router.push transition, which fires whenever the radius (or
+              any reload filter) changes. Wiring the spinner to `pending` made
+              a radius change look like a search had started when none had —
+              the button spun, "SEARCHING" appeared, and nothing ran. Staying
+              enabled during `pending` is deliberate too: the user just changed
+              a filter and wants to search now, and findCourts() recomputes
+              from intendedFilters() anyway. */}
           <button
             type="button"
             onClick={findCourts}
-            disabled={pending}
+            disabled={liveBusy}
             className={`press inline-flex h-11 items-center gap-2 rounded-[11px] px-5 text-sm font-bold ${
-              searchDirty || pending
+              searchDirty || liveBusy
                 ? "bg-brand text-white shadow-[0_4px_14px_-6px_rgba(214,58,15,.5)] hover:bg-[#E23E0D]"
                 : "bg-[#DDD7CA] text-[#6E6759] hover:bg-[#D3CCBD]"
             }`}
           >
-            {pending ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Find courts
+            {liveBusy ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />} Find courts
           </button>
         </div>
 
@@ -394,7 +403,7 @@ export function CourtsFinder({
             {sportOpen ? (
               <div role="listbox" className="absolute left-0 top-11 z-30 w-64 rounded-xl border border-rule-2 bg-surface p-1.5 shadow-e3">
                 <input
-                  autoFocus
+                  
                   value={sportQuery}
                   onChange={(e) => setSportQuery(e.target.value)}
                   placeholder="Search sports…"
@@ -524,7 +533,10 @@ export function CourtsFinder({
             <span className="flex-1" />
             <label className="flex items-center gap-2">
               {pending ? (
-                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[0.12em] text-mute"><Loader2 size={11} className="animate-spin" /> SEARCHING</span>
+                // Directory reload for the new filters — real work, but not a
+                // search. The live search announces itself separately, next to
+                // the result count, as "SEARCHING LIVE…".
+                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[0.12em] text-mute"><Loader2 size={11} className="animate-spin" /> UPDATING</span>
               ) : scanKicked ? (
                 <span className="inline-flex items-center gap-1.5 rounded-[8px] border border-[#DCEBC0] bg-[#F1F8E3] px-2 py-0.5 font-mono text-floor font-semibold tracking-[0.1em] text-[#4D7C0F]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#4D7C0F]" /> EXPANDING COVERAGE</span>
               ) : null}

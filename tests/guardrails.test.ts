@@ -255,3 +255,30 @@ function walk(dir: string): string {
   }
   return out;
 }
+
+describe("Courts finder — search affordances tell the truth (bug fix Aug 2026)", () => {
+  const src = () => read("app/courts/courts-finder.tsx");
+  it("the Find-courts button is driven by the live search, not the URL transition", () => {
+    const file = src();
+    // Anchor on the handler and take a forward window — "Find courts" also
+    // appears in a comment above and in an empty-state hint below.
+    const at = file.indexOf("onClick={findCourts}");
+    expect(at).toBeGreaterThan(-1);
+    const btn = file.slice(at, at + 700);
+    // `pending` is the router.push transition and fires on every radius change;
+    // keying the spinner or disabled state off it faked a search that never ran.
+    expect(btn).toContain("disabled={liveBusy}");
+    expect(btn).toContain("{liveBusy ? <Loader2");
+    expect(btn).not.toContain("disabled={pending}");
+    expect(btn).not.toContain("{pending ? <Loader2");
+  });
+  it("a directory reload is labelled as an update, not a search", () => {
+    const file = src();
+    // The only "SEARCHING" wording left belongs to the actual live search.
+    expect(file).toContain("UPDATING");
+    expect(file).not.toMatch(/\{pending \? \([\s\S]{0,400}SEARCHING</);
+  });
+  it("radius is part of the search key, so changing it re-arms the button", () => {
+    expect(src()).toContain("x.radius");
+  });
+});

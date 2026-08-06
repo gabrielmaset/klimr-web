@@ -98,8 +98,9 @@ export function QLanding() {
 
               <div className="mt-3 flex items-end gap-3">
                 <div className="flex-1">
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-faint">Code</label>
+                  <label htmlFor="cs-code" className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-faint">Code</label>
                   <input
+                    id="cs-code"
                     value={csCode}
                     onChange={(e) => setCsCode(cleanCode(e.target.value))}
                     autoCapitalize="characters"
@@ -111,7 +112,7 @@ export function QLanding() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-faint">Court</label>
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-faint">Court</span>
                   {cs.court ? (
                     <div className="grid h-11 min-w-11 place-items-center rounded-xl border border-rule bg-bg px-3 font-mono text-lg font-bold text-ink" title="Court number from the code">{cs.court}</div>
                   ) : (

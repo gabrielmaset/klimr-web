@@ -219,6 +219,10 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
 
       {post.type === "video" && post.mediaUrl ? (
         <div className="relative mt-3 overflow-hidden rounded-[13px] border border-rule-soft">
+          {/* Member-uploaded clips have no caption track: we cannot synthesise
+              one, and short sports clips carry no dialogue. Revisit if captions
+              become part of the upload flow. */}
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video src={post.mediaUrl} className="block max-h-[420px] w-full bg-ink/90 object-contain" controls playsInline preload="metadata" />
           <span className="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2">
             <span className="grid h-[54px] w-[54px] place-items-center rounded-full bg-ink/50">
