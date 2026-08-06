@@ -99,7 +99,7 @@ export function TeamNav({
             <p className="kicker leading-tight text-brand-deep">Team</p>
             <p className="truncate text-sm font-bold leading-tight text-ink">{team.name}</p>
           </div>
-          <Link href="/me" aria-label="Back to personal" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink">
+          <Link href="/me" aria-label="Back to personal" className="press inline-flex items-center gap-1 rounded-lg border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink">
             <ChevronLeft size={14} /> Personal
           </Link>
         </div>
@@ -111,7 +111,7 @@ export function TeamNav({
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${active ? "bg-tint-brand text-brand-deep" : "text-mute hover:text-ink"}`}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${active ? "bg-tint-brand text-brand-deep" : "text-mute hover:text-ink"}`}
               >
                 <Icon size={15} />
                 {label}

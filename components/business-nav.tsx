@@ -243,7 +243,7 @@ export function BusinessNav({ business, role, personal }: { business: Business; 
             <p className="kicker leading-tight text-brand-deep">{kindLabel(business.kind)}</p>
             <p className="truncate text-sm font-bold leading-tight text-ink">{business.name}</p>
           </div>
-          <Link href="/settings" aria-label="Back to Klimr" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink">
+          <Link href="/settings" aria-label="Back to Klimr" className="press inline-flex items-center gap-1 rounded-lg border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink">
             <ChevronLeft size={14} /> Exit
           </Link>
         </div>
@@ -254,7 +254,7 @@ export function BusinessNav({ business, role, personal }: { business: Business; 
               <Link
                 key={href}
                 href={href}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${active ? "bg-tint-brand text-brand-deep" : "text-mute"}`}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? "bg-tint-brand text-brand-deep" : "text-mute"}`}
               >
                 <Icon size={15} /> {label}
               </Link>

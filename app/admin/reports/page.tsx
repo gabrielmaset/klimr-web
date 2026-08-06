@@ -82,7 +82,7 @@ export default async function AdminReports() {
                   {r.context ? <p className="mt-2 max-w-2xl rounded-xl bg-bg px-3 py-2 text-sm text-ink">{r.context}</p> : null}
                   {r.resolution ? <p className="mt-2 text-xs text-faint">Resolution: {r.resolution}</p> : null}
                 </div>
-                <Link href={`/admin/users/${r.reported_id}`} className="press shrink-0 rounded-full border border-rule px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-faint">
+                <Link href={`/admin/users/${r.reported_id}`} className="press shrink-0 rounded-lg border border-rule px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-faint">
                   Review user →
                 </Link>
               </div>

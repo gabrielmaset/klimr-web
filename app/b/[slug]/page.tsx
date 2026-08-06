@@ -129,7 +129,7 @@ export default async function PublicBusinessPage({ params }: { params: Promise<{
         {isMember ? (
           <Link
             href={`/business/${biz.id}`}
-            className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink hover:border-faint"
+            className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink hover:border-faint"
           >
             <Settings2 size={15} /> Manage
           </Link>

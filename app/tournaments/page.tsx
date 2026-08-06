@@ -258,10 +258,18 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           </div>
         </div>
         {isTD ? (
-          <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
             <Plus size={16} /> Host a tournament
           </Link>
-        ) : null}
+        ) : (
+          // Hosting requires an APPROVED tournament-director role, which is a
+          // different thing from being an event organizer. Showing nothing at
+          // all left people hunting for a button that was never going to
+          // appear — name the requirement and link straight to it.
+          <Link href="/settings/professional" className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink">
+            <Plus size={16} /> Want to host? Request tournament-director status
+          </Link>
+        )}
       </div>
 
       {/* Featured hero (promoted) */}
@@ -332,7 +340,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
               Search
             </button>
             {nearRaw ? (
-              <Link href="/tournaments" className="press inline-flex items-center gap-1 rounded-full px-2 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink" title="Back to your area">
+              <Link href="/tournaments" className="press inline-flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-semibold text-mute transition-colors hover:text-ink" title="Back to your area">
                 <Navigation size={15} />
               </Link>
             ) : null}
@@ -347,7 +355,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
             <p className="mt-3 text-base font-bold text-ink">{center ? "No tournaments here yet" : "No location set"}</p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-mute">{center ? "Be the first to run one in your area — it takes a few minutes to set up." : "Search a ZIP or city above to find local brackets."}</p>
             {isTD ? (
-            <Link href="/tournaments/new" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+            <Link href="/tournaments/new" className="press mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
               <Plus size={15} /> Host a tournament
             </Link>
             ) : null}

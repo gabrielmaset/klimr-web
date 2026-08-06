@@ -65,7 +65,7 @@ export default async function MyListingsPage({ searchParams }: { searchParams: P
           <Link
             key={t}
             href={t === "active" ? "/marketplace/mine" : `/marketplace/mine?tab=${t}`}
-            className={`press inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold capitalize transition-colors ${tab === t ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule bg-surface text-mute hover:text-ink"}`}
+            className={`press inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold capitalize transition-colors ${tab === t ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule bg-surface text-mute hover:text-ink"}`}
           >
             {t}
             <span className="font-mono text-[10px] font-bold">{counts[t]}</span>

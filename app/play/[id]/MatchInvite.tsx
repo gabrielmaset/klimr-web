@@ -38,7 +38,7 @@ export function MatchInvite({ matchId, friends }: { matchId: string; friends: Fr
         <p className="mx-auto mt-1 max-w-xs text-sm text-mute">
           You don&rsquo;t have any friends to invite yet. Connect with players from their profile, then invite them straight to a match.
         </p>
-        <Link href="/network" className="press mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+        <Link href="/network" className="press mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
           <UserPlus size={14} /> Find players
         </Link>
       </div>

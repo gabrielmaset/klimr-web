@@ -43,7 +43,7 @@ export default async function InvitePage() {
         </p>
         <Link
           href="/discover"
-          className="press mt-5 inline-block rounded-full border border-rule px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+          className="press mt-5 inline-block rounded-lg border border-rule px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-bg"
         >
           Find players to play
         </Link>

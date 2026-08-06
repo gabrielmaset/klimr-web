@@ -59,7 +59,7 @@ export function QueueHub() {
               No event needed — pick the sport, name your courts, choose how teams are named, and share the code. It turns itself off after the day ends.
             </p>
           </div>
-          <Link href="/queue/new" className="press mt-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-ink-soft">
+          <Link href="/queue/new" className="press mt-4 inline-flex w-fit items-center gap-1.5 rounded-lg bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-ink-soft">
             <Plus size={15} /> Create a live queue
           </Link>
         </div>

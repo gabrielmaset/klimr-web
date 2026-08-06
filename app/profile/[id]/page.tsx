@@ -256,7 +256,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         <div className="rounded-2xl border border-dashed border-rule bg-surface p-10 text-center">
           <p className="text-lg font-bold text-ink">This profile isn&rsquo;t available.</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-mute">The player may have changed their settings or is no longer active.</p>
-          <Link href="/network" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface">Back to your network</Link>
+          <Link href="/network" className="press mt-4 inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface">Back to your network</Link>
         </div>
       </div>
     );
@@ -458,7 +458,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
             <div className="flex flex-wrap items-center gap-2">
               {isSelf ? (
-                <Link href="/settings/profile-page" className="press inline-flex items-center gap-1.5 rounded-full border border-rule-2 bg-surface px-4 py-2.5 text-sm font-semibold text-ink-soft hover:text-ink">
+                <Link href="/settings/profile-page" className="press inline-flex items-center gap-1.5 rounded-lg border border-rule-2 bg-surface px-4 py-2.5 text-sm font-semibold text-ink-soft hover:text-ink">
                   <Pencil size={14} /> Edit profile
                 </Link>
               ) : (
@@ -466,7 +466,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   {profile.open_to_invites === false ? null : (
                     <Link
                       href="/play/new"
-                      className="press inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-flame hover:brightness-[1.06]"
+                      className="press inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold text-white shadow-flame hover:brightness-[1.06]"
                       style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
                     >
                       <Swords size={15} /> Challenge {first}
@@ -628,7 +628,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   <p className="mt-2 text-[13px] text-white/85">
                     Last met {fmtMonYr(h2h.lastMet)}{h2h.wins + h2h.losses > 0 ? ` — you ${h2h.wins > h2h.losses ? "lead" : h2h.wins < h2h.losses ? "trail" : "are level"}` : ""}{h2h.lastScore ? ` · ${h2h.lastScore}` : ""}
                   </p>
-                  <Link href="/play/new" className="press mt-4 inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold text-[#C2410C] hover:bg-white/90">
+                  <Link href="/play/new" className="press mt-4 inline-flex rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#C2410C] hover:bg-white/90">
                     Challenge {first} again
                   </Link>
                 </div>
@@ -636,7 +636,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                 <div className="relative">
                   <p className="mt-2 font-display text-[21px] font-bold leading-tight">First meeting.</p>
                   <p className="mt-1 text-[13px] text-white/85">You&rsquo;ve never faced {first} — settle it on court.</p>
-                  <Link href="/play/new" className="press mt-4 inline-flex rounded-full bg-white px-4 py-2 text-sm font-bold text-[#C2410C] hover:bg-white/90">
+                  <Link href="/play/new" className="press mt-4 inline-flex rounded-lg bg-white px-4 py-2 text-sm font-bold text-[#C2410C] hover:bg-white/90">
                     Challenge {first}
                   </Link>
                 </div>

@@ -22,7 +22,7 @@ export function SiteHeader() {
         <nav className="flex items-center gap-5">
           <Link
             href={cta.href}
-            className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft"
+            className="press rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft"
           >
             {cta.label}
           </Link>

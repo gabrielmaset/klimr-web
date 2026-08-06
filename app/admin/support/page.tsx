@@ -56,7 +56,7 @@ export default async function AdminSupport({ searchParams }: { searchParams: Pro
             <Link
               key={f.key}
               href={f.key === "open" ? "/admin/support" : `/admin/support?status=${f.key}`}
-              className={`press rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+              className={`press rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
                 status === f.key ? "bg-ink text-white" : "text-mute hover:bg-bg hover:text-ink"
               }`}
             >

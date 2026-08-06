@@ -158,11 +158,11 @@ describe("Phase 2 guardrails (K2-04)", () => {
 });
 
 describe("Phase 2 guardrails (K2-05)", () => {
-  it("PROD-005: heartbeat is app-attested, fail-closed limited, and reflects nothing", () => {
+  it("PROD-005: heartbeat reflects nothing back to the caller", () => {
     const src = read("app/api/courtside/heartbeat/route.ts");
-    expect(src).toContain("KlimrCourtside");
-    expect(src).toContain("rateLimitStrict");
+    // Superseded by 0184: authenticity is the token, not a spoofable header.
     expect(src).not.toContain("NextResponse.json({ ok: true");
+    expect(src).toContain("status: 204");
   });
   it("SEC-008: the install id is stored, but IP only as a truncated hash", () => {
     const src = read("app/api/courtside/heartbeat/route.ts");
@@ -280,5 +280,60 @@ describe("Courts finder — search affordances tell the truth (bug fix Aug 2026)
   });
   it("radius is part of the search key, so changing it re-arms the button", () => {
     expect(src()).toContain("x.radius");
+  });
+});
+
+describe("Courtside QA fixes (Gabriel, Aug 2026)", () => {
+  it("two-column rosters size to their content, not 50/50", () => {
+    const src = read("components/queue/court-display.tsx");
+    const split = src.slice(src.indexOf('context === "match" && n >= 4'), src.indexOf('context === "match" && n >= 4') + 900);
+    // flex-1 (basis 0) gave a short-name column as much width as a long one.
+    expect(split).toContain('flex-auto');
+    expect(split).not.toMatch(/rows\(team\.members\.slice\(0, half\)\)/);
+  });
+  it("the walk-up join status shares one fixed-height slot so nothing shifts", () => {
+    const src = read("components/queue/guest-join.tsx");
+    expect(src).toContain("min-h-[3.4rem]");
+    expect(src).toContain('aria-live="polite"');
+    // the confirmation names the player who just joined
+    expect(src).toContain("confirmName");
+  });
+});
+
+describe("Courtside heartbeat is actually SENT (bug: counter stuck at 0)", () => {
+  it("the display posts heartbeats — the endpoint had no caller at all", () => {
+    const src = read("components/queue/court-display.tsx");
+    expect(src).toContain("/api/courtside/heartbeat");
+    expect(src).toContain("getInstallId()");
+  });
+  it("BOTH clients report — gating on isApp is what left /admin/devices at 0", () => {
+    const src = read("components/queue/court-display.tsx");
+    const beat = src.slice(src.indexOf("Courtside fleet heartbeat"), src.indexOf("const exitToSetup"));
+    expect(beat).not.toMatch(/if \(!isApp\) return/);
+    expect(beat).toContain("ensureDeviceToken");
+  });
+});
+
+describe("Courtside heartbeat authenticity (0184)", () => {
+  it("heartbeats are token-authenticated, not header/IP-gated", () => {
+    const src = read("app/api/courtside/heartbeat/route.ts");
+    expect(src).toContain("p_token_hash");
+    expect(src).toContain('createHash("sha256")');
+    // rate limiting is a capacity control, never an authenticity control
+    expect(src).not.toContain("rateLimitStrict");
+  });
+  it("the token is server-minted and stored only as a hash", () => {
+    const src = read("app/api/courtside/register/route.ts");
+    expect(src).toContain("randomBytes(32)");
+    expect(src).toContain('createHash("sha256").update(token)');
+    // registration keeps a strict limit because it is the guessable surface
+    expect(src).toContain("rateLimitStrict");
+  });
+  it("retiring a device revokes its token", () => {
+    expect(read("app/admin/devices/actions.ts")).toContain('rpc("courtside_revoke"');
+  });
+  it("the SQL throttle bounds a chatty client without an extra query", () => {
+    const sql = read("supabase/migrations/0184_courtside_device_auth.sql");
+    expect(sql).toContain("last_seen_at < now() - interval '60 seconds'");
   });
 });

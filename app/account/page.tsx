@@ -183,13 +183,13 @@ export default async function AccountPage({
             <div className="mt-5 flex flex-wrap gap-2">
               <Link
                 href="/me"
-                className="press rounded-full border border-rule px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+                className="press rounded-lg border border-rule px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
               >
                 View public profile
               </Link>
               <Link
                 href="/settings/profile"
-                className="press rounded-full bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft"
+                className="press rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft"
               >
                 Edit profile
               </Link>

@@ -370,7 +370,7 @@ export default async function Home() {
           </p>
           <Link
             href="/signup"
-            className="press mt-7 inline-block rounded-full bg-ink px-7 py-3.5 text-[15px] font-bold text-surface transition-transform hover:scale-[1.02]"
+            className="press mt-7 inline-block rounded-lg bg-ink px-7 py-3.5 text-[15px] font-bold text-surface transition-transform hover:scale-[1.02]"
           >
             Claim your spot
           </Link>

@@ -37,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link
             key={t.href}
             href={t.href}
-            className="press rounded-full px-3 py-1.5 text-sm font-semibold text-mute transition-colors hover:bg-bg hover:text-ink"
+            className="press rounded-lg px-3 py-1.5 text-sm font-semibold text-mute transition-colors hover:bg-bg hover:text-ink"
           >
             {t.label}
           </Link>

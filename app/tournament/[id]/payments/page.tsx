@@ -48,7 +48,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ id: s
         <p className="kicker text-brand-deep">Registration</p>
         <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Payments</h1>
         <p className="mt-2 text-sm text-mute">Review proofs, confirm or decline, record refunds — and see the full fee accounting for the event. Expected amounts come from each division&rsquo;s fee (per-player fees × rostered players).</p>
-        <Link href={`/tournament/${id}/payments/statement`} className="press mt-3 inline-flex items-center gap-1.5 rounded-full border border-rule-2 bg-surface px-4 py-2 text-sm font-semibold text-ink-soft transition-colors hover:text-ink">
+        <Link href={`/tournament/${id}/payments/statement`} className="press mt-3 inline-flex items-center gap-1.5 rounded-lg border border-rule-2 bg-surface px-4 py-2 text-sm font-semibold text-ink-soft transition-colors hover:text-ink">
           <FileText size={14} /> Print statement
         </Link>
       </div>

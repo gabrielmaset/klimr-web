@@ -25,7 +25,7 @@ export function SponsorStrip({ items }: { items: SponsorStripItem[] }) {
           <Link
             key={s.id}
             href={`/b/${s.slug}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-faint"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-faint"
           >
             {s.sponsorReady ? <ShieldCheck size={12} className="text-brand-deep" aria-hidden /> : null}
             {s.name}

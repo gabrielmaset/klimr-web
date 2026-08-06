@@ -299,7 +299,7 @@ export default async function CourtDetailPage({ params }: { params: Promise<{ id
               <>
                 <p className="text-sm font-semibold text-ink">Verify to review</p>
                 <p className="mt-1 text-sm text-mute">Court reviews come only from verified players. Verify your identity, then you can review the courts you actually play.</p>
-                <Link href="/account#verification" className="press mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"><BadgeCheck size={14} /> Verify identity</Link>
+                <Link href="/account#verification" className="press mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"><BadgeCheck size={14} /> Verify identity</Link>
               </>
             ) : (
               <>

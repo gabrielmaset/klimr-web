@@ -249,13 +249,13 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
       <div className="mt-5 flex gap-1.5">
         <Link
           href="/chats"
-          className={`press inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-colors ${tab === "matches" ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule bg-surface text-mute hover:text-ink"}`}
+          className={`press inline-flex h-8 items-center gap-1.5 rounded-lg border px-3.5 text-xs font-semibold transition-colors ${tab === "matches" ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule bg-surface text-mute hover:text-ink"}`}
         >
           Matches <span className="font-mono text-[10px] font-bold">{matches.length}</span>
         </Link>
         <Link
           href="/chats?tab=marketplace"
-          className={`press inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-colors ${tab === "marketplace" ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule bg-surface text-mute hover:text-ink"}`}
+          className={`press inline-flex h-8 items-center gap-1.5 rounded-lg border px-3.5 text-xs font-semibold transition-colors ${tab === "marketplace" ? "border-tint-brand-bd bg-tint-brand text-flame-text" : "border-rule bg-surface text-mute hover:text-ink"}`}
         >
           Marketplace <span className="font-mono text-[10px] font-bold">{market.length}</span>
         </Link>

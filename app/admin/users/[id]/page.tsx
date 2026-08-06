@@ -108,7 +108,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
             {p.suspended_until ? <p className="mt-1 text-xs text-faint">Suspended until {new Date(p.suspended_until).toLocaleString("en-US")}</p> : null}
           </div>
         </div>
-        <Link href={`/profile/${p.id}`} className="press inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-faint">
+        <Link href={`/profile/${p.id}`} className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-rule px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:border-faint">
           Public profile <ExternalLink size={13} />
         </Link>
       </div>

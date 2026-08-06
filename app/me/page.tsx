@@ -133,7 +133,7 @@ export default async function MyProfilePage() {
           </div>
           <Link
             href="/settings/profile"
-            className="press pointer-events-auto mb-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
+            className="press pointer-events-auto mb-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-bg"
           >
             <Pencil size={14} /> Edit profile
           </Link>
@@ -317,7 +317,7 @@ export default async function MyProfilePage() {
               <p className="mx-auto mt-3 max-w-xs text-sm text-mute">No matches yet — organize one and it&rsquo;ll show up here.</p>
               <Link
                 href="/play/new"
-                className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+                className="press mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
               >
                 <Plus size={15} /> Organize a match
               </Link>

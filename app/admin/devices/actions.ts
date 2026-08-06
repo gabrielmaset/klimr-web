@@ -30,9 +30,13 @@ export async function retireDevice(formData: FormData): Promise<void> {
   if (!id) return;
   const undo = String(formData.get("undo") ?? "") === "1";
   const admin = getPrivilegedClient({ reason: "admin:retire-device", actorId: userId, targetRef: id });
-  await admin
-    .from("courtside_devices")
-    .update({ retired_at: undo ? null : new Date().toISOString() })
-    .eq("install_id", id);
+  if (undo) {
+    await admin.from("courtside_devices").update({ retired_at: null }).eq("install_id", id);
+  } else {
+    // Retiring also REVOKES the device token (0184), so a retired or stolen
+    // unit stops being able to report at all rather than merely being hidden.
+    await admin.from("courtside_devices").update({ retired_at: new Date().toISOString() }).eq("install_id", id);
+    await admin.rpc("courtside_revoke", { p_install_id: id });
+  }
   revalidatePath("/admin/devices");
 }

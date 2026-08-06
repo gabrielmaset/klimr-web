@@ -489,7 +489,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         ) : null}
 
         {myStatus === "going" || myStatus === "pending" ? (
-          <Link href="/me" className="press inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-tint-success px-4 py-2.5 text-sm font-semibold text-success">
+          <Link href="/me" className="press inline-flex items-center gap-1.5 rounded-lg border border-success/40 bg-tint-success px-4 py-2.5 text-sm font-semibold text-success">
             <Check size={15} /> On your Klimr calendar
           </Link>
         ) : null}
@@ -576,7 +576,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link href={`/events/${e.id}/edit`} className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-ink-soft">
+            <Link href={`/events/${e.id}/edit`} className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-ink-soft">
               <Pencil size={14} /> Edit event details
             </Link>
             <EventPinRecheck kind="event" targetId={e.id} />
@@ -687,7 +687,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 <Link
                   key={uid}
                   href={`/profile/${uid}`}
-                  className={`press inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 transition-colors ${tone}`}
+                  className={`press inline-flex items-center gap-2 rounded-lg border py-1 pl-1 pr-3.5 transition-colors ${tone}`}
                 >
                   <Avatar url={avatarUrl(p)} hue={p?.avatar_hue ?? 200} name={p?.display_name ?? "Player"} size={28} />
                   <span className="max-w-[10rem] truncate text-sm font-medium text-ink">{p?.display_name ?? "Player"}</span>

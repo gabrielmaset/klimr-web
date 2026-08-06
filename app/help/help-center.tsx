@@ -150,7 +150,7 @@ export function HelpCenter({ openChat }: { openChat?: () => void }) {
                 <button type="button" onClick={openChat} className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-bold text-white">
                   <Sparkles size={14} className="text-pop" /> Ask the assistant
                 </button>
-                <Link href="/support" className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-bg px-4 py-2 text-sm font-semibold text-ink">
+                <Link href="/support" className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-bg px-4 py-2 text-sm font-semibold text-ink">
                   Contact support
                 </Link>
               </div>

@@ -249,7 +249,7 @@ export default async function ClassesPage() {
         {provider ? (
           <Link
             href="/classes/new"
-            className="press flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]"
+            className="press flex shrink-0 items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06]"
             style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
           >
             <Plus size={16} /> Create class
@@ -257,7 +257,7 @@ export default async function ClassesPage() {
         ) : (
           <Link
             href="/settings/professional"
-            className="press flex shrink-0 items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-brand-deep shadow-e1 transition-colors hover:border-brand/40"
+            className="press flex shrink-0 items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-brand-deep shadow-e1 transition-colors hover:border-brand/40"
           >
             <GraduationCap size={16} /> Offer coaching
           </Link>
@@ -277,7 +277,7 @@ export default async function ClassesPage() {
             <p className="mx-auto mt-1 max-w-md text-xs text-mute">Tennis, pickleball, padel, racquetball, and beach volleyball coaches: get credential-verified and reach players near you.</p>
             <Link
               href="/settings/professional"
-              className="press mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-flame"
+              className="press mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold text-white shadow-flame"
               style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
             >
               Apply as a coach →

@@ -118,7 +118,7 @@ export default async function AdminModeration({ searchParams }: { searchParams: 
           <Link
             key={s}
             href={`/admin/moderation?status=${s}`}
-            className={`press rounded-full border px-3.5 py-1.5 text-sm font-semibold capitalize transition-colors ${
+            className={`press rounded-lg border px-3.5 py-1.5 text-sm font-semibold capitalize transition-colors ${
               s === status ? "border-ink bg-ink text-surface" : "border-rule bg-surface text-ink hover:border-faint"
             }`}
           >

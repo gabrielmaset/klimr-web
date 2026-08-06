@@ -223,7 +223,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
           <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">The Training Room</h1>
           <p className="mt-1 max-w-2xl text-sm text-mute">Credential-verified sports-health pros, rated by the members who work with them — and a practical library the pros review themselves.</p>
         </div>
-        <Link href="/settings/professional" className="press flex shrink-0 items-center gap-1.5 rounded-full border border-rule-2 bg-surface px-4 py-2.5 text-sm font-semibold text-flame-text transition-colors hover:text-brand-deep">
+        <Link href="/settings/professional" className="press flex shrink-0 items-center gap-1.5 rounded-lg border border-rule-2 bg-surface px-4 py-2.5 text-sm font-semibold text-flame-text transition-colors hover:text-brand-deep">
           <HeartPulse size={15} /> Offer your services
         </Link>
       </div>
@@ -298,7 +298,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
             <div className="grid place-items-center rounded-2xl border-2 border-dashed border-rule-2 bg-surface/60 px-6 py-12 text-center">
               <p className="text-sm font-bold text-ink">No health professionals yet — be the first.</p>
               <p className="mt-1 max-w-md text-xs text-mute">Sports dietitians, physical therapists, athletic trainers, sports massage, and mental-performance pros. Virtual pros serve every ZIP from day one.</p>
-              <Link href="/settings/professional" className="press mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold text-white" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
+              <Link href="/settings/professional" className="press mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold text-white" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
                 Apply as a professional <ArrowRight size={14} />
               </Link>
             </div>
@@ -378,7 +378,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
             <h3 className="mt-1 font-display text-lg font-bold text-ink">{FEATURED_COLLECTION.title}</h3>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{FEATURED_COLLECTION.dek}</p>
             <p className={`${mono} mt-2 text-[10px] font-bold uppercase tracking-wider text-faint`}>{featured.length} reads · {featuredMins} min</p>
-            <Link href={`/health/read/${FEATURED_COLLECTION.slugs[0]}`} className="press mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-white" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
+            <Link href={`/health/read/${FEATURED_COLLECTION.slugs[0]}`} className="press mt-3 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold text-white" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}>
               Start reading <ArrowRight size={14} />
             </Link>
           </div>
@@ -460,7 +460,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
 
           {visible.length < reads.length ? (
             <div className="mt-3 text-center">
-              <Link href={buildHref({ page: String(page + 1) }) + "#library"} scroll={false} className="press inline-flex rounded-full border border-rule-2 bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">
+              <Link href={buildHref({ page: String(page + 1) }) + "#library"} scroll={false} className="press inline-flex rounded-lg border border-rule-2 bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">
                 Load more reads
               </Link>
             </div>

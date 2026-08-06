@@ -612,7 +612,7 @@ export interface Database {
         Relationships: [];
       };
       courtside_devices: {
-        Row: { install_id: string; label: string | null; venue_name: string | null; session_id: string | null; app_version: string | null; platform: string | null; network_state: string | null; battery_pct: number | null; last_ip_hash: string | null; first_seen_at: string; last_seen_at: string; retired_at: string | null; notes: string | null };
+        Row: { install_id: string; label: string | null; venue_name: string | null; session_id: string | null; app_version: string | null; platform: string | null; network_state: string | null; battery_pct: number | null; last_ip_hash: string | null; first_seen_at: string; last_seen_at: string; retired_at: string | null; notes: string | null; token_hash: string | null; registered_at: string | null; revoked_at: string | null; beat_count: number };
         Insert: { install_id: string; label?: string | null; venue_name?: string | null; session_id?: string | null; app_version?: string | null; platform?: string | null; network_state?: string | null; battery_pct?: number | null; last_ip_hash?: string | null; first_seen_at?: string; last_seen_at?: string; retired_at?: string | null; notes?: string | null };
         Update: { label?: string | null; venue_name?: string | null; notes?: string | null; retired_at?: string | null };
         Relationships: [];
@@ -2106,7 +2106,9 @@ export interface Database {
       fail_job: { Args: { p_id: string; p_error: string }; Returns: string };
       replay_job: { Args: { p_id: string }; Returns: undefined };
       merge_format_config: { Args: { p_id: string; p_patch: Json; p_expected_updated_at: string | null }; Returns: Json };
-      courtside_heartbeat: { Args: { p_install_id: string; p_app_version: string | null; p_platform: string | null; p_network_state: string | null; p_battery_pct: number | null; p_session_id: string | null; p_ip_hash: string | null }; Returns: undefined };
+      courtside_register: { Args: { p_install_id: string; p_code: string; p_token_hash: string; p_platform: string | null; p_app_version: string | null }; Returns: boolean };
+      courtside_heartbeat: { Args: { p_install_id: string; p_token_hash: string; p_app_version: string | null; p_platform: string | null; p_network_state: string | null; p_battery_pct: number | null; p_session_id: string | null; p_ip_hash: string | null }; Returns: boolean };
+      courtside_revoke: { Args: { p_install_id: string }; Returns: undefined };
       court_data_quality: { Args: Record<string, never>; Returns: { total_verdicts: number; confirmed: number; denied: number; unknown: number; coverage_pct: number | null; median_age_days: number | null; stale_pct: number | null; disagreement_pct: number | null; evidence_per_verdict: number | null; verifying_now: number }[] };
       ranking_data_quality: { Args: Record<string, never>; Returns: { snapshot_days: number; latest_snapshot: string | null; hours_since_latest: number | null; players_in_latest: number; sports_covered: number }[] };
       courtside_fleet_status: { Args: Record<string, never>; Returns: { registered: number; app_open: number; on_live_session: number; in_active_play: number }[] };

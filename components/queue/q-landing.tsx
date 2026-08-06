@@ -71,7 +71,7 @@ export function QLanding() {
             <p className="text-sm font-semibold text-ink">Meeting up to play?</p>
             <p className="text-xs text-mute">Start your own live queue &mdash; pick the sport, name your court, share the code.</p>
           </div>
-          <Link href="/queue/new" className="press shrink-0 rounded-full border border-ink px-4 py-2 text-xs font-bold text-ink transition-colors hover:bg-ink hover:text-white">
+          <Link href="/queue/new" className="press shrink-0 rounded-lg border border-ink px-4 py-2 text-xs font-bold text-ink transition-colors hover:bg-ink hover:text-white">
             Create
           </Link>
         </div>

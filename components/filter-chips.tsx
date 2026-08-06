@@ -25,7 +25,7 @@ export function Chip({ href, active, children, count }: { href: string; active: 
       href={href}
       scroll={false}
       aria-pressed={active}
-      className={`press inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-semibold transition-all ${
+      className={`press inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3.5 text-[13px] font-semibold transition-all ${
         active
           ? "border-ink bg-ink text-surface shadow-[0_2px_8px_-2px_rgba(32,27,18,.35)]"
           : "border-rule-2 bg-surface text-ink-soft hover:-translate-y-px hover:border-[#CDC3AE] hover:text-ink"

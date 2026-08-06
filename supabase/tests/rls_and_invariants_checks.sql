@@ -110,3 +110,38 @@ $body$;
 do $$ begin raise notice 'ALL RLS & INVARIANT CHECKS PASSED'; end $$;
 
 rollback;
+
+-- ── (4) service_role can EXECUTE every server-only function ────────────────
+-- Added after a production incident (Aug 2026): migrations 0176–0182 each ended
+-- with `revoke all on function ... from anon, authenticated, public`, which also
+-- strips the IMPLICIT execute grant service_role relies on. Queue joins failed
+-- with "permission denied for function place_on_team". The original harness ran
+-- as postgres (superuser), which bypasses permission checks, so it never caught
+-- it. This block asserts the app's own role can actually call what it needs.
+do $body$
+declare
+  fn      text;
+  missing text[] := '{}';
+  fns     text[] := array[
+    'place_on_team', 'queue_version', 'enqueue_job', 'claim_jobs', 'complete_job',
+    'fail_job', 'replay_job', 'merge_format_config', 'courtside_heartbeat',
+    'court_data_quality', 'ranking_data_quality', 'courtside_fleet_status',
+    'courtside_device_tiers'
+  ];
+begin
+  foreach fn in array fns loop
+    if not exists (
+      select 1 from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = fn
+        and has_function_privilege('service_role', p.oid, 'EXECUTE')
+    ) then
+      missing := missing || fn;
+    end if;
+  end loop;
+  if array_length(missing, 1) > 0 then
+    raise exception 'GRANT CHECK failed: service_role cannot EXECUTE: %', array_to_string(missing, ', ');
+  end if;
+  raise notice 'Grant check: service_role can execute all % server-only functions.', array_length(fns, 1);
+end;
+$body$;

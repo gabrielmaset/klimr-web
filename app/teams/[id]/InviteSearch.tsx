@@ -39,7 +39,7 @@ export function InviteSearch({ teamId, friends }: { teamId: string; friends: Fri
         <p className="mx-auto mt-1 max-w-xs text-sm text-mute">
           You don&rsquo;t have any friends to add yet. Connect with players from their profile, then add them here.
         </p>
-        <Link href="/network" className="press mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+        <Link href="/network" className="press mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
           <UserPlus size={14} /> Find players
         </Link>
       </div>

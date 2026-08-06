@@ -33,6 +33,8 @@ migrations, pointing back to this ledger.
 | _pending_ | **0180** | Courtside device registry + `courtside_heartbeat()` (audit PROD-005/SEC-008 · K2-05). Per-install identity for fleet ops; authorizes nothing. Additive — backup not required. |
 | _pending_ | **0181** | Normalized `court_evidence` provenance + `court_data_quality()` / `ranking_data_quality()` scorecards (audit DATA-003/COURT-005 · K2-06). Additive, read-only functions — backup not required. |
 | _pending_ | **0182** | Courtside fleet status tiers: `courtside_fleet_status()` / `courtside_device_tiers()` — app-open vs actually running live play (founder request). Read-only functions — backup not required. |
+| _pending_ | **0183** | **REPAIR — run as soon as 0176–0182 are applied.** Restores `service_role` EXECUTE on the functions added in 0176–0182 (and table grants). Without it the app gets "permission denied for function" and queue joins fail. Grants only, idempotent, no backup needed. |
+| _pending_ | **0184** | Courtside device auth: registration against the session join code, server-minted token stored as SHA-256, authenticated heartbeats, revocation on retire. Replaces the unauthenticated heartbeat. Additive + function replacement — backup not required. |
 
 **Update rule:** every future batch that ships migrations adds one row here in
 the same commit, and the row moves from _pending_ to dated only on Gabriel's

@@ -135,7 +135,7 @@ export default async function AdminTicket({ params }: { params: Promise<{ id: st
             <div className="flex justify-between gap-2"><dt className="text-faint">Account</dt><dd className="font-semibold text-ink">{prof?.account_status ?? "—"}</dd></div>
             <div className="flex justify-between gap-2"><dt className="text-faint">Verification</dt><dd className="font-semibold text-ink">{prof?.verification_status ?? "—"}</dd></div>
           </dl>
-          <Link href={`/admin/users?q=${encodeURIComponent(prof?.display_name ?? "")}`} className="press mt-4 inline-block rounded-full border border-rule px-3.5 py-1.5 text-xs font-semibold text-mute hover:text-ink">
+          <Link href={`/admin/users?q=${encodeURIComponent(prof?.display_name ?? "")}`} className="press mt-4 inline-block rounded-lg border border-rule px-3.5 py-1.5 text-xs font-semibold text-mute hover:text-ink">
             Open in Users
           </Link>
         </aside>

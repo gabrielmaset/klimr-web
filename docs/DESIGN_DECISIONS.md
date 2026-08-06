@@ -4668,3 +4668,128 @@ tuning never needs a migration.
   keyboard and screen-reader passes over pilot-critical flows, 200–400% zoom,
   and the small-phone device matrix — the untested gap, since iPad/courtside is
   already field-proven.
+
+### 2026-08-05 — INCIDENT: "Couldn't join — try again" (my bug, migrations 0176–0182)
+- **Symptom.** Joining a live queue failed on the walk-up page. The error was my
+  own string from the K2-01 `placeOnTeam` refactor, meaning the `place_on_team`
+  RPC returned an error.
+- **Cause.** Every function I added in 0176–0182 ended with
+  `revoke all on function ... from anon, authenticated, public`. The intent was
+  correct — these are server-only. But `REVOKE ... FROM PUBLIC` also removes the
+  IMPLICIT execute grant PostgreSQL gives every role at CREATE FUNCTION time,
+  and **`service_role` — the role the app itself runs as — depended on it**
+  unless the project separately grants functions to service_role by default.
+  Postgres answered "permission denied for function place_on_team".
+- **Why my verification missed it, which is the real lesson.** The scratch
+  harness proved every function's LOGIC while connected as `postgres`, a
+  superuser — and superusers bypass permission checks entirely, so the revoke
+  was never exercised. Proving behaviour as the wrong role proves nothing about
+  access. **A migration that changes grants must be tested as the role that
+  will actually call it.**
+- **Why it hid.** `queue_version` (0177) is wrapped in try/catch and degrades to
+  version 0, so polling kept working and the queue page looked healthy — only
+  the join, which has no fallback, actually failed.
+- **Fix: migration 0183** grants EXECUTE to service_role on all 13 functions
+  plus table access on the five new tables. Proven in scratch: denied before,
+  working after, `anon`/`authenticated` still denied — so the security intent of
+  the original revokes is fully preserved.
+- **Regression guard:** `supabase/tests/rls_and_invariants_checks.sql` gained a
+  block that asserts service_role can EXECUTE every server-only function, using
+  `has_function_privilege` rather than trusting a superuser run.
+
+### 2026-08-05 — K3-01 QA fixes from Gabriel's courtside pass
+- **Courtside two-column rosters: names clipped and marqueed with room to
+  spare.** The 4+ player split used `flex-1` on both columns — that is
+  `flex: 1 1 0%`, an exact 50/50 division regardless of content. A column
+  holding "Sara" and "Rick" therefore claimed as much width as one holding
+  "Maria Carolina" and "Luíz Otávio Açaí", so the long side overflowed and
+  scrolled while half the card sat empty. Changed to `flex-auto`
+  (`flex: 1 1 auto`): each column starts at its natural width and shares the
+  slack, so long names get the space that was already there. The marquee stays
+  for the genuinely-too-long case, which is what it exists for.
+- **Walk-up join: the confirmation pushed the page around.** The "You're in!"
+  banner was an extra block that appeared under the name field, shoved the Join
+  buttons down, then let them spring back five seconds later — punishing
+  exactly when it matters, with a line of people signing up one after another.
+  The helper text, the confirmation, and errors now share **one status slot with
+  a reserved height**, so nothing below ever moves in either direction. The name
+  field is capped at 16 characters and needs nowhere near full width, so on sm+
+  it is 15rem and the status sits beside it; on mobile the slot stacks below and
+  still never changes height.
+- **The confirmation now names the player** ("Marcus is in — find them in the
+  line below") and refreshes to whoever joined most recently, so people signing
+  up in quick succession each see their own name land rather than a generic
+  message they cannot attribute.
+- Slot carries `aria-live="polite"`, so the join is announced to screen readers
+  — previously it was a silent visual-only change.
+
+### 2026-08-05 — BUG: courtside fleet counter stuck at zero (my gap)
+- **Reported:** the admin dashboard showed 0 running courtside displays while a
+  display was demonstrably live. All four tiers read 0 — including
+  `registered`, which counts any device that has EVER checked in. That is the
+  tell: no heartbeat had ever arrived.
+- **Cause.** Nothing in the codebase called `/api/courtside/heartbeat`. I built
+  the endpoint gated on an `x-klimr-app: KlimrCourtside` header and assumed the
+  native iPad shell would send it — but the display in actual use is the **web**
+  display (`isApp === false`), which I never wired. The feature was 100% dead in
+  practice, and I had described it as merely "waiting on the courtside app",
+  which understated it.
+- **Fix.** `CourtDisplay` now heartbeats for BOTH clients: one small POST on
+  mount, every 3 minutes after, and on visibility regain so a woken iPad reports
+  immediately. The `x-klimr-app` header distinguishes `KlimrCourtside/<ver>`
+  from `KlimrCourtsideWeb/<ver>`, and `platform` records `ios-app` vs `web`.
+- **Install identity** lives in `lib/courtside-install.ts`: a UUID in
+  localStorage so one physical unit reports consistently across restarts, with
+  an in-memory fallback for kiosk/private browsers that block storage — those
+  still count correctly for the life of the page instead of reporting nothing.
+  Build version comes from Vercel's commit SHA, which is what STALE BUILD
+  compares.
+- **Rate-limit correction found while wiring it:** the endpoint allowed 60/hour
+  per IP. At a 3-minute beat that is 20/hour per display, and a venue's courts
+  share one NAT'd IP — so any venue with 4+ displays would have been silently
+  throttled and undercounted, precisely at the busiest sites. Raised to 300/hour.
+- A heartbeat failure never disturbs the display; the unit simply ages out of
+  the 15-minute "app open" window until the next successful beat.
+
+### 2026-08-05 — Courtside heartbeat: authenticated device identity (0184)
+- **Gabriel's instinct was right, the mechanism needed one correction.** He
+  proposed minting an instance secret at queue creation and *encrypting it
+  client-side*. Authenticating the device is exactly right; client-side
+  encryption of a secret the same client must decrypt is not — whatever the
+  client can decrypt, anyone holding that device can too, so it is obfuscation,
+  not security. What actually provides the guarantee is that the token is
+  **server-minted** (the client cannot choose it), **stored only as a SHA-256
+  hash** (a database leak yields no usable tokens), **bound to one session**,
+  and **revocable**. That is the password model, applied to a device.
+- **Flow.** A display registers once with the session JOIN CODE — the same
+  credential players use, so holding it is evidence of being at the venue. The
+  server mints 32 random bytes, stores the hash, and returns the token once.
+  Every heartbeat presents it.
+- **Rate limiting was the wrong tool and is gone from the hot path.** It is a
+  capacity control, never an authenticity control, and per-IP was doubly wrong:
+  a venue's courts share one NAT'd IP, so real displays throttled each other,
+  while an attacker rotating IPs was unaffected. Registration keeps a strict
+  per-IP limit (it is the guessable surface and happens once per device);
+  heartbeats rely on the token plus a `last_seen_at < now() - 60s` predicate
+  **inside the update statement**, which absorbs a chatty client at zero extra
+  cost.
+- **Scale.** An authenticated beat is ONE primary-key-targeted write with no
+  limiter round trip. 1,000 displays at a 3-minute cadence is ~5.5 writes/sec.
+- **No oracle:** forged, revoked, and throttled beats all return 204, identical
+  to an accepted one, so the endpoint cannot be used to probe install ids.
+  Retiring a device now also revokes its token, so a retired or stolen unit
+  stops reporting rather than merely being hidden.
+- **Honest limit, recorded:** a kiosk token is extractable by anyone with
+  physical access to that display. This is device identity, not user auth. The
+  bar it sets — "you must have had access to a real display or its join code" —
+  is proportionate for telemetry whose only power is writing a dashboard row.
+
+### 2026-08-05 — Two findings from Gabriel's session
+- **Tournament creation was not missing, it was gated** on an APPROVED
+  `tournament_director` professional role — which is a different role from
+  event organizer, hence granting organizer changed nothing. A non-holder saw
+  no button and no explanation, so the page now says what the requirement is
+  and links to `/settings/professional`.
+- **The de-pill sweep was only half done.** It matched `<button>` tags only, so
+  64 `<Link>` elements styled as pill buttons still carried `rounded-full`
+  across 42 files. Now swept with the same icon-circle exemption.

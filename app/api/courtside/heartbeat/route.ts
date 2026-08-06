@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { getPrivilegedClient } from "@/lib/privileged";
-import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
+import { clientIp } from "@/lib/ratelimit";
 
 /** Courtside device heartbeat (K2-05, migration 0180).
  *
@@ -19,18 +19,6 @@ export const dynamic = "force-dynamic";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request) {
-  // Same attestation as diagnostics: only the courtside app talks here.
-  if (!(req.headers.get("x-klimr-app") ?? "").startsWith("KlimrCourtside")) {
-    return new NextResponse(null, { status: 204 });
-  }
-
-  const ip = await clientIp();
-  // A device beating every few minutes needs single digits per hour; 60 gives
-  // generous headroom while bounding a misbehaving or hostile client.
-  if (!(await rateLimitStrict(`heartbeat:ip:${ip}`, 60, 3600))) {
-    return new NextResponse(null, { status: 204 });
-  }
-
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
@@ -39,18 +27,26 @@ export async function POST(req: Request) {
   }
 
   const installId = String(body.installId ?? "");
-  if (!UUID_RE.test(installId)) return new NextResponse(null, { status: 204 });
+  const token = String(body.token ?? "");
+  if (!UUID_RE.test(installId) || token.length < 20 || token.length > 200) {
+    return new NextResponse(null, { status: 204 });
+  }
 
-  const str = (v: unknown, max: number) => {
-    const s = v == null ? null : String(v).slice(0, max);
-    return s && s.trim().length > 0 ? s : null;
-  };
+  // The TOKEN is the gate — not a header and not an IP budget. The old per-IP
+  // limiter was both the wrong dimension (a venue's courts share one NAT'd IP,
+  // so real displays throttled each other while an attacker rotating IPs was
+  // unaffected) and an extra DB round trip on the hottest path. An unforgeable
+  // token plus the 60-second throttle inside the SQL statement replaces it, so
+  // an authenticated beat now costs ONE primary-key-targeted write.
+  const tokenHash = createHash("sha256").update(token).digest("hex");
   const battery = Number(body.batteryPct);
   const sessionId = String(body.sessionId ?? "");
+  const ip = await clientIp();
 
   const admin = getPrivilegedClient({ reason: "courtside:heartbeat" });
   const { error } = await admin.rpc("courtside_heartbeat", {
     p_install_id: installId,
+    p_token_hash: tokenHash,
     p_app_version: str(body.appVersion, 40),
     p_platform: str(body.platform, 40),
     p_network_state: str(body.networkState, 24),
@@ -62,6 +58,12 @@ export async function POST(req: Request) {
   });
   if (error) console.error("[courtside] heartbeat failed", error.message);
 
-  // Always 204: nothing is reflected to an unauthenticated caller.
+  // Always 204: a forged, revoked, or throttled beat is indistinguishable from
+  // an accepted one, so the endpoint is no oracle for probing install ids.
   return new NextResponse(null, { status: 204 });
+}
+
+function str(v: unknown, max: number): string | null {
+  const s = v == null ? null : String(v).slice(0, max);
+  return s && s.trim().length > 0 ? s : null;
 }

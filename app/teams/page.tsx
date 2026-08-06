@@ -88,7 +88,7 @@ export default async function TeamsPage({
         </div>
         <Link
           href="/teams/new"
-          className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+          className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
         >
           <Plus size={16} /> Create team
         </Link>
@@ -236,10 +236,10 @@ export default async function TeamsPage({
             <p className="mt-0.5 text-xs text-mute">A quick wizard spins up a recreational crew or a full club workspace in about a minute.</p>
           </div>
           <div className="flex flex-wrap gap-2 sm:shrink-0">
-            <Link href="/teams/new" className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-brand">
+            <Link href="/teams/new" className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-brand">
               <Users size={15} /> Recreational crew
             </Link>
-            <Link href="/teams/new" className="press inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
+            <Link href="/teams/new" className="press inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft">
               <Building2 size={15} /> Club workspace
             </Link>
           </div>

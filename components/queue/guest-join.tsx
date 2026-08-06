@@ -57,6 +57,9 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"" | "joined" | "pending">("");
+  // Who just joined — shown in the confirmation so a queue of people signing up
+  // in quick succession can each see their own name land.
+  const [confirmName, setConfirmName] = useState("");
   const [joiningCourt, setJoiningCourt] = useState<string | null>(null);
   // Client clock, null until mounted — server-rendered elapsed minutes would
   // hydrate against a different clock (React #418).
@@ -92,6 +95,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
       if (res?.error) {
         setErr(res.error === "location_required" ? "Allow location access so we can confirm you're on-site, then tap Join again." : res.error);
       } else {
+        setConfirmName(name.trim());
         setConfirm(res.pending ? "pending" : "joined");
         setName(""); // ready for the next person to type
         setTimeout(() => setConfirm(""), 5000);
@@ -133,6 +137,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
       if (res?.error) {
         setErr(res.error === "location_required" ? "Allow location access so we can confirm you're on-site, then add your team again." : res.error);
       } else {
+        setConfirmName(name.trim());
         setConfirm("joined");
         setName("");
         closeTeam();
@@ -183,26 +188,44 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
             <div className="sticky top-3 z-10 mt-5">
               <div className="rounded-2xl border-2 border-rule bg-surface p-4 shadow-md sm:p-5">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-ink-soft">Your name</label>
-                <input
-                  value={name}
-                  maxLength={16}
-                  onChange={(e) => setName(e.target.value.slice(0, 16))}
-                  placeholder="e.g. Alex R."
-                  className="w-full rounded-[10px] border-2 border-rule-2 bg-bg px-4 py-3.5 text-lg font-semibold text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white"
-                />
-                <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-mute">
-                  <MapPin size={13} /> {session.requireLocation ? "Joining shares your location once to confirm you're on-site." : "Tap Join on a court to grab its next open spot."}
-                </p>
-                {confirm === "joined" ? (
-                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#86efac] bg-[#f0fdf4] px-4 py-3 text-sm font-bold text-success">
-                    <Check size={18} /> You&apos;re in! Find your name in the line below.
+                {/* ONE status slot with a reserved height, shared by the helper
+                    text, the join confirmation, and errors (courtside QA, Aug
+                    2026). Previously the confirmation was an extra block that
+                    appeared under the field and pushed the Join buttons down,
+                    then let them spring back five seconds later — miserable
+                    when a line of people is signing up one after another.
+                    Because the slot is always present and always the same
+                    height, nothing below it EVER moves, on phone or desktop.
+                    The name field is capped at 16 characters, so it needs
+                    nowhere near full width; on sm+ it sits beside the status. */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
+                  <input
+                    value={name}
+                    maxLength={16}
+                    onChange={(e) => setName(e.target.value.slice(0, 16))}
+                    placeholder="e.g. Alex R."
+                    className="w-full rounded-[10px] border-2 border-rule-2 bg-bg px-4 py-3.5 text-lg font-semibold text-ink outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/15 focus:bg-white sm:w-[15rem] sm:shrink-0"
+                  />
+                  <div className="flex min-h-[3.4rem] flex-1 items-center" aria-live="polite">
+                    {err ? (
+                      <div className="flex w-full items-center gap-2 rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-3.5 py-2.5 text-sm font-bold text-[#b91c1c]">{err}</div>
+                    ) : confirm === "joined" ? (
+                      <div className="flex w-full items-center gap-2 rounded-xl border border-[#86efac] bg-[#f0fdf4] px-3.5 py-2.5 text-sm font-bold text-success">
+                        <Check size={17} className="shrink-0" />
+                        <span className="min-w-0 truncate">{confirmName ? `${confirmName} is in — find them in the line below.` : "You're in! Find your name in the line below."}</span>
+                      </div>
+                    ) : confirm === "pending" ? (
+                      <div className="flex w-full items-center gap-2 rounded-xl border border-[#f5d08a] bg-[#fffaf0] px-3.5 py-2.5 text-sm font-bold text-[#b45309]">
+                        <Check size={17} className="shrink-0" />
+                        <span className="min-w-0 truncate">{confirmName ? `${confirmName} — request sent, waiting for approval.` : "Request sent — waiting for the organizer to approve you."}</span>
+                      </div>
+                    ) : (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-mute">
+                        <MapPin size={13} className="shrink-0" /> {session.requireLocation ? "Joining shares your location once to confirm you're on-site." : "Tap Join on a court to grab its next open spot."}
+                      </p>
+                    )}
                   </div>
-                ) : confirm === "pending" ? (
-                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#f5d08a] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#b45309]">
-                    <Check size={18} /> Request sent — waiting for the organizer to approve you.
-                  </div>
-                ) : null}
-                {err ? <div className="mt-3 rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-sm font-bold text-[#b91c1c]">{err}</div> : null}
+                </div>
               </div>
             </div>
 

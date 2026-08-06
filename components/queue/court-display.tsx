@@ -9,6 +9,7 @@ import { teamDisplayName } from "@/lib/queue";
 import { clock, formationLabel, levelLabel } from "@/lib/queue";
 import { useQueueState } from "@/components/queue/use-queue-state";
 import { gameOver, startNextMatch, gameOverByCode, startNextByCode, stepDownTeam, stepDownByCode } from "@/app/queue/actions";
+import { getInstallId, appVersion, networkState, batteryPct, ensureDeviceToken } from "@/lib/courtside-install";
 
 type Side = { key: "A" | "B"; color: string; soft: string; ring: string };
 const SIDES: Side[] = [
@@ -91,8 +92,8 @@ function StackedNames({ team, context }: { team: QTeam; context: "match" | "queu
         ? "text-[clamp(1.1rem,1.9vw,1.85rem)]"
         : "text-[clamp(0.9rem,1.55vw,1.5rem)]";
   const weight = context === "match" ? "font-display font-semibold" : "font-semibold";
-  const rows = (names: { name: string }[]) => (
-    <div className="min-w-0 flex-1 space-y-[0.35em]">
+  const rows = (names: { name: string }[], flex = "flex-1") => (
+    <div className={`min-w-0 ${flex} space-y-[0.35em]`}>
       {names.map((m, i) => (
         <p key={i} className={`leading-tight text-white ${weight} ${size}`}>
           <MarqueeText text={m.name} />
@@ -102,10 +103,20 @@ function StackedNames({ team, context }: { team: QTeam; context: "match" | "queu
   );
   if (context === "match" && n >= 4) {
     const half = Math.ceil(n / 2);
+    // Columns are sized by their CONTENT, not split 50/50 (courtside QA, Aug
+    // 2026). `flex-1` is `flex: 1 1 0%`, which gave a column of short names
+    // ("Sara", "Rick") exactly as much width as one holding "Maria Carolina"
+    // and "Luíz Otávio Açaí" — so the long side overflowed and marqueed while
+    // half the card sat empty. `flex-auto` is `flex: 1 1 auto`: each column
+    // starts at its natural width and shares the slack, so long names get the
+    // room that is actually available and simply stop scrolling. The marquee
+    // remains for the genuinely-too-long case, which is what it is for.
     return (
-      <div className="flex min-w-0 gap-[max(0.9rem,2vw)]">
-        {rows(team.members.slice(0, half))}
-        <div className="flex min-w-0 flex-1 border-l border-white/12 pl-[max(0.9rem,2vw)]">{rows(team.members.slice(half))}</div>
+      <div className="flex min-w-0 items-start gap-[max(0.9rem,2vw)]">
+        {rows(team.members.slice(0, half), "flex-auto")}
+        <div className="flex min-w-0 flex-auto border-l border-white/12 pl-[max(0.9rem,2vw)]">
+          {rows(team.members.slice(half), "flex-auto")}
+        </div>
       </div>
     );
   }
@@ -328,6 +339,56 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
     const bridge = (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside;
     bridge?.postMessage({ type: displayDead ? "ended" : "active" });
   }, [isApp, displayDead]);
+  // Courtside fleet heartbeat (K2-05 · migration 0180). EVERY courtside display
+  // reports — the web display as much as the native iPad shell — because the
+  // web one is what most venues actually run. Building the endpoint for the
+  // native app alone left /admin/devices permanently at zero, which is exactly
+  // how this was caught. Bounded and cheap: one small POST every 3 minutes,
+  // plus one when the tab regains visibility so a woken iPad reports at once
+  // instead of waiting out the interval.
+  const sessionId = state.session.id;
+  const joinCode = state.session.code || state.session.displayCode || code || "";
+  useEffect(() => {
+    let stopped = false;
+    const beat = async () => {
+      if (stopped || document.visibilityState === "hidden") return;
+      try {
+        // Register once against the session join code, then present the
+        // server-minted token on every beat (migration 0184).
+        const token = await ensureDeviceToken(joinCode, isApp);
+        if (!token) return;
+        await fetch("/api/courtside/heartbeat", {
+          method: "POST",
+          keepalive: true,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            installId: getInstallId(),
+            token,
+            appVersion: appVersion(),
+            platform: isApp ? "ios-app" : "web",
+            networkState: networkState(),
+            batteryPct: await batteryPct(),
+            sessionId,
+          }),
+        });
+      } catch {
+        // A failed heartbeat must never disturb the display — the unit simply
+        // ages out of the "app open" window until the next successful beat.
+      }
+    };
+    void beat();
+    const t = setInterval(() => void beat(), 180_000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void beat();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [sessionId, isApp, joinCode]);
+
   const exitToSetup = () => {
     type BridgeWindow = Window & { webkit?: { messageHandlers?: { klimrCourtside?: { postMessage: (m: unknown) => void } } } };
     (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside?.postMessage({ type: "exit" });

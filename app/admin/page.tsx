@@ -164,7 +164,7 @@ export default async function AdminHome() {
               <Link
                 key={u.id}
                 href={`/admin/users/${u.id}`}
-                className="lift flex items-center gap-2 rounded-full border border-rule bg-surface px-3 py-1.5 text-sm"
+                className="lift flex items-center gap-2 rounded-lg border border-rule bg-surface px-3 py-1.5 text-sm"
               >
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: isOnline(u.last_seen_at) ? "var(--color-success)" : "var(--color-faint)" }} />
                 <span className="font-semibold text-ink">{u.display_name || "Player"}</span>

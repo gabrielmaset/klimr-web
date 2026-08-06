@@ -60,7 +60,7 @@ export default async function BusinessPortalLayout({
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="pt-safe sticky top-0 z-40 flex items-center gap-2 border-b border-rule bg-[#FFFDF8]/85 px-3 py-2 backdrop-blur-md md:hidden">
-          <Link href="/settings" className="press inline-flex items-center gap-1 rounded-full border border-rule bg-surface px-2.5 py-1.5 text-[12.5px] font-bold text-ink">
+          <Link href="/settings" className="press inline-flex items-center gap-1 rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-[12.5px] font-bold text-ink">
             <ArrowLeft size={13} strokeWidth={2.5} /> Klimr
           </Link>
           <p className="min-w-0 flex-1 truncate text-center text-[13px] font-bold text-ink">{b.name}</p>

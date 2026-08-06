@@ -35,11 +35,11 @@ export default async function PublicEventLayout({ children, params }: { children
           <div className="flex items-center gap-1 sm:gap-2">
             <ShareButton className="press inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-[#6B6E60] transition-colors hover:text-[#17190F]" />
             {user ? (
-              <Link href="/feed" className="press rounded-full border border-[#E7E7E1] bg-white px-3.5 py-2 text-sm font-semibold text-[#17190F] transition-colors hover:border-[#C9C9C0]">
+              <Link href="/feed" className="press rounded-lg border border-[#E7E7E1] bg-white px-3.5 py-2 text-sm font-semibold text-[#17190F] transition-colors hover:border-[#C9C9C0]">
                 Go to Klimr
               </Link>
             ) : (
-              <Link href="/login" className="press rounded-full px-3 py-2 text-sm font-semibold text-[#6B6E60] transition-colors hover:text-[#17190F]">
+              <Link href="/login" className="press rounded-lg px-3 py-2 text-sm font-semibold text-[#6B6E60] transition-colors hover:text-[#17190F]">
                 Sign in
               </Link>
             )}

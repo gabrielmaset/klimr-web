@@ -455,7 +455,7 @@ function EmptyState({ tab }: { tab: Tab }) {
         <Users size={22} />
       </span>
       <p className="mx-auto mt-3 max-w-sm text-sm text-mute">{msg}</p>
-      <Link href="/players" className="press mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+      <Link href="/players" className="press mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
         <UserPlus size={15} /> Find players
       </Link>
     </div>

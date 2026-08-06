@@ -130,7 +130,7 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
               <p className={`${monoKicker} text-faint`}>Suggested meet spots</p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {meetCourts.map((c) => (
-                  <Link key={c.id} href={`/courts/${c.id}`} className="press inline-flex items-center gap-1.5 rounded-full border border-rule bg-bg px-2.5 py-1 text-[11.5px] font-semibold text-ink-soft transition-colors hover:text-ink">
+                  <Link key={c.id} href={`/courts/${c.id}`} className="press inline-flex items-center gap-1.5 rounded-lg border border-rule bg-bg px-2.5 py-1 text-[11.5px] font-semibold text-ink-soft transition-colors hover:text-ink">
                     📍 {c.name}
                   </Link>
                 ))}
