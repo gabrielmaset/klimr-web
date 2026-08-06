@@ -24,7 +24,7 @@ export function AutoConfirm({ token_hash, type, next }: { token_hash: string; ty
       </div>
       <button
         type="submit"
-        className="press mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep"
+        className="press mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-[#B52D0B]-deep"
       >
         <MailCheck size={18} aria-hidden /> Continue
       </button>

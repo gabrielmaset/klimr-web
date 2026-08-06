@@ -59,7 +59,7 @@ export function DeleteEvent({ id, title }: { id: string; title: string }) {
               type="button"
               onClick={onDelete}
               disabled={!canDelete || pending}
-              className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
+              className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50"
             >
               {pending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} Permanently delete
             </button>

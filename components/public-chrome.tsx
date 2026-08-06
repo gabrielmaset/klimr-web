@@ -19,7 +19,7 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-col">
       <SiteHeader />
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">Skip to content</a>
+      <nav aria-label="Skip links"><a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">Skip to content</a></nav>
         <main id="main" className="flex-1">{children}</main>
       <SiteFooter authed={false} />
     </div>

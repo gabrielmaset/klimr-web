@@ -43,7 +43,7 @@ export function QueueHub() {
               type="button"
               disabled={!ready}
               onClick={join}
-              className="press grid h-[3.4rem] w-[3.4rem] shrink-0 place-items-center rounded-2xl bg-brand text-white transition hover:bg-brand-deep disabled:opacity-40"
+              className="press grid h-[3.4rem] w-[3.4rem] shrink-0 place-items-center rounded-2xl bg-brand text-white transition hover:bg-[#B52D0B]-deep disabled:opacity-40"
               aria-label="Open queue"
             >
               <ArrowRight size={20} />

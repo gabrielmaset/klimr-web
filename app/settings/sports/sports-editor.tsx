@@ -83,7 +83,7 @@ export function SportsEditor({ initial }: { initial: SportsInitial }) {
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg" aria-hidden><SportIcon sport={k} variant="glyph" size={24} /></span>
                 <span className="flex-1 text-sm font-bold text-ink">{meta.name}</span>
                 {on && k === effPrimary ? (
-                  <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Default</span>
+                  <span className="rounded-full bg-brand-deep px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Default</span>
                 ) : null}
               </label>
 

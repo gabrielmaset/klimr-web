@@ -272,7 +272,7 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
                 {myPart && !myPart.confirmed ? (
                   <form action={confirmSpot}>
                     <input type="hidden" name="matchId" value={id} />
-                    <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+                    <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
                       Confirm
                     </button>
                   </form>
@@ -297,7 +297,7 @@ export default async function MatchPage({ params, searchParams }: { params: Prom
               <div className="flex items-center gap-2">
                 <form action={confirmWaitlistSpot}>
                   <input type="hidden" name="matchId" value={id} />
-                  <button type="submit" className="press rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Confirm spot</button>
+                  <button type="submit" className="press rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">Confirm spot</button>
                 </form>
                 <form action={declineWaitlistSpot}>
                   <input type="hidden" name="matchId" value={id} />

@@ -511,7 +511,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                       type="button"
                       onClick={onCreate}
                       disabled={saving || !title.trim() || !agree}
-                      className="press mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
+                      className="press mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50"
                     >
                       {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Create event
                     </button>
@@ -536,7 +536,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
             <div className="flex items-center gap-3">
               {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : null}
               {step < LAST ? (
-                <button type="button" onClick={() => go(step + 1)} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+                <button type="button" onClick={() => go(step + 1)} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
                   {saving ? <Loader2 size={16} className="animate-spin" /> : null} Continue <ChevronRight size={16} />
                 </button>
               ) : null}

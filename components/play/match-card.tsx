@@ -166,7 +166,7 @@ export function MatchCard({ m, viewer, now }: { m: PlayMatch; viewer: Viewer; no
                 type="button"
                 onClick={() => wlAct(confirmWaitlistSpot)}
                 disabled={pending}
-                className="press h-[30px] rounded-[9px] bg-brand px-3.5 text-[12.5px] font-bold text-white transition-colors hover:bg-[#E23E0D] disabled:opacity-60"
+                className="press h-[30px] rounded-[9px] bg-brand-deep px-3.5 text-[12.5px] font-bold text-white transition-colors hover:bg-[#E23E0D] disabled:opacity-60"
               >
                 Confirm spot
               </button>

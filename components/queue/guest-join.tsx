@@ -246,7 +246,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                           <div className="min-w-0">
                             <h2 className="truncate font-display text-2xl leading-tight text-ink">{c.label}</h2>
                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              <span className="rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white">{formationLabel(c.teamSize)}</span>
+                              <span className="rounded-full bg-brand-deep px-2.5 py-1 text-xs font-bold text-white">{formationLabel(c.teamSize)}</span>
                               <span className="rounded-full border border-rule bg-white px-2.5 py-1 text-xs font-bold text-ink-soft">{c.levels.length ? c.levels.map(levelLabel).join(" · ") : "All levels"}</span>
                             </div>
                           </div>
@@ -255,7 +255,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                           type="button"
                           disabled={pending}
                           onClick={() => join(c.id)}
-                          className="press inline-flex shrink-0 items-center gap-2 rounded-[12px] bg-brand px-6 py-3.5 text-base font-bold text-white shadow-sm transition-colors hover:bg-brand-deep disabled:opacity-50"
+                          className="press inline-flex shrink-0 items-center gap-2 rounded-[12px] bg-brand px-6 py-3.5 text-base font-bold text-white shadow-sm transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-50"
                         >
                           {busy ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />} {session.requireApproval ? "Request" : "Join"}
                         </button>
@@ -348,7 +348,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                                 ))}
                               </div>
                               <div className="mt-2.5 flex gap-2">
-                                <button type="button" disabled={pending} onClick={() => submitTeam(c)} className="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand py-3 text-base font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-50">
+                                <button type="button" disabled={pending} onClick={() => submitTeam(c)} className="press inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand py-3 text-base font-bold text-white transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-50">
                                   {busy ? <Loader2 size={18} className="animate-spin" /> : <Users size={18} />} Add team to the line
                                 </button>
                                 <button type="button" disabled={pending} onClick={closeTeam} className="press rounded-lg border-2 border-rule px-4 py-3 text-sm font-bold text-mute hover:bg-bg">

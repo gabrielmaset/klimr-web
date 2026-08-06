@@ -195,7 +195,7 @@ export function SupportChat({
                 type="submit"
                 disabled={busy || !input.trim()}
                 aria-label="Send"
-                className="press grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand text-white transition-opacity disabled:opacity-40"
+                className="press grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-deep text-white transition-opacity disabled:opacity-40"
               >
                 <Send size={17} />
               </button>

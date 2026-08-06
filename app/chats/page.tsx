@@ -9,7 +9,7 @@ import { SPORT_TONES } from "@/components/sport-chip";
 import { PageHeader, StatusPill } from "@/components/page-header";
 import { ChatsLiveRefresher } from "@/components/chats-live-refresher";
 
-export const metadata: Metadata = { title: "Courtside" };
+export const metadata: Metadata = { title: "Chats" };
 export const dynamic = "force-dynamic";
 
 type MatchRow = { id: string; sport_key: string; format: string; scheduled_at: string | null; status: string };
@@ -228,7 +228,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
       <ChatsLiveRefresher conversationIds={liveConvIds} userId={user.id} />
       <PageHeader
         kicker="Community — Chats"
-        title="Courtside"
+        title="Chats"
         sub={
           <span className="inline-flex items-center gap-1.5">
             <Lock size={13} />

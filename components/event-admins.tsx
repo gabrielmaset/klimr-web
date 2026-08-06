@@ -140,7 +140,7 @@ export function EventAdmins({ eventId, isOwner, meId, initialAdmins }: { eventId
                         <p className="truncate text-sm font-medium text-ink">{c.name}</p>
                         {c.city ? <p className="truncate text-[11px] text-faint">{c.city}</p> : null}
                       </div>
-                      <button type="button" disabled={pending} onClick={() => add(c)} className="press inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+                      <button type="button" disabled={pending} onClick={() => add(c)} className="press inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
                         <Plus size={13} /> Add
                       </button>
                     </li>

@@ -117,7 +117,7 @@ function CardMedia({
           </span>
         ) : null}
         {promoted ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+          <span className="inline-flex items-center gap-1 rounded-full bg-brand-deep px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
             <Sparkles size={11} /> Featured
           </span>
         ) : null}
@@ -259,7 +259,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
           </div>
         </div>
         {isTD ? (
-          <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <Link href="/tournaments/new" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
             <Plus size={16} /> Host a tournament
           </Link>
         ) : (
@@ -280,7 +280,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
             <div className="relative h-64 w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.02] sm:h-80" style={coverUrl(hero.cover_path) ? { backgroundImage: `url("${coverUrl(hero.cover_path)}")` } : { background: sportGrad(hero.sport_key) }}>
               {!coverUrl(hero.cover_path) ? <span className="pointer-events-none absolute inset-0 grid place-items-center opacity-20"><SportIcon sport={hero.sport_key} variant="hero" size={235} /></span> : null}
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-              <span className="absolute left-5 top-5 inline-flex items-center gap-1 rounded-full bg-brand px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow">
+              <span className="absolute left-5 top-5 inline-flex items-center gap-1 rounded-full bg-brand-deep px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow">
                 <Sparkles size={12} /> Featured
               </span>
               <div className="absolute inset-x-5 bottom-5 text-white sm:inset-x-7 sm:bottom-7">
@@ -356,7 +356,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
             <p className="mt-3 text-base font-bold text-ink">{center ? "No tournaments here yet" : "No location set"}</p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-mute">{center ? "Be the first to run one in your area — it takes a few minutes to set up." : "Search a ZIP or city above to find local brackets."}</p>
             {isTD ? (
-            <Link href="/tournaments/new" className="press mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+            <Link href="/tournaments/new" className="press mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
               <Plus size={15} /> Host a tournament
             </Link>
             ) : null}

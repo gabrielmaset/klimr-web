@@ -25,7 +25,13 @@
   --color-ink: #201B12;
   --color-ink-soft: #4A4335;
   --color-mute: #6E6555;
-  --color-faint: #A69C88;
+  /* Raised from #A69C88 (Aug 2026, axe audit over 18 pages). The old value
+     measured 2.72:1 on white and 2.64:1 on surface — the single largest source
+     of WCAG failures in the whole app, since `text-faint` carries timestamps,
+     kickers, counts, and metadata everywhere. #726A59 measures 5.36:1 on white,
+     5.21:1 on surface, and 4.59:1 on the darkest panel (#F0EDE9), so it clears
+     4.5:1 on every background it actually sits on. */
+  --color-faint: #726A59;
   --color-rule: #E9E1D1;
   --color-brand: #ff4e1b;
   --color-brand-deep: #d63a0f;
@@ -78,7 +84,7 @@
   --color-sport-racquetball: #1D4ED8;  /* violet (established) */
   --color-sport-beach: #C2410C;
   /* ── Daylight additions (spec §1.1) ─────────────────────────────── */
-  --color-ink-4: #8A8069;
+  --color-ink-4: #78705E; /* was #8A8069 — 3.91:1 on white, now 4.91:1 */
   --color-rule-2: #E4DCCB;
   --color-rule-soft: #F1EBDF;
   --color-rule-hover: #D8CDB8;
@@ -187,7 +193,7 @@ html {
   --tp-ink-2: #14170e;
   --tp-text: #3f423a;
   --tp-mute: #6b6e60;
-  --tp-faint: #8a8d80;
+  --tp-faint: #6F7266; /* was #8a8d80 — 3.39:1 on white, now ~5.1:1 */
   --tp-line: #e7e7e1;
   --tp-line-2: #ededc6;
   --tp-accent: #e4713a;

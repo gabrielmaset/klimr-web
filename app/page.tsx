@@ -206,7 +206,7 @@ export default async function Home() {
           <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "270ms" }}>
             <Link
               href="/signup"
-              className="press rounded-[11px] bg-brand px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep"
+              className="press rounded-[11px] bg-brand px-6 py-3.5 text-[15px] font-bold text-white transition-colors hover:bg-[#B52D0B]-deep"
             >
               Claim your spot
             </Link>
@@ -360,7 +360,7 @@ export default async function Home() {
 
       {/* ---------------- CTA ---------------- */}
       <section className="mx-auto max-w-page px-5 py-20">
-        <div className="rounded-[2rem] bg-brand px-7 py-14 text-center text-white sm:px-12">
+        <div className="rounded-[2rem] bg-brand-deep px-7 py-14 text-center text-white sm:px-12">
           <h2 className="font-display text-4xl leading-[0.95] sm:text-6xl">
             Climb the <span className="italic">block.</span>
           </h2>

@@ -40,7 +40,7 @@ export function DeleteAccount() {
         <button
           type="submit"
           disabled={pending || text.trim().toUpperCase() !== "DELETE"}
-          className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-40"
+          className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-40"
         >
           {pending ? "Deleting…" : "Permanently delete"}
         </button>

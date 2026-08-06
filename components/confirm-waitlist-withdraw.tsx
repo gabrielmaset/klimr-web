@@ -35,7 +35,7 @@ export function ConfirmWaitlistWithdraw({ id, eventTitle }: { id: string; eventT
       <p className="text-sm text-mute">
         Remove yourself from the waitlist for <span className="font-semibold text-ink">{eventTitle}</span>? You&rsquo;ll stop getting notifications about open spots.
       </p>
-      <button type="button" onClick={go} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+      <button type="button" onClick={go} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
         {busy ? <Loader2 size={15} className="animate-spin" /> : null} Leave the waitlist
       </button>
       {err ? <p className="text-xs font-medium text-brand-deep">{err}</p> : null}

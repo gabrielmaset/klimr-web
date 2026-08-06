@@ -347,7 +347,7 @@ export function DivisionGroups({
             This discards the current pools and their matches and draws again at random. The original draw stays on record, this redraw is logged with a timestamp, and it&rsquo;s disclosed to participants on the event page.
           </p>
           <div className="mt-3 flex items-center gap-3">
-            <button type="button" onClick={doDraw} disabled={busy === "gen"} className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+            <button type="button" onClick={doDraw} disabled={busy === "gen"} className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
               {busy === "gen" ? <Loader2 size={13} className="animate-spin" /> : <Shuffle size={13} />} Redraw anyway
             </button>
             <button type="button" onClick={() => setConfirming(false)} className="text-xs font-medium text-mute hover:text-ink">

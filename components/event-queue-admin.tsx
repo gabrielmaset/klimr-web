@@ -85,7 +85,7 @@ export function EventQueueAdmin({
             <button
               type="submit"
               disabled={togglePending}
-              className="press inline-flex items-center gap-2 rounded-lg bg-brand px-6 py-3 text-base font-bold text-white transition hover:bg-brand-deep disabled:opacity-60"
+              className="press inline-flex items-center gap-2 rounded-lg bg-brand px-6 py-3 text-base font-bold text-white transition hover:bg-[#B52D0B]-deep disabled:opacity-60"
             >
               <Power size={17} /> {togglePending ? "Turning on\u2026" : "Turn on the queue"}
             </button>

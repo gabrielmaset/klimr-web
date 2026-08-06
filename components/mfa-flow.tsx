@@ -108,7 +108,7 @@ export function MfaFlow({ next }: { next: string }) {
       <button type="button"
         onClick={submit}
         disabled={busy}
-        className="press flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
+        className="press flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-60"
       >
         {busy ? "Verifying…" : (<><ShieldCheck size={18} aria-hidden /> Verify &amp; continue</>)}
       </button>

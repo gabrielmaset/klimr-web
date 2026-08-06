@@ -88,7 +88,7 @@ export default async function TeamsPage({
         </div>
         <Link
           href="/teams/new"
-          className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+          className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep"
         >
           <Plus size={16} /> Create team
         </Link>
@@ -129,7 +129,7 @@ export default async function TeamsPage({
                     <form action={respondTeamInvite}>
                       <input type="hidden" name="inviteId" value={inviteId} />
                       <input type="hidden" name="decision" value="accept" />
-                      <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Accept</button>
+                      <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">Accept</button>
                     </form>
                     <form action={respondTeamInvite}>
                       <input type="hidden" name="inviteId" value={inviteId} />

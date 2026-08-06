@@ -227,7 +227,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                   type="button"
                   disabled={pending}
                   onClick={() => run(startSession, fd({ sessionId: sid }), true)}
-                  className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-60"
+                  className="press inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-60"
                 >
                   <Play size={15} /> Turn on queue
                 </button>
@@ -606,7 +606,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                         type="button"
                         disabled={pending || !canStart}
                         onClick={() => run(startNextMatch, fd({ courtId: c.id }))}
-                        className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
+                        className="press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50"
                       >
                         <Play size={13} /> Start next
                       </button>
@@ -691,7 +691,7 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                       type="button"
                       disabled={pending || !!meElsewhere || !!myPending}
                       onClick={() => run(joinCourt, fd({ courtId: c.id }), true)}
-                      className="press inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50"
+                      className="press inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-brand py-2.5 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50"
                     >
                       <Plus size={15} /> {meElsewhere ? `You're in a team on ${myTeam!.court.label}` : myPending ? "Request sent — waiting" : `${session.requireApproval ? "Request to join" : "Join"} ${formationLabel(c.teamSize)}`}
                     </button>

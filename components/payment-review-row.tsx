@@ -132,7 +132,7 @@ export function PaymentReviewRow({
             className="w-full resize-y rounded-[10px] border border-rule-2 bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15"
           />
           <div className="mt-2 flex items-center gap-3">
-            <button type="button" onClick={doDeny} disabled={busy === "deny"} className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+            <button type="button" onClick={doDeny} disabled={busy === "deny"} className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
               {busy === "deny" ? <Loader2 size={13} className="animate-spin" /> : null} Decline payment
             </button>
             <button type="button" onClick={() => setShowDeny(false)} className="text-xs font-medium text-mute hover:text-ink">

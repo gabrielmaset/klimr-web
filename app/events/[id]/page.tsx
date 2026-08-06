@@ -391,7 +391,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             </span>
           ) : null}
           {queueLiveForMembers ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-deep px-2.5 py-1 text-xs font-bold text-white">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
@@ -433,7 +433,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <div className="mt-2.5 flex flex-wrap items-center gap-3">
                 <form action={reopenEvent}>
                   <input type="hidden" name="eventId" value={e.id} />
-                  <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
+                  <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep">
                     <RotateCcw size={14} /> Recover event
                   </button>
                 </form>
@@ -474,7 +474,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           ) : (
             <form action={rsvp}>
               <input type="hidden" name="eventId" value={e.id} />
-              <button type="submit" className="press rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">{e.join_policy === "approval" ? "Request to join" : "Join event"}</button>
+              <button type="submit" className="press rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">{e.join_policy === "approval" ? "Request to join" : "Join event"}</button>
               <p className="mt-2 max-w-md text-[10.5px] leading-relaxed text-faint">
                 By joining you agree to the <a href="/legal#terms" target="_blank" className="font-semibold underline decoration-rule-2 underline-offset-2">Klimr Terms</a>, including assumption of risk &amp; release. This event is hosted by a member — Klimr is not the organizer.
               </p>
@@ -571,7 +571,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <div className="mb-4 flex items-center gap-2">
             <Wrench size={15} className="text-brand-deep" />
             <h2 className="text-sm font-bold text-ink">Organizer tools</h2>
-            <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{isOwner ? "Organizer" : "Admin"}</span>
+            <span className="rounded-full bg-brand-deep px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{isOwner ? "Organizer" : "Admin"}</span>
             <span className="ml-auto text-[11px] text-mute">Only admins see this panel</span>
           </div>
 

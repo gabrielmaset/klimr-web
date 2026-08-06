@@ -148,7 +148,7 @@ export function TournamentPlannerEditor({ tournamentId, initial, defaultDate }: 
         </p>
         <div className="flex items-center gap-2.5">
           {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : savedAt ? <span className="text-xs text-faint">Saved {savedAt}</span> : dirty ? <span className="text-xs text-faint">Unsaved changes</span> : null}
-          <button type="button" onClick={save} disabled={saving || !dirty} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+          <button type="button" onClick={save} disabled={saving || !dirty} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Save plan
           </button>
         </div>

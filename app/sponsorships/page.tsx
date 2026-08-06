@@ -143,7 +143,7 @@ export default async function SponsorshipsPage() {
                     <form action={respondToOffer}>
                       <input type="hidden" name="id" value={o.id} />
                       <input type="hidden" name="decision" value="accept" />
-                      <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Accept</button>
+                      <button type="submit" className="press rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">Accept</button>
                     </form>
                     <form action={respondToOffer}>
                       <input type="hidden" name="id" value={o.id} />

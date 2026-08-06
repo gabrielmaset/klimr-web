@@ -101,7 +101,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
           </span>
           <p className="mt-3 text-base font-bold text-ink">Add a sport to get matched</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-mute">Tell us what you play and the engine will rank opponents near your level and area.</p>
-          <Link href="/onboarding" className="press mt-4 inline-block rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <Link href="/onboarding" className="press mt-4 inline-block rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
             Set up your sports
           </Link>
         </div>

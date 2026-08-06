@@ -136,7 +136,7 @@ export function TeamSignupForm({
         <a href="/legal#terms" target="_blank" className="font-semibold text-ink underline decoration-rule-2 underline-offset-2">Klimr Terms</a>, including assumption of risk &amp; release and the
         limitation of liability; Klimr is not a party to arrangements between you and the host.
       </p>
-        <button type="button" onClick={submit} disabled={submitting || !teamId} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+        <button type="button" onClick={submit} disabled={submitting || !teamId} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
           {submitting ? <Loader2 size={16} className="animate-spin" /> : null} Enter team
         </button>
         {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : null}

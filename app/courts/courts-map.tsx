@@ -456,7 +456,7 @@ export function CourtsMap({
                   href={callout.court.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white hover:bg-[#E23E0D]"
+                  className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand-deep text-[11px] font-bold text-white hover:bg-[#E23E0D]"
                 >
                   Website
                 </a>
@@ -464,7 +464,7 @@ export function CourtsMap({
             ) : (
               <Link
                 href={`/courts/${callout.court.id}`}
-                className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white hover:bg-[#E23E0D]"
+                className="press inline-flex h-7 flex-1 items-center justify-center rounded-lg bg-brand-deep text-[11px] font-bold text-white hover:bg-[#E23E0D]"
               >
                 View court
               </Link>

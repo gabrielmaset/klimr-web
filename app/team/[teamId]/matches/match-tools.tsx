@@ -97,7 +97,7 @@ export function ChallengePanel({ homeTeamId, opponents }: { homeTeamId: string; 
               type="button"
               onClick={submit}
               disabled={pending}
-              className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
+              className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-60"
             >
               {pending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Send challenge
             </button>

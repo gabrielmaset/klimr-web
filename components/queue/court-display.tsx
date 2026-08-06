@@ -23,7 +23,7 @@ const perfNow = () => performance.now();
  *  start, glide to reveal the end, hold 2 s, glide home — forever. Measured in
  *  an effect and driven by the Web Animations API (no state, no re-renders):
  *  short names never animate; long ones stay on a single line everywhere. */
-function MarqueeText({ text }: { text: string }) {
+function MarqueeText({ text, children }: { text: string; children?: React.ReactNode }) {
   const outer = useRef<HTMLSpanElement | null>(null);
   const inner = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
@@ -68,7 +68,7 @@ function MarqueeText({ text }: { text: string }) {
   }, [text]);
   return (
     <span ref={outer} className="block overflow-hidden whitespace-nowrap">
-      <span ref={inner} className="inline-block will-change-transform">{text}</span>
+      <span ref={inner} className="inline-block will-change-transform">{children ?? text}</span>
     </span>
   );
 }
@@ -456,7 +456,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
   const cap = state.session.winCap;
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0a0c12, #000000 62%)" }}>
+    <div className="fixed inset-0 h-[100dvh] z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0a0c12, #000000 62%)" }}>
       {/* top bar. Centered on purpose: in fullscreen, iPadOS floats its own ✕
           dismiss control at the top-left and the status bar stays over the top
           edge — so the safe-area padding clears the clock/battery, and centring
@@ -561,7 +561,11 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
             <>
               <div>
                 <p className="text-[clamp(1.05rem,2vw,1.9rem)] font-bold uppercase tracking-[0.18em] text-[#f5c518]">
-                  Winner stays on court · {heldTeam.wins} {heldTeam.wins === 1 ? "win" : "wins"}{cap > 1 ? ` of ${cap}` : ""}
+                  <span className="whitespace-nowrap">Winner stays on court</span>{" · "}
+                  <span className="whitespace-nowrap">
+                    {heldTeam.wins} {heldTeam.wins === 1 ? "win" : "wins"}
+                    {cap > 1 ? ` of ${cap}` : ""}
+                  </span>
                 </p>
                 <p className="mt-2 font-display font-bold leading-tight text-[clamp(2.2rem,5.2vw,4.6rem)]">{heldTeam.members.map((m) => m.name).join(" · ") || "—"}</p>
               </div>
@@ -622,13 +626,21 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
                 <div className="flex min-w-0 max-w-full items-baseline gap-1.5 text-[clamp(0.72rem,1.15vw,1.05rem)] font-semibold text-white/50">
                   <span className="shrink-0 font-bold uppercase tracking-[0.18em] text-white/35">Last match ·</span>
                   <span className="min-w-0 flex-1">
-                    <MarqueeText
-                      text={`${
-                        court.lastMatch.winner === "b"
-                          ? `${court.lastMatch.bNames.join(" & ") || "—"} def. ${court.lastMatch.aNames.join(" & ") || "—"}`
-                          : `${court.lastMatch.aNames.join(" & ") || "—"} def. ${court.lastMatch.bNames.join(" & ") || "—"}`
-                      } · ${new Date(court.lastMatch.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
-                    />
+                    {(() => {
+                      const bWon = court.lastMatch.winner === "b";
+                      const winNames = (bWon ? court.lastMatch.bNames : court.lastMatch.aNames).join(" & ") || "—";
+                      const loseNames = (bWon ? court.lastMatch.aNames : court.lastMatch.bNames).join(" & ") || "—";
+                      const winColor = bWon ? SIDES[1].color : SIDES[0].color;
+                      const at = new Date(court.lastMatch.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                      return (
+                        <MarqueeText text={`${winNames} def. ${loseNames} · ${at}`}>
+                          <span style={{ color: winColor }} className="font-bold">{winNames}</span>
+                          <span className="px-1 text-white/35">def.</span>
+                          <span className="text-white/55">{loseNames}</span>
+                          <span className="pl-1.5 text-white/35">· {at}</span>
+                        </MarqueeText>
+                      );
+                    })()}
                   </span>
                 </div>
               ) : null}
@@ -639,7 +651,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
               <div className="relative">
               <div ref={upRef} onScroll={onUpScroll} onTouchStart={onUpScroll} className="flex snap-x snap-mandatory gap-[max(0.5rem,1.5vw)] overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {upNext.map((t, i) => (
-                  <div key={t.id} className="flex w-full shrink-0 snap-start flex-col gap-[0.4rem] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)] landscape:w-[calc((100%-2*max(0.5rem,1.5vw))/3)] md:w-[calc((100%-2*max(0.5rem,1.5vw))/3)]">
+                  <div key={t.id} className="flex w-[calc((100%-max(0.5rem,1.5vw))/2)] shrink-0 snap-start flex-col gap-[0.4rem] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)] landscape:w-[calc((100%-2*max(0.5rem,1.5vw))/3)] md:w-[calc((100%-2*max(0.5rem,1.5vw))/3)]">
                     <div className="flex items-start gap-[max(0.5rem,1vw)]">
                       <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(2rem,3vw,3rem)", height: "clamp(2rem,3vw,3rem)", fontSize: "clamp(1rem,1.6vw,1.6rem)" }}>
                         {i + 1}

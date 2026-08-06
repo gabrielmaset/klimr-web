@@ -116,7 +116,7 @@ export function ResultsPublisher({
               onClick={() => doPublish("publish")}
               disabled={!!busy || !canPublish}
               title={canPublish ? undefined : "Draw at least one division first"}
-              className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-deep disabled:opacity-50"
+              className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#B52D0B]-deep disabled:opacity-50"
             >
               {busy === "publish" ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />} Publish to public
             </button>

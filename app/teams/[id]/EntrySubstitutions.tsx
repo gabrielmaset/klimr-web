@@ -213,7 +213,7 @@ export function EntrySubstitutions({
                 <li>· {outName} stays on the entry until the acceptance goes through, and gets notified if it does.</li>
               </ul>
               <div className="mt-2.5 flex items-center gap-2">
-                <button type="button" onClick={send} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-[9px] bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                <button type="button" onClick={send} disabled={busy} className="press inline-flex items-center gap-1.5 rounded-[9px] bg-brand-deep px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
                   {busy ? <Loader2 size={12} className="animate-spin" /> : null} Send request
                 </button>
                 <button type="button" onClick={() => setReview(false)} disabled={busy} className="press rounded-[9px] border border-rule px-3 py-1.5 text-xs font-semibold text-mute">

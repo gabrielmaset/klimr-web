@@ -59,7 +59,7 @@ export function QLanding() {
             type="button"
             onClick={join}
             disabled={!joinReady}
-            className="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-40"
+            className="press mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-40"
           >
             Join the queue <ArrowRight size={16} />
           </button>

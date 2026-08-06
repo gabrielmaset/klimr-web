@@ -205,7 +205,7 @@ export function DivisionsEditor({
       </button>
 
       <div className="mt-6 flex items-center gap-3 border-t border-rule pt-5">
-        <button type="button" onClick={save} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+        <button type="button" onClick={save} disabled={saving} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save divisions
         </button>
         {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : savedAt ? <span className="text-xs text-faint">Saved {savedAt}{savedNote ? ` · ${savedNote}` : ""}</span> : null}

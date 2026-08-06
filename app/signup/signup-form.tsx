@@ -148,7 +148,7 @@ export function SignupForm({ initialCode = "" }: { initialCode?: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="press w-full rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
+        className="press w-full rounded-xl bg-brand px-3.5 py-3 text-[15px] font-bold text-white transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-60"
       >
         {pending ? "Checking…" : "Send my confirmation link"}
       </button>

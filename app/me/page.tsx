@@ -317,7 +317,7 @@ export default async function MyProfilePage() {
               <p className="mx-auto mt-3 max-w-xs text-sm text-mute">No matches yet — organize one and it&rsquo;ll show up here.</p>
               <Link
                 href="/play/new"
-                className="press mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep"
+                className="press mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep"
               >
                 <Plus size={15} /> Organize a match
               </Link>

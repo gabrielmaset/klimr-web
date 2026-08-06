@@ -148,7 +148,7 @@ export default async function EventsPage({
           <p className="mt-1 text-sm text-mute">Open play, ladder nights, clinics, and tournaments near you. Times shown in PT.</p>
           <Link href="/events/past" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past events →</Link>
         </div>
-        <Link href="/events/new" className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+        <Link href="/events/new" className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
           <Plus size={16} /> Host an event
         </Link>
       </div>

@@ -129,7 +129,7 @@ export default async function AdminUserDetail({ params }: { params: Promise<{ id
               <form action={setVerification}>
                 <input type="hidden" name="userId" value={p.id} />
                 <input type="hidden" name="value" value="verified" />
-                <button type="submit" className="press rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">Verify identity</button>
+                <button type="submit" className="press rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">Verify identity</button>
               </form>
             )
           ) : (

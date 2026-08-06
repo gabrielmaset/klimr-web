@@ -273,7 +273,7 @@ export default async function AccountPage({
                 </div>
               ) : (
                 <form action={startVerification}>
-                  <button type="submit" className="press rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-deep">
+                  <button type="submit" className="press rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#B52D0B]-deep">
                     Start verification
                   </button>
                 </form>

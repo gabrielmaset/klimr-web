@@ -261,7 +261,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Link href={`${base}/settings`} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep">
+            <Link href={`${base}/settings`} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep">
               {t.status === "draft" ? "Set up event" : "Edit details"} <ArrowRight size={15} />
             </Link>
           </div>

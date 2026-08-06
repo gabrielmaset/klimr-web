@@ -85,7 +85,7 @@ export function JoinWaitlistDialog({
               ) : (
                 <div className="grid gap-3">
                   <Link href={accountHref} className="press flex items-center gap-3 rounded-2xl border border-brand/30 bg-tint-brand/50 p-3.5 text-left">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand text-white">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-deep text-white">
                       <UserRound size={17} />
                     </span>
                     <span className="min-w-0 flex-1">

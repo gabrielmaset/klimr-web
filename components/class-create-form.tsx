@@ -230,7 +230,7 @@ export function ClassCreateForm() {
           <span className="text-sm font-semibold text-ink">Publish now</span>
           <span className="text-xs text-faint">(uncheck to save as a draft)</span>
         </label>
-        <button type="submit" className="press rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+        <button type="submit" className="press rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
           Create class
         </button>
       </section>

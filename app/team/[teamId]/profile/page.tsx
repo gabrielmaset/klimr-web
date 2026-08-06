@@ -121,7 +121,7 @@ export default async function TeamProfile({ params }: { params: Promise<{ teamId
                   <div className="flex flex-wrap items-center gap-3">
                     <form action={restoreTeam}>
                       <input type="hidden" name="teamId" value={team.id} />
-                      <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-deep"><RotateCcw size={14} /> Restore team</button>
+                      <button type="submit" className="press inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep"><RotateCcw size={14} /> Restore team</button>
                     </form>
                     <span className="text-xs text-mute">Disbanded — recoverable for {recoverDaysLeft(team.deleted_at)} more day{recoverDaysLeft(team.deleted_at) === 1 ? "" : "s"}, then archived.</span>
                   </div>

@@ -165,7 +165,7 @@ export function ProfessionalStatusForm({ existingRoles }: { existingRoles: strin
             </p>
           </div>
 
-          <button type="submit" className="press w-full rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <button type="submit" className="press w-full rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
             Submit request
           </button>
         </>

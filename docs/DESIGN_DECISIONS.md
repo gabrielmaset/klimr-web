@@ -4819,3 +4819,43 @@ tuning never needs a migration.
 - **Regression guard:** a test asserts no role is defined in a category the
   picker cannot render — the exact failure mode, caught structurally rather
   than by remembering.
+
+### 2026-08-06 — K3-02 axe results: 419 issues, five root causes
+- **Gabriel ran axe over 18 pages.** 419 serious issues, 255 distinct failing
+  elements — but they collapse to a handful of DESIGN TOKENS, which is why more
+  page coverage would have added instances rather than information.
+- **`--color-faint` was the single largest source.** #A69C88 measures 2.72:1 on
+  white and 2.64:1 on surface; it carries timestamps, kickers, counts, and
+  metadata across the entire app. Raised to **#726A59**, chosen by measurement:
+  5.36:1 on white, 5.21:1 on surface, 4.59:1 on the darkest panel (#F0EDE9), so
+  it clears 4.5:1 on every background it actually sits on. Same treatment for
+  `--color-ink-4` (3.91 → 4.91) and `--tp-faint` (3.39 → ~5.1).
+- **White on brand orange failed at 3.3:1 — but the brand did not have to
+  change.** `--color-brand-deep` (#d63a0f) already measures 4.7:1, so only the
+  89 surfaces that actually carry WHITE TEXT moved to the deeper shade;
+  `bg-brand` as a decorative fill is untouched. Darkening the brand token itself
+  would have shifted every accent, border, and icon in the product to fix a
+  problem that only exists where white text sits on it.
+- **The `region` failure on 7/18 pages was mine** — the skip link I added in
+  K3-02 sits outside every landmark. Wrapped in `<nav aria-label="Skip links">`.
+- **`nested-interactive` (4/18) is not our code** — it is the Adobe Acrobat
+  browser extension injecting a button into the page. Worth disabling extensions
+  before future axe runs so the report is about Klimr.
+
+### 2026-08-06 — Courtside display on a phone + Chats title
+- **Bottom content was clipped on iPhone Safari.** The overlay used
+  `fixed inset-0`, which resolves against the LARGE viewport, so the browser
+  toolbar covered the QR block. Now pinned to `h-[100dvh]`, which tracks the
+  visible viewport as the toolbar shows and hides.
+- **Next-up showed one team per screen in portrait** despite room for two — the
+  card was `w-full` at the base breakpoint with 3-up only at landscape/md. Base
+  is now 2-up; landscape and desktop keep 3.
+- **"Winner stays on court · 1 win of 2" broke mid-phrase.** Both halves are now
+  `whitespace-nowrap`, so the line breaks at the separator or not at all.
+- **The last-match line was an unreadable run of names.** Per Gabriel's
+  suggestion, the two sides are now colour-separated — winner in its own team
+  colour (A orange / B cyan, already the display's language), loser muted, with
+  "def." and the timestamp dimmer still. Two colours, so it reads as structure
+  rather than decoration. `MarqueeText` gained optional children to allow it.
+- **Chats page title said "Courtside"** in both the metadata and the page
+  header — a copy/paste from the queue surface. Now "Chats".

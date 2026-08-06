@@ -98,7 +98,7 @@ export default async function AdminProvidersPage() {
     <div className="space-y-8">
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-mute">
-          Pending applications {apps.length > 0 ? <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{apps.length}</span> : null}
+          Pending applications {apps.length > 0 ? <span className="rounded-full bg-brand-deep px-2 py-0.5 text-[11px] font-bold text-white">{apps.length}</span> : null}
         </h2>
         {apps.length === 0 ? (
           <div className="rounded-2xl border border-rule bg-surface shadow-e1 p-6 text-center text-sm text-mute">No applications waiting for review.</div>
@@ -173,7 +173,7 @@ export default async function AdminProvidersPage() {
                     placeholder="Review note (optional)"
                     className="min-w-[180px] flex-1 rounded-[10px] border border-rule-2 bg-bg px-3 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
                   />
-                  <button type="submit" name="decision" value="approve" className="press rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+                  <button type="submit" name="decision" value="approve" className="press rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
                     Approve
                   </button>
                   <button type="submit" name="decision" value="reject" className="press rounded-lg border border-rule px-4 py-1.5 text-sm font-semibold text-mute transition-colors hover:text-brand-deep">
@@ -213,7 +213,7 @@ export default async function AdminProvidersPage() {
             />
           </label>
           <input type="hidden" name="action" value="approve" />
-          <button type="submit" className="press h-[38px] rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-deep">
+          <button type="submit" className="press h-[38px] rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
             Approve
           </button>
         </form>

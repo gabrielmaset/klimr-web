@@ -35,7 +35,7 @@ export function WithdrawEntryButton({ registrationId, waitlisted }: { registrati
   }
   return (
     <span className="inline-flex items-center gap-1.5">
-      <button type="button" onClick={go} disabled={busy} className="press inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep disabled:opacity-50">
+      <button type="button" onClick={go} disabled={busy} className="press inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
         {busy ? <Loader2 size={13} className="animate-spin" /> : null} {waitlisted ? "Leave waitlist" : "Confirm"}
       </button>
       <button type="button" onClick={() => setConfirming(false)} disabled={busy} aria-label="Cancel" className="inline-flex items-center justify-center rounded-lg border border-rule bg-bg px-2 py-1.5 text-mute hover:text-ink">
