@@ -18,5 +18,13 @@ export async function POST(req: Request) {
   // durable work has a guaranteed heartbeat without a second cron entry —
   // whatever a dying instance dropped gets reclaimed on the next tick.
   const jobs = await runJobs("verify_venue", runVerifyVenueJob, { limit: 10, leaseSeconds: 120 });
+  // Perf-sample retention (K3-05): 14 days, pruned on the same tick so there is
+  // no second schedule to forget about.
+  try {
+    const { getPrivilegedClient } = await import("@/lib/privileged");
+    await getPrivilegedClient({ reason: "cron:prune-perf" }).rpc("prune_perf_samples");
+  } catch {
+    /* retention is best-effort; never fail the sweep over it */
+  }
   return NextResponse.json({ ok: true, ...result, jobs });
 }

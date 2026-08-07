@@ -3,6 +3,8 @@
 import { sportMeta, SPORT_KEYS } from "@/lib/sports";
 
 const nowMs = () => Date.now();
+// Module scope: the lint rule forbids impure calls inside a handler body.
+const searchRoll = () => Math.random();
 
 import { createClient } from "@/lib/supabase/server";
 import type { SearchResult, SearchResultType } from "./types";
@@ -18,6 +20,7 @@ const joinLoc = (...parts: (string | null | undefined)[]) => parts.filter(Boolea
  * ILIKE patterns. Existing RLS governs what each viewer can see.
  */
 export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
+  const startedAt = Date.now();
   const q = (qRaw ?? "").trim();
   if (q.length < 2) return [];
 
@@ -127,5 +130,30 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
       out.push({ type, id: r.id, title: r.title, subtitle: prettySport(r.subtitle), href });
     }
   }
-  return out.slice(0, 26);
+  const results = out.slice(0, 26);
+
+  // K3-08 telemetry. The relevance decision — whether to invest in FTS/trigram
+  // plus a reranker — was explicitly deferred until there is field data, and
+  // "we should probably improve search" is not data. Three numbers make it
+  // answerable: how long the deterministic layer takes, how often it returns
+  // NOTHING for a real query, and what shape the query had. Sampled at 10% and
+  // recorded WITHOUT the query text: a search log is a behaviour log, and this
+  // table is a latency histogram (see 0186).
+  if (searchRoll() < 0.1) {
+    try {
+      const { getPrivilegedClient } = await import("@/lib/privileged");
+      await getPrivilegedClient({ reason: "search:telemetry" })
+        .from("perf_samples")
+        .insert({
+          // Every search records latency; a MISS additionally records the zero
+          // metric, so zero-rate = count(search_zero) / count(search_deterministic).
+          metric: results.length === 0 ? "search_zero" : "search_deterministic",
+          value_ms: Date.now() - startedAt,
+          route: "/search",
+        });
+    } catch {
+      /* telemetry must never break a search */
+    }
+  }
+  return results;
 }

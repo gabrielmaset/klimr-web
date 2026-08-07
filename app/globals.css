@@ -35,6 +35,25 @@
   --color-rule: #E9E1D1;
   --color-brand: #ff4e1b;
   --color-brand-deep: #d63a0f;
+
+  /* ── Brand ramp (K3-04 token consolidation, audit UX-005) ─────────────────
+     These three values appear ~184 times as raw hex across app/ and
+     components/ — the flame gradient and the pressed state of every primary
+     button. Naming them does not change a single pixel today; it gives new
+     code somewhere to point, and it is the prerequisite for the scoped theming
+     below. Existing raw hex is swept opportunistically as files are touched,
+     not in one blind pass: 343 distinct hard-coded colours remain and a mass
+     rewrite with no visual verification is how a design gets silently altered.
+     WCAG note: --brand-ramp-hi carries WHITE TEXT nowhere — it is a gradient
+     stop only. Anything with white text on it must use --color-brand-deep or
+     darker (4.7:1), per the August 2026 axe audit. */
+  --brand-ramp-hi: #FF6A35;   /* gradient start, decorative only */
+  --brand-ramp-mid: #E23E0D;  /* gradient end */
+  --brand-ramp-lo: #B52D0B;   /* pressed / hover-deep, 6.28:1 with white */
+
+  /* Status colours, likewise named rather than repeated. */
+  --color-success-deep: #217A34;
+  --color-danger-deep: #b91c1c;
   --color-pop: #ffe249;
   --color-success: #2F9E44;
   --color-tint-brand: #FFF0E8;
@@ -427,3 +446,23 @@ main:has(nav[aria-label="Breadcrumb"]) [data-auto-breadcrumbs]:has(nav[aria-labe
 main:has(:not([data-auto-breadcrumbs]) > nav[aria-label="Breadcrumb"]) [data-auto-breadcrumbs] {
   display: none;
 }
+
+/* ── Scoped theming (K3-04) ────────────────────────────────────────────────
+   A tournament's public page at /e/[code] can carry its own branding. Rather
+   than a parallel set of hard-coded colours, a themed surface sets these
+   variables on a wrapper and every descendant token resolves against them.
+   Unset, the wrapper inherits the product defaults, so an unbranded tournament
+   looks exactly as it does today.
+
+   Usage:  <div className="klimr-theme" style={{ "--theme-accent": brandHex }}>
+   Only ACCENT is themeable by design — text and surface colours stay on the
+   product tokens so a badly chosen brand colour can never push a tournament
+   page below the contrast floor the audit just fixed. */
+.klimr-theme {
+  --theme-accent: var(--color-brand-deep);
+  --theme-accent-soft: color-mix(in srgb, var(--theme-accent) 12%, transparent);
+  --theme-accent-ring: color-mix(in srgb, var(--theme-accent) 45%, transparent);
+}
+.klimr-theme .theme-accent-bg { background: var(--theme-accent); color: #fff; }
+.klimr-theme .theme-accent-text { color: var(--theme-accent); }
+.klimr-theme .theme-accent-ring { border-color: var(--theme-accent-ring); }

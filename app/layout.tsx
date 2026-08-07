@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { WebVitals } from "@/components/rum";
 import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/instrument-sans";
 import "@fontsource-variable/instrument-sans/standard-italic.css";
@@ -70,6 +71,7 @@ export default function RootLayout({
         <ContourLayer opacity={0.02} behind />
         <ContourLayer opacity={0.02} />
         <DiagnosticsInit />
+        <WebVitals />
         <AppShell>{children}</AppShell>
         {adsenseClient ? (
           <Script

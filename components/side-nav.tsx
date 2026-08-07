@@ -9,12 +9,14 @@ import { NAV_GROUPS, type NavItem } from "@/lib/nav";
 import { KlimrLogo } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
 import type { PresenceMode } from "@/app/account/presence";
+import { navGroupsFor } from "@/lib/nav";
 
 type Item = NavItem;
 
 // Daylight §2.1 grouping. Invites (Community) and Sponsorships (Discover) are
 // live destinations kept beyond the spec's list — flagged in DESIGN_DECISIONS.
-const GROUPS = NAV_GROUPS;
+// Groups are ORDERED by role, never filtered — decision D3 keeps every module
+// live and reachable for everyone (see lib/nav.ts::navGroupsFor).
 
 const kicker = "font-mono text-floor font-semibold uppercase tracking-[.18em] text-faint";
 
@@ -26,6 +28,8 @@ export function SideNav({
   adminRole,
   businesses = [],
   presenceMode,
+  hasTeams = false,
+  isOrganizer = false,
 }: {
   avatarUrl: string | null;
   avatarHue: number;
@@ -34,7 +38,15 @@ export function SideNav({
   adminRole: boolean;
   businesses?: { id: string; name: string }[];
   presenceMode: PresenceMode;
+  hasTeams?: boolean;
+  isOrganizer?: boolean;
 }) {
+  const GROUPS = navGroupsFor({
+    isAdmin: adminRole,
+    isOrganizer,
+    isBusinessManager: businesses.length > 0,
+    hasTeams,
+  });
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const presenceDot =

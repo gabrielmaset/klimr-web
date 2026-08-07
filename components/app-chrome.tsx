@@ -29,6 +29,7 @@ export function AppChrome({
   avatarName,
   email,
   adminRole,
+  isOrganizer = false,
   businesses = [],
   presenceMode,
   teams,
@@ -42,6 +43,8 @@ export function AppChrome({
   avatarName: string;
   email: string | null;
   adminRole: boolean;
+  /** Approved to run tournaments — orders the nav, never gates it (K3-03). */
+  isOrganizer?: boolean;
   businesses?: { id: string; name: string }[];
   presenceMode: PresenceMode;
   teams: Team[];
@@ -62,6 +65,8 @@ export function AppChrome({
         adminRole={adminRole}
         businesses={businesses}
         presenceMode={presenceMode}
+        hasTeams={(teams?.length ?? 0) > 0}
+        isOrganizer={isOrganizer}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar unreadCount={unread} avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={adminRole} />

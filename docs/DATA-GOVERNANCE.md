@@ -151,3 +151,48 @@ operational, **Sec** = security/audit. "Reader" is who may read at runtime.
   responses entirely.
 - **Radius honesty.** The user's chosen radius is a hard bound on every search,
   filter, and cache key; results are never silently widened.
+
+## 10. Access & export — what a complete export contains (ADD-10)
+
+Deletion was specified above; **the right to KNOW and to PORTABILITY are
+separate rights** under CCPA/CPRA and were missing from this document until the
+August 6 verification pass caught it. A member may request a copy of their data,
+and the answer must be complete — an export that silently omits a table is a
+compliance failure that looks like a feature.
+
+**A complete export contains every row keyed to the requester across:**
+
+| Area | Objects |
+|---|---|
+| Identity | `profiles`, `auth.users` (email, created_at, sign-in metadata — never password/TOTP secrets) |
+| Social | `connections` / follows / blocks (both directions), `invites` sent and redeemed |
+| Content | `posts`, `comments`, `post_tags`, uploaded media URLs |
+| Play | `event_registrations`, `tournament_registrations`, `queue_teams` + `queue_team_members` participation, match results, `rank_snapshots` rows for that user |
+| Teams | memberships, roles, ownership |
+| Commerce | marketplace listings, `class_providers` professional-status requests and their review outcome |
+| Communications | chat threads the user is party to, notification preferences |
+| Safety | reports the user filed; `admin_actions` rows targeting them, with staff identity redacted |
+| Devices | `courtside_devices` rows only where the user is the session organizer |
+
+**Excluded, and why — stated in the response, not silently dropped:**
+- Other members' personal data inside shared objects (a chat has two parties;
+  the export contains the requester's messages and the fact of the thread).
+- Staff identities in moderation records — the outcome is disclosed, the
+  reviewer is not.
+- `deleted_users_ledger` entries about *other* people.
+- Security material: TOTP secrets, `mfa_failed_verification_attempts`,
+  `token_hash` values, session tokens.
+- Derived operational data with no personal content (`perf_samples` stores no
+  identity by design — see §7).
+
+**Process:** acknowledge within 10 business days, deliver within 45 (one 45-day
+extension with notice), verify identity first — the same clock as deletion.
+Deliver as machine-readable JSON plus a plain-language index of what each file
+contains, because portability that requires an engineer to interpret is not
+portability.
+
+**Implementation status: SPECIFIED, NOT BUILT.** Today an export is assembled
+manually against this list. That is workable at pilot scale and is the honest
+position; automate it before the member count makes manual assembly unreliable.
+The object-level map in §7 is the authoritative source for what exists to
+export, so the two must be updated together.

@@ -39,7 +39,12 @@ type Init = {
   require_rules: boolean;
 };
 
-const STEPS = ["Basics", "When & where", "Format", "Registration", "Legal", "Review"];
+// Only what is REQUIRED to bring a tournament into existence (founder call,
+// Aug 2026). Everything else — the registration window, waiver and rules text,
+// prizes, sponsors, cover art — is editable afterwards on the tournament
+// settings page, which already owns every one of those fields. A six-step
+// wizard asked organizers to write legal copy before they could save a name.
+const STEPS = ["Basics", "When & where", "Format", "Review"];
 const LAST = STEPS.length - 1;
 
 const inputCls = "w-full rounded-xl border border-rule bg-bg px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-brand";
@@ -92,12 +97,15 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
     init.min_women > 0 ? "min_women" : init.min_men > 0 ? "min_men" : "open",
   );
   const [minCount, setMinCount] = useState(String(init.min_women > 0 ? init.min_women : init.min_men > 0 ? init.min_men : 1));
-  const [regOpens, setRegOpens] = useState(isoToLocalInput(init.registration_opens_at));
-  const [regDeadline, setRegDeadline] = useState(isoToLocalInput(init.registration_deadline));
-  const [waiver, setWaiver] = useState(init.waiver_text);
-  const [rules, setRules] = useState(init.rules_text);
-  const [reqWaiver, setReqWaiver] = useState(init.require_waiver);
-  const [reqRules, setReqRules] = useState(init.require_rules);
+  // Carried through to the create payload unchanged, but no longer EDITED here:
+  // the registration window and the legal text are configured on the tournament
+  // settings page after creation, which already owns all six fields.
+  const regOpens = isoToLocalInput(init.registration_opens_at);
+  const regDeadline = isoToLocalInput(init.registration_deadline);
+  const waiver = init.waiver_text;
+  const rules = init.rules_text;
+  const reqWaiver = init.require_waiver;
+  const reqRules = init.require_rules;
 
   const reserveMax = sport === "beach_volleyball" ? 2 : 4;
 
@@ -402,54 +410,14 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
             </div>
           ) : null}
 
-          {step === 3 ? (
-            <div>
-              <h2 className="font-display text-2xl text-ink">Registration</h2>
-              <p className="mt-1 text-sm text-mute">When sign-ups open and close.</p>
-              <div className="mt-6 grid gap-5">
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div>
-                    <label className={labelCls}>Registration opens</label>
-                    <DateTimeField value={regOpens} onChange={setRegOpens} optional ariaLabel="Registration opens" />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Registration deadline</label>
-                    <DateTimeField value={regDeadline} onChange={setRegDeadline} optional ariaLabel="Registration deadline" />
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-dashed border-rule bg-bg/40 p-4 text-sm text-mute">
-                  Entry categories &amp; fees, and custom sign-up questions, are set up after you create the event — in <span className="font-semibold text-ink">Divisions</span> and <span className="font-semibold text-ink">Sign-up form</span> in your event workspace.
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {step === 4 ? (
-            <div>
-              <h2 className="font-display text-2xl text-ink">Legal</h2>
-              <p className="mt-1 text-sm text-mute">Waiver and rules players agree to.</p>
-              <div className="mt-6 grid gap-5">
-                <div>
-                  <label className={labelCls}>Waiver</label>
-                  <textarea className={`${inputCls} min-h-32 resize-y`} value={waiver} onChange={(e) => setWaiver(e.target.value)} placeholder="Liability waiver text…" />
-                </div>
-                <Toggle checked={reqWaiver} onChange={setReqWaiver} label="Require waiver acceptance" description="Each participant must accept the waiver before they're confirmed." />
-                <div>
-                  <label className={labelCls}>Rules</label>
-                  <textarea className={`${inputCls} min-h-32 resize-y`} value={rules} onChange={(e) => setRules(e.target.value)} placeholder="Event rules, format details, conduct…" />
-                </div>
-                <Toggle checked={reqRules} onChange={setReqRules} label="Require rules acknowledgement" description="Each participant must acknowledge the rules before they're confirmed." />
-                <div className="rounded-2xl border border-dashed border-rule bg-bg/40 p-4 text-sm text-mute">
-                  Uploaded documents and per-version acknowledgements arrive with the registration flow.
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {step === 5 ? (
+                              {step === 3 ? (
             <div>
               <h2 className="font-display text-2xl text-ink">Review &amp; create</h2>
-              <p className="mt-1 text-sm text-mute">A last look before your event is created.</p>
+              <p className="mt-1 text-sm text-mute">
+                A last look before your event is created. Registration window, waiver and rules,
+                prizes, sponsors, and cover art are all set on the tournament&rsquo;s settings page
+                once it exists — nothing here is locked in.
+              </p>
               <dl className="mt-6 grid gap-3 sm:grid-cols-2">
                 {[
                   { k: "Name", v: title || "—" },
@@ -461,7 +429,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                   { k: "Format", v: FORMAT_LABEL[formatType] },
                   { k: "Capacity", v: capacity.trim() === "" ? "Open" : capacity },
                   { k: "Gender", v: genderRule === "open" ? "Open to all" : `${minCount} ${genderRule === "min_women" ? "women" : "men"} min.` },
-                  { k: "Registration", v: regOpens || regDeadline ? "Scheduled" : "Not set" },
+                  { k: "Entries", v: capacity.trim() === "" ? "Open" : `Cap ${capacity}` },
                 ].map((r) => (
                   <div key={r.k} className="rounded-2xl border border-rule bg-bg/40 p-3">
                     <dt className="text-[11px] font-semibold uppercase tracking-wide text-faint">{r.k}</dt>

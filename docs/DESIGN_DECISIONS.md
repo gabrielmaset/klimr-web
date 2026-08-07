@@ -4859,3 +4859,275 @@ tuning never needs a migration.
   rather than decoration. `MarqueeText` gained optional children to allow it.
 - **Chats page title said "Courtside"** in both the metadata and the page
   header — a copy/paste from the queue surface. Now "Chats".
+
+### 2026-08-06 — Live fleet console replaces the device roster (0185)
+- **The roster was the wrong artifact.** Listing every unit works for two iPads
+  and is useless at a thousand: an operator wants counts they can trust and a
+  way to act on a stuck one, not an inventory of hardware. Removed, along with
+  the "app open" tile — knowing an app is open somewhere answers no operational
+  question.
+- **Counters an operator actually uses** (founder spec): live queues that exist
+  right now, split by standalone vs from-events; **live instances** (displays
+  connected, i.e. logged in with the code); and **running live play** (a team
+  waiting or a match in progress).
+- **Timeliness was the real complaint** — a venue that started play took ~4
+  minutes to show. Cause: a 3-minute heartbeat against a 15-minute presence
+  window, both tuned for a fleet inventory. Now a **20-second heartbeat** and a
+  **45-second presence window**: a display appears the instant it connects (it
+  beats on mount) and drops within ~45s of going dark, allowing one missed beat.
+  The console re-polls every 15s, so the numbers stay inside the 30-second
+  freshness target without a socket.
+- **A scale detail that mattered.** `courtside_devices_last_seen_idx` indexed
+  the one column every heartbeat writes, which blocks heartbeat-in-place (HOT)
+  updates and would have bloated that index badly at ~50 writes/second. Dropped
+  — it only existed to order the roster that is now gone, and the counts scan a
+  table with one row per physical display.
+- **Drill-down and force-end.** Opening a counter lists the sessions behind it
+  (fetched only on open, so watching the numbers never pays for the list). Each
+  row can be force-ended: play state clears, pending requests expire, live
+  matches finalise, and the attached displays are **revoked** so a frozen client
+  stops reporting presence. The join code survives, so the organizer can start a
+  clean session — same contract as their own OFF. Audit-logged in the RPC.
+- **Per-device retire went away with the roster.** Revocation now rides
+  force-end, which is the action an operator actually reaches for; a stolen unit
+  is handled by ending its session.
+
+### 2026-08-06 — Courtside display would not scroll on a phone
+- The overlay was `overflow-hidden`, which is correct for a wall display — it
+  must all fit and be read across a court — but on a phone the content is taller
+  than the viewport, so the up-next list and the QR were simply unreachable and
+  the screen would not move in any direction. Now scrollable, with
+  `lg:overflow-hidden` preserving kiosk behaviour on real displays, where there
+  is nothing to scroll anyway.
+
+### 2026-08-06 — Tournament wizard trimmed to required-only
+- **Six steps became four**: Basics → When & where → Format → Review. The
+  Registration-window and Legal steps are gone from creation.
+- **Why it was wrong:** the wizard asked an organizer to write liability waiver
+  text and rules copy before they could save a tournament name. Those are
+  considered decisions, not creation-time ones, and blocking creation on them
+  is how a half-thought event never gets made at all.
+- **Verified before removing, not after:** the tournament settings page already
+  owns all six deferred fields (`registration_opens_at`,
+  `registration_deadline`, `waiver`, `rules_text`, `require_waiver`,
+  `require_rules`), so nothing is orphaned. The wizard still SUBMITS them from
+  their defaults, so the create payload shape is unchanged — the fields simply
+  stop being edited there. A guardrail asserts both halves of that.
+- The Review step now says where the rest is configured, so the shorter flow
+  reads as deliberate rather than incomplete.
+
+### 2026-08-06 — K3-04 token consolidation: layer first, sweep opportunistically
+- **The measured problem:** 343 distinct hard-coded hex values across `app/` and
+  `components/`. The brand ramp alone (#FF6A35 / #E23E0D / #B52D0B) appears ~184
+  times.
+- **What was actually harming users is already fixed** — the contrast tokens,
+  from the axe audit. What remains is maintainability, and a 343-value rewrite
+  with no visual verification, immediately after a site-wide contrast shift, is
+  how a design gets silently altered with nobody looking. So: **name the tokens
+  now, sweep as files are touched.** The new variables carry the identical
+  values, so this changes nothing visually today.
+- **A contrast rule is encoded in the token names**, not left to memory:
+  `--brand-ramp-hi` is a gradient stop and carries white text NOWHERE. Anything
+  with white text on it must use `--color-brand-deep` or darker (4.7:1).
+- **Scoped theming for `/e/[code]`** (the plan's requirement): a themed surface
+  sets `--theme-accent` on a `.klimr-theme` wrapper and descendants resolve
+  against it; unset, it inherits the product default, so an unbranded tournament
+  is pixel-identical. **Only the accent is themeable by design** — text and
+  surface colours stay on product tokens, so a badly chosen brand colour can
+  never push a tournament page back below the contrast floor we just fixed.
+
+### 2026-08-06 — K3-03: role-based navigation as ORDER, never visibility
+- **The constraint drove the design.** Decision D3 (revised) forbids hiding
+  modules — every surface stays live and reachable for everyone. So the answer
+  to "17 identical nav items for a casual player, an organizer, and a business"
+  could not be gating. It is **ordering**: an organizer meets Compete first, a
+  business manager meets Discover first, a team player meets Community first.
+  Same destinations, same groups, nothing removed.
+- **The spine never moves.** Feed / Play / Live Queue / Rankings stay pinned at
+  the top for everyone — muscle memory matters more than relevance there.
+- **A brand-new account keeps the authored default order**, so the product
+  introduces itself the way it was designed rather than reshuffling around a
+  person who has not done anything yet.
+- **`navGroupsFor()` is pure and unit-tested**, and the first test asserts the
+  invariant that matters: for every combination of roles, the set of reachable
+  destinations is IDENTICAL to `NAV_GROUPS`. That is D3 encoded as a test rather
+  than as a comment someone has to remember.
+- **The organizer signal reuses `canHostTournaments()`** — the same predicate
+  that gates hosting — so nav and permissions cannot drift apart the way the
+  tournament gate and the role taxonomy did. It is fetched in parallel with the
+  business lookup that was already there, so the shell's critical path gains no
+  serial round trip.
+- **A wrong guess caught by types, worth recording:** I wrote the lookup against
+  a `providers` table; the real one is `class_providers`. `tsc` rejected it
+  immediately. This is why the Supabase clients are typed against
+  `database.types.ts` — the mistake never reached a page.
+
+### 2026-08-06 — K3-05: performance budgets, measured rather than asserted
+- **The gap:** `docs/PERFORMANCE.md` diagnosed July's responsiveness problems
+  and shipped fixes, but nothing measured whether they held. The audit's targets
+  — stored court ≤ 1.5 s, queue snapshot p95 ≤ 300 ms, queue action p95 ≤ 800 ms
+  — were unfalsifiable, and a budget nobody can check is a wish.
+- **Migration 0186** stores raw samples (percentiles cannot be recovered from
+  pre-aggregated averages) with 14-day retention, and `perf_report()` computes
+  p50/p95 **against budgets defined in the same file** — so the dashboard cannot
+  drift from the numbers the audit set.
+- **Three states, not two.** A metric with no samples reports NULL and renders
+  as "NOT MEASURED". Treating an empty budget as passing is the classic way a
+  monitoring dashboard lies to you.
+- **The table is a latency histogram and is built to stay one:** metrics are a
+  closed enum, and the beacon stores no user id, no raw URL, and no referrer —
+  only a route PATTERN with ids, numbers, and join codes stripped. The fastest
+  way for a perf table to become a behaviour log is accepting "just one more
+  field".
+- **Sampling decisions that matter:** the client samples 10% **per page load,
+  not per metric**, so a sampled session contributes a complete set — mixing
+  partial sets would bias the very percentiles being measured. Server-side, the
+  queue snapshot is timed around the real work and **304s are excluded**;
+  including the cheap path would flatter the percentile that exists to catch the
+  expensive one.
+- Retention runs on the existing minute cron, so there is no second schedule to
+  forget about.
+
+### 2026-08-06 — CORRECTION: the K2-02 "cheap poll" was not cheap (0187)
+- **What I claimed in K2-02:** ETag/304 responses cut an unchanged queue poll
+  from seven round trips to one.
+- **What the code did:** read the version, call `loadSessionState()` — all five
+  queries — and only THEN compare the ETag. Every unchanged poll paid full price
+  server-side. The 304 saved JSON serialization and payload bytes and nothing
+  else. The headline number I reported was wrong.
+- **How it surfaced:** while instrumenting the same route for K3-05, a guardrail
+  asserting "304s are excluded from the percentile" failed — and the reason was
+  that there was no cheap path to exclude. The measurement work caught the
+  measurement claim.
+- **Why it could not just be reordered:** the ETag encodes the AUDIENCE, and
+  audience needs the session's organizer_id, which the route was reading off the
+  fully-loaded state. So the tag genuinely could not be computed before the
+  expensive load.
+- **Fix (0187):** `queue_poll_head()` returns the version AND the organizer id
+  in one primary-key-targeted call. The route builds the ETag from that, returns
+  304 immediately when nothing changed, and loads the snapshot only when it must.
+  An unchanged poll is now genuinely **one query, no snapshot, no JSON**.
+- **The guardrail now asserts ORDER**, not the presence of a call: the 304
+  return must appear before `loadSessionState`, and the perf sample after it.
+  Order was the entire bug, so order is what the test pins.
+
+### 2026-08-06 — K3-06: nonce CSP, report-only first
+- **The finding (SEC-010)** was `'unsafe-inline'` on `script-src` — the
+  pragmatic Next baseline, and the thing that makes a CSP mostly decorative
+  against injected script. Its precondition for removal was closing the HTML
+  sinks, which K0-02 did: every `dangerouslySetInnerHTML` is sanitised or
+  escaped and inventoried.
+- **Shipped as `Content-Security-Policy-Report-Only`, alongside the existing
+  enforced policy, which is unchanged.** Nothing can break: violations are
+  reported, not blocked. When the report stream is quiet for a sustained period,
+  the same string moves into `next.config.ts` as the enforced policy and
+  `'unsafe-inline'` goes. Flipping straight to enforcement on a large app is how
+  you take the site down over a third-party script nobody remembered.
+- **The nonce reaches Next's own scripts** by setting the CSP header on the
+  REQUEST in middleware — that is the documented hook Next uses to nonce its
+  inline bootstrap. The response then carries the strict policy as Report-Only.
+- **`'strict-dynamic'` is what makes nonce CSP workable with a bundler**: a
+  nonce-approved script may load its own dependencies. Older browsers ignore it
+  and fall back to the host allowlist, so the policy degrades rather than
+  locking anyone out.
+- **Style stays permissive deliberately.** Tailwind and inline style attributes
+  are everywhere; tightening `style-src` is a much larger piece of work with far
+  lower security value than closing script injection. Scope discipline, recorded
+  rather than silently skipped.
+- **Reports land in `error_logs`** where diagnostics already surfaces them,
+  deduplicated per directive+source per 10 minutes (one broken page would
+  otherwise report on every render for every visitor), storing the document
+  PATH only — a document URI can carry a session code or a person's slug.
+
+### 2026-08-06 — Convention: guardrails must assert on CODE, not prose
+Three source-scanning guards in this session failed because they matched my own
+explanatory comments rather than the code they were meant to pin:
+- the K3-01 root-font guard matched the comment quoting the old `clamp(...)`;
+- the K3-05 RUM guard matched a comment saying "no referrer";
+- the K3-06 CSP guard's `.find(l => l.includes("script-src"))` grabbed the
+  paragraph above the policy.
+
+Comments describing a rule contain the rule's words. **A guard that greps for a
+string finds the documentation first.** Anchor on syntax that only appears in
+code — a full policy fragment (`script-src 'self'`), an insert payload, a
+call expression — or slice the region first and assert inside it.
+
+### 2026-08-06 — K3-07: Places inventory prepared for counsel
+- `docs/PLACES-COMPLIANCE-INVENTORY.md` states exactly which fields we request
+  (one field mask, both endpoints), exactly what lands in `court_search_cache`
+  (7-day TTL, holds Google content verbatim), `court_sport_intel` and `courts`
+  (both **indefinite**, including `rating` / `rating_count`), and what we render.
+- **Six precise questions for counsel**, not a legal opinion — engineering's job
+  is an accurate inventory. The sharpest ones: indefinite retention of
+  denormalised display fields, ratings specifically, and whether attribution is
+  required where Klimr renders Places-derived data in its own UI.
+- **Engineering notes attached** so the answer is actionable either way: expiry
+  is a small migration plus one job handler (0178 already provides scheduling),
+  and the intel table survives a purge of Google-derived columns because the
+  verdict and its evidence come from the venue's own website.
+
+### 2026-08-06 — K3-08: thresholds committed BEFORE the data
+- The audit wanted FTS/trigram + a reranker; the assessment disagreed, arguing
+  Klimr's search is navigational rather than exploratory. Both positions are
+  reasonable and neither is checkable without numbers.
+- **Migration 0188** adds `search_deterministic` / `search_zero` / `search_ai`
+  and `search_zero_rate()`. The query text is deliberately NOT stored — a search
+  log is a behaviour log, and `perf_samples` stays a latency histogram.
+- **A mistake caught before shipping:** the first cut recorded search latency
+  into the existing `queue_action` bucket because that value was already in the
+  enum. That would have corrupted a budget the audit set for the wedge's hot
+  path with numbers from an unrelated subsystem — and the dashboard would have
+  looked healthy while measuring the wrong thing. Metrics that mean different
+  things get different names; a guardrail now pins that.
+- **`docs/SEARCH-RELEVANCE.md` commits the trigger numbers in advance**: invest
+  above a 15% zero-result rate, close the item below 8%, take the cheap trigram
+  step in between. Written before the data exists precisely because "we should
+  improve search" is always defensible and therefore wins arguments regardless
+  of evidence. The rule can settle it as **no**, which is the likelier outcome
+  and the one that saves weeks.
+
+### 2026-08-06 — Phase 4: prerequisites specified, build deliberately not started
+- **Phase 4 is monetization, and the plan gates it on pilot density and
+  retention signals that do not exist yet.** The right output at this point is
+  therefore not code. Building billing now would prove nothing (no one to
+  charge), anchor pricing by accident (the $20/$99 figures are placeholders),
+  and make the entitlement shape expensive to change once real subscriptions
+  depend on it.
+- **`docs/MONETIZATION-READINESS.md`** records the three gate conditions —
+  ≥5 venues live in one week, D30 ≥ 25% for a cohort with 60 days of history,
+  and **≥2 organizers asking unprompted to pay for something specific**. The
+  third is the one that matters most and the easiest to skip.
+- **The entitlement state machine is designed, not implemented**, with the rules
+  that are cheap now and expensive later: entitlement DERIVED from a
+  subscription row rather than stored as a boolean (the same single-predicate
+  discipline that fixed the tournament gate); downgrade non-destructive — losing
+  a tier removes the ability to CREATE, never deletes a tournament or a session;
+  `past_due` keeps access through a grace window, because a failed card at a
+  venue mid-season is an operational emergency, not a decision to stop paying.
+- **Five questions for counsel before any sponsorship money moves**, led by
+  merchant-of-record — which determines liability, tax, and whether money
+  transmission analysis is needed at all.
+
+### 2026-08-06 — Traceability audit: Phase 0 was delivered but never recorded
+Parsing the plan's own traceability table against its task headers showed eleven
+tasks referenced by findings but not marked delivered — all of Phase 0. The work
+shipped and was verified on Aug 5; only K0-08 said so in the plan, because Phase
+0 went out as one batch and completion was reported in conversation instead.
+**The plan is the artifact a future engineer reads, not the conversation.** Now
+corrected, and every finding maps to a task with a recorded status.
+
+### 2026-08-06 — Verification pass found a real gap: ADD-10 (export completeness)
+- A code-level sweep of all 86 traceability rows found 54/55 checked findings
+  with concrete evidence (the one miss was my own guardrail test containing the
+  string it asserts against — a scan artifact, not a gap).
+- **The genuine gap was documentation, not code.** `DATA-GOVERNANCE.md` covered
+  deletion thoroughly across two sections but said nothing about ACCESS or
+  EXPORT — separate rights under CCPA/CPRA. K1-08 was marked delivered as
+  "privacy, safety ops, and rights" and had delivered half the rights.
+- **§10 now specifies what a complete export contains**, table by table, derived
+  from the object-level map in §7 so the two cannot drift. It also states what
+  is EXCLUDED and why — other members' data in shared objects, staff identities
+  in moderation records, security material — because an export that silently
+  omits things is a compliance failure that looks like a feature.
+- **Status recorded honestly: specified, not built.** Manual assembly is
+  workable at pilot scale; automate before member count makes it unreliable.

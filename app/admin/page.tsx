@@ -146,7 +146,7 @@ export default async function AdminHome() {
             </div>
           </div>
           <div className="mt-1 text-[11px] text-faint">
-            &ldquo;Running live play&rdquo; means a team is waiting or a match is in progress — not just that the app is open.
+            &ldquo;Running live play&rdquo; means a team is waiting or a match is in progress — not just that the app is open. Open for live queue counts and force-end.
           </div>
         </div>
       </Link>

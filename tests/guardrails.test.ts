@@ -99,7 +99,9 @@ describe("Phase 2 guardrails (K2-01)", () => {
 describe("Phase 2 guardrails (K2-02)", () => {
   it("QUEUE-003: the poll route is version-first and can 304", () => {
     const src = read("app/api/queue/[id]/route.ts");
-    expect(src).toContain('rpc("queue_version"');
+    // 0187 replaced queue_version here with queue_poll_head, which returns the
+    // version AND the organizer id so the ETag can be built before the load.
+    expect(src).toContain('rpc("queue_poll_head"');
     expect(src).toContain("canServe304");
     expect(src).toContain("status: 304");
   });
@@ -212,9 +214,10 @@ describe("Courtside fleet counter (founder request)", () => {
     expect(fn).toContain("queue_teams");
     expect(fn).toContain("queue_matches");
   });
-  it("surfaces on both the dashboard and the devices console", () => {
+  it("surfaces on the dashboard, with the console on live queue metrics", () => {
     expect(read("app/admin/page.tsx")).toContain('rpc("courtside_fleet_status")');
-    expect(read("app/admin/devices/page.tsx")).toContain('rpc("courtside_fleet_status")');
+    // The console moved to fleet_metrics in 0185 — queue counts, not a roster.
+    expect(read("app/admin/devices/actions.ts")).toContain('rpc("fleet_metrics")');
   });
   it("excludes retired units from every tier", () => {
     const sql = read("supabase/migrations/0182_courtside_fleet_status.sql");
@@ -329,8 +332,13 @@ describe("Courtside heartbeat authenticity (0184)", () => {
     // registration keeps a strict limit because it is the guessable surface
     expect(src).toContain("rateLimitStrict");
   });
-  it("retiring a device revokes its token", () => {
-    expect(read("app/admin/devices/actions.ts")).toContain('rpc("courtside_revoke"');
+  it("ending a session revokes the displays attached to it", () => {
+    // Per-device retire went away with the roster (0185); revocation now rides
+    // force-end, which is the action an operator actually reaches for.
+    const sql = read("supabase/migrations/0185_fleet_realtime_metrics.sql");
+    const fn = sql.slice(sql.indexOf("admin_force_end_session"));
+    expect(fn).toContain("update public.courtside_devices");
+    expect(fn).toContain("token_hash = null");
   });
   it("the SQL throttle bounds a chatty client without an extra query", () => {
     const sql = read("supabase/migrations/0184_courtside_device_auth.sql");
@@ -362,5 +370,132 @@ describe("Tournament hosting gate (broken flow, Aug 2026)", () => {
     const roles = read("lib/professional-roles.ts");
     expect(roles).toContain("LEGACY_ROLE_LABEL");
     expect(roles).toContain('tournament_director: "Tournament Director"');
+  });
+});
+
+describe("Live fleet console (founder spec, Aug 2026)", () => {
+  it("reports queue counts, not a device roster", () => {
+    const src = read("app/admin/devices/page.tsx") + read("app/admin/devices/fleet-console.tsx");
+    expect(src).toContain("fetchFleetMetrics");
+    expect(src).toContain("running_live_play");
+    // the per-device list does not scale to thousands and is gone
+    expect(src).not.toContain("Active fleet");
+    expect(src).not.toContain("app_open");
+  });
+  it("polls fast enough to stay inside the 30s freshness target", () => {
+    const src = read("app/admin/devices/fleet-console.tsx");
+    expect(src).toContain("POLL_MS = 15_000");
+    expect(read("components/queue/court-display.tsx")).toContain("20_000");
+  });
+  it("force-end clears play, revokes displays, and is audit-logged", () => {
+    const sql = read("supabase/migrations/0185_fleet_realtime_metrics.sql");
+    expect(sql).toContain("admin_force_end_session");
+    expect(sql).toContain("revoked_at = now()");
+    expect(sql).toContain("admin:force-end-session");
+  });
+  it("presence window is 45s, and the heartbeat throttle allows a 20s cadence", () => {
+    const sql = read("supabase/migrations/0185_fleet_realtime_metrics.sql");
+    expect(sql).toContain("interval '45 seconds'");
+    expect(sql).toContain("interval '10 seconds'");
+  });
+  it("the courtside overlay scrolls on phones", () => {
+    const src = read("components/queue/court-display.tsx");
+    expect(src).toContain("overflow-y-auto overscroll-contain");
+    expect(src).toContain("lg:overflow-hidden");
+  });
+});
+
+describe("Tournament wizard is required-only (founder call, Aug 2026)", () => {
+  it("collects only what is needed to create the event", () => {
+    const src = read("components/tournament-setup-wizard.tsx");
+    expect(src).toContain('const STEPS = ["Basics", "When & where", "Format", "Review"]');
+    expect(src).not.toContain('"Registration", "Legal"');
+  });
+  it("still submits every field, so nothing is orphaned on create", () => {
+    const src = read("components/tournament-setup-wizard.tsx");
+    for (const f of ["registration_opens_at", "registration_deadline", "waiver_text", "rules_text"]) {
+      expect(src).toContain(f);
+    }
+  });
+  it("the settings page owns the deferred fields", () => {
+    const src = read("components/tournament-settings-editor.tsx");
+    for (const f of ["registration_opens_at", "registration_deadline", "waiver", "rules_text"]) {
+      expect(src).toContain(f);
+    }
+  });
+});
+
+describe("Performance budgets are measured (K3-05)", () => {
+  it("budgets live next to the measurement so they cannot drift", () => {
+    const sql = read("supabase/migrations/0186_perf_samples.sql");
+    expect(sql).toContain("'queue_snapshot',      300");
+    expect(sql).toContain("'queue_action',        800");
+    expect(sql).toContain("'court_search_stored', 1500");
+  });
+  it("an unmeasured budget is NULL, never passing", () => {
+    const sql = read("supabase/migrations/0186_perf_samples.sql");
+    expect(sql).toContain("when count(s.value_ms) = 0 then null");
+  });
+  it("the RUM beacon stores no identity and no raw URL", () => {
+    const src = read("app/api/rum/route.ts");
+    expect(src).toContain("routePattern");
+    // Assert on the INSERT payload, not on prose — an explanatory comment
+    // mentioning a field is not the same as storing it.
+    const insert = src.slice(src.indexOf('from("perf_samples").insert'), src.indexOf("return new NextResponse(null, { status: 204 });", src.indexOf("insert")));
+    expect(insert).not.toContain("user_id");
+    expect(insert).not.toContain("referrer");
+    expect(insert).not.toContain("href");
+  });
+  it("an unchanged poll returns 304 BEFORE loading the snapshot", () => {
+    const src = read("app/api/queue/[id]/route.ts");
+    const shortCircuit = src.indexOf("status: 304");
+    const load = src.indexOf("await loadSessionState");
+    const sample = src.indexOf('metric: "queue_snapshot"');
+    expect(shortCircuit).toBeGreaterThan(-1);
+    // The original K2-02 shipped these the other way round, so every "cheap"
+    // poll still ran all five queries. Order is the whole fix.
+    expect(shortCircuit).toBeLessThan(load);
+    expect(sample).toBeGreaterThan(load);
+  });
+});
+
+describe("CSP nonce migration (K3-06, report-only first)", () => {
+  it("the strict policy drops unsafe-inline for scripts", () => {
+    const src = read("lib/csp.ts");
+    // Match the POLICY line, not the comment that explains it — a `.find()` on
+    // "script-src" alone grabs the prose above it. (Third time this bit; see
+    // DESIGN_DECISIONS "guards must assert on code, not prose".)
+    const scriptLine = src.split("\n").find((l) => l.includes("script-src 'self'")) ?? "";
+    expect(scriptLine).toContain("'nonce-");
+    expect(scriptLine).toContain("'strict-dynamic'");
+    expect(scriptLine).not.toContain("'unsafe-inline'");
+  });
+  it("ships REPORT-ONLY so nothing can break during the learning phase", () => {
+    const mw = read("middleware.ts");
+    expect(mw).toContain("Content-Security-Policy-Report-Only");
+    // The enforced policy in next.config is untouched until reports are quiet.
+    expect(read("next.config.ts")).toContain('key: "Content-Security-Policy"');
+  });
+  it("violation reports are deduped and store no page content", () => {
+    const src = read("app/api/csp-report/route.ts");
+    expect(src).toContain("csp:dupe:");
+    expect(src).toContain('.split("?")[0]');
+  });
+});
+
+describe("Search telemetry (K3-08 decision data)", () => {
+  it("search records its OWN metrics, never the queue-action bucket", () => {
+    const src = read("app/search/actions.ts");
+    expect(src).toContain('"search_zero"');
+    expect(src).toContain('"search_deterministic"');
+    // Borrowing queue_action would corrupt a budget the audit set for the wedge.
+    const block = src.slice(src.indexOf('reason: "search:telemetry"'));
+    expect(block.slice(0, 600)).not.toContain('"queue_action"');
+  });
+  it("search telemetry stores no query text", () => {
+    const src = read("app/search/actions.ts");
+    const block = src.slice(src.indexOf('reason: "search:telemetry"'), src.indexOf("return results;"));
+    expect(block).not.toContain("qRaw");
+    expect(block).not.toContain("condensed");
   });
 });

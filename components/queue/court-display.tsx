@@ -377,7 +377,10 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
       }
     };
     void beat();
-    const t = setInterval(() => void beat(), 180_000);
+    // 20s cadence pairs with the 45s presence window in migration 0185:
+    // a display appears the moment it connects and drops within ~45s of
+    // going dark, allowing for one missed beat.
+    const t = setInterval(() => void beat(), 20_000);
     const onVis = () => {
       if (document.visibilityState === "visible") void beat();
     };
@@ -456,7 +459,7 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
   const cap = state.session.winCap;
 
   return (
-    <div className="fixed inset-0 h-[100dvh] z-[120] flex flex-col overflow-hidden text-white" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0a0c12, #000000 62%)" }}>
+    <div className="fixed inset-0 h-[100dvh] z-[120] flex flex-col overflow-y-auto overscroll-contain text-white lg:overflow-hidden" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0a0c12, #000000 62%)" }}>
       {/* top bar. Centered on purpose: in fullscreen, iPadOS floats its own ✕
           dismiss control at the top-left and the status bar stays over the top
           edge — so the safe-area padding clears the clock/battery, and centring

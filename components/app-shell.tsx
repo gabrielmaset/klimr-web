@@ -1,4 +1,5 @@
 import { KlimrLogo } from "@/components/logo";
+import { canHostTournaments } from "@/lib/professional-roles";
 import { type NextMatch } from "@/components/top-bar";
 import { AppChrome } from "@/components/app-chrome";
 import { PublicChrome } from "@/components/public-chrome";
@@ -47,6 +48,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let avatarHue = 200;
   let avatarName = user?.email ?? "You";
 let businesses: { id: string; name: string }[] = [];
+  // Nav ORDER only — never visibility (D3). Uses the same predicate that gates
+  // tournament hosting, so the two can never drift apart.
+  let isOrganizer = false;
   let adminRole: string | null = null;
   let unread = 0;
   let chatUnread = 0;
@@ -76,11 +80,13 @@ let businesses: { id: string; name: string }[] = [];
     const { data: r } = await supabase.rpc("current_admin_role");
     adminRole = typeof r === "string" ? r : null;
     {
-      const { data: memberRows } = await supabase
-        .from("business_members")
-        .select("business_id")
-        .eq("user_id", user.id)
-        .limit(6);
+      // Two independent lookups — run them together rather than serially, since
+      // this sits on the shell's critical path for every authenticated page.
+      const [{ data: memberRows }, { data: provRow }] = await Promise.all([
+        supabase.from("business_members").select("business_id").eq("user_id", user.id).limit(6),
+        supabase.from("class_providers").select("roles, status").eq("user_id", user.id).maybeSingle(),
+      ]);
+      isOrganizer = canHostTournaments(provRow?.status, provRow?.roles);
       const ids = ((memberRows ?? []) as { business_id: string }[]).map((r) => r.business_id);
       if (ids.length) {
         const { data: bizRows } = await supabase
@@ -118,6 +124,7 @@ let businesses: { id: string; name: string }[] = [];
       email={user?.email ?? null}
       adminRole={!!adminRole}
       businesses={businesses}
+      isOrganizer={isOrganizer}
       presenceMode={presenceMode}
       teams={teams}
       chatUnread={chatUnread}
