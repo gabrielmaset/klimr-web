@@ -5131,3 +5131,53 @@ corrected, and every finding maps to a task with a recorded status.
   omits things is a compliance failure that looks like a feature.
 - **Status recorded honestly: specified, not built.** Manual assembly is
   workable at pilot scale; automate before member count makes it unreliable.
+
+## 2026-08-07 — Batch B: the migration history is now provably the schema (KCDX-004)
+
+The independent Codex audit's one release blocker that gates every other fix was
+KCDX-004: the ledger and the database disagreed, so no migration could be trusted
+to land on a known baseline. Batch B measured the relationship instead of asserting
+it, and the result is better than the ledger implied — but not because the ledger
+was right.
+
+**What was actually true.** Production is applied through 0188. A clean replay of
+0001–0188 against a disposable cluster reproduces production on thirteen of fifteen
+catalog measures out of the box, and on all fifteen after 0189. Six objects existed
+in production that no migration creates: `profiles.avatar_path`; both of 0188's
+function bodies (production had a corrected copy that never came back to the repo —
+the difference turned out to be CRLF line endings plus a better `s.metric`
+qualification); the `avatars` bucket's 6 MiB and MIME limits; four duplicate
+dashboard-created `avatars` Storage policies; and — the important one — a
+schema-wide `revoke insert, update, delete on all tables in schema public from
+anon`. That last one is the only reason `anon` holds no write privileges today, and
+it lived nowhere in the history, so a clean rebuild would have handed the anonymous
+role write access on ~100 tables with only RLS behind it. 0189 records all six.
+
+**The sentinel was checking the wrong thing.** `lib/schema-check.ts` probed sentinel
+columns. Migrations 0176–0189 added almost no columns — they added tables,
+functions and grants. The one incident this repo has actually had of that class was
+0183, where a batch revoked `service_role` EXECUTE on the app's own functions and
+the app returned "permission denied for function" until a repair migration went in.
+A column probe cannot see that. 0190 adds `schema_manifest_missing()`, which asks
+the catalog directly: does each required table exist, does each required function
+exist, and can `service_role` execute it. Proven against a deliberately broken
+database — it names the revoked grant and the missing table, and returns empty when
+they are restored.
+
+**The sentinel also wasn't running.** `instrumentation.ts` gated boot assertions on
+`process.env.VERCEL`, so a self-hosted `next start`, a preview container, or any
+future move off Vercel would boot happily against a stale schema. The gate belongs
+on the build phase, not the host: `NEXT_PHASE=phase-production-build` is skipped
+(CI has no env), every real server start is checked.
+
+**Reproducibility is now a CI job.** `supabase/harness/replay.sh` runs both gates
+against a PostgreSQL 17 service container on every push — production is 17.6 and
+the local harness was 16, which is a gap worth closing rather than noting. The
+harness shim carries Supabase's platform default privileges, without which the
+replayed grant catalog diverges from production for every table created after 0043;
+that was a harness fidelity gap, not a Klimr defect, and mistaking one for the other
+is exactly how an audit finding gets closed for the wrong reason.
+
+Standing rule reaffirmed: a green build proves nothing about the database. The pass
+condition for schema work is the catalog fingerprint agreeing with production across
+all fifteen measures.

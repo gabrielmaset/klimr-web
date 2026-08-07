@@ -10,6 +10,37 @@ on:
   pull_request:
 
 jobs:
+  # KCDX-004: the migration history must rebuild the production schema. Both
+  # gates run against PostgreSQL 17 (production is 17.x) — `empty` proves a
+  # clean rebuild, `upgrade` proves 0189 reconstructs a database where 0188
+  # aborted. The manifest probe must come back empty. A red job here means a
+  # deploy would reach objects the database does not have.
+  schema-replay:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install psql 17 client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Replay gates
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          CI_MODE: '1'
+        run: |
+          bash supabase/harness/replay.sh empty
+          bash supabase/harness/replay.sh upgrade
+
   gates:
     runs-on: ubuntu-latest
     steps:

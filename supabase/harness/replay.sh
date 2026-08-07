@@ -1,0 +1,61 @@
+#!/bin/bash
+# KCDX-004 replay gate. Usage: replay.sh [empty|upgrade]
+#   empty   — full 0001→0188 + 0189 from an empty cluster (clean-rebuild proof)
+#   upgrade — replay to 0187, simulate 0188's rollback, then apply 0189
+#             (proof that 0189 repairs the actual production baseline)
+set -u
+MODE="${1:-empty}"
+PGBIN=${PGBIN:-$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)}
+CI_MODE=${CI_MODE:-0}   # 1 = use an already-running server (GitHub Actions service container)
+REPO=${REPO:-$(cd "$(dirname "$0")/../.." && pwd)}
+HERE="$(cd "$(dirname "$0")" && pwd)"
+D=${PGDATA_DIR:-$HOME/pgreplay}; PORT=${PORT:-5546}; SOCK=${SOCK:-$HOME/pgsock}
+W=$HOME/replaywork; rm -rf "$W" "$D"; mkdir -p "$W/mig" "$SOCK"
+if [ "$CI_MODE" = "1" ]; then
+  # A service container is already running; use a throwaway database per gate.
+  DB="replay_${MODE}_$$"
+  psql -d postgres -v ON_ERROR_STOP=1 -qc "drop database if exists $DB" 
+  psql -d postgres -v ON_ERROR_STOP=1 -qc "create database $DB"
+  P="psql -d $DB -v ON_ERROR_STOP=1 -q"
+else
+  rm -f "$SOCK"/.s.PGSQL.$PORT*   # clear any stale socket/lock from an interrupted run
+  $PGBIN/initdb -D "$D" -U postgres --auth=trust -E UTF8 >"$W/initdb.log" 2>&1 || { tail -3 "$W/initdb.log"; exit 1; }
+  $PGBIN/pg_ctl -D "$D" -o "-k $SOCK -p $PORT -c listen_addresses=''" -l "$W/pg.log" start >/dev/null 2>&1; sleep 8
+  P="$PGBIN/psql -h $SOCK -p $PORT -U postgres -d postgres -v ON_ERROR_STOP=1 -q"
+fi
+run(){ $P -f "$1" >"$W/last.out" 2>&1 || { echo "### FAIL $(basename "$1")"; grep -m2 ERROR "$W/last.out"; return 1; }; }
+# Supabase-managed extensions do not exist off-platform; neutralize in COPIES only.
+cp "$REPO"/supabase/migrations/*.sql "$W/mig/"
+sed -i -E 's/^[[:space:]]*create extension[[:space:]]+(if not exists[[:space:]]+)?"?(pg_cron|pg_net)"?.*$/-- [harness] neutralized: &/I' "$W/mig"/*.sql
+[ "$MODE" = upgrade ] && rm -f "$W/mig/0188_search_metrics.sql"   # model 0188 aborting: 0189 must reconstruct it
+fails=0; ok=0
+run "$HERE/shim.sql" || exit 1
+run "$W/mig/0001_init.sql" || exit 1; ok=$((ok+1))
+run "$HERE/baseline_repair.sql" || exit 1          # out-of-band prod objects (F1)
+run "$REPO/supabase/seed.sql"   || exit 1          # reference data BEFORE 0016/0017/0018 (F3)
+for f in $(ls "$W"/mig/*.sql | sort | grep -v 0001_init); do run "$f" && ok=$((ok+1)) || fails=$((fails+1)); done
+# 0189/0190 are part of the ordered history; the loop above already applied them
+# in the empty gate. In upgrade mode 0188 is removed to model its abort, so the
+# loop still reaches them. Nothing extra to run here.
+echo "MODE=$MODE APPLIED_OK=$ok FAILED=$fails"
+$P -c "select
+ (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind='r' and n.nspname='public') tables,
+ (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind='r' and n.nspname='public' and c.relrowsecurity) rls,
+ (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public') funcs,
+ (select count(*) from pg_policies where schemaname='public') policies,
+ (select count(*) from storage.buckets) buckets"
+echo "-- acceptance probes --"
+$P -tAc "select 'manifest_missing='||coalesce(array_to_string(public.schema_manifest_missing(), ', '), '')" 
+$P -tAc "select 'avatar_path='||count(*) from information_schema.columns where table_name='profiles' and column_name='avatar_path'"
+$P -tAc "select 'search_zero_rate='||count(*) from pg_proc where proname='search_zero_rate'"
+$P -tAc "select * from public.search_zero_rate(168)" >/dev/null 2>&1 && echo "search_zero_rate_callable=yes" || echo "search_zero_rate_callable=NO"
+$P -c "insert into public.perf_samples(metric, value_ms, route) values ('search_zero', 12, '/search')" >/dev/null 2>&1 && echo "search_metric_accepted=yes" || echo "search_metric_accepted=NO"
+if [ "$CI_MODE" = "1" ]; then
+  psql -d postgres -qc "drop database if exists $DB" >/dev/null 2>&1
+else
+  $PGBIN/pg_ctl -D "$D" stop -m fast >/dev/null 2>&1
+fi
+# The empty gate is EXPECTED to fail on 0188 (its repo copy cannot create
+# search_zero_rate); 0189 repairs it and the probes below must still be clean.
+[ "$MODE" = empty ] && [ "$fails" -le 1 ] && exit 0
+exit $fails

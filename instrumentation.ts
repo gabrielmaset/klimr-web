@@ -22,14 +22,20 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
   }
 };
 
-/** Boot assertions (Aug 2026, audit DEP-001/DEP-002/QUEUE-002): refuse to
- *  serve a production deploy that is missing required env or running against
- *  a database behind the code. Gated to Vercel so CI's env-less `next build`
- *  is untouched; on Vercel the env is present at build and runtime, and a
- *  stale schema blocks the deploy — which is exactly the point. Transient
- *  DB errors only warn (availability doctrine). */
+/** Boot assertions (Aug 2026, audit DEP-001/DEP-002/QUEUE-002 · KCDX-004):
+ *  refuse to serve a production deploy that is missing required env or running
+ *  against a database behind the code.
+ *
+ *  This used to be gated on `process.env.VERCEL`, which meant the assertion did
+ *  not exist anywhere else — a self-hosted `next start`, a preview container, a
+ *  future migration off Vercel would all boot happily against a stale schema.
+ *  The audit called that out and it is right: the gate belongs on the BUILD
+ *  phase, not on the host. `next build` has no env in CI, so it is skipped
+ *  there; every actual server start is checked. Transient DB errors only warn
+ *  (availability doctrine); a confirmed stale schema is fatal. */
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs" || !process.env.VERCEL) return;
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
   const { assertServerEnv } = await import("@/lib/env");
   assertServerEnv();
   const { assertSchemaCurrent } = await import("@/lib/schema-check");

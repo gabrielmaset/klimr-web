@@ -2121,6 +2121,7 @@ export interface Database {
       admin_force_end_session: { Args: { p_session_id: string; p_actor: string }; Returns: boolean };
       perf_report: { Args: { p_hours: number }; Returns: { metric: string; budget_ms: number; samples: number; p50_ms: number | null; p95_ms: number | null; worst_ms: number | null; within_budget: boolean | null }[] };
       prune_perf_samples: { Args: Record<string, never>; Returns: number };
+      schema_manifest_missing: { Args: Record<string, never>; Returns: string[] };
       search_zero_rate: { Args: { p_hours: number }; Returns: { searches: number; zero_results: number; zero_pct: number | null }[] };
       court_data_quality: { Args: Record<string, never>; Returns: { total_verdicts: number; confirmed: number; denied: number; unknown: number; coverage_pct: number | null; median_age_days: number | null; stale_pct: number | null; disagreement_pct: number | null; evidence_per_verdict: number | null; verifying_now: number }[] };
       ranking_data_quality: { Args: Record<string, never>; Returns: { snapshot_days: number; latest_snapshot: string | null; hours_since_latest: number | null; players_in_latest: number; sports_covered: number }[] };
