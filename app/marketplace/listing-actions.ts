@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { lookupZip } from "@/lib/us-places";
 import { CATEGORIES, CONDITIONS, MODES, LISTING_LIFESPAN_DAYS } from "@/lib/marketplace";
+import { getPrivilegedClient } from "@/lib/privileged";
 
 const MAX_PHOTOS = 5;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -144,7 +145,10 @@ async function uploadPhotos(supabase: Awaited<ReturnType<typeof createClient>>, 
   for (const f of files) {
     const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : "jpg";
     const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from("listing-photos").upload(path, f, { contentType: f.type, upsert: false });
+    // KCDX-014: server-performed, so the size and type checks above are on the
+    // only path in rather than beside it.
+    const { error } = await getPrivilegedClient({ reason: "marketplace:listing-photo", actorId: userId })
+      .storage.from("listing-photos").upload(path, f, { contentType: f.type, upsert: false });
     if (!error) paths.push(path);
   }
   return paths;

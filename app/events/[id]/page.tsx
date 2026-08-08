@@ -51,6 +51,7 @@ import { retireSessionIfStale } from "@/lib/queue-state";
 import { DangerConfirm } from "@/components/danger-confirm";
 import { cancelEventById, reopenEvent } from "../actions";
 import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
+import { scrubLogRow } from "@/lib/log-scrub";
 
 export const metadata: Metadata = { title: "Event" };
 
@@ -297,10 +298,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     await trip.from("error_logs").insert({
       user_id: null,
       level: "warn",
-      message: `[queue-trace] page mismatch: flag=true, session=${session ? session.status : "none"}`,
-      detail: `event ${id}`,
-      url: `/events/${id}`,
-      user_agent: "server",
+      ...scrubLogRow({
+        message: `[queue-trace] page mismatch: flag=true, session=${session ? session.status : "none"}`,
+        detail: `event ${id}`,
+        url: `/events/${id}`,
+        userAgent: "server",
+      }),
     });
   }
   }

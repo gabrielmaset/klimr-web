@@ -6,7 +6,11 @@
  *  viewer a cache entry built for another — the geofence centre and pending
  *  list would leak through the cache instead of through the payload.
  *  Weak validator (W/) because the body is semantically, not byte, equivalent. */
-export type QueueAudience = "org" | "player" | "public";
+// KCDX-008 adds a fourth audience: a registered Courtside display, which sees
+// the operator credential and nothing else the organizer sees. It has to be part
+// of the ETag key — otherwise a cached "player" snapshot could be served to a
+// display, or worse, an operator snapshot to a player.
+export type QueueAudience = "org" | "operator" | "player" | "public";
 
 export function queueEtag(
   sessionId: string,

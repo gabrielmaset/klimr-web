@@ -14,7 +14,7 @@ export default async function RankingsPage({ searchParams }: { searchParams: Pro
   if (!user) redirect("/login?next=/rankings");
 
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("profile_private")
     .select("display_name, avatar_hue, home_zip, city, state, country, primary_sport")
     .eq("id", user.id)
     .single();

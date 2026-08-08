@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSessionState } from "@/lib/queue-state";
 import { projectQueueState } from "@/lib/queue-projection";
 import { getAdminRole } from "@/lib/admin";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import { queueEtag, canServe304 } from "@/lib/queue-etag";
 
 // Module scope: the lint rule forbids impure calls inside render/handlers.
@@ -55,7 +58,25 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     }
   }
   const isOrganizer = meId !== null && organizerId !== null && meId === organizerId;
-  const audience = isOrganizer || isAdmin ? "org" : meId ? "player" : "public";
+
+  // KCDX-008: a registered Courtside display is its own audience. It needs the
+  // operator credential (to notice a rotation and stop trusting itself) and
+  // nothing else the organizer sees. The capability is proved, not asserted:
+  // headers carry the install id and the token minted at registration, and the
+  // database checks both against this session.
+  let isOperator = false;
+  const installId = req.headers.get("x-klimr-install") ?? "";
+  const deviceToken = req.headers.get("x-klimr-device-token") ?? "";
+  if (UUID_RE.test(installId) && deviceToken.length >= 20) {
+    const { data } = await admin.rpc("courtside_authorize", {
+      p_install_id: installId,
+      p_token_hash: createHash("sha256").update(deviceToken).digest("hex"),
+      p_session_id: id,
+    });
+    isOperator = data === true;
+  }
+
+  const audience = isOrganizer || isAdmin ? "org" : isOperator ? "operator" : meId ? "player" : "public";
   const etag = queueEtag(id, version, audience, meId);
 
   if (canServe304(version, req.headers.get("if-none-match"), etag)) {
@@ -76,7 +97,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     void admin.from("perf_samples").insert({ metric: "queue_snapshot", value_ms: snapshotMs, route: "/api/queue/[id]" });
   }
 
-  const safe = projectQueueState(state, { isOrganizer, isAdmin });
+  const safe = projectQueueState(state, { isOrganizer, isAdmin, isOperator });
   return NextResponse.json(safe, {
     headers: { ETag: etag, "Cache-Control": "private, no-cache" },
   });

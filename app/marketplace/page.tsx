@@ -26,7 +26,7 @@ export default async function MarketplacePage() {
       .order("renewed_at", { ascending: false })
       .limit(400),
     supabase.from("saved_listings").select("listing_id").eq("user_id", user.id),
-    supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle(),
+    supabase.from("profile_private").select("home_zip").eq("id", user.id).maybeSingle(),
   ]);
 
   // Server component reads the clock once per request.

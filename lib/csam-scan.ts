@@ -1,4 +1,5 @@
 import "server-only";
+import { callExternal } from "@/lib/external";
 
 /**
  * Known-CSAM hash matching. Runs BEFORE storage and before the AI classifier.
@@ -55,11 +56,20 @@ export async function scanForKnownCSAM(bytes: Buffer, sha256: string, mediaType:
     if (PROVIDER === "webhook") {
       const url = process.env.CSAM_SCAN_WEBHOOK_URL;
       if (!url) return { match: false, blocked: true, provider: "webhook", reason: "Scan endpoint not set." };
-      const res = await fetch(url, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ sha256, mediaType, dataBase64: bytes.toString("base64") }),
-      });
+      // KCDX-056: had no timeout. This path fails CLOSED (a scan we cannot
+      // complete blocks the upload), which makes a bounded deadline more
+      // important, not less — without one the user waits for the platform limit
+      // to decide. 10s: the payload is image bytes and the vendor does real work.
+      // No retry: re-posting image bytes to a scanning vendor is not free, and a
+      // blocked upload is the correct outcome of an unreachable scanner.
+      const res = await callExternal({ vendor: "csam-scan", timeoutMs: 10_000 }, (signal) =>
+        fetch(url, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ sha256, mediaType, dataBase64: bytes.toString("base64") }),
+          signal,
+        }),
+      );
       if (!res.ok) return { match: false, blocked: true, provider: "webhook", reason: "Safety scan failed." };
       const json = (await res.json()) as { match?: unknown; matchId?: unknown };
       return {

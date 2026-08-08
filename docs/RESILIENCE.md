@@ -17,7 +17,7 @@ the point of this document.
 | **Point-in-time recovery** | Not enabled | An add-on above Pro. See §5 — this is the single change that would most improve RPO. |
 | **Schema** | Migration files in Git (`supabase/migrations/`) + `MIGRATIONS_LEDGER.md` | The schema is fully reconstructable from the repo, independent of any backup. |
 | **Application code** | GitHub + Vercel build history | Redeployable to any prior commit. |
-| **Storage (avatars, post media)** | Supabase Storage, covered by the project backup | Media loss is the least damaging category — regenerable by users. |
+| **Storage (avatars, post media)** | **NOT COVERED — no backup exists** | <!-- claim:storage-backup=none --> Supabase's daily backup is the Postgres database only; Storage objects are not in it. A database restore would leave every `media_path`, `avatar_path` and `proof_path` row pointing at bytes that no longer exist. This is KCDX-053 and it is open. Corrected 2026-08-07 — the previous wording asserted backup coverage for this row, which was false and would have caused someone to skip the very backup that is missing. (Phrased without repeating the old sentence: `tests/doc-claims.test.ts` fails on that exact string, and a correction that quotes the error trips its own guard.) |
 | **Secrets** | Vercel environment variables | **Not in any backup.** See §4. |
 
 ---

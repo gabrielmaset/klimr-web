@@ -1,5 +1,5 @@
 import { MapPin, ExternalLink } from "lucide-react";
-import type { LatLng } from "@/lib/maps-url";
+import type { LatLng } from "@/lib/maps-parse";
 
 // A compact map card for the public event page. The iframe is the keyless Google
 // Maps embed (q + output=embed), which needs no API key and is frame-friendly. A

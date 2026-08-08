@@ -499,3 +499,218 @@ describe("Search telemetry (K3-08 decision data)", () => {
     expect(block).not.toContain("condensed");
   });
 });
+
+/* ── KCDX-001: the profile privacy boundary ──────────────────────────────────
+ * The boundary itself is in the database: migration 0191 revokes table-level
+ * SELECT on `profiles` and grants back a named public column list, so a member
+ * asking PostgREST for someone else's phone number is refused by Postgres. This
+ * test does not re-prove that — role tests do. What it guards is the code side:
+ * a private column may only be read from `profiles` in a file that has a
+ * privileged client, because those reads are server-side computation that never
+ * returns the value. Anywhere else, the read would simply fail at runtime with
+ * "permission denied", and failing in CI is cheaper than failing in production.
+ *
+ * Own-row reads go through the `profile_private` view, which filters to
+ * auth.uid() in SQL.
+ */
+describe("KCDX-001 profile privacy boundary", () => {
+  const PRIVATE = [
+    "date_of_birth", "birth_year", "phone", "phone_country", "home_zip",
+    "neighborhood", "availability", "account_status", "suspended_until",
+    "archived_at", "onboarding_draft", "signup_code",
+  ];
+  const listFiles = (dir: string): string[] => {
+    const out: string[] = [];
+    for (const e of readdirSync(dir)) {
+      const p = `${dir}/${e}`;
+      if (statSync(p).isDirectory()) out.push(...listFiles(p));
+      else if (/\.(ts|tsx)$/.test(p) && !p.endsWith("database.types.ts")) out.push(p);
+    }
+    return out;
+  };
+  const files = [...listFiles("app"), ...listFiles("components"), ...listFiles("lib")];
+
+  /* This test was wrong in a way worth recording, because it shipped a live
+   * regression. It asked whether a privileged client existed anywhere in the
+   * FILE and skipped the whole file if so — and `app/profile/[id]/page.tsx` has
+   * an admin client two hundred lines below a select that used the caller's own
+   * session. So after 0191 revoked the private columns, every member profile
+   * page 404'd, and this test stayed green.
+   *
+   * A file-level test cannot answer a statement-level question. It now captures
+   * the client identifier of each `.from("profiles")` chain and judges THAT. */
+  it("private columns are read from `profiles` only by the client making that call", () => {
+    const offenders: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(f, "utf8");
+      const re = /(\w+)\s*\n?\s*\.from\(\s*"profiles"\s*\)([\s\S]{0,700}?);/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src))) {
+        const [, client, chain] = m;
+        // No `s` flag: this project targets below es2018 and `\n?` already
+        // covers the only newline that appears here.
+        const sel = /\.select\(\s*\n?\s*"([^"]*)"/.exec(chain);
+        if (!sel) continue;
+        const bad = sel[1].split(",").map((c) => c.trim()).filter((c) => PRIVATE.includes(c) || c === "*");
+        if (!bad.length) continue;
+        if (/admin|privileged|service/i.test(client)) continue;
+        const line = src.slice(0, m.index).split("\n").length;
+        offenders.push(`${f}:${line} via ${client}: ${bad.join(", ")}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("the public projection in SQL and the type stay in step", () => {
+    const sql = readFileSync("supabase/migrations/0191_profile_private_boundary.sql", "utf8");
+    // every column granted on the base table must appear in profiles_public,
+    // and vice versa — a grant without a projection is an accident waiting.
+    const granted = (sql.match(/grant select \(([\s\S]*?)\) on public\.profiles to authenticated/) ?? [])[1] ?? "";
+    const grantedCols = granted.split(",").map((c) => c.trim()).filter(Boolean).sort();
+    expect(grantedCols.length).toBeGreaterThan(20);
+    for (const c of PRIVATE) expect(grantedCols).not.toContain(c);
+  });
+});
+
+/* ── KCDX-054: the privilege layer ───────────────────────────────────────────
+ * Two ratchets. The grandfather list may shrink and must never grow — that is
+ * the only mechanism keeping 88 raw admin imports from becoming 89. And the
+ * audit write must not go back to being a floating promise, which is the
+ * durability bug this finding is about.
+ */
+describe("KCDX-054 privilege layer", () => {
+  it("the admin grandfather list never grows", () => {
+    const src = readFileSync("eslint-admin-grandfather.mjs", "utf8");
+    const entries = src.match(/"[^"]+"/g) ?? [];
+    // Ratchet: lower this number when files migrate. Never raise it. A new file
+    // needing the raw client is a design decision, not a list edit.
+    expect(entries.length).toBeLessThanOrEqual(87);
+  });
+
+  // Comments in this file quote the old pattern in order to explain it, so a
+  // naive match flags the documentation rather than the code. Strip comments
+  // first — a tripwire that fires on its own explanation is a tripwire people
+  // learn to disable.
+  const codeOnly = (path: string) =>
+    readFileSync(path, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  it("the audit write is not fire-and-forget", () => {
+    const src = codeOnly("lib/privileged/index.ts");
+    // The original bug: `void (async () => { ...insert... })()`. On serverless
+    // the invocation can be reclaimed before that settles.
+    expect(src).not.toMatch(/void\s*\(async\s*\(\)\s*=>/);
+    expect(src).toContain("after(");
+  });
+
+  it("audit failures are logged rather than swallowed", () => {
+    const src = codeOnly("lib/privileged/index.ts");
+    expect(src).toContain("AUDIT WRITE FAILED");
+    // an empty catch block is how the previous version lost them
+    expect(src).not.toMatch(/catch\s*\{\s*\}/);
+  });
+});
+
+/* ── KCDX-068: nothing reaches error_logs unscrubbed ─────────────────────────
+ * Six writers were found and fixed. The seventh is the problem — a new route
+ * that inserts a raw browser-supplied string is one PR away, and it would look
+ * completely reasonable in review. */
+describe("KCDX-068 log scrubbing", () => {
+  it("every error_logs writer goes through the scrubber", () => {
+    const listFiles = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const e of readdirSync(dir)) {
+        const p = `${dir}/${e}`;
+        if (statSync(p).isDirectory()) out.push(...listFiles(p));
+        else if (/\.(ts|tsx)$/.test(p)) out.push(p);
+      }
+      return out;
+    };
+    const files = [...listFiles("app"), ...listFiles("lib"), "instrumentation.ts"];
+    const offenders = files.filter((f) => {
+      const src = readFileSync(f, "utf8");
+      const inserts = /\.from\(\s*"error_logs"\s*\)[\s\S]{0,80}?\.insert\(/.test(src);
+      return inserts && !src.includes("scrubLogRow");
+    });
+    expect(offenders).toEqual([]);
+  });
+});
+
+/* ── KCDX-056: no outbound call without a deadline ───────────────────────────
+ * A third-party fetch with no timeout does not fail on a serverless platform —
+ * it holds the invocation until the platform kills it, and a slow vendor becomes
+ * an outage of something unrelated. Every outbound call must go through
+ * callExternal (which requires a timeout) or carry its own AbortSignal. */
+describe("KCDX-056 outbound calls", () => {
+  it("no third-party fetch is issued without a deadline", () => {
+    const listFiles = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const e of readdirSync(dir)) {
+        const p = `${dir}/${e}`;
+        if (statSync(p).isDirectory()) out.push(...listFiles(p));
+        else if (/\.(ts|tsx)$/.test(p) && !p.endsWith(".test.ts")) out.push(p);
+      }
+      return out;
+    };
+    const offenders: string[] = [];
+    for (const f of [...listFiles("app"), ...listFiles("lib")]) {
+      const src = readFileSync(f, "utf8");
+      // absolute-URL fetches only: same-origin `/api/...` calls are ours.
+      // The span is found by paren depth, not by a lazy regex — a lazy match
+      // stops at the first `)`, which for a multi-line fetch is inside the
+      // options object, so it never sees the `signal` further down and reports
+      // every wrapped call as an offender. (Learned the hard way.)
+      const re = /fetch\(\s*[`"']https?:\/\//g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src))) {
+        let i = m.index + "fetch(".length;
+        let depth = 1;
+        while (depth > 0 && i < src.length) {
+          if (src[i] === "(") depth++;
+          else if (src[i] === ")") depth--;
+          i++;
+        }
+        const call = src.slice(m.index, i);
+        if (!/signal/.test(call)) {
+          const line = src.slice(0, m.index).split("\n").length;
+          offenders.push(`${f}:${line}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
+/* ── KCDX-047: format_config changes only via the patch API ──────────────────
+ * 0179 built the locking merge and two call sites used it while a dozen
+ * read-spread-write siblings stayed. That is how a lost-update fix ends up not
+ * fixing anything: the easy path is still the broken one. This makes the broken
+ * path fail the build. */
+describe("KCDX-047 tournament config patches", () => {
+  it("nothing writes format_config outside merge_format_config", () => {
+    const listFiles = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const e of readdirSync(dir)) {
+        const p = `${dir}/${e}`;
+        if (statSync(p).isDirectory()) out.push(...listFiles(p));
+        else if (/\.(ts|tsx)$/.test(p) && !p.endsWith(".test.ts")) out.push(p);
+      }
+      return out;
+    };
+    const offenders: string[] = [];
+    for (const f of [...listFiles("app"), ...listFiles("lib")]) {
+      const src = readFileSync(f, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(^|[^:])\/\/.*$/gm, "$1");
+      // an UPDATE naming format_config is the write we are banning; reads are fine.
+      // `[^}\n]` not `[^}]`: an unbounded span crosses statement boundaries and
+      // matches an innocent `.update({...})` that merely has a `format_config`
+      // somewhere below it — three false positives before this was tightened.
+      const re = /\.update\(\s*\{[^}\n]*\bformat_config\b/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src))) {
+        offenders.push(`${f}:${src.slice(0, m.index).split("\n").length}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

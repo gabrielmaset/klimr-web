@@ -54,7 +54,7 @@ export default async function MyProfilePage() {
   if (!user) redirect("/login?next=/me");
 
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("profile_private")
     .select(
       "display_name, avatar_hue, avatar_path, cover_path, verification_status, home_zip, neighborhood, city, state, country, primary_sport, bio, created_at, date_of_birth, birth_year",
     )

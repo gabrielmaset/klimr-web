@@ -117,6 +117,60 @@ Run in order in the Supabase SQL editor:
 
 ## Video
 
-Not enabled. Real video moderation (frame sampling + hash matching such as
-TMK+PDQF / CSAI Match) is a separate build. The schema reserves `media_type='video'`
-for when it lands; until then the app accepts images only.
+**Off, and off at the boundary** (migration 0195, audit KCDX-006). Two locks, in
+the two places that decide: `feed-media` no longer accepts video MIME types, so
+Storage refuses the bytes; and `posts_reject_video` refuses the row, for every
+role including `service_role`. The composer tab is gone too, but that is the
+least of it — a removed tab stops the honest user and nothing else.
+
+### What was wrong
+
+`createPost` ran the image classifier for images only. For a video it attached
+the label `media_unscreened` and produced **no verdict**, so the status computed
+to `approved`. The label was a note to ourselves, not a gate. Duration came from
+a browser `<video>` probe and content type from the upload request, so both facts
+about the file were asserted by the client and never checked against the bytes.
+
+### How it comes back
+
+Content screening is **delegated to an external provider** — the same decision
+and the same shape as the CSAM hash-matching seam above: a documented webhook
+contract, a real vendor behind it, and fail-closed when no provider is
+configured. We do not build frame sampling ourselves.
+
+**This is the standing decision for photos too** (owner, Aug 2026). Photos
+already run through two delegated screens — the CSAM hash-match seam and the AI
+classifier — and both fail closed. Video joins them when the gate is built; the
+model does not change, only the media type.
+
+One thing that decision depends on, worth stating where the decision lives:
+**a screening vendor is only a control if every byte reaches it.** Until
+migration 0199, four buckets carried an own-folder INSERT policy, so a member
+could PUT an object with nothing but their own JWT and never touch the server
+that calls the screener. Those policies are gone; the server mints a scoped
+signed-upload token after its checks. One browser-side path remains
+(`tournament-payments`, see 0199) and is named there rather than assumed away.
+
+That covers the screening. It does not cover the rest, and the rest is what
+KCDX-006 actually lists:
+
+| Requirement | Provider | Us |
+|---|---|---|
+| Prohibited-content screening of the video | ✅ | — |
+| Byte-level type validation (the file is what it claims) | — | ✅ |
+| Duration and codec probed from the file, not the browser | — | ✅ |
+| Private staging until a verdict returns | — | ✅ |
+| Derivatives (poster frame, transcode) | maybe | ✅ |
+| Captions / accessibility | — | ✅ |
+| Per-user quotas and orphan cleanup | — | ✅ |
+| Hostile-file tests (malformed, bomb, spoofed container) | — | ✅ |
+
+So the re-enable migration is not "point at the vendor and drop the trigger". It
+is: the seam, the server-side probing, the staging pipeline, the tests — and
+then, as the last two lines, `drop trigger posts_reject_video` and restore the
+three MIME types to `feed-media`. Both are deliberate; neither is a dashboard
+toggle. `video_disabled_intact()` fails the boot if either happens early.
+
+The `feed_video` feature flag controls the composer only. Its note in the
+database says so. A flag that looked like a kill switch but was not would be
+worse than no flag.

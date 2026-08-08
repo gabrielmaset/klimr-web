@@ -12,11 +12,22 @@ and the rules every future change must follow. It is paired with `docs/MIGRATION
 
 ## 1. Posture summary
 
-Klimr is **secure by design at the code/schema layer.** Authorization is enforced in the
-database with Row-Level Security on every table, privileged operations validate the caller
-server-side, secrets are server-only, and the classic attack classes for this stack
-(missing RLS, service-role key exposure, SQL injection, open redirect, account enumeration,
-admin self-promotion, XSS) were each checked and are closed.
+**Owner:** Gabriel Duran · **Last reconciled against source:** 2026-08-07 ·
+**Reconcile again:** every release, and after every remediation batch.
+
+Authorization is enforced in the database — Row-Level Security on every table,
+privileged operations validated server-side, secrets server-only. That is the design,
+and the design is sound.
+
+**What this document no longer claims.** The August 2026 independent audit found that
+several statements here described the intent rather than the code, and a control
+document that overstates its controls is worse than none: it is the thing people cite
+instead of checking. The absolute claims are gone. What replaces them is scope, status
+and date — and for the countable ones, an automated assertion in
+`tests/doc-claims.test.ts` that fails the build when this file and the source disagree.
+
+Open findings from that audit, and their state, are tracked per-ID in the remediation
+ledger. Nothing below should be read as "and therefore we are done".
 
 The remaining real risk is **operational**: RLS and policies only protect the live database
 once the migrations are applied, and two Supabase/Vercel dashboard settings must be
@@ -39,9 +50,9 @@ Reviewed against current known issues for this stack:
   host (Vercel strips the header) **and** defense-in-depth (authz also at the data layer).
 - **SQL / PostgREST filter injection.** → Parameterized queries + bound RPC params; the one
   `.or()` search filter is character-whitelisted.
-- **Account enumeration / phishing / account takeover.** → Uniform auth errors, MFA, no open
+- **Account enumeration / phishing / account takeover.** → Uniform auth errors, TOTP MFA with an app-level lockout (5 wrong codes / 15 min — the Supabase hook is Team/Enterprise-gated, so the policy runs in `verifyTotpAction`), no open
   redirects, identity verification at the gate.
-- **XSS.** → React auto-escaping, no `dangerouslySetInnerHTML`, E2EE chat ciphertext.
+- **XSS.** → React auto-escaping everywhere, plus write-time and render-time sanitisation on the rich-text surfaces. <!-- claim:xss-sinks=10 --> There are **10** `dangerouslySetInnerHTML` call sites, not zero; every one renders content that passed `lib/rich-text.ts` sanitisation or is server-generated (JSON-LD, sanitised tournament copy). The claim is "no unsanitised sink", which is checkable; "no `dangerouslySetInnerHTML`" was not true.
 - **Re-enabling disabled features.** → Disabled server actions are not imported, so no
   endpoint is registered.
 
@@ -90,7 +101,7 @@ Reviewed against current known issues for this stack:
   alphanumerics + spaces, so no filter metacharacters (`, ( ) %` or operators) can reach it.
 
 ### XSS / content
-- No `dangerouslySetInnerHTML` in the codebase; all user content renders as text (React
+- 10 `dangerouslySetInnerHTML` sites, each fed by sanitised or server-generated HTML; all other user content renders as text (React
   auto-escapes). Chat is end-to-end encrypted, so message bodies are ciphertext at rest.
 
 ### Open redirect
@@ -119,7 +130,7 @@ Reviewed against current known issues for this stack:
   unreachable, not merely hidden.
 
 ### Platform
-- 18+ only; user media (photo upload) is intentionally disabled until it is legally
+- 18+ only. <!-- claim:video-disabled=true --> **Video** is disabled at the boundary (migration 0195): the `feed-media` MIME allowlist refuses video bytes and the `posts_reject_video` trigger refuses the row, for every role including `service_role`. **Photo upload is ENABLED** and gated by the CSAM hash-match seam plus the AI classifier, both fail-closed — the older blanket statement that user media is disabled has not been true since that pipeline shipped. Photo upload is intentionally disabled only until it is legally
   supported, which removes a large content-risk surface.
 
 ---
@@ -179,10 +190,10 @@ Reviewed against current known issues for this stack:
    first**, and scope to the caller's own data. Never trust a client-supplied ID without an
    ownership/role check.
 3. **Never import `lib/supabase/admin` into a client component.** It is server-only.
-4. **No `dangerouslySetInnerHTML`.** Render user-supplied content as text.
+4. **No UNSANITISED `dangerouslySetInnerHTML`.** Render user-supplied content as text, or pass it through `lib/rich-text.ts` first. Adding a sink means updating the count in this file — `tests/doc-claims.test.ts` enforces that.
 5. **Validate every redirect target** (relative path, single leading slash).
 6. **Sanitize/whitelist any user input** used inside a PostgREST `.or()` / `.filter()` string.
-7. **Keep the 18+ posture and keep user media disabled** until it is legally supported.
+7. **Keep the 18+ posture.** Keep **video** disabled until the media safety gate exists (KCDX-006); photo upload stays behind the fail-closed scanning seam.
 8. New external dependencies and framework upgrades get a quick security look before merge.
 
 ---

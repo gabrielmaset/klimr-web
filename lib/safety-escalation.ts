@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { callExternal } from "@/lib/external";
 
 /**
  * CSAE escalation path. Invoked when known-CSAM hash matching hits, or when the AI
@@ -37,7 +38,13 @@ async function alertSafetyContact(incidentId: string | null, input: EscalationIn
   const hook = process.env.SAFETY_ALERT_WEBHOOK;
   if (hook) {
     try {
-      await fetch(hook, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(summary) });
+      // KCDX-056: had no timeout. This is a best-effort alert with a logging
+      // fallback, so a slow endpoint should cost seconds, not the invocation.
+      // Two retries because the alert genuinely matters and posting it twice is
+      // an acceptable failure mode next to not posting it at all.
+      await callExternal({ vendor: "safety-alert", timeoutMs: 5000, retries: 2 }, (signal) =>
+        fetch(hook, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(summary), signal }),
+      );
       return;
     } catch {
       /* fall through to logging */

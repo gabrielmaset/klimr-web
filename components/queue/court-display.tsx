@@ -298,11 +298,26 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
     noteTimer.current = setTimeout(() => setNote(null), 8000);
   };
 
+  // KCDX-007: a code selects the session; the device capability is what permits
+  // changing it. Every kiosk command carries the install id and the token minted
+  // at registration, and the server refuses without them. A display that has not
+  // registered — or whose token was revoked, or that has been dark for ten
+  // minutes — can still show the queue and can no longer record a result.
   const act = (fn: (fd: FormData) => Promise<{ ok?: true; error?: string }>, fields: Record<string, string>) => {
     start(async () => {
       const f = new FormData();
       for (const [k, v] of Object.entries(fields)) f.append(k, v);
-      await fn(f);
+      if (fields.code) {
+        const token = await ensureDeviceToken(fields.code, isApp);
+        if (!token) {
+          showNote("This display isn't registered yet — re-enter the code to set it up.");
+          return;
+        }
+        f.append("installId", getInstallId());
+        f.append("deviceToken", token);
+      }
+      const res = await fn(f);
+      if (res?.error) showNote(res.error);
       await refetch();
     });
   };

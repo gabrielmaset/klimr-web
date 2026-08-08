@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notify";
 import { requireAdmin, logAdminAction } from "@/lib/admin";
 import { SPORT_KEYS } from "@/lib/sports";
+import { callExternal } from "@/lib/external";
 
 export async function resolveReport(formData: FormData) {
   const { userId } = await requireAdmin("support");
@@ -365,7 +366,10 @@ async function sendAccessCodeEmail(
   </div></body></html>`;
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    // KCDX-056: had no timeout. NO retry — a retried send delivers a second
+    // email, and a duplicate invite is worse than a failed one the admin can repeat.
+    const res = await callExternal({ vendor: "resend", timeoutMs: 8000 }, (signal) =>
+      fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -375,7 +379,9 @@ async function sendAccessCodeEmail(
         text,
         html,
       }),
-    });
+        signal,
+      }),
+    );
     if (!res.ok) {
       console.error("[codes] resend failed", res.status, await res.text());
       return false;
@@ -560,13 +566,40 @@ export async function reviewProviderApplication(formData: FormData) {
   const credentialExpires = expiresRaw && !Number.isNaN(Date.parse(expiresRaw)) ? new Date(expiresRaw + "T23:59:59Z").toISOString() : null;
   if (!appId || !["approve", "reject"].includes(decision)) return;
 
+  // KCDX-011: the decision names the exact version it was made about. The review
+  // page renders `content_hash` into the form; if the application moved between
+  // rendering and this call, the approval fails instead of silently transferring
+  // to whatever the row says now. The applicant can no longer edit a pending
+  // application at all (0203) — this closes the window that freeze cannot: a
+  // service-role write, an admin script, a future policy change.
+  const reviewedHash = String(formData.get("contentHash") ?? "");
   const admin = createAdminClient();
-  const { data: app } = await admin
-    .from("provider_applications")
-    .select("id, user_id, role, headline, credential_type, credential_id, credential_jurisdiction, verification_url, applicant_note")
-    .eq("id", appId)
-    .maybeSingle();
-  if (!app) return;
+  const { data: decided, error: decideErr } = await admin.rpc("provider_review_decide", {
+    p_app: appId,
+    p_decision: decision === "approve" ? "approved" : "rejected",
+    p_expected_hash: reviewedHash,
+    p_reviewer: userId,
+    p_note: note,
+  });
+  const outcome = decided as
+    | { ok?: boolean; error?: string; user_id?: string; role?: string; headline?: string | null;
+        credential_type?: string | null; credential_id?: string | null;
+        credential_jurisdiction?: string | null; verification_url?: string | null }
+    | null;
+  if (decideErr || !outcome?.ok) return;
+  // Everything below grants the role that was REVIEWED, taken from the command's
+  // return value — not re-read from a row that may have changed since.
+  const app = {
+    id: appId,
+    user_id: outcome.user_id!,
+    role: outcome.role!,
+    headline: outcome.headline ?? null,
+    credential_type: outcome.credential_type ?? null,
+    credential_id: outcome.credential_id ?? null,
+    credential_jurisdiction: outcome.credential_jurisdiction ?? null,
+    verification_url: outcome.verification_url ?? null,
+    applicant_note: null as string | null,
+  };
   const { data: appSubject } = await admin.from("profiles").select("display_name").eq("id", app.user_id).maybeSingle();
   const credentialMeta = {
     subject_name: appSubject?.display_name ?? null,
@@ -598,10 +631,8 @@ export async function reviewProviderApplication(formData: FormData) {
       },
       { onConflict: "user_id" },
     );
-    await admin
-      .from("provider_applications")
-      .update({ status: "approved", review_note: note, reviewed_by: userId, reviewed_at: new Date().toISOString() })
-      .eq("id", appId);
+    // status/review_note/reviewer were stamped by provider_review_decide, inside
+    // the same transaction that verified the hash.
     await logAdminAction(userId, `provider_app:approve:${app.role}`, app.user_id, note ?? undefined, appId, { ...credentialMeta, decision: "approved", reviewer_note: note, credential_expires: credentialExpires });
     await createNotification({
       userId: app.user_id,
@@ -611,10 +642,6 @@ export async function reviewProviderApplication(formData: FormData) {
       linkUrl: "/settings/professional",
     });
   } else {
-    await admin
-      .from("provider_applications")
-      .update({ status: "rejected", review_note: note, reviewed_by: userId, reviewed_at: new Date().toISOString() })
-      .eq("id", appId);
     await logAdminAction(userId, `provider_app:reject:${app.role}`, app.user_id, note ?? undefined, appId, { ...credentialMeta, decision: "rejected", reviewer_note: note });
     await createNotification({
       userId: app.user_id,

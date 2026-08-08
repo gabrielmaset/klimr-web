@@ -38,7 +38,25 @@ describe("queue audience projection", () => {
   it("keeps the public join credential the courtside display renders", () => {
     const out = projectQueueState(state, { isOrganizer: false, isAdmin: false });
     expect(out.session.code).toBe("WXYZ89");
+  });
+
+  // KCDX-008 reverses a Phase 0 decision. This test used to assert that
+  // `displayCode` survived the projection, on the reading that it was another
+  // public credential. It is not: it is the Courtside operator credential, and
+  // shipping it to every viewer of every queue page is how someone who never
+  // visited the venue ends up able to record match results.
+  it("withholds the operator credential from ordinary viewers", () => {
+    for (const viewer of [{ isOrganizer: false, isAdmin: false }, { isOrganizer: false, isAdmin: false, isOperator: false }]) {
+      expect(projectQueueState(state, viewer).session.displayCode).toBeNull();
+    }
+  });
+
+  it("gives the operator credential to a registered display", () => {
+    const out = projectQueueState(state, { isOrganizer: false, isAdmin: false, isOperator: true });
     expect(out.session.displayCode).toBe("ABCD23");
+    // …and still nothing else the organizer sees.
+    expect(out.session.centerLat).toBeNull();
+    expect(out.pending).toHaveLength(0);
   });
   it("gives the organizer and admins the full state", () => {
     for (const viewer of [{ isOrganizer: true, isAdmin: false }, { isOrganizer: false, isAdmin: true }]) {

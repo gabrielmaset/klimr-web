@@ -84,7 +84,7 @@ operational, **Sec** = security/audit. "Reader" is who may read at runtime.
 ### Tables — personal
 | Object | Class | Purpose | Reader (runtime) | Retention |
 |---|---|---|---|---|
-| `profiles` | P | Account, display identity, home ZIP | Owner + RLS-scoped viewers; service role | Life of account; purged on deletion |
+| `profiles` | P | Account, display identity, home ZIP | <!-- claim:profile-readers=split --> **Owner only** for the private set (DOB, birth year, phone, home ZIP, neighbourhood, availability, account state) via the `profile_private` view; **all members** for the 30 columns of `profiles_public`; service role for both. Corrected 2026-08-07: until migration 0191 every member could read every column of every profile, so "RLS-scoped viewers" described the intent, not the grant. | Life of account; purged on deletion |
 | `auth.users` | P | Auth identity, email | Supabase Auth; service role | Life of account; deleted on purge |
 | `mfa_failed_verification_attempts` | Sec | TOTP lockout counters (0055) | `supabase_auth_admin` + privileged server (K1-02) | Rows self-expire; cleared on success |
 | `connections` / social graph (0099) | P | Follows, requests, blocks | RLS-scoped to the two parties | Life of account |
@@ -191,8 +191,25 @@ Deliver as machine-readable JSON plus a plain-language index of what each file
 contains, because portability that requires an engineer to interpret is not
 portability.
 
-**Implementation status: SPECIFIED, NOT BUILT.** Today an export is assembled
-manually against this list. That is workable at pilot scale and is the honest
-position; automate it before the member count makes manual assembly unreliable.
+<!-- claim:export-coverage=partial-with-index -->
+**Implementation status: BUILT, PARTIAL, AND HONEST ABOUT IT (Aug 2026, KCDX-057).**
+`/settings/export` returns all nine categories above — identity, social, content,
+play, teams, commerce, communications, safety, devices — as `format_version: 2`.
+
+It previously returned five things while this table promised nine, which is the
+worst version of a data-rights route: the member believes they have their data
+and nobody is prompted to fulfil the rest.
+
+What it still cannot include is stated **inside the payload**, under
+`coverage.excluded`, with a reason for each: chat message bodies (end-to-end
+encrypted — the server holds ciphertext and cannot decrypt it), uploaded media
+(referenced by storage path, not embedded), other participants' contributions to
+shared objects, staff identities in moderation records, and authentication
+secrets. Each points at support@klimr.com for verified manual fulfilment. That
+inclusion/exclusion index is what makes a partial export honest rather than
+misleading.
+
+Still owed: a media bundle job, and audit evidence that an export was produced
+and delivered.
 The object-level map in §7 is the authoritative source for what exists to
 export, so the two must be updated together.

@@ -16,7 +16,7 @@ export default async function EmailSettingsPage({ searchParams }: { searchParams
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/settings/email");
   const phoneFlag = (await searchParams).phone ?? null;
-  const { data: prof } = await supabase.from("profiles").select("phone, phone_country").eq("id", user.id).maybeSingle();
+  const { data: prof } = await supabase.from("profile_private").select("phone, phone_country").eq("id", user.id).maybeSingle();
 
   return (
     <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">

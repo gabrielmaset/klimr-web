@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { SearchResult, SearchResultType } from "./types";
 import { blockSetsFor } from "@/lib/social-server";
 import { interpretQuery } from "@/lib/search-query";
+import { publicLocationLabel } from "@/lib/location-privacy";
 
 const joinLoc = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(", ") || null;
 
@@ -93,16 +94,19 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
     .map((r) => r.id);
   const players = new Map<string, { url: string | null; hue: number; loc: string | null }>();
   if (playerIds.length) {
+    // KCDX-026: `neighborhood` was joined into the result subtitle — a finer
+    // location than location-privacy.ts publishes anywhere in the product, and
+    // one 0191 no longer lets a member read anyway. City/state is the grain.
     const { data: ps } = await supabase
-      .from("profiles")
-      .select("id, avatar_path, avatar_hue, neighborhood, city, account_status")
+      .from("profiles_public")
+      .select("id, avatar_path, avatar_hue, city, state, is_active")
       .in("id", playerIds);
     for (const p of ps ?? []) {
-      if (p.account_status !== "active") continue;
+      if (p.is_active === false) continue;
       players.set(p.id, {
         url: p.avatar_path ? supabase.storage.from("avatars").getPublicUrl(p.avatar_path).data.publicUrl : null,
         hue: p.avatar_hue ?? 200,
-        loc: joinLoc(p.neighborhood, p.city),
+        loc: publicLocationLabel(p),
       });
     }
   }

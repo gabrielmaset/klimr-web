@@ -1,102 +1,19 @@
-// lib/maps-url.ts — turn a Google Maps link into a precise { lat, lng }.
-//
-// Organizers often paste a Google Maps link as an event's location_url instead of
-// a clean street address. The map embed geocodes the address text, so a vague
-// "Santa Monica, CA" lands the pin on the city — not the exact meeting spot in the
-// link. These helpers pull the real coordinate out of the link so the embed can
-// drop the pin exactly where the organizer meant.
+import { safeGet, type SafeResponse } from "@/lib/egress";
+import { isPermittedMapsHop } from "@/lib/maps-hop-rules";
+import { parseLatLngFromMapsUrl, isMapsShortLink, validLatLng, type LatLng } from "@/lib/maps-parse";
 
-export type LatLng = { lat: number; lng: number };
+/** Server-side Maps resolution. The PURE parsers live in `lib/maps-parse.ts` —
+ *  this module reaches the network, so importing it from a client component
+ *  drags `node:dns` into the browser bundle and fails the build. Re-exported
+ *  below so existing server callers keep working unchanged. */
+export { parseLatLngFromMapsUrl, isMapsShortLink };
+export type { LatLng };
 
-const validLatLng = (lat: number, lng: number) =>
-  Number.isFinite(lat) &&
-  Number.isFinite(lng) &&
-  Math.abs(lat) <= 90 &&
-  Math.abs(lng) <= 180 &&
-  !(lat === 0 && lng === 0);
-
-// Pull coordinates out of a *full* Google Maps URL (or any text containing one) —
-// no network. Handles the common shapes, most precise first:
-//   !3dLAT!4dLNG   (the data pin embedded in place URLs)
-//   /@LAT,LNG      (map centre)
-//   q=/query=/ll=/sll=/center=/destination=  LAT,LNG
-export function parseLatLngFromMapsUrl(raw: string | null | undefined): LatLng | null {
-  if (!raw) return null;
-  let s: string;
-  try {
-    s = decodeURIComponent(raw);
-  } catch {
-    s = raw;
-  }
-
-  const bang = s.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
-  if (bang) {
-    const lat = parseFloat(bang[1]);
-    const lng = parseFloat(bang[2]);
-    if (validLatLng(lat, lng)) return { lat, lng };
-  }
-
-  const at = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-  if (at) {
-    const lat = parseFloat(at[1]);
-    const lng = parseFloat(at[2]);
-    if (validLatLng(lat, lng)) return { lat, lng };
-  }
-
-  const kv = s.match(/[?&#](?:q|query|ll|sll|center|destination|daddr)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
-  if (kv) {
-    const lat = parseFloat(kv[1]);
-    const lng = parseFloat(kv[2]);
-    if (validLatLng(lat, lng)) return { lat, lng };
-  }
-
-  // Old-style goo.gl short links expand to a PATH-coordinate search URL:
-  //   /maps/search/34.021018,+-118.510259?shorturl=1
-  // — comma-PLUS separator (a literal '+', which decodeURIComponent never
-  // touches). Found via the organizer re-check trace on a real event after
-  // three blind fixes missed it; the coordinates were in the URL all along.
-  const path = s.match(/\/maps\/(?:search|dir|place)\/(-?\d{1,2}(?:\.\d+)?),[+\s]*(-?\d{1,3}(?:\.\d+)?)(?=[/?,&]|$)/);
-  if (path) {
-    const lat = parseFloat(path[1]);
-    const lng = parseFloat(path[2]);
-    if (validLatLng(lat, lng)) return { lat, lng };
-  }
-
-  return null;
-}
-
-// Google serves short-link redirects differently by client: browsers get the
-// 302, unfamiliar agents often get a 200 interstitial with a meta-refresh or
 // JS hop. A browser-grade UA gets the honest redirect chain.
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-const SHORT_HOSTS = new Set(["goo.gl", "maps.app.goo.gl", "app.goo.gl", "g.co"]);
 
-// Is this one of Google's shortened share links (which carry no coordinates until
-// they're expanded)?
-export function isMapsShortLink(raw: string | null | undefined): boolean {
-  if (!raw) return false;
-  try {
-    const host = new URL(raw).hostname.replace(/^www\./, "");
-    return SHORT_HOSTS.has(host);
-  } catch {
-    return false;
-  }
-}
-
-// Server-only: resolve a short link by WALKING the redirect chain ourselves and
-// parsing coordinates from each hop URL — never from arbitrary HTML. Google
-// sunset consumer goo.gl links in 2025; whatever interstitial they serve now,
-// running the @lat,lng pattern over its markup produced one deterministic junk
-// coordinate for every link (the pin in Hampshire). Rules now:
-//   1. URL patterns run on URLs only (every redirect hop, incl. consent
-//      unwrapping) — that's where they mean something.
-//   2. If the chain lands on /maps/place/<name> with no inline coordinate,
-//      geocode the place name through the Geocoding API.
-//   3. HTML is consulted only when the final page is a real google.*/maps
-//      document, and only with page-specific patterns.
-// Cached a day; always fails soft to null (callers fall back to geocoding the
 // venue text).
 const short = (u: string) => (u.length > 96 ? u.slice(0, 93) + "…" : u);
 
@@ -106,13 +23,24 @@ export async function resolveMapsShortLink(raw: string | null | undefined, trace
   const timer = setTimeout(() => controller.abort(), 6500);
   try {
     let current = raw;
-    let finalRes: Response | null = null;
+    let finalRes: SafeResponse | null = null;
     for (let hop = 0; hop < 6; hop++) {
-      const res = await fetch(current, {
-        redirect: "manual",
-        signal: controller.signal,
+      // KCDX-019: revalidate on EVERY hop. `current` at this point may have come
+      // from a Location header, a consent unwrap, or a URL scraped out of HTML —
+      // all attacker-influenced. Checking only the URL we were handed is the
+      // whole bug.
+      if (!isPermittedMapsHop(current)) {
+        trace?.push(`refused hop ${hop + 1}: ${short(current)} is not a permitted Maps host`);
+        return null;
+      }
+      // safeGet refuses to connect to a non-public address, checked inside the
+      // DNS lookup the socket itself uses — so an allowlisted host that resolves
+      // to link-local or RFC1918 space (DNS rebinding) is stopped at connect,
+      // not merely at the allowlist above. It never follows redirects: the walk
+      // stays here, where each hop is re-checked.
+      const res = await safeGet(current, {
         headers: { "user-agent": BROWSER_UA, "accept": "text/html,application/xhtml+xml", "accept-language": "en-US,en;q=0.9" },
-        cache: "no-store",
+        timeoutMs: 6500,
       });
       const loc = res.headers.get("location");
       trace?.push(`walk ${hop + 1}: ${short(current)} → ${res.status}${loc ? " → " + short(loc) : ""}`);
@@ -162,23 +90,22 @@ export async function resolveMapsShortLink(raw: string | null | undefined, trace
     } else if (finalRes) {
       trace?.push(`walk ended at ${short(current)} — not a place page, body refused (Hampshire rule)`);
     }
-    // Last resort: let the platform follow the whole chain and read ONLY the
-    // final URL (never a body) — catches redirect shapes the manual walk missed.
-    try {
-      const followed = await fetch(raw, { redirect: "follow", signal: controller.signal, cache: "no-store", headers: { "user-agent": BROWSER_UA, "accept": "text/html,application/xhtml+xml", "accept-language": "en-US,en;q=0.9" } });
-      trace?.push(`platform-follow final: ${short(followed.url)} (${followed.status})`);
-      const p2 = parseLatLngFromMapsUrl(followed.url);
-      if (p2) return p2;
-      const place2 = placeTextFromMapsUrl(followed.url);
-      if (place2) {
-        const g2 = await geocodeAddress(place2);
-        trace?.push(`follow place text "${place2}" → ${g2 ? "geocoded" : "miss"}`);
-        if (g2) return g2;
-      }
-      console.error("[maps] short-link unresolved", { raw, walked: current, followed: followed.url, status: followed.status });
-    } catch {
-      console.error("[maps] short-link unresolved", { raw, walked: current });
-    }
+    // REMOVED (KCDX-019, second pass). This used to be a "last resort" that
+    // called `fetch(raw, { redirect: "follow" })` and read the final URL — the
+    // reasoning being that the platform catches redirect shapes the manual walk
+    // misses. It also catches every shape the allowlist exists to refuse: with
+    // `redirect: follow` the runtime walks the whole chain itself, so a hop to
+    // link-local or RFC1918 space is followed before any of our code sees it.
+    //
+    // The first SSRF pass fixed `resolveMapsShortLink`'s loop and left this
+    // sitting twenty lines below it, which is worth recording plainly: "the
+    // check runs before every fetch" was true of the function I was reading and
+    // false of the file. Enumerate the call sites, not the ones in view.
+    //
+    // Nothing replaces it. The manual walk already unwraps consent and HTML
+    // continuations across six hops, and an unresolved short link falls through
+    // to geocoding the venue text — a slightly worse pin, not a broken feature.
+    console.error("[maps] short-link unresolved", { raw, walked: current });
     return null;
   } catch (err) {
     trace?.push(`aborted: ${err instanceof Error ? err.name : "error"} (likely timeout)`);

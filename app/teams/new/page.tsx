@@ -14,7 +14,7 @@ export default async function NewTeamPage() {
   if (!user) redirect("/login?next=/teams/new");
   if (!(await accountActive(supabase, user.id))) redirect("/teams");
 
-  const { data: profile } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profile_private").select("home_zip").eq("id", user.id).maybeSingle();
 
   return <TeamCreateWizard homeZip={profile?.home_zip ?? ""} />;
 }

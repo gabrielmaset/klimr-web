@@ -44,6 +44,15 @@ $P -c "select
  (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public') funcs,
  (select count(*) from pg_policies where schemaname='public') policies,
  (select count(*) from storage.buckets) buckets"
+# KCDX-018: negative authorization, as the roles that matter. A replay that
+# builds the right schema but hands members the wrong privileges is not a pass.
+echo "-- negative authorization suite --"
+if $P -f "$REPO/supabase/tests/rls_negative_suite.sql" > "$W/neg.out" 2>&1; then
+  echo "rls_negative_suite=PASS ($(grep -c 'ok  ' "$W/neg.out") checks)"
+else
+  echo "rls_negative_suite=FAIL"; grep -E "FAIL|ERROR" "$W/neg.out" | head -5; fails=$((fails+1))
+fi
+
 echo "-- acceptance probes --"
 $P -tAc "select 'manifest_missing='||coalesce(array_to_string(public.schema_manifest_missing(), ', '), '')" 
 $P -tAc "select 'avatar_path='||count(*) from information_schema.columns where table_name='profiles' and column_name='avatar_path'"

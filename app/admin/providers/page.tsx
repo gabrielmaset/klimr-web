@@ -11,6 +11,9 @@ type AppRow = {
   id: string;
   user_id: string;
   role: string;
+  /** KCDX-011: the version identifier this page rendered; submitted back with the
+   *  decision so an approval cannot land on different contents. */
+  content_hash: string | null;
   credential_type: string | null;
   credential_id: string | null;
   credential_jurisdiction: string | null;
@@ -45,7 +48,7 @@ export default async function AdminProvidersPage() {
 
   const { data: pendingApps } = await admin
     .from("provider_applications")
-    .select("id, user_id, role, credential_type, credential_id, credential_jurisdiction, verification_url, headline, bio, applicant_note, created_at, document_path")
+    .select("id, user_id, role, credential_type, credential_id, credential_jurisdiction, verification_url, headline, bio, applicant_note, created_at, document_path, content_hash")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
   const apps = (pendingApps as AppRow[] | null) ?? [];
@@ -164,6 +167,10 @@ export default async function AdminProvidersPage() {
 
                 <form action={reviewProviderApplication} className="mt-3 flex flex-wrap items-center gap-2">
                   <input type="hidden" name="appId" value={a.id} />
+                  {/* KCDX-011: the decision names the version being shown. If the
+                      application changes between this render and the click, the
+                      approval is refused rather than applied to new contents. */}
+                  <input type="hidden" name="contentHash" value={a.content_hash ?? ""} />
                   <label className="flex items-center gap-1.5 text-xs font-semibold text-ink-soft">
                     Expires
                     <input type="date" name="credential_expires" className="rounded-[10px] border border-rule-2 bg-bg px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand" />

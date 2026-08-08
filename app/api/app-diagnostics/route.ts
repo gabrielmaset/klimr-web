@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
 import { createHash } from "node:crypto";
+import { scrubLogRow } from "@/lib/log-scrub";
 
 export const dynamic = "force-dynamic";
 
@@ -49,13 +50,18 @@ export async function POST(req: Request) {
   if ((count ?? 0) >= 500) {
     return new NextResponse(null, { status: 204 });
   }
+  // KCDX-068: `message` and `detail` arrive from a Courtside display over the
+  // public network. The throttle above bounds volume; the scrubber bounds content.
   await admin.from("error_logs").insert({
     user_id: null,
     level,
-    message: `[Courtside] ${message}`,
-    detail,
+    ...scrubLogRow({
+      message: `[Courtside] ${message}`,
+      detail,
+      url: "app://courtside",
+      userAgent: req.headers.get("user-agent") ?? "",
+    }),
     url: "app://courtside",
-    user_agent: (req.headers.get("user-agent") ?? "").slice(0, 300),
   });
   return new NextResponse(null, { status: 204 });
 }

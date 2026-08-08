@@ -16,7 +16,6 @@ type Prof = {
   avatar_path: string | null;
   verification_status: string;
   primary_sport: string | null;
-  neighborhood: string | null;
   location_precision?: string | null;
   city: string | null;
 };
@@ -71,7 +70,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
   if (allIds.length) {
     const { data } = await supabase
       .from("profiles")
-      .select("id, display_name, avatar_hue, avatar_path, verification_status, primary_sport, neighborhood, city, location_precision")
+      .select("id, display_name, avatar_hue, avatar_path, verification_status, primary_sport, city, location_precision")
       .in("id", allIds);
     for (const p of (data as Prof[] | null) ?? []) pmap.set(p.id, p);
   }

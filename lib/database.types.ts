@@ -222,6 +222,7 @@ export interface Database {
           reliability: number;
           avatar_hue: number;
           avatar_path: string | null;
+          is_active: boolean | null;
           cover_path: string | null;
           bio: string | null;
           gender: string | null;
@@ -882,6 +883,8 @@ export interface Database {
           target_ref: string | null;
           detail: string | null;
           meta: Json | null;
+          command_id: string | null;
+          outcome: string | null;
           created_at: string;
         };
         Insert: {
@@ -892,9 +895,11 @@ export interface Database {
           target_ref?: string | null;
           detail?: string | null;
           meta?: Json | null;
+          command_id?: string | null;
+          outcome?: string | null;
           created_at?: string;
         };
-        Update: { detail?: string | null };
+        Update: { detail?: string | null; outcome?: string | null };
         Relationships: [];
       };
       user_preferences: {
@@ -1856,6 +1861,9 @@ export interface Database {
           reviewed_at: string | null;
           created_at: string;
           updated_at: string;
+          content_hash: string | null;
+          submitted_at: string | null;
+          version: number;
          phone: string | null; attestations: Json; };
         Insert: {
           id?: string;
@@ -1874,6 +1882,9 @@ export interface Database {
           reviewed_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          content_hash?: string | null;
+          submitted_at?: string | null;
+          version?: number;
          document_path?: string | null;  phone?: string | null; attestations?: Json; };
         Update: {
           status?: string;
@@ -1888,6 +1899,9 @@ export interface Database {
           reviewed_by?: string | null;
           reviewed_at?: string | null;
           updated_at?: string;
+          content_hash?: string | null;
+          submitted_at?: string | null;
+          version?: number;
         };
         Relationships: [];
       };
@@ -1997,7 +2011,102 @@ export interface Database {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      /** KCDX-001: your own profile row, every column. The view filters on
+       *  `id = auth.uid()` in SQL, so a query with no filter still returns at
+       *  most your own row. */
+      profile_private: {
+        Row: {
+          account_status: string;
+          archived_at: string | null;
+          availability: { day: string; start: string; end: string }[];
+          avatar_hue: number;
+          avatar_path: string | null;
+          bio: string | null;
+          birth_year: number | null;
+          city: string | null;
+          connections_count: number;
+          country: string;
+          cover_path: string | null;
+          created_at: string;
+          date_of_birth: string | null;
+          display_name: string;
+          first_name: string | null;
+          followers_count: number;
+          following_count: number;
+          gear: Json;
+          gender: string | null;
+          handedness: string | null;
+          home_zip: string | null;
+          id: string;
+          is_active: boolean | null;
+          last_name: string | null;
+          last_seen_at: string | null;
+          location_precision: string;
+          member_no: number | null;
+          neighborhood: string | null;
+          onboarding_draft: Json | null;
+          open_to_invites: boolean;
+          phone: string | null;
+          phone_country: string;
+          play_style: string;
+          preferred_format: string;
+          presence_mode: string;
+          primary_sport: string | null;
+          profile_gallery: Json;
+          reliability: number;
+          show_courts: boolean;
+          show_teams: boolean;
+          show_tournaments: boolean;
+          signup_code: string | null;
+          state: string | null;
+          suspended_until: string | null;
+          timezone: string | null;
+          usual_times: string | null;
+          verification_status: VerificationStatus;
+        };
+        Relationships: [];
+      };
+      /** KCDX-001: the approved member-to-member projection of `profiles`.
+       *  Adding a field here is a privacy decision, and it also has to be
+       *  granted by name on the base table — the type will not save you. */
+      profiles_public: {
+        Row: {
+          id: string;
+          display_name: string;
+          avatar_hue: number;
+          avatar_path: string | null;
+          cover_path: string | null;
+          bio: string | null;
+          city: string | null;
+          state: string | null;
+          country: string;
+          primary_sport: string | null;
+          verification_status: VerificationStatus;
+          reliability: number;
+          connections_count: number;
+          followers_count: number;
+          following_count: number;
+          member_no: number | null;
+          created_at: string;
+          last_seen_at: string | null;
+          presence_mode: string;
+          open_to_invites: boolean;
+          show_courts: boolean;
+          show_teams: boolean;
+          show_tournaments: boolean;
+          gear: Json;
+          profile_gallery: Json;
+          usual_times: string | null;
+          play_style: string;
+          preferred_format: string;
+          handedness: string | null;
+          is_active: boolean | null;
+          age: number | null;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       get_ranked_feed: {
         Args: { p_scope?: string; p_limit?: number };
@@ -2112,7 +2221,7 @@ export interface Database {
       complete_job: { Args: { p_id: string }; Returns: undefined };
       fail_job: { Args: { p_id: string; p_error: string }; Returns: string };
       replay_job: { Args: { p_id: string }; Returns: undefined };
-      merge_format_config: { Args: { p_id: string; p_patch: Json; p_expected_updated_at: string | null }; Returns: Json };
+      merge_format_config: { Args: { p_id: string; p_patch: Json; p_expected_updated_at?: string | null }; Returns: Json };
       courtside_register: { Args: { p_install_id: string; p_code: string; p_token_hash: string; p_platform: string | null; p_app_version: string | null }; Returns: boolean };
       courtside_heartbeat: { Args: { p_install_id: string; p_token_hash: string; p_app_version: string | null; p_platform: string | null; p_network_state: string | null; p_battery_pct: number | null; p_session_id: string | null; p_ip_hash: string | null }; Returns: boolean };
       courtside_revoke: { Args: { p_install_id: string }; Returns: undefined };
@@ -2122,6 +2231,32 @@ export interface Database {
       perf_report: { Args: { p_hours: number }; Returns: { metric: string; budget_ms: number; samples: number; p50_ms: number | null; p95_ms: number | null; worst_ms: number | null; within_budget: boolean | null }[] };
       prune_perf_samples: { Args: Record<string, never>; Returns: number };
       schema_manifest_missing: { Args: Record<string, never>; Returns: string[] };
+      profile_boundary_intact: { Args: Record<string, never>; Returns: boolean };
+      queue_boundary_intact: { Args: Record<string, never>; Returns: boolean };
+      tournament_boundary_intact: { Args: Record<string, never>; Returns: boolean };
+      moderation_reentry_intact: { Args: Record<string, never>; Returns: boolean };
+      video_disabled_intact: { Args: Record<string, never>; Returns: boolean };
+      grant_hygiene_intact: { Args: Record<string, never>; Returns: boolean };
+      media_integrity_intact: { Args: Record<string, never>; Returns: boolean };
+      recompute_player_points: { Args: { p_user: string; p_sport: string }; Returns: number };
+      enrollment_boundary_intact: { Args: Record<string, never>; Returns: boolean };
+      class_set_confirmation: { Args: { p_enrollment: string; p_confirmed: boolean }; Returns: Json };
+      class_cancel_enrollment: { Args: { p_enrollment: string }; Returns: Json };
+      team_ownership_intact: { Args: Record<string, never>; Returns: boolean };
+      team_invite_respond: { Args: { p_invite: string; p_accept: boolean }; Returns: Json };
+      team_transfer_ownership: { Args: { p_team: string; p_to: string }; Returns: Json };
+      team_leave: { Args: { p_team: string }; Returns: Json };
+      review_integrity_intact: { Args: Record<string, never>; Returns: boolean };
+      is_privileged_writer: { Args: Record<string, never>; Returns: boolean };
+      offer_invariants_intact: { Args: Record<string, never>; Returns: boolean };
+      marketplace_offer_create: { Args: { p_listing: string; p_amount?: number | null; p_note?: string | null; p_parent?: string | null }; Returns: Json };
+      marketplace_offer_respond: { Args: { p_offer: string; p_accept: boolean }; Returns: Json };
+      provider_review_decide: { Args: { p_app: string; p_decision: string; p_expected_hash: string; p_reviewer: string; p_note?: string | null }; Returns: Json };
+      tournament_register: { Args: { p_tournament: string; p_division?: string | null; p_team?: string | null; p_answers?: Json; p_accept_waiver?: boolean; p_accept_rules?: boolean }; Returns: Json };
+      tournament_withdraw: { Args: { p_registration: string }; Returns: Json };
+      tournament_submit_payment_proof: { Args: { p_registration: string; p_proof_path: string }; Returns: Json };
+      tournament_review_payment: { Args: { p_registration: string; p_decision: string; p_reason?: string | null }; Returns: Json };
+      courtside_authorize: { Args: { p_install_id: string; p_token_hash: string; p_session_id: string }; Returns: boolean };
       search_zero_rate: { Args: { p_hours: number }; Returns: { searches: number; zero_results: number; zero_pct: number | null }[] };
       court_data_quality: { Args: Record<string, never>; Returns: { total_verdicts: number; confirmed: number; denied: number; unknown: number; coverage_pct: number | null; median_age_days: number | null; stale_pct: number | null; disagreement_pct: number | null; evidence_per_verdict: number | null; verifying_now: number }[] };
       ranking_data_quality: { Args: Record<string, never>; Returns: { snapshot_days: number; latest_snapshot: string | null; hours_since_latest: number | null; players_in_latest: number; sports_covered: number }[] };

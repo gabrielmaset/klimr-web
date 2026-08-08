@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { rateLimit } from "@/lib/ratelimit";
+import { rateLimitStrict } from "@/lib/ratelimit";
 import { buildSupportSystemPrompt } from "@/lib/support-kb";
 import { emailSupportInbox, emitTicketWebhook, getRequester, notifySupportAdmins, ticketRef } from "@/lib/support-events";
+import { callExternal } from "@/lib/external";
 
 // AI support assistant. One POST = one user turn: persist it, run Claude
 // (Haiku 4.5 — cheap, fast, built for support chat) with a cached knowledge
@@ -29,7 +30,9 @@ const TOOLS = [
   {
     name: "lookup_my_account",
     description:
-      "Fetch safe, read-only facts about the current signed-in member: display name, account status, verification status, active sports, and member-since date. Use when the answer depends on their account state.",
+      "Fetch safe, read-only facts about the current signed-in member: display name, account status, " +
+      "verification status, active sports, city, and member-since date. Never includes contact details, " +
+      "postal code, date of birth, or any other member's data. Use when the answer depends on their account state.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -54,7 +57,14 @@ async function runLookup(userId: string): Promise<string> {
   const [{ data: profile }, { data: sports }] = await Promise.all([
     admin
       .from("profiles")
-      .select("display_name, account_status, verification_status, created_at, home_zip, city")
+      // KCDX-055: `home_zip` used to be selected and sent to Anthropic as
+      // "Home area". A ZIP is the finest location Klimr holds about a member and
+      // it was leaving for a support conversation that has no use for it — the
+      // tool's own description promised only name, status, sports and join date.
+      // City stays, because a support answer often does depend on where someone
+      // plays, and the description below now says so instead of the tool quietly
+      // returning more than it advertised.
+      .select("display_name, account_status, verification_status, created_at, city")
       .eq("id", userId)
       .maybeSingle(),
     admin.from("player_sports").select("sport_key, active, skill_level").eq("user_id", userId),
@@ -66,7 +76,7 @@ async function runLookup(userId: string): Promise<string> {
     `Account status: ${profile.account_status}`,
     `Verification status: ${profile.verification_status}`,
     `Member since: ${new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`,
-    `Home area: ${[profile.city, profile.home_zip].filter(Boolean).join(" ") || "not set"}`,
+    `City: ${profile.city || "not set"}`,
     `Active sports: ${active.length ? active.join(", ") : "none active"}`,
   ].join("\n");
 }
@@ -135,7 +145,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const allowed = await rateLimit(`support-chat:${user.id}`, 20, 3600); // 20 messages/hour
+  // KCDX-055: this gate sits in front of a paid vendor call, and `rateLimit`
+  // returns TRUE on any infrastructure error — so a database hiccup removed the
+  // ceiling entirely at exactly the moment we would least notice. `rateLimitStrict`
+  // is the fail-closed variant that already existed for this case: a member sees
+  // "try again in a minute", instead of an unbounded bill.
+  const allowed = await rateLimitStrict(`support-chat:${user.id}`, 20, 3600); // 20 messages/hour
   if (!allowed) {
     return NextResponse.json({ error: "You've sent a lot of messages — give it a few minutes, or use the contact form." }, { status: 429 });
   }
@@ -186,11 +201,16 @@ export async function POST(req: Request) {
   const replyParts: string[] = [];
   try {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      // KCDX-056: had no timeout. Support chat is user-facing, so a hung model
+      // call used to hold the request to the platform limit. Idempotent: retry once.
+      const res = await callExternal({ vendor: "anthropic", timeoutMs: 20000, retries: 1 }, (signal) =>
+    fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({ model: MODEL, max_tokens: 800, system, tools: TOOLS, messages }),
-      });
+      signal,
+    }),
+  );
       if (!res.ok) {
         console.error("[support-chat] anthropic error", res.status, await res.text());
         return NextResponse.json({ error: "The assistant hit a snag — try again in a moment." }, { status: 502 });

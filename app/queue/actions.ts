@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -617,6 +617,8 @@ export async function removeMember(formData: FormData): Promise<Result> {
 
 // ---------- the king-of-the-court engine ----------
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function sessionIdByCode(admin: Admin, code: string): Promise<string | null> {
   const { data } = await admin.from("court_sessions").select("id").eq("code", code.toUpperCase()).maybeSingle();
   return data?.id ?? null;
@@ -744,7 +746,34 @@ export async function startNextMatch(formData: FormData): Promise<Result> {
   return applyStartNext(admin, courtId, guard.session!.id);
 }
 
-/* ---------- public (tablet) result-recording — authorized by the session code, no login ---------- */
+/* ---------- Courtside (kiosk) result-recording ----------------------------
+ * KCDX-007. These used to be authorized by the session code alone: anyone who
+ * could read a poster — or read the code out of a queue payload, which every
+ * member could — was able to invoke the same service-role match mutations as
+ * the venue's own display. Falsifying real-world results is the one thing that
+ * would make Klimr's rankings worthless, so a printed string cannot be the
+ * credential.
+ *
+ * The kiosk already registers per install and holds a server-minted token
+ * (0180/0184). Every command below now proves that capability first: bound to
+ * this session, unrevoked, and seen within ten minutes. The code still selects
+ * WHICH session; it no longer grants permission to change it.
+ */
+
+/** Verify the caller holds a live Courtside capability for this session. */
+async function operatorGuard(admin: Admin, formData: FormData, sessionId: string): Promise<string | null> {
+  const installId = String(formData.get("installId") || "");
+  const token = String(formData.get("deviceToken") || "");
+  if (!UUID_RE.test(installId) || token.length < 20) return "This display isn't registered. Re-enter the code to set it up.";
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const { data, error } = await admin.rpc("courtside_authorize", {
+    p_install_id: installId,
+    p_token_hash: tokenHash,
+    p_session_id: sessionId,
+  });
+  if (error || data !== true) return "This display isn't authorized for this session. Re-enter the code to set it up.";
+  return null;
+}
 
 export async function gameOverByCode(formData: FormData): Promise<Result> {
   const admin = createAdminClient();
@@ -753,6 +782,8 @@ export async function gameOverByCode(formData: FormData): Promise<Result> {
   const winnerId = String(formData.get("winnerTeamId") || "");
   const sid = await sessionIdByCode(admin, code);
   if (!sid) return { error: "Session not found." };
+  const denied = await operatorGuard(admin, formData, sid);
+  if (denied) return { error: denied };
   const { data: match } = await admin.from("queue_matches").select("id, session_id, team_a, team_b, status").eq("id", matchId).maybeSingle();
   if (!match || match.session_id !== sid) return { error: "Match not found." };
   const s = await sessionRow(admin, sid);
@@ -766,6 +797,8 @@ export async function startNextByCode(formData: FormData): Promise<Result> {
   const courtId = String(formData.get("courtId") || "");
   const sid = await sessionIdByCode(admin, code);
   if (!sid) return { error: "Session not found." };
+  const denied = await operatorGuard(admin, formData, sid);
+  if (denied) return { error: denied };
   const { data: court } = await admin.from("queue_courts").select("id, session_id").eq("id", courtId).maybeSingle();
   if (!court || court.session_id !== sid) return { error: "Court not found." };
   return applyStartNext(admin, courtId, sid);
@@ -808,6 +841,8 @@ export async function stepDownByCode(formData: FormData): Promise<Result> {
   const teamId = String(formData.get("teamId") || "");
   const sid = await sessionIdByCode(admin, code);
   if (!sid) return { error: "Session not found." };
+  const denied = await operatorGuard(admin, formData, sid);
+  if (denied) return { error: denied };
   const { data: t } = await admin.from("queue_teams").select("id, session_id, status").eq("id", teamId).maybeSingle();
   if (!t || t.session_id !== sid) return { error: "Team not found." };
   return applyWinnerStepDown(admin, teamId);

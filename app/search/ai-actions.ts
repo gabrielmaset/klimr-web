@@ -17,7 +17,7 @@ export async function aiSearch(query: string): Promise<{ ok: boolean; result?: A
   // Cost-bearing endpoint (SEC-007): limiter outages fail CLOSED to the in-process bucket.
   const allowed = await rateLimitStrict(`ai-search:${user.id}`, 12, 60);
   if (!allowed) return { ok: false, error: "A lot of searches at once — give it a few seconds." };
-  const { data: profile } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profile_private").select("home_zip").eq("id", user.id).maybeSingle();
   const result = await runAiSearch(supabase, user.id, profile?.home_zip ?? null, q);
   if (!result) return { ok: false, error: "AI search couldn't complete that one — try rephrasing." };
   return { ok: true, result };

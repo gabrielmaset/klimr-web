@@ -32,7 +32,7 @@ export default async function ChallengesPage() {
 
   const [{ data: cData }, { data: profile }] = await Promise.all([
     supabase.from("region_challenges").select("id, sport_key, scope, region_a, region_b, ends_at").eq("status", "active").order("created_at"),
-    supabase.from("profiles").select("neighborhood, city").eq("id", user.id).maybeSingle(),
+    supabase.from("profile_private").select("neighborhood, city").eq("id", user.id).maybeSingle(),
   ]);
   const challenges = (cData as Challenge[] | null) ?? [];
 

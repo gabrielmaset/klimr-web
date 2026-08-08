@@ -240,7 +240,7 @@ export async function saveProfileBasics(_prev: EditState, formData: FormData): P
   // Verified identity is immutable: once verification_status = 'verified',
   // legal name and date of birth can only change through support review.
   const { data: current } = await supabase
-    .from("profiles")
+    .from("profile_private")
     .select("verification_status, first_name, last_name, date_of_birth")
     .eq("id", user.id)
     .maybeSingle();

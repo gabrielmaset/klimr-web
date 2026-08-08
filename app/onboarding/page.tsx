@@ -22,7 +22,7 @@ export default async function OnboardingPage() {
     await Promise.all([
       supabase.from("sports").select("key, name, skill_system").order("name"),
       supabase
-        .from("profiles")
+        .from("profile_private")
         .select(
           "display_name, first_name, last_name, home_zip, phone, primary_sport, bio, gender, birth_year, date_of_birth, availability, avatar_hue, play_style, onboarding_draft, verification_status",
         )

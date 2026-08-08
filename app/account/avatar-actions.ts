@@ -3,6 +3,7 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getPrivilegedClient } from "@/lib/privileged";
 
 const ALLOWED = new Set(["image/webp", "image/jpeg", "image/png"]);
 
@@ -24,7 +25,12 @@ export async function createAvatarUploadUrl(contentType: string) {
   const ext = contentType === "image/jpeg" ? "jpg" : contentType === "image/png" ? "png" : "webp";
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
-  const { data, error } = await supabase.storage.from("avatars").createSignedUploadUrl(path);
+  // KCDX-014: minted by the service role after the caller is identified. The
+  // member's own-folder INSERT/UPDATE policies on `avatars` are gone (0199), so
+  // this token is the only route in and the bucket's 6 MiB + image allowlist
+  // cannot be sidestepped by uploading directly.
+  const { data, error } = await getPrivilegedClient({ reason: "account:mint-avatar-upload", actorId: user.id })
+    .storage.from("avatars").createSignedUploadUrl(path);
   if (error) throw error;
 
   return { path, token: data.token };
@@ -92,7 +98,12 @@ export async function createCoverUploadUrl(contentType: string) {
 
   const ext = contentType === "image/jpeg" ? "jpg" : contentType === "image/png" ? "png" : "webp";
   const path = `${user.id}/cover-${randomUUID()}.${ext}`;
-  const { data, error } = await supabase.storage.from("avatars").createSignedUploadUrl(path);
+  // KCDX-014: minted by the service role after the caller is identified. The
+  // member's own-folder INSERT/UPDATE policies on `avatars` are gone (0199), so
+  // this token is the only route in and the bucket's 6 MiB + image allowlist
+  // cannot be sidestepped by uploading directly.
+  const { data, error } = await getPrivilegedClient({ reason: "account:mint-avatar-upload", actorId: user.id })
+    .storage.from("avatars").createSignedUploadUrl(path);
   if (error) throw error;
   return { path, token: data.token };
 }

@@ -12,6 +12,7 @@ import { SPORT_KEYS, sportMeta, teamSizeFor } from "@/lib/sports";
 import { withinRecoverWindow } from "@/lib/recover";
 import { lookupZip } from "@/lib/us-places";
 import type { TeamCard } from "./types";
+import { getPrivilegedClient } from "@/lib/privileged";
 
 async function me() {
   const supabase = await createClient();
@@ -200,14 +201,14 @@ export async function searchTeamCandidates(
   if (friendIds.length === 0) return [];
 
   const { data: profs } = await supabase
-    .from("profiles")
-    .select("id, display_name, avatar_hue, avatar_path, city, account_status")
+    .from("profiles_public")
+    .select("id, display_name, avatar_hue, avatar_path, city, is_active")
     .in("id", friendIds)
     .ilike("display_name", `%${q}%`)
     .limit(20);
 
-  return ((profs ?? []) as { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null; account_status: string }[])
-    .filter((p) => p.account_status === "active")
+  return ((profs ?? []) as { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; city: string | null; is_active: boolean | null }[])
+    .filter((p) => p.is_active !== false)
     .slice(0, 8)
     .map((p) => ({
       id: p.id,
@@ -281,12 +282,17 @@ export async function respondTeamInvite(formData: FormData) {
   const decision = String(formData.get("decision"));
   if (!inviteId || !["accept", "decline"].includes(decision)) return;
 
-  const { data: invite } = await supabase
-    .from("team_invites")
-    .select("id, team_id, status, invited_user_id")
-    .eq("id", inviteId)
-    .maybeSingle();
-  if (!invite || invite.invited_user_id !== user.id || invite.status !== "pending") return;
+  // KCDX-010: the invite is resolved inside the command, under a lock, from its
+  // id alone. This function no longer reads `team_id` from a row the invitee
+  // could rewrite and then hands it to a service-role write — which is exactly
+  // how an invite to one team became membership of another.
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc("team_invite_respond", {
+    p_invite: inviteId,
+    p_accept: decision === "accept",
+  });
+  const res = rpcRes as { ok?: boolean; error?: string; team_id?: string } | null;
+  if (rpcErr || !res?.ok) return;
+  const invite = { id: inviteId, team_id: res.team_id ?? "", status: decision === "accept" ? "accepted" : "declined", invited_user_id: user.id };
 
   if (decision === "accept") {
     const admin = createAdminClient();
@@ -301,8 +307,8 @@ export async function respondTeamInvite(formData: FormData) {
         return;
       }
     }
-    await admin.from("team_members").upsert({ team_id: invite.team_id, user_id: user.id, role: "member" }, { onConflict: "team_id,user_id" });
-    await supabase.from("team_invites").update({ status: "accepted" }).eq("id", inviteId);
+    // Membership and the invite's new status were written by the command, in one
+    // transaction with the capacity check. Nothing to do here but tell people.
     // Log the join in the team thread and notify the rest of the roster.
     const { data: prof } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
     const who = prof?.display_name || "A player";
@@ -331,21 +337,17 @@ export async function leaveTeam(formData: FormData) {
   const myName = meProf?.display_name || "A player";
   const teamName = team?.name ?? "your team";
 
-  await supabase.from("team_members").delete().eq("team_id", teamId).eq("user_id", user.id);
+  // KCDX-048: leaving used to delete the membership, then read the roster, then
+  // promote, then move `created_by` — four statements with three gaps. An owner
+  // leaving is exactly when the team can least afford to be ownerless. One
+  // transaction now does the departure and the succession together.
+  const { data: lRes, error: lErr } = await supabase.rpc("team_leave", { p_team: teamId });
+  const leave = lRes as { ok?: boolean; new_owner?: string; team_empty?: boolean } | null;
+  if (lErr || !leave?.ok) return;
 
   if (wasOwner) {
-    const admin = createAdminClient();
-    const { data: remaining } = await admin
-      .from("team_members")
-      .select("user_id, joined_at")
-      .eq("team_id", teamId)
-      .order("joined_at", { ascending: true })
-      .limit(1);
-    const next = remaining?.[0];
+    const next = leave.new_owner ? { user_id: leave.new_owner } : null;
     if (next) {
-      // Promote the longest-standing remaining member to owner.
-      await admin.from("team_members").update({ role: "owner" }).eq("team_id", teamId).eq("user_id", next.user_id);
-      await admin.from("teams").update({ created_by: next.user_id }).eq("id", teamId);
       await logTeamEvent(teamId, { kind: "member_left", actorId: user.id, body: myName });
       await logTeamEvent(teamId, { kind: "owner_transferred", actorId: user.id, targetId: next.user_id });
       await notifyTeamMembers(teamId, user.id, { title: `${myName} left ${teamName}`, linkUrl: `/teams/${teamId}` });
@@ -358,7 +360,12 @@ export async function leaveTeam(formData: FormData) {
       });
     } else {
       // Last member left — remove the empty team (its conversation cascades away).
-      await admin.from("teams").delete().eq("id", teamId);
+      // `team_leave` deliberately does NOT delete the team: an empty roster and a
+      // deleted team are different decisions, and a command that silently
+      // destroys a row while you were leaving it is a bad shape. So the deletion
+      // stays here, explicitly, with the privilege it needs.
+      await getPrivilegedClient({ reason: "teams:delete-empty-after-leave", actorId: user.id, targetRef: teamId })
+        .from("teams").delete().eq("id", teamId);
       redirect("/teams");
     }
   } else {
@@ -462,9 +469,15 @@ export async function transferOwnership(formData: FormData) {
   // manager simply rejoins the squad as a regular member.
   const { data: team } = await admin.from("teams").select("category").eq("id", teamId).maybeSingle();
   const isPro = team?.category === "pro";
-  await admin.from("team_members").update({ role: "owner" }).eq("team_id", teamId).eq("user_id", memberId);
-  await admin.from("team_members").update({ role: isPro ? "manager" : "member" }).eq("team_id", teamId).eq("user_id", user.id);
-  await admin.from("teams").update({ created_by: memberId }).eq("id", teamId);
+  // KCDX-048: three separate unchecked updates used to move ownership, so an
+  // interruption between any two left the team with two owners, none, or a
+  // `created_by` disagreeing with the roster. One transaction, exact
+  // affected-row checks, and the caller's ownership re-verified under the lock.
+  const { data: tRes, error: tErr } = await supabase.rpc("team_transfer_ownership", {
+    p_team: teamId,
+    p_to: memberId,
+  });
+  if (tErr || !(tRes as { ok?: boolean } | null)?.ok) return;
 
   await createNotification({
     userId: memberId,

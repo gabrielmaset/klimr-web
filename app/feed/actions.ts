@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notify";
 import { moderateText, moderateImage } from "@/lib/moderation";
 import { accountActive } from "@/lib/guards";
+import { getPrivilegedClient } from "@/lib/privileged";
 
 /** Share a post with players nearby. The 0006 trigger forces every user-client
  *  insert to `pending`; the AI text gate (lib/moderation) then decides, and the
@@ -373,13 +374,21 @@ export async function prepareFeedMediaUpload(input: {
     .list(user.id, { limit: 60, sortBy: { column: "created_at", order: "desc" } });
   const uploadsLastHour = (recentObjects ?? []).filter((o) => o.created_at && Date.parse(o.created_at) > Date.now() - 3_600_000).length;
   if (uploadsLastHour >= 30) return { ok: false, error: "You've hit the hourly upload limit." };
+  // KCDX-006: video is disabled until there is a real media safety gate. The
+  // boundary is the feed-media MIME allowlist and the posts_reject_video trigger
+  // (migration 0195) — this refusal exists so the composer gets a sentence
+  // instead of a Storage error, not because it is the thing stopping anyone.
+  if (input.kind === "video") return { ok: false, error: "Video posts aren't available yet." };
   const okImage = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  const okVideo = ["video/mp4", "video/webm", "video/quicktime"];
-  const allowed = input.kind === "photo" ? okImage : okVideo;
-  if (!allowed.includes(input.contentType)) return { ok: false, error: "Unsupported file type." };
+  if (!okImage.includes(input.contentType)) return { ok: false, error: "Unsupported file type." };
   const ext = input.ext.replace(/[^a-z0-9]/gi, "").slice(0, 5).toLowerCase() || "bin";
   const path = `${user.id}/${input.kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { data, error } = await supabase.storage.from("feed-media").createSignedUploadUrl(path);
+  // KCDX-014: minted by the service role AFTER the checks above (account state,
+  // hourly post and upload ceilings, type allowlist). The member no longer holds
+  // an INSERT policy on this bucket, so this token is the only way in — which is
+  // what makes "every photo is screened" a true statement rather than a hope.
+  const { data, error } = await getPrivilegedClient({ reason: "feed:mint-media-upload", actorId: user.id })
+    .storage.from("feed-media").createSignedUploadUrl(path);
   if (error || !data) return { ok: false, error: "Could not start the upload." };
   return { ok: true, path, token: data.token };
 }
@@ -414,7 +423,11 @@ export async function createTypedFeedPost(formData: FormData): Promise<CreatePos
   if ((recentPosts ?? 0) >= 15) return { ok: false, error: "You've hit the hourly posting limit — let the feed breathe." };
 
   const rawType = String(formData.get("post_type") ?? "post");
-  const postType = ["post", "photo", "video", "ask", "milestone"].includes(rawType) ? rawType : "post";
+  // KCDX-006: 'video' is deliberately absent from this list. The publish path
+  // never ran a classifier for video — it pushed a `media_unscreened` LABEL and
+  // no verdict, so the status computed to `approved`. A note to ourselves is not
+  // a gate, and the duration and content type were both asserted by the browser.
+  const postType = ["post", "photo", "ask", "milestone"].includes(rawType) ? rawType : "post";
   const rawAud = String(formData.get("audience") ?? "public");
   const audience = ["public", "followers", "friends"].includes(rawAud) ? rawAud : "public";
   const body = String(formData.get("body") ?? "").trim().slice(0, 500);
@@ -427,7 +440,8 @@ export async function createTypedFeedPost(formData: FormData): Promise<CreatePos
   const mediaPath = mediaPathRaw && mediaPathRaw.startsWith(`${user.id}/`) && !mediaPathRaw.includes("..") ? mediaPathRaw : null;
   if (needsMedia && !mediaPath) return { ok: false, error: "Attach the photo or clip first." };
   if (!needsMedia && body.length < 2) return { ok: false, error: "Write a couple of words first." };
-  const duration = postType === "video" ? Math.min(31, Math.max(1, Math.round(durationRaw) || 1)) : null;
+  void durationRaw;
+  const duration = null;
 
   const { data: inserted, error: insErr } = await supabase
     .from("posts")
@@ -464,7 +478,6 @@ export async function createTypedFeedPost(formData: FormData): Promise<CreatePos
       }
     }
   }
-  if (postType === "video") extraLabels.push("media_unscreened");
 
   const labels = [...new Set([...verdicts.flatMap((v) => v.categories), ...extraLabels])];
   const flagged = verdicts.some((v) => !v.allowed && v.categories.some((c) => !GATE_DOWN.has(c)));

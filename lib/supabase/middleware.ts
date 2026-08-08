@@ -1,13 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { classifyPath, mayRedirectToLogin } from "@/lib/route-manifest";
 import type { Database } from "@/lib/database.types";
 
-// Reachable without a session. Everything else redirects to /login.
-// /api/q (validate) and /api/app-diagnostics serve the Courtside iPad app —
-// an anonymous device by design. Both are defensive (poster-public codes only;
-// header-gated, clamped ingestion) and must never hit the auth gate: the gate
-// answers HTML with a 200, which reads as data corruption to API clients.
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth", "/gate", "/q", "/api/queue", "/api/q", "/api/app-diagnostics"];
+// KCDX-039: this list used to BE the policy, and it was written for humans. Four
+// machine surfaces were never added — both crons, Courtside register/heartbeat,
+// CSP reports and RUM — so each received a 307 to an HTML login page instead of
+// reaching a handler that already authenticated it properly. The crons never ran.
+// The policy now lives in lib/route-manifest.ts, where every route has a declared
+// class and adding a route means declaring what it is.
 
 // Reachable with a session that has NOT yet cleared 2FA (AAL1). These are the
 // pages a signed-in user needs *in order to* complete or recover 2FA, so the
@@ -62,8 +63,23 @@ export async function updateSession(request: NextRequest) {
   // protected: registering requires a signed-in, 2FA-cleared account.
   const isPublicEventPage = /^\/e\/[^/]+\/?$/.test(path);
 
-  // 1) No session on a protected page → sign in.
-  if (!user && !matches(path, PUBLIC_PATHS) && !isPublicEventPage) {
+  const cls = classifyPath(path);
+
+  // 0) Machine surfaces pass straight through. Their handlers authenticate by
+  //    their own means — CRON_SECRET, a device token, or nothing at all by
+  //    design — and a redirect would replace that with a login form.
+  if (cls === "machine") return response;
+
+  // 1) No session on a protected page → sign in. For an /api path that is NOT a
+  //    declared machine route, fail closed with a status a caller can act on: a
+  //    307 to HTML is followed silently by most clients and then parsed as data.
+  if (!user && cls !== "public" && !isPublicEventPage) {
+    if (!mayRedirectToLogin(path)) {
+      return new NextResponse(JSON.stringify({ error: "unauthenticated" }), {
+        status: 401,
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+      });
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
@@ -72,10 +88,16 @@ export async function updateSession(request: NextRequest) {
 
   // 2) Signed in but two-factor not yet satisfied → complete 2FA first.
   //    Required on every protected page; marketing/auth pages are exempt.
-  if (user && !matches(path, PUBLIC_PATHS) && !matches(path, AAL_EXEMPT) && !isPublicEventPage) {
+  if (user && cls !== "public" && !matches(path, AAL_EXEMPT) && !isPublicEventPage) {
     try {
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aal?.currentLevel && aal.currentLevel !== "aal2") {
+        if (!mayRedirectToLogin(path)) {
+          return new NextResponse(JSON.stringify({ error: "mfa_required" }), {
+            status: 403,
+            headers: { "content-type": "application/json", "cache-control": "no-store" },
+          });
+        }
         const url = request.nextUrl.clone();
         url.pathname = "/mfa";
         url.searchParams.set("next", path);

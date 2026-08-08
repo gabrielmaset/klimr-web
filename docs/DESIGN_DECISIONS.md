@@ -5181,3 +5181,966 @@ is exactly how an audit finding gets closed for the wrong reason.
 Standing rule reaffirmed: a green build proves nothing about the database. The pass
 condition for schema work is the catalog fingerprint agreeing with production across
 all fifteen measures.
+
+## 2026-08-07 — C1: profile PII is behind a real boundary (KCDX-001)
+
+Every member could read every other member's date of birth, phone number, home
+ZIP, neighbourhood, availability and account state. Not through a bug in a page —
+through PostgREST, with nothing but their own JWT and the public anon key, because
+`profiles` carried a SELECT policy of `true` and a table-wide grant. RLS is
+row-level; a policy of `true` means every row and a table grant means every column.
+
+**The first version of the fix was wrong, and the test caught it.** I revoked the
+private columns individually. Postgres treats column privileges as additive to a
+table grant, so revoking a column from a role that holds table-wide SELECT changes
+nothing — and the role test showed a member still reading all 47 columns. The
+correct shape is to revoke the table grant and grant back a named public list. That
+inversion is worth remembering: it also gives default-deny for the future, because
+a column added by a later migration is unreadable until someone writes the grant.
+
+Two views restore the access the product actually has. `profile_private` is your
+own row, every column, `where id = auth.uid()`, with definer rights so it can read
+what the caller cannot — one line, and it should stay one line. `profiles_public`
+is the deliberate member-to-member projection with invoker rights, so if a later
+batch narrows row visibility for blocks or suspension, the view narrows with it
+instead of quietly bypassing it. A generated `is_active` column replaces raw
+account state: lists need to hide suspended members, and that is a boolean, not a
+disciplinary record.
+
+**Thirty-one call sites moved.** Own-row reads go through `profile_private`. Three
+cross-member reads were genuine leaks and lost the column outright — the invites
+list and the network list were showing neighbourhood, and the feed was fetching a
+home ZIP only to derive a city that is already public. Two cross-member reads are
+legitimate server-side computation and now use elevated rights with the values
+never leaving the function: opponent scoring, which returns "Same neighbourhood"
+without ever naming it, and AI player search answering "who is free Tuesday?".
+
+The sweep that found them is worth noting. My first pass fixed fifteen sites and I
+believed it was complete; a tripwire test found twenty-nine more. Reading files and
+being satisfied is not the same as enumerating them.
+
+Still open on this finding, recorded rather than quietly dropped: `first_name` and
+`last_name` stay readable — they are PII and members never see them, but the
+verification and signup flows touch them from several directions and widening a
+boundary fix into a refactor is how both go wrong. And `app/search/actions.ts`
+hydrates `neighborhood` through the admin client, so the service role still
+bypasses this boundary in deterministic search: that is KCDX-026, and it belongs to
+its own batch.
+
+## 2026-08-07 — C2: the Queue is not a public dataset (KCDX-002 / 007 / 008)
+
+Three P0s, one boundary. Live venue participation is the most physically sensitive
+thing Klimr holds — who is standing on which court right now, and where that court
+is — and it was readable with the public anon key, streamed to anyone who
+subscribed, and its operator credential was in every queue payload.
+
+**Presence stopped streaming.** Five queue tables were on `supabase_realtime` with
+a SELECT policy of `true` and an `anon` grant. Realtime publishes whole rows, and
+those rows *are* the presence data. They are off the publication and unreadable by
+both client roles. This cost nothing: every queue read in the codebase already went
+through `loadSessionState()` with the service role, and the browser hook that
+appeared to need the subscription was already polling on a 3s interval beside it.
+
+**The operator credential stopped travelling.** Phase 0 recorded `display_code` as
+an acceptable public credential and the projection kept it for every viewer. The
+audit is right that it is not one, and this batch reverses that decision — including
+the test that asserted it. A registered display is now its own audience: it proves a
+capability and receives the code; everyone else gets `null`.
+
+**Knowing a code stopped being permission.** `gameOverByCode`, `startNextByCode` and
+`stepDownByCode` resolved a session from a form field and then ran service-role
+match mutations. Anyone who could read a poster — or read the code out of a payload,
+which every member could — could falsify results, and falsified results are the one
+thing that would make the rankings worthless. The fleet already mints a per-install
+token against the join code and stores its SHA-256 (0180/0184), so the capability
+existed; it just was not being asked for. `courtside_authorize()` binds it to one
+session, honours revocation, and expires it after ten minutes of silence — a display
+that is unplugged stops being an operator without anyone remembering to revoke it.
+The code still selects *which* session. It no longer grants permission to change it.
+
+Both boundaries are now watched at boot: `queue_boundary_intact()` fails a
+production deploy if a grant is restored or a table goes back on the publication,
+the same way `profile_boundary_intact()` does for profiles. Grants are exactly the
+thing that drifts, and nothing about the app looks wrong when they do.
+
+## 2026-08-07 — C3: tournament entry becomes a command (KCDX-003)
+
+The last of the big P0s, and the one where the gap between "the app checks this"
+and "the database enforces this" was widest.
+
+Most tournament tables were already fine — gated by `is_tournament_staff()`. The
+exposure was the three self-service tables, whose policies bind only
+`registrant_id = auth.uid()`. That answers "is this row yours?" and nothing else.
+It does not ask whether the event is open, whether there is room, whether the
+division belongs to that tournament, or whether you are allowed to decide that
+your own entry is paid. A member with an ordinary JWT could insert a registration
+with `status: 'confirmed'` and `payment_status: 'confirmed'`, past the deadline,
+over capacity, into someone else's division — and every one of those checks
+existed, in TypeScript, immediately above a write that PostgREST would happily
+accept without them.
+
+**Why commands rather than better policies.** A policy is a predicate over one
+row. "There is room" is a predicate over a set, and it has to stay true from the
+moment it is checked to the moment the row lands. That needs a lock, which needs
+a transaction, which needs a function. The same is true of "the division belongs
+to this tournament" and "you are not already entered". So registration, withdrawal,
+payment submission and payment review are now four transactional commands, each
+doing its checks and its writes under a lock on the tournament row.
+
+Immutability falls out of the shape rather than being bolted on: `status` and
+`payment_status` are not parameters of any command. The registrant cannot express
+them, so there is nothing to forge. Payment review re-checks
+`is_tournament_staff()` inside the database — proven by test: the registrant
+approving their own payment returns `not_allowed`, the owner returns `confirmed`.
+
+This also closes the capacity race the app had (a read of the count followed by an
+unrelated insert) for the registration path specifically. The broader concurrency
+work — brackets, results, tournament JSON lost-update — is KCDX-045/046/047 and
+belongs to batch E; it is not quietly folded in here.
+
+**One bug worth recording.** The first cut of `tournament_register` read
+`v_div.capacity` when no division was passed, and plpgsql refuses to read an
+unassigned RECORD at all. It failed on the very first real-role call. Division
+capacity now travels in a plain variable. Three migrations in a row have now had
+a defect that only a role test could find, and none that the build could.
+
+## 2026-08-07 — C4: an edit un-approves the post (KCDX-005)
+
+`guard_moderation_update` already stopped an author from setting their own
+moderation status. The door next to it was open: nothing stopped them changing
+the CONTENT while the status stayed `approved`. Post something benign, wait for
+approval, then PATCH the body. The record still says approved, the Feed still
+shows it, and what it now says was never screened. Every safety claim the product
+makes about the Feed rests on "approved means someone looked at this", and an
+edit after approval makes that sentence false.
+
+The fix has to be atomic, so it is a BEFORE UPDATE trigger — the only place where
+the new content and the status describing it are decided in the same statement,
+whatever route the write arrives by. One deliberate exemption: a caller that
+explicitly sets a status in the same statement is respected, because that is the
+re-screening pipeline returning a verdict on the new content. The author cannot
+use that door, because `guard_moderation_update` has already rewritten their
+attempted status before this trigger runs.
+
+`post_media` needed the same treatment: it carries its own author-bound insert
+policy, so an approved post could gain an image it was never approved with,
+without the post row changing at all.
+
+**Two pre-existing defects surfaced while testing, and both mattered more than
+the fix itself.**
+
+`feed_post` was declared `AFTER UPDATE OF moderation_status`. Postgres decides
+that from the columns NAMED in the SET clause, not from whether the value
+changed — so `update posts set body = …` never fired it, even after a BEFORE
+trigger moved the post back to pending. The withdrawal-from-Feed machinery
+existed, was correct, and had never once run for an edit. The post left
+moderation and stayed in the Feed: exactly the KCDX-005 outcome, reached by a
+route the finding does not describe. It is now `AFTER UPDATE` on any column.
+
+`guard_moderation_update` compares `current_user <> 'service_role'`, and inside a
+SECURITY DEFINER trigger the current_user is the definer — so the guard was
+silently undoing the media re-moderation. It now applies only at
+`pg_trigger_depth() <= 1`: it exists to stop client writes, and a change
+originating inside another trigger is our own machinery.
+
+Both were found by running the acceptance test and reading a number that was
+right for the wrong reason — `feed_items=1` after the post went to pending. The
+status was correct; the projection was not. Checking only the field the finding
+names would have shipped a fix that did half the job.
+
+## 2026-08-07 — C5: video is contained, and that is not the same as fixed (KCDX-006)
+
+Worth stating what the publish path actually did, because it is more specific
+than "unscreened". `createPost` ran the classifier for images only. For a video
+it pushed the label `media_unscreened` and pushed **no verdict** — so `flagged`
+was false, `gateDown` was false, and the status computed to **approved**. The
+label was a note to ourselves, not a gate. The duration came from a `<video>`
+element in the browser and the content type came from the upload request, so
+both facts about the file were asserted by the client and never checked against
+the bytes. Nothing in the pipeline had looked at a single frame.
+
+**This finding is not fixed and this batch does not claim to fix it.** The
+audit's disposition is FEATURE DISABLED as containment, and it stays open until
+the real gate exists: server-side byte and type validation, duration and codec
+probing from the file, a moderation policy for moving images, private staging
+with derivatives, captions, quotas, cleanup, and hostile-file tests.
+
+What the batch does is make "disabled" true where it counts. Removing a tab from
+the composer stops the honest user; it does not stop a POST to the server action
+and it does not stop a signed upload. So there are two locks, in the two places
+that decide: Storage will not accept video bytes (MIME allowlist), and Postgres
+will not accept a video row (trigger). Tested for every role — including
+`service_role`, which is the one that matters, because our own server actions run
+as it and a privileged bypass would make the containment decorative.
+
+Re-enabling is deliberately two steps in the migration that ships the gate: drop
+`posts_reject_video` and restore the three MIME types. Neither is a dashboard
+toggle. The `feed_video` feature flag added here controls the composer only, and
+its note says so — a flag that looked like a kill switch but was not would be
+worse than no flag.
+
+Existing approved video posts go back to `pending` rather than being deleted. The
+content is the author's; a decision about it belongs to moderation, not to a
+migration.
+
+## 2026-08-07 — D1 (part): the redirect walker had an SSRF primitive (KCDX-019)
+
+`resolveMapsShortLink` checked the URL it was HANDED and then followed redirects,
+fetching every subsequent hop without checking anything. A permitted
+`https://goo.gl/…` that answers `302 Location: http://169.254.169.254/latest/
+meta-data/` turned our server into the attacker's HTTP client against our own
+network. The audit demonstrated it with a mocked fetch rather than a live one,
+which is the right way to prove something like this, and the proof is now the
+first test case in `lib/maps-hop-allowlist.test.ts`.
+
+The check runs before EVERY fetch, and it is an allowlist. A blocklist of private
+ranges would be the wrong shape: nothing but Google should be reachable from this
+code path, so enumerating what is *not* Google is both impossible and beside the
+point. It refuses non-https schemes, userinfo (`https://google.com@evil.example`),
+non-443 ports, IPv4 and IPv6 literals, and the decimal/octal integer notations
+that are the classic way past a naive dotted-quad check.
+
+The hops that matter are the ones after the first: a `Location` header, a consent
+unwrap, or — worst — a URL scraped out of returned HTML. All three become
+`current` and all three now go through the same gate at the top of the loop.
+
+**Owed at the infrastructure layer, and named rather than implied.** KCDX-019
+lists egress controls as a dependency and it is right to. DNS rebinding — a
+permitted hostname resolving to a private address between the check and the
+connect — is not defensible in application code. That needs network-level egress
+filtering, and until it exists this fix is necessary but not sufficient.
+
+## 2026-08-07 — D1 (part): egress control, built rather than deferred (KCDX-019)
+
+The SSRF fix earlier today closed the allowlist hole and left one thing owed: DNS
+rebinding. A permitted hostname can pass an allowlist check and then resolve to
+`169.254.169.254` a moment later, and no amount of URL inspection catches that.
+The audit names infrastructure egress filtering as the control, and it is right.
+
+**We cannot buy that control at this plan.** Vercel's egress policy features —
+Secure Compute with VPC peering, and the Sandbox SNI/CIDR policies — are
+Enterprise-only. Static IPs on Pro are the opposite feature: fixed outbound
+addresses so that others can allowlist *us*. Nothing on Pro restricts where our
+functions may connect. Verified against Vercel's own docs rather than assumed.
+
+So it is enforced in-process, at the one moment that actually decides: the DNS
+lookup that precedes the TCP connect. `lib/egress.ts` issues outbound GETs
+through `https.request` with a custom `lookup` that classifies every resolved
+address and refuses the connection if any of them is non-public. For this
+specific threat that is arguably stronger than a CIDR ACL, because it validates
+the exact address the socket will use — there is no window between the check and
+the connect for a name to change its mind.
+
+Two layers, answering different questions, and neither replaces the other:
+
+- the allowlist in `maps-hop-rules.ts` — "is this a host we have any business
+  calling?"
+- `egress-rules.ts` — "wherever that name points, is it on the public internet?"
+
+A hijacked or compromised allowlisted domain gets past the first and is stopped
+by the second.
+
+The classifier blocks loopback, all RFC1918 ranges, CGNAT (private on plenty of
+hosts), link-local including the metadata addresses, TEST-NET, benchmarking,
+multicast and reserved space; IPv6 loopback, unique-local, link-local, multicast
+and documentation; and private IPv4 smuggled inside IPv6 as `::ffff:` or NAT64.
+Anything it cannot classify is blocked — an address we cannot read is not one to
+dial. Twenty-two tests, including the near-miss cases that a sloppy prefix check
+gets wrong (`172.15.255.255` and `172.32.0.1` must both be permitted).
+
+`safeGet` also carries a hard timeout and a response size cap, which is the
+timeout half of KCDX-056, and it deliberately never follows redirects: a client
+that follows redirects for you has taken the decision away from the code that
+knows which hosts are legitimate. That is the whole KCDX-019 lesson in one line.
+
+**Still genuinely owed, and not pretended otherwise:** this protects our own
+outbound calls. It is not a network-wide control, so any future code path that
+calls `fetch` directly bypasses it. The follow-up is a lint rule banning bare
+`fetch` in server code in favour of `safeGet`, which belongs with the rest of
+KCDX-056 when the retry and circuit-breaker work lands.
+
+## 2026-08-07 — D1 (part): least privilege, and one grant RLS cannot reach (KCDX-016)
+
+The audit files this as defense in depth, and for `anon` that is exactly right:
+it held SELECT on ~110 tables including `invite_codes`, `gate_access_codes`,
+`conversation_keys` and `admin_users`, and nothing leaked, because each of those
+either has no policy (RLS default-deny) or binds `auth.uid()`, which is null for
+`anon`. A door with no lock, held shut by a second door. The finding is that one
+mistake in the second door is then a breach rather than a bug.
+
+**One privilege in that pile is not defense in depth.** `authenticated` held
+TRUNCATE on ~100 tables — inherited from the platform default privileges, never
+requested by any migration. **RLS does not apply to TRUNCATE.** Policies govern
+SELECT, INSERT, UPDATE and DELETE; TRUNCATE is gated by the privilege alone. There
+is no path to it today — PostgREST does not expose it and `authenticated` has no
+CREATE on the schema — but "no path today" describes the current surface, not the
+grant. A privilege that RLS could never constrain should not be held by the role
+every member gets. It is gone, and the boot sentinel now refuses a deploy that
+brings it back.
+
+The `anon` surface is derived from the live policy set rather than guessed, so
+this is a reduction in privilege with no reduction in function: the eight tables
+anon can actually read today, it still reads. Narrowing what is *intentionally*
+public — `provider_reviews`, say — is a product decision and belongs in its own
+change, not smuggled into a hygiene migration.
+
+Implicit PUBLIC EXECUTE went the same way. Several mutating functions were
+callable by `anon` (`end_sponsorship`, `respond_sponsorship`,
+`shift_tournament_plan`, the `liveness_*` organizer commands); they check
+`auth.uid()` internally and refuse, which is the second door again. PUBLIC is
+revoked and `authenticated` granted explicitly, so a signed-in user's effective
+access is byte-for-byte what it was.
+
+**The bug worth recording:** my first sweep used `pg_tables`, which excludes
+views — so the two views added by 0191 kept the full grant set, arriving wide
+from the platform defaults. That is the finding demonstrating itself while I was
+fixing it: every new relation starts permissive, and anything that enumerates
+"all tables" without meaning "all relations" will keep missing them. Both loops
+now walk `pg_class` with `relkind in (r,p,v,m)`, and the default privileges are
+narrowed so the next author does not need to know this file exists.
+
+## 2026-08-07 — D1 (part): a safety test that can fail (KCDX-018)
+
+`rls_and_invariants_checks.sql` sets `request.jwt.claims` and then runs its probes
+as whoever invoked it — in the SQL editor, the owner. RLS does not apply to a
+table's owner and grants do not constrain a superuser, so its "cross-user IDOR
+probe" was not testing a member at all. It printed PASSED while asking the wrong
+question, which is worse than having no test: it is a green light attached to
+nothing. Block 1 survives, because a catalog query about which tables have RLS
+enabled does not care who runs it.
+
+`rls_negative_suite.sql` is the replacement. The difference is one line per check
+— `SET LOCAL ROLE authenticated` — after which grants are checked, policies are
+evaluated, and a refusal is a real refusal. 25 checks across every boundary built
+today: profile PII, queue presence, the operator credential, tournament
+self-service writes, video containment for members AND service_role, TRUNCATE,
+and the anon read surface. It asserts both directions, because a boundary that
+refuses everything is broken rather than secure, and only the permitted-side
+assertions catch that.
+
+**The controls are the point, and they earned their keep immediately.** A suite
+that has only ever passed is indistinguishable from a suite that cannot fail, so
+each check was verified by breaking the thing it guards: re-granting
+`select on profiles`, re-granting `select on courts to anon`, and dropping
+`posts_remoderate_on_edit`.
+
+The third control failed to fail — and the reason was a bug in my test. The
+KCDX-005 fixture approved its post as the owner, but `guard_moderation_update`
+reverts a status change from any role that is not literally `service_role`, so
+the post sat at `pending`. The assertion then checked for `pending` after the
+edit and passed, because the post had never been approved in the first place. The
+test was green for exactly the reason the old file was green: it was not the role
+it thought it was. The fixture now approves as `service_role` and asserts its own
+preconditions — that the post really is approved and really is in the Feed —
+before testing anything, so a vacuous setup fails loudly instead of passing
+quietly.
+
+Two smaller things learned and recorded because they will bite someone later:
+`REVOKE SELECT ON <table>` also strips that table's COLUMN grants, so "cleaning
+up" a table-level grant on `profiles` silently removes the 36 column grants 0191
+depends on — re-run 0191 to restore. And psql prefixes NOTICE output with the
+script path, which makes `grep -c "^NOTICE"` in a harness quietly count zero.
+
+## 2026-08-07 — D1 (part): an audit trail that is usually written (KCDX-054)
+
+The privilege layer recorded its audit row with `void (async () => …)()`. On a
+serverless platform the response returns and the invocation can be frozen or
+reclaimed before that promise settles, so the row landed *usually*. An audit
+trail that is usually written is not an audit trail — it is a log with unknown
+gaps, and the gaps open under load, which is exactly when it is needed. The
+`catch` was empty too, so a failed write was indistinguishable from no write.
+
+`after()` is the right primitive: the runtime keeps the invocation alive until
+the callback finishes, so the write happens after the response without racing
+shutdown. Outside a request scope — cron ticks, scripts — `after()` throws, so it
+falls back to awaiting inline: slower, and correct. Failures now log loudly with
+the command id, because the point of an audit gap is that someone can find it.
+
+`withPrivileged()` is the new preferred API for mutations. It writes 'started'
+before and 'ok' or 'error' after, sharing a command id. That is deliberately not
+atomic with the state change — application code cannot make it so — and the pair
+is what makes the gap visible: a 'started' with no partner means the invocation
+died mid-operation. 0197 indexes exactly that query.
+
+**What this does not do, stated plainly.** 88 files still import the raw admin
+client, and I checked whether any could come off the grandfather list: none can.
+The files touched this session still need it for other calls, so the list stays
+at 87 and I am not claiming progress that did not happen. The real fix is the
+larger half of the finding — privileged mutations become narrow domain commands
+with the audit transacted inside them, which is what 0193's tournament commands
+already do. That is per-domain work and belongs with each domain's batch, not a
+sweep.
+
+Two ratchets now guard the direction of travel: the grandfather list may shrink
+and never grow, and the audit write may not go back to being a floating promise.
+
+The second tripwire failed on its first run — by matching the comment in which I
+*described* the old pattern. A guardrail that fires on its own explanation is one
+people learn to disable, so it strips comments before matching. Worth remembering
+for every future grep-based test: they read prose unless told not to.
+
+## 2026-08-07 — D1 (part): log scrubbing (KCDX-068)
+
+Error telemetry was persisted as it arrived: the raw request path, up to 6,000
+characters of stack, and — in `account/log-actions` — a message, detail and URL
+supplied by the browser. A request path is not a neutral string in this app. It
+carries invite codes (`/gate/ABCD-EFGH-IJKL`), queue join codes (`/q/XK4M2P`),
+tournament codes and user ids. A stack carries whatever was in scope when
+something broke.
+
+**The fix is not deletion.** A log with the identifiers stripped out is useless,
+and useless logs get replaced by someone quietly re-adding the raw ones. So:
+templates instead of paths (`/q/:code`), stable pseudonyms instead of ids
+(`id:9f2a1c4e`, the same every time for the same UUID), query KEYS kept and query
+VALUES dropped. You can still follow one user's errors across a hundred rows; you
+just cannot learn who they are from the log.
+
+The pseudonyms are an unkeyed SHA-256 prefix, and the code says so. That is
+honest about what it is — a correlation handle, not a secret. UUIDs are not
+guessable so there is no known-plaintext angle; if we ever pseudonymise something
+enumerable like an email, it needs a keyed HMAC, and the comment says that too.
+
+All six writers now go through it: `instrumentation.ts`, `account/log-actions`,
+the CSP report route, app diagnostics, and two queue-trace paths. The seventh is
+the actual risk — a new route inserting a raw browser string is one PR away and
+would look entirely reasonable in review — so a tripwire fails the build if any
+`error_logs` insert skips `scrubLogRow`.
+
+**A rule-ordering bug, caught because the test asserted the right thing.** The
+invite-code pattern `[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}` matched `2222-3333-4444`
+inside a UUID (digits are `[A-Z0-9]`), and the phone rule then ate the tail — so
+a UUID was destroyed rather than pseudonymised. The test caught it only because
+it asserted the pseudonym SURVIVED, not merely that the raw id was gone. A test
+that checks only "the secret is absent" passes on a scrubber that returns the
+empty string. Both directions, always. UUIDs are now replaced first, and the code
+pattern requires at least one letter.
+
+0198 adds the retention half the finding also asks for: 30 days, nightly. Access
+was already right and is worth stating rather than assuming — `error_logs` has
+RLS with no policy, so `authenticated` is default-denied, and 0196 removed the
+anon grant. Only the service role reads it.
+
+## 2026-08-07 — D1 (part): outbound calls get deadlines (KCDX-056)
+
+Klimr calls nine third parties. Several had no timeout at all — Resend, three of
+the Anthropic calls, the OpenAI moderation call, Turnstile, the CSAM scanning
+webhook, the safety-alert webhook, and a Places lookup. On a serverless platform
+a fetch with no deadline does not fail: it holds the invocation until the
+platform kills it. A slow vendor becomes an outage of something unrelated.
+
+`callExternal` provides three controls that are not interchangeable. **Timeout**
+is mandatory — the type will not let you call it without one, because an unstated
+default is how a call ends up with none. **Retry** defaults to zero and the
+caller opts in, because idempotence is a promise only the caller can make:
+retrying a Resend send delivers two emails, retrying a Places lookup costs a
+fraction of a cent. **The breaker** stops spending the timeout budget on every
+request while a vendor is down.
+
+Per-call reasoning was written at each site rather than applied uniformly, because
+the right budget depends on what failure means there. The CSAM scan fails CLOSED,
+so its deadline decides how long an upload hangs before being blocked — 10s, no
+retry, since re-posting image bytes to a scanner is not free and a blocked upload
+is the correct outcome of an unreachable one. Turnstile fails OPEN, so a hung
+vendor used to hold the request to the platform limit and then open the gate
+anyway — the worst of both — 3s with one retry. Resend gets no retry at all.
+
+**The breaker is in-process, and the code says so.** Serverless instances do not
+share memory, so it protects a warm instance across its own requests and nothing
+more: fifty cold instances means up to fifty independent breakers. Still worth
+having — most vendor outages last minutes and instances stay warm across them —
+but it is not a global rate limiter. A shared one needs a store, which means a
+database round trip on every outbound call, and that trade is not obviously worth
+it before there is traffic to measure. A breaker people trust incorrectly is worse
+than none, so this is recorded rather than glossed.
+
+**A real miss from the earlier SSRF pass, found here.** `lib/maps-url.ts` had a
+SECOND fetch on the same attacker-influenced short link — a "last resort"
+`fetch(raw, { redirect: "follow" })` twenty lines below the loop I had fixed. With
+`redirect: follow` the runtime walks the entire chain itself, so a hop to
+link-local space is followed before any of our code sees it. I wrote that "the
+check runs before every fetch"; that was true of the function I was reading and
+false of the file. It is removed — the manual walk already unwraps consent and
+HTML continuations across six hops, and an unresolved link falls through to
+geocoding the venue text, which is a slightly worse pin rather than a broken
+feature. **Enumerate the call sites, not the ones in view.**
+
+Two process lessons, both of which cost a cycle today. A lazy regex looking for
+`signal` inside a `fetch(...)` span stops at the first `)` — which for a
+multi-line call is inside the options object — so the tripwire reported every
+correctly-wrapped call as an offender; it now scans by paren depth. And staging
+two edits to the same file in one batch, each written from the on-disk original,
+means the second silently discards the first. That is now the second time; the
+fix is one accumulating edit per file, or read-modify-write per edit.
+
+## 2026-08-07 — D1 (last): documents that can be wrong, and now cannot be silently wrong (KCDX-058)
+
+Four material claims in the control documents contradicted the source:
+
+- `RESILIENCE.md` listed Storage as covered by the project backup. It is not —
+  Supabase's daily backup is Postgres only, so a restore would leave every
+  `media_path` and `avatar_path` pointing at bytes that no longer exist. This was
+  the dangerous one: it is exactly the claim that stops someone building the
+  backup that is missing.
+- `SECURITY.md` said "no `dangerouslySetInnerHTML`". There are ten. Every one is
+  fed by sanitised or server-generated HTML, so the defensible claim is "no
+  unsanitised sink" — which is checkable, where the absolute one was simply false.
+- `README.md` said `/` and `/login` work without Supabase keys. The middleware
+  constructs a client on every request, so without keys you get a 500. The audit
+  proved that at runtime rather than by reading.
+- `SECURITY.md` said user media is disabled. Photo upload has been live behind the
+  fail-closed scanning seam since June; **video** is what is disabled.
+- `DATA-GOVERNANCE.md` described `profiles` readers as "RLS-scoped viewers", which
+  described the intent — until 0191, every member could read every column.
+
+None of these were lies. Each was true when written and quietly stopped being
+true, which is what documentation does. So the fix is not better prose. Countable
+claims are now tagged in the docs as `<!-- claim:name=value -->` and asserted
+against the source in `tests/doc-claims.test.ts`: add an eleventh
+`dangerouslySetInnerHTML` and the build tells you which sentence to update.
+`SECURITY.md` carries an owner and a reconciliation date, and the test enforces
+that too.
+
+**Three grep-based tripwires today have fired on the text describing the thing
+they guard** — the privilege layer's floating-promise check matched its own
+comment, the outbound-deadline check matched a lazily-terminated span, and this
+one matched a correction that quoted the sentence it was correcting. That is a
+pattern, not three coincidences. The standing remedy: a source-scanning assertion
+must either strip comments first, or the prose must avoid reproducing the exact
+string being banned. Both are used here, and the RESILIENCE correction says so
+inline so the next person does not "helpfully" restore the quote.
+
+## 2026-08-07 — D2: a screening vendor with a bypass is an expense (KCDX-014 / 015)
+
+The standing decision is that prohibited-content screening is delegated to a
+third-party provider — for photos as well as video. Recorded in SAFETY.md
+alongside the video entry, because the model is the same and only the media type
+differs.
+
+That decision has a precondition nobody had checked: **every byte has to reach
+the screener.** Four buckets — `feed-media`, `avatars`, `listing-photos`,
+`credential-docs` — carried an own-folder INSERT policy, so a member could PUT an
+object with nothing but their own JWT. The server action that checks type,
+enforces the thirty-uploads-an-hour ceiling and calls the CSAM hash-match seam
+was simply not on that path. Two of the seven buckets already did it correctly
+(`business-docs`, event covers): the server mints a scoped signed-upload token
+after its checks, and the token carries its own authorization. 0199 makes the
+other four consistent with those two rather than the reverse.
+
+Worth being precise about why dropping the policies does not break uploading: a
+signed upload token does not consult object policies. It breaks uploading
+*without asking us first*, which is the whole point.
+
+**KCDX-015 is the same shape one step later.** `credential-docs`, `business-docs`
+and `tournament-payments` let the submitter UPDATE or DELETE the object at the
+path a reviewer had already approved. The decision row still reads "verified" and
+points at bytes that are now something else. That is not an exotic race — it is
+the ordinary shape of "get approved with a real document, then replace it".
+UPDATE and DELETE are gone; INSERT stays, because submitting *new* evidence
+appends rather than rewrites, and a reviewer's decision is bound to the row it
+judged. Deleting evidence is now a service-role operation, which is where a
+retention or legal-hold decision belongs.
+
+**One path is not fixed and is named in the migration rather than glossed.**
+`components/payment-proof-upload.tsx` uploads from the browser, so `tpay insert`
+has to stay or payment proof breaks. That path still reaches Storage without
+passing the server. It is bounded — the bucket enforces 10 MiB and a MIME
+allowlist, and the UPDATE/DELETE that made it rewritable are gone — but
+converting it to a server-minted token is the last piece of KCDX-014 and it is
+outstanding.
+
+Also removed: `bdocs insert`, which had been redundant since business-doc uploads
+moved to service-role minting. A leftover grant reads as an intentional one to
+whoever finds it next.
+
+## 2026-08-07 — D3 (first): "read failed, so write zero" (KCDX-050)
+
+`recomputePlayerPoints` read two ledgers and wrote the best-N total to
+`player_sports.points`. Both reads were consumed as `result.data ?? []`, and a
+supabase-js read that ERRORS returns `data: null` — so a transient failure on
+either ledger silently became an empty ledger, and the resulting total was
+written as canonical. Quiet, durable, and aimed at the one number the product is
+actually about. A network blip could remove a player's tournament history from
+the rankings until something recomputed it.
+
+Checking both reads would fix the silent zero, and the audit says as much. But it
+leaves two round trips with a gap, and a ledger row landing in that gap still
+produces a total that was never true at any instant. Computed inside one
+statement, both ledgers are read in one snapshot: the answer corresponds to a real
+state of the database, and the partial-read case is removed rather than handled.
+The wrapper now throws, because a ranking that silently stops updating is worse
+than an operation that fails loudly and can be retried.
+
+**The migration did not work on its first run, and the test is the only reason I
+know.** It returned 660 and stored 0. `guard_player_stats` reverts any change to
+ranking stats unless `current_user` is literally `service_role` — and inside a
+SECURITY DEFINER function the current_user is the DEFINER, postgres. So the
+function computed the right number, the guard threw the write away, and the
+return value looked perfect. In production it would have quietly stopped updating
+points altogether.
+
+This is the same shape as the `guard_moderation_update` problem in 0194, and the
+second time today a role-comparison guard has silently defeated our own writer. The
+fix here is a transaction-local flag rather than another role check, precisely
+because the thing that failed was a role check: `current_user` is not the caller's
+role inside a definer function, and every future definer function touching this
+table would hit the same wall. Members still cannot edit their own stats — that is
+what the guard is for, and it still does it.
+
+**Assert the stored value, not the returned one.** A function that returns the
+right answer and writes nothing passes any test that only reads its return.
+
+## 2026-08-07 — D3 (second): the member writing someone else's verdict (KCDX-009 / 013)
+
+Two findings, one shape.
+
+**Business tier.** `guard_business_protected` pins `verification_level` and
+`status` for anyone who is not `service_role` — and it was a BEFORE **UPDATE**
+trigger. The INSERT policy checked owner and draft status and said nothing about
+the tier, so a member could create a business already claiming tier2, and the
+guard then faithfully protected that value from ever changing. The guard was not
+wrong; it defended the second step of a two-step process while the first step was
+open. It fires on INSERT now, and existing unearned tiers reset to none.
+
+**Class enrollment.** The learner's UPDATE policy covered the whole row, which
+holds `payment_status` and a `status` including `attended` and `no_show`. Those
+are the provider's observations, not the learner's claims. Column grants cannot
+separate them — learner and provider are both `authenticated` and the difference
+is per-row — so the writes became commands. A learner still decides the one thing
+that is genuinely theirs: whether they are coming.
+
+There was also no structural link between `session_id` and `class_id`. They were
+two independent foreign keys, so an enrollment could name a session from one class
+and a class from another, and every read that trusts `class_id` — the roster, the
+fee calculation — would then be about the wrong class. A composite FK makes that
+unrepresentable rather than merely discouraged.
+
+**Two live bugs surfaced while testing this, and neither is in the audit.**
+
+`businesses readable` subqueried `business_members`, whose own read policy
+subqueries `business_accounts`. Postgres raises 42P17 "infinite recursion detected
+in policy". The INSERT succeeds; the RETURNING clause trips it — and
+`app/business/actions.ts` does `.insert(...).select("id")` then
+`if (!inserted) return;`. So creating a business raised an error nobody saw and
+then did nothing. `is_business_manager()` already existed as SECURITY DEFINER for
+exactly this reason; the policy just was not using it.
+
+With the recursion gone, a second defect appeared underneath it.
+`INSERT ... RETURNING` requires the returned row to pass the SELECT policy, and
+ownership is recorded by an AFTER INSERT trigger — so at RETURNING time there is
+no membership row yet, and a draft business fails the public arm. The creator
+could not see the business they had just created. **Business creation has never
+worked end to end**, and both failure modes were silent. The fix is the arm that
+was missing all along: `owner_id = auth.uid()`.
+
+Worth noting how they were found: not by reading the policy, but by running the
+exact statement the application runs, as the role the application runs it as. The
+recursion is invisible in the policy text and invisible without RETURNING.
+
+## 2026-08-07 — D3 (third): an invite you can point somewhere else (KCDX-010 / 048)
+
+`invites respond` was `using (invited_user_id = auth.uid()) with check
+(invited_user_id = auth.uid())`. Both halves pin one column; everything else on
+the row, including `team_id`, was the invitee's to rewrite. So: receive any
+invite from anyone, PATCH its `team_id` to a team you were never invited to,
+accept. `respondTeamInvite` re-read the invite, saw its own user id and a pending
+status, and performed a **service-role** upsert into `team_members` using the
+team id you had just supplied. The privileged write did exactly what it was
+asked. The row it trusted was attacker-shaped.
+
+A better policy cannot fix that, because the problem is not whose row it is — the
+row genuinely is theirs. It is that identity fields on an invite are not data.
+The command resolves the invite under a lock from its id alone and never accepts
+a team id from a caller, and the capacity count now sits in the same transaction
+as the insert rather than a statement earlier. A trigger freezes team, invitee and
+inviter even against service-role writes, because a future policy that re-opens
+UPDATE would otherwise re-open the whole finding.
+
+**KCDX-048 is the same class in slow motion.** Ownership lives in two places —
+`team_members.role` and `teams.created_by` — and transfer moved them with three
+separate unchecked updates, leaving of an owner with four. Every gap is a state
+where the team has two owners, or none, or a `created_by` that disagrees with its
+roster. Both are single locked transactions now, with `get diagnostics row_count`
+after each write, so a transfer that touches the wrong number of rows raises
+instead of half-completing.
+
+The invariant is stated once, in `team_ownership_intact()`, rather than implied
+across four call sites.
+
+**A vacuous negative control, again.** Forcing "all members to owner" on a team
+that had one member left produced exactly one owner, and the invariant returned
+true — a passing control that proved nothing. Re-run with a genuine two-member
+team it returns false, and false again when `created_by` is made to disagree.
+That is the third time today a control has needed checking that it could fail;
+the seeded state matters as much as the assertion.
+
+`team_leave` deliberately does not delete an empty team. An empty roster and a
+deleted team are different decisions, and a command that destroys a row while you
+are leaving it is a bad shape — that deletion stays in the action, explicit.
+
+## 2026-08-07 — D3 (fourth): approving a document that no longer exists (KCDX-011)
+
+`provider_applications_update_self` gave the applicant whole-row UPDATE with only
+`user_id = auth.uid()` pinned, so `role` and every credential field stayed
+editable after submission — including while an admin had the review page open.
+`reviewProviderApplication` then re-read the row at approval time and granted
+whatever it now said.
+
+Submit as a coach with your own real credential, wait for an admin to open the
+queue, change `role` to a clinical one and `credential_id` to a licence number
+from a public registry, and the approval grants the row as it stands. The admin's
+judgement was applied to a document that no longer existed.
+
+This one deserves more weight than its P1 suggests. A verified professional badge
+on Klimr is a claim made to other members about someone's competence to handle
+their body and their injuries, and the roles include physio and athletic
+training. An approval that can be swapped after review is not a data-integrity
+bug; it is the badge meaning nothing.
+
+Two halves, both needed. **Freeze on submit** — a pending application is not a
+draft; changing your mind means withdrawing, which is visible, rather than
+editing under review, which is not. **Approve a hash, not a row** — the decision
+names the exact content it was made about, so if anything moved, the approval
+fails rather than transferring. The freeze cannot cover a service-role write, an
+admin script, or a future policy change; the hash can.
+
+## The same bug, three times in one day — and now one answer
+
+`freeze_submitted_application` reverted the approval it was supposed to protect.
+`guard_moderation_update` (0194) undid the media re-moderation. `guard_player_stats`
+(0200) discarded every ranking recompute. All three ask
+`current_user <> 'service_role'`, and inside a SECURITY DEFINER function
+`current_user` is the DEFINER — postgres — not the caller's role. Fifteen places
+in this schema make that test.
+
+Every failure looked like success. The function ran, returned the right value, and
+wrote nothing. Only a test that read back the STORED row caught any of them, and I
+had to be told that lesson twice before I started checking it by default.
+
+So the question now has one implementation. `is_privileged_writer()` is what a
+guard asks; a definer function entitled to write declares itself with a
+transaction-local flag. I had already patched two of these with different ad-hoc
+mechanisms — `pg_trigger_depth()` in 0194, a bespoke `klimr.stats_writer` flag in
+0200 — and three mechanisms for one question is how the fourth occurrence gets
+missed. They are retrofitted onto the shared helper, which is also greppable in a
+way a role comparison scattered across fifteen functions is not.
+
+## 2026-08-07 — D3 (last): the marketplace offer pair (KCDX-012 / 049)
+
+`respondOffer` read the offer, checked `status === "open"` in TypeScript, and then
+issued an **unconditional** update keyed only on the offer id. Two tabs both read
+open, both wrote accepted, and the listing had two accepted offers. Nothing
+detected it: `listing_offers_one_open` constrains one OPEN offer per buyer per
+listing and says nothing about how many may be accepted. The listing moved to
+pending in a separate statement, and competing offers were never touched — so
+every other buyer sat waiting on an item that was sold.
+
+Accepting is a decision about the LISTING, not about one offer row, so the listing
+is what gets locked. Under that lock: re-read the offer, compare-and-swap on
+`status = 'open'`, expire the competitors, move the listing. The TypeScript check
+was a read; the CAS is the write refusing to happen twice.
+
+`loadContext(listingId, buyerId)` took the buyer from the caller and authorized
+with `user.id !== buyerId && user.id !== sellerId` — which a seller passes for ANY
+buyerId. None of it needed to come from the client: `conversations (listing_id,
+created_by)` is unique, so the thread follows from the listing and the buyer, and
+the buyer follows from who is calling or, for a seller's counter, from the parent
+offer.
+
+**A listing could never leave `active`.** Found while testing the accept path, and
+not in the audit. `marketplace_listings` carries two status CHECK constraints —
+one allowing `('active','closed')` from the original two-state design, one allowing
+`('draft','active','pending','sold','expired','removed')` from the lifecycle that
+replaced it. Both must hold, so the effective vocabulary is their intersection:
+`'active'`, alone. Marking a listing sold, pending, expired or removed has always
+raised a check violation.
+
+Two things worth taking from that. The old constraint was never dropped when the
+new one was added, and nothing noticed for however many migrations — a schema can
+be internally contradictory in a way no single migration review would catch.
+And fixing the offer race without finding it would have produced a command that
+read correctly, tested correctly on its own logic, and failed on its last
+statement in production. The test that caught it was trying to observe the
+listing's new status, not to check the constraint.
+
+## 2026-08-07 — E (part): a lost-update fix that nothing used (KCDX-047)
+
+0179 built the right primitive: `merge_format_config` locks the tournament row,
+shallow-merges a patch, and optionally checks an expected `updated_at`. Then it
+was wired into exactly **two** call sites, and thirteen read-spread-write
+siblings were left in place:
+
+    const fc = { ...(to.format_config ?? {}), sponsors: clean };
+    await supabase.from("tournaments").update({ format_config: fc })…
+
+Each of those reads the whole document, changes one key in JavaScript, and writes
+the whole document back. Two staff editing concurrently — one adding sponsors,
+one publishing the schedule — and the second write silently erases the first. No
+conflict, no error: the key reverts, and the person who set it has no reason to
+look again.
+
+**Why the siblings survived is the interesting part.** `merge_format_config` was
+granted to `service_role` alone, so a server action holding the caller's cookie
+session literally could not call it. The correct path was unavailable at every
+site that needed it, so every site did the wrong thing — and the fix looked
+complete because the primitive existed and had callers.
+
+So authorization moved into the function. It now asks `is_privileged_writer() or
+is_tournament_staff()` — the same predicate the policies use — and is granted to
+`authenticated`. The staff check that thirteen call sites were each performing by
+hand happens once, where it cannot be forgotten, and the easy path is now the
+correct one. All thirteen are converted, and a guardrail fails the build on any
+`.update({ format_config … })`.
+
+Two regex lessons, both costing a cycle. `[^}]*` in the tripwire spans newlines
+and matched innocent `.update({...})` calls that merely had a `format_config`
+somewhere below them; bounded to `[^}\n]*` it is exact. And the probe reported
+line numbers from the comment-stripped source, which sent me reading the wrong
+part of the file twice — report a matched snippet alongside a line number, or
+locate by content.
+
+**Not done in this batch, and not implied:** KCDX-045 (locked admission and
+structure reconciliation) and KCDX-046 (revisioned bracket, result, rollback and
+schedule procedures) are the large half of batch E. 0193 closed the registration
+race specifically; the reconciliation loop and the bracket graph are untouched.
+
+## 2026-08-07 — F-Social (part): neighbourhood, and a regression I shipped (KCDX-026)
+
+**The regression first, because it is live.** 0191 revoked the private profile
+columns from members. Four call sites were still reading them with the caller's
+own session, and the worst is `/profile/[id]`: it selected `date_of_birth`,
+`birth_year`, `home_zip`, `neighborhood` and `account_status` for ANOTHER member,
+then `.single()` and `if (!profileRow) notFound()`. With 0191 applied that select
+raises `permission denied`, the row is null, and **every member profile page has
+been returning 404 since the migration ran.**
+
+My guardrail asked whether a privileged client existed anywhere in the FILE and
+skipped the file if so. `app/profile/[id]/page.tsx` has an admin client two
+hundred lines below the offending select, for something unrelated. A file-level
+test cannot answer a statement-level question, and this one stayed green through
+the whole thing. It now captures the client identifier of each
+`.from("profiles")` chain and judges that specific call.
+
+The lesson is not "write better regexes". It is that a boundary migration needs a
+sweep that models the boundary the way the database does — per statement, per
+role — and that a test which skips rather than examines is a test that will
+eventually skip the thing that matters.
+
+**KCDX-026 itself.** `location-privacy.ts` states the rule: other members see
+CITY, STATE. The implementation already preferred `city` — but its parameter type
+still ADMITTED `neighborhood`, so every caller fetched the finer location to
+satisfy the signature, and it travelled through the discovery RPCs, the search
+subtitle and the PYMK rail whether or not it was displayed. The type no longer
+admits it. A field that cannot be passed will not be selected "just in case".
+
+**Age needed somewhere to come from.** The profile page shows it and can no
+longer read a birth date to compute one — correctly, since a date of birth is
+identifying in a way an age is not. So the projection publishes the derived
+value: `age` alongside `is_active`, sources withheld. Publish what the surface
+needs, never what it was computed from.
+
+One subtlety that broke the first attempt: with `security_invoker = true` the
+view reads the base table as the CALLER, who has no grant on `date_of_birth` — so
+deriving age made every column of the view unreadable. Running as definer is what
+lets a projection publish something computed from data the reader may not see,
+which is the whole point of having one.
+
+## 2026-08-07 — D4 (part): the ZIP that left, and the export that didn't (KCDX-055 / 057)
+
+**KCDX-055.** `runLookup` selected `home_zip` and returned it to Anthropic as
+"Home area". A ZIP is the finest location Klimr holds about a member, and it was
+leaving for a support conversation with no use for it — while the tool's own
+description promised name, status, sports and join date and said nothing about
+location. The gap between what a tool advertises and what it returns is where
+this kind of leak lives. The ZIP is gone; city stays, because a support answer
+often does depend on where someone plays, and the description now says so.
+
+The same route gated a paid vendor call with `rateLimit`, which returns TRUE on
+any infrastructure error. A database hiccup removed the ceiling entirely, at
+exactly the moment nobody would notice. `rateLimitStrict` — the fail-closed
+variant that already existed for cost-bearing endpoints — was one word away.
+
+**KCDX-057.** The export returned five things while `DATA-GOVERNANCE.md`
+enumerated nine categories and labelled them "SPECIFIED, NOT BUILT". That is the
+worst version of a data-rights route: the member believes they have their data,
+and because the route exists, nobody is prompted to fulfil the rest.
+
+It now covers all nine. More importantly it carries a `coverage` block naming
+what it cannot include and why — chat bodies (end-to-end encrypted; the server
+holds ciphertext and cannot decrypt it), media (referenced by path, not
+embedded), other participants' contributions to shared objects, staff identities
+in moderation records, authentication secrets — each pointing at manual
+fulfilment. A partial export is fine. A partial export that presents itself as
+complete is not, and the difference is entirely that index.
+
+**Process note, recorded because it cost real time.** I had been checking builds
+with `npx tsc --noEmit >/dev/null 2>&1 && echo "tsc=0"`. When tsc failed the
+command printed nothing — and absence of output is far too easy to miss while
+scanning a wall of results. A type error sat unnoticed for two turns. Print the
+exit code explicitly; never let a gate report success by silence.
+
+Table and column names were also guessed for the export and four of them were
+wrong. The database is the authority, and a single `information_schema` query
+answers it in one call — cheaper than three rounds of compiler errors.
+
+## 2026-08-07 — D4 (last): the crons that never ran (KCDX-039)
+
+`updateSession` redirected any path outside `PUBLIC_PATHS` to `/login`. That list
+was written for humans, and six machine surfaces were never added to it:
+`/api/cron/finalize-tournaments`, `/api/cron/waitlist-sweep`,
+`/api/courtside/register`, `/api/courtside/heartbeat`, `/api/csp-report` and
+`/api/rum`. Each received a 307 to an HTML login page instead of reaching its
+handler.
+
+**So the scheduled jobs have never executed.** Tournaments were never finalized on
+schedule; the waitlist was never swept. CSP reports and RUM beacons have never
+landed, which means the report-only CSP has been collecting nothing this whole
+time.
+
+The shape of the failure is what makes it worth recording. Every one of those
+handlers already authenticates itself properly — `finalize-tournaments` checks
+`CRON_SECRET` and fails closed, `courtside/register` rate-limits strictly. The
+authorization was never wrong. The request simply never arrived, and a 307 to
+HTML looks like success to anything that follows redirects and does not parse
+what it gets: Vercel's scheduler sees a 200 and reports a healthy cron.
+
+**It also collides with my own work.** Migration 0192 makes the Courtside device
+token the only way to record a match result. If `/api/courtside/register` cannot
+be reached, no display can obtain a token — so shipping KCDX-007 without this
+would have bricked every kiosk at the moment the migration landed. Two fixes,
+each correct alone, wrong together. That is an argument for testing the machine
+surfaces as a class rather than one endpoint at a time.
+
+The policy now lives in `lib/route-manifest.ts`: every route has a declared class
+(public, human, aal2, machine), machine routes pass through untouched, and
+nothing under `/api` is ever answered with a redirect — an unlisted API path
+fails closed with 401 JSON, which a caller can act on. The test reads the routes
+off disk and the cron paths out of `vercel.json`, rather than from a list someone
+has to remember to update; that is the only version of this test that would have
+caught the original.
+
+## 2026-08-07 — build gate: node builtins reached the browser bundle
+
+The production build failed on the first rebuild attempt, and only there:
+
+    the chunking context (unknown) does not support external modules
+    (request: node:dns)
+    Import trace: ./components/event-form.tsx → ./app/events/new/page.tsx
+
+`lib/maps-url.ts` gained an egress-controlled HTTP client for KCDX-019, which
+imports `node:dns` and `node:https`. `components/event-form.tsx` is `"use client"`
+and imports `parseLatLngFromMapsUrl` and `isMapsShortLink` from that same module.
+The parsers were always pure — they simply lived next to something that is not,
+and my change made the neighbour toxic.
+
+Nothing else caught it. tsc passes, eslint passes, vitest passes; only a real
+production build walks the client module graph. That is the argument for the
+build being a gate rather than a formality, and for running it before a zip
+rather than after a deploy.
+
+The fix follows the convention already in this repo: pure logic in its own module
+(`lib/maps-parse.ts`), the network half in `lib/maps-url.ts`, and the pure half
+re-exported so existing server callers are untouched. Same split as
+`egress-rules` / `egress` and `maps-hop-rules`. Three modules have now needed it
+in one day — the rule is simply: **if it touches the network or a node builtin,
+it does not share a file with anything a client component may import.**
+

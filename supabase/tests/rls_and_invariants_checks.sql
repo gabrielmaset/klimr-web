@@ -1,5 +1,19 @@
 -- rls_and_invariants_checks.sql — database-level safety assertions (K1-07 · audit SEC-009/TEST-001).
 --
+-- ⚠ READ THIS BEFORE TRUSTING A PASS (KCDX-018).
+-- This file establishes identity by setting `request.jwt.claims` and then runs
+-- its probes as whoever invoked it — in the SQL editor, the owner. RLS does not
+-- apply to a table's owner and grants do not constrain a superuser, so the
+-- "cross-user IDOR probe" in block 3 is not testing what its name says. It never
+-- issues SET ROLE, so it never becomes a member.
+--
+-- Block 1 (the schema-wide RLS assertion) is a catalog query and remains valid —
+-- it is checking metadata, not behaviour, so the caller's identity is irrelevant.
+--
+-- For real negative authorization, run `rls_negative_suite.sql`, which switches
+-- to the actual `anon` / `authenticated` / `service_role` roles before probing.
+-- It is wired into supabase/harness/replay.sh and runs on every replay in CI.
+--
 -- Run in the Supabase SQL editor any time (safe on production: one transaction
 -- that ends in ROLLBACK — nothing persists). Complements
 -- social_graph_checks.sql. Three blocks:

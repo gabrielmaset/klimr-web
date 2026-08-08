@@ -39,7 +39,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  */
 export async function suggestedOpponents(supabase: SB, meId: string, sportKey: string, limit = 8): Promise<Suggestion[]> {
   const [{ data: me }, { data: mySport }, { data: bOut }, { data: bIn }, { data: cand }] = await Promise.all([
-    supabase.from("profiles").select("neighborhood, city, home_zip, state, availability, preferred_format").eq("id", meId).maybeSingle(),
+    supabase.from("profile_private").select("neighborhood, city, home_zip, state, availability, preferred_format").eq("id", meId).maybeSingle(),
     supabase.from("player_sports").select("skill_rating, skill_level, preferred_format").eq("user_id", meId).eq("sport_key", sportKey).maybeSingle(),
     supabase.from("blocks").select("blocked_id").eq("blocker_id", meId),
     supabase.from("blocks").select("blocker_id").eq("blocked_id", meId),
@@ -51,7 +51,15 @@ export async function suggestedOpponents(supabase: SB, meId: string, sportKey: s
   if (!candidates.length) return [];
 
   const ids = candidates.map((c) => c.user_id);
-  const { data: profs } = await supabase
+  // KCDX-001: neighborhood, home ZIP, availability and account state are no longer
+  // readable member-to-member, and they should not be — but the recommender needs
+  // them to score proximity and overlap. So the read happens with elevated rights
+  // and the values stay on the server: every reason string below is derived
+  // ("Same neighborhood", "Nearby"), and no raw location or account state is ever
+  // returned to the caller. Elevated rights are doing computation here, not
+  // standing in for an authorization check the database should be making.
+  const { getPrivilegedClient } = await import("@/lib/privileged");
+  const { data: profs } = await getPrivilegedClient({ reason: "match-intel:opponent-scoring" })
     .from("profiles")
     .select("id, display_name, avatar_hue, avatar_path, neighborhood, city, home_zip, state, availability, account_status, location_precision")
     .in("id", ids);

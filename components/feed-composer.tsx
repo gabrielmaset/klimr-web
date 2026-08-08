@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Image as ImageIcon, Video, MessagesSquare, Trophy, Send, Loader2, X, Globe, Users, Lock, ChevronDown, Check } from "lucide-react";
+import { Image as ImageIcon, MessagesSquare, Trophy, Send, Loader2, X, Globe, Users, Lock, ChevronDown, Check } from "lucide-react";
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createTypedFeedPost, prepareFeedMediaUpload } from "@/app/feed/actions";
@@ -10,7 +10,9 @@ import { createTypedFeedPost, prepareFeedMediaUpload } from "@/app/feed/actions"
 type PostType = "photo" | "video" | "ask" | "milestone";
 const TYPES: { key: PostType; label: string; Icon: typeof ImageIcon }[] = [
   { key: "photo", label: "Photo", Icon: ImageIcon },
-  { key: "video", label: "Highlight", Icon: Video },
+  // KCDX-006: the Highlight (video) tab is out until the media safety gate
+  // exists. The server and the database refuse video regardless; this just stops
+  // offering something that cannot succeed.
   { key: "ask", label: "Ask the community", Icon: MessagesSquare },
   { key: "milestone", label: "Milestone", Icon: Trophy },
 ];

@@ -10,7 +10,7 @@ import { MediaCropper, type MediaCropResult } from "@/components/media-cropper";
 import { RichTextEditor, linkifyHtml } from "@/components/rich-text-editor";
 import { DateTimeField } from "@/components/date-time-field";
 import { EventLocationMap } from "@/components/event-location-map";
-import { parseLatLngFromMapsUrl, isMapsShortLink, type LatLng } from "@/lib/maps-url";
+import { parseLatLngFromMapsUrl, isMapsShortLink, type LatLng } from "@/lib/maps-parse";
 import { resolveEventPinPreview } from "@/app/events/maps-actions";
 import {
   createEvent,

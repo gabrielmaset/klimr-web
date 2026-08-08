@@ -37,7 +37,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
   const [a, b, { data: profile }] = await Promise.all([
     computeSide(supabase, c.scope, c.region_a, c.sport_key),
     computeSide(supabase, c.scope, c.region_b, c.sport_key),
-    supabase.from("profiles").select("neighborhood, city").eq("id", user.id).maybeSingle(),
+    supabase.from("profile_private").select("neighborhood, city").eq("id", user.id).maybeSingle(),
   ]);
 
   const topIds = [...new Set([...a.top, ...b.top].map((t) => t.user_id))];

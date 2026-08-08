@@ -27,18 +27,14 @@ type Profile = {
   avatar_path: string | null;
   verification_status: string;
   open_to_invites: boolean;
-  location_precision: string | null;
-  account_status: string;
+  is_active: boolean | null;
+  age: number | null;
   reliability: number;
-  home_zip: string | null;
-  neighborhood: string | null;
   city: string | null;
   state: string | null;
   country: string;
   primary_sport: string | null;
   created_at: string;
-  date_of_birth: string | null;
-  birth_year: number | null;
   gear: unknown;
   usual_times: string | null;
   profile_gallery: unknown;
@@ -70,7 +66,10 @@ const tintOf = (k: string | null) => SPORT_TINT[k ?? ""] ?? { bg: "#FFF0E8", bd:
 function regionFor(key: string, p: Profile): string | null {
   switch (key) {
     case "zip":
-      return p.home_zip;
+      // KCDX-026: a ZIP is finer than anything location-privacy.ts publishes.
+      // The ZIP-level ranking board falls back to the city label, which is the
+      // grain this profile is allowed to show a visitor.
+      return p.city;
     case "city":
       return p.city;
     case "state":
@@ -114,16 +113,25 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/profile/${id}`);
 
+  // KCDX-001 / KCDX-026: this used to select date_of_birth, birth_year, home_zip,
+  // neighborhood and account_status for ANOTHER member with the viewer's own
+  // session. `profiles_public` is the approved 30-column projection and carries
+  // `is_active` in place of raw account state. Age, when shown, is derived from
+  // the age band the viewer is allowed to see — never from a birth date this page
+  // is not entitled to read.
   const { data: profileRow } = await supabase
-    .from("profiles")
+    .from("profiles_public")
     .select(
-      "id, display_name, avatar_hue, avatar_path, verification_status, account_status, reliability, home_zip, neighborhood, city, state, country, primary_sport, created_at, date_of_birth, birth_year, gear, usual_times, profile_gallery, show_courts, show_teams, show_tournaments, open_to_invites, location_precision",
+      "id, display_name, avatar_hue, avatar_path, verification_status, is_active, age, reliability, city, state, country, primary_sport, created_at, gear, usual_times, profile_gallery, show_courts, show_teams, show_tournaments, open_to_invites",
     )
     .eq("id", id)
     .single();
   if (!profileRow) notFound();
   const profile = profileRow as Profile;
-  if (profile.account_status === "archived") notFound();
+  // `is_active` is the generated boolean that replaced raw account state on
+  // member-facing surfaces (0191): archived and suspended accounts are simply
+  // not active, and a visitor learns nothing about which.
+  if (profile.is_active === false) notFound();
 
   const isSelf = profile.id === user.id;
 
@@ -349,7 +357,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
   let courts: { id: string; name: string; mi: number | null }[] = [];
   if (profile.show_courts && courtIdsRecent.length) {
-    const { data: me } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
+    // The VIEWER's own ZIP, for distance. Own-row private data comes from
+    // profile_private, which is scoped to auth.uid() in SQL.
+    const { data: me } = await supabase.from("profile_private").select("home_zip").maybeSingle();
     const viewerPt = me?.home_zip ? lookupZip(me.home_zip) : null;
     const { data: cs } = await supabase.from("courts").select("id, name, lat, lng").in("id", courtIdsRecent);
     courts = (cs ?? []).map((c) => ({
@@ -378,7 +388,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   if (sports.length >= 2) badges.push({ label: "Multi-sport", Icon: Grid2x2, cls: "border-rule bg-bg text-ink-soft" });
 
   const contextChips = context ? buildContextChips(context) : [];
-  const age = displayAge(profile.date_of_birth, profile.birth_year);
+  // KCDX-026: the projection publishes the derived age; the birth date stays in
+  // the row this page cannot read.
+  const age = profile.age;
   const first = profile.display_name.split(" ")[0];
   const avatarUrl = profile.avatar_path ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl : null;
   const winPctCls = (w: number, m: number) => {

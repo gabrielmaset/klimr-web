@@ -203,11 +203,12 @@ export async function cancelEnrollment(formData: FormData) {
   const enrollmentId = (formData.get("enrollmentId") as string) || "";
   const classId = (formData.get("classId") as string) || "";
   if (!user || !enrollmentId) return;
-  await supabase
-    .from("class_enrollments")
-    .update({ status: "cancelled", confirmed_at: null, updated_at: new Date().toISOString() })
-    .eq("id", enrollmentId)
-    .eq("user_id", user.id);
+  // KCDX-013: the learner's direct UPDATE policy is gone (0201), because it
+  // covered the whole row including payment_status and attendance. Withdrawing is
+  // still theirs to decide, so it goes through the command that permits exactly
+  // that and nothing else.
+  const { data: res, error } = await supabase.rpc("class_cancel_enrollment", { p_enrollment: enrollmentId });
+  if (error || !(res as { ok?: boolean } | null)?.ok) return;
   if (classId) {
     const admin = createAdminClient();
     const { data: cls } = await admin.from("classes").select("provider_id, title").eq("id", classId).maybeSingle();
@@ -232,6 +233,9 @@ export async function markAttendance(formData: FormData) {
   const value = (formData.get("value") as string) || "";
   if (!user || !enrollmentId || !classId || !["attended", "no_show", "enrolled"].includes(value)) return;
   if (!(await ownsClass(classId, user.id))) return;
+  // KCDX-013: attendance is the provider's observation. The provider still holds
+  // a direct UPDATE policy, so this line is theirs — but a learner reaching it
+  // now writes nothing, because the learner-side policy is gone.
   await supabase.from("class_enrollments").update({ status: value, updated_at: new Date().toISOString() }).eq("id", enrollmentId);
   revalidatePath(`/classes/${classId}`);
 }

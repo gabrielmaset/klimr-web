@@ -95,7 +95,7 @@ export default async function PlayPage() {
   }
 
   const { data: me } = await supabase
-    .from("profiles")
+    .from("profile_private")
     .select("home_zip, display_name, avatar_hue, avatar_path")
     .eq("id", user.id)
     .maybeSingle();

@@ -176,7 +176,7 @@ export default async function TournamentsHub({ searchParams }: { searchParams: P
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/tournaments");
 
-  const { data: prof } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
+  const { data: prof } = await supabase.from("profile_private").select("home_zip").eq("id", user.id).maybeSingle();
   const { data: provRow } = await supabase.from("class_providers").select("roles, status").eq("user_id", user.id).maybeSingle();
   const isTD = canHostTournaments(provRow?.status, provRow?.roles);
 

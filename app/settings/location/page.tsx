@@ -17,7 +17,7 @@ export default async function LocationSettingsPage({ searchParams }: { searchPar
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/settings/location");
   const flags = await searchParams;
-  const { data: prof } = await supabase.from("profiles").select("home_zip, neighborhood, city, state").eq("id", user.id).maybeSingle();
+  const { data: prof } = await supabase.from("profile_private").select("home_zip, neighborhood, city, state").eq("id", user.id).maybeSingle();
   const place = [prof?.neighborhood, prof?.city, prof?.state].filter(Boolean).join(", ");
 
   return (

@@ -23,6 +23,26 @@ async function loadContext(listingId: string, buyerId: string) {
   return { supabase, me: user.id, listing: l, sellerId } as const;
 }
 
+/** The commands return machine codes so the database stays the source of truth
+ *  about why something was refused. */
+function offerErrorMessage(code?: string): string {
+  switch (code) {
+    case "not_signed_in": return "Sign in first.";
+    case "not_found": return "Offer not found.";
+    case "listing_gone": return "That listing is gone.";
+    case "not_your_thread": return "Not your thread.";
+    case "your_own_offer": return "You made this offer \u2014 you can withdraw it.";
+    case "not_open": return "That offer isn\u2019t open anymore.";
+    case "expired": return "That offer expired.";
+    case "race_lost": return "Someone answered that offer first \u2014 reload the thread.";
+    case "already_accepted": return "This listing already has an accepted offer.";
+    case "seller_needs_parent": return "Counter an existing offer instead.";
+    case "bad_parent": return "That offer doesn\u2019t belong to this thread.";
+    case "not_active": return "That listing isn\u2019t taking offers.";
+    default: return "Couldn\u2019t record that. Please try again.";
+  }
+}
+
 function threadLink(convId: string) {
   return `/marketplace/messages/${convId}`;
 }
@@ -54,28 +74,22 @@ export async function makeOffer(input: {
       .maybeSingle();
     if (!parent || parent.status !== "open") return { error: "That offer isn\u2019t open anymore." };
     if (parent.actor_id === me) return { error: "You can withdraw your own offer instead of countering it." };
-    await supabase.from("listing_offers").update({ status: "declined", decided_at: new Date().toISOString() }).eq("id", parent.id);
-  } else {
-    // One open offer per buyer per listing (DB-enforced too).
-    const { data: open } = await supabase
-      .from("listing_offers")
-      .select("id, actor_id")
-      .eq("listing_id", input.listingId)
-      .eq("buyer_id", input.buyerId)
-      .eq("status", "open")
-      .maybeSingle();
-    if (open) return { error: open.actor_id === me ? "You already have an open offer \u2014 withdraw it to change it." : "Respond to the open offer first." };
   }
 
-  const { error } = await supabase.from("listing_offers").insert({
-    listing_id: input.listingId,
-    buyer_id: input.buyerId,
-    actor_id: me,
-    amount_cents: amountCents,
-    note,
-    parent_offer_id: input.parentOfferId ?? null,
+  // KCDX-012: `buyer_id` used to be whatever the caller passed, and the checks
+  // above (parent open, no competing open offer) sat in separate statements from
+  // the insert. The command derives the buyer — from the caller, or for a
+  // seller's counter from the parent row — supersedes the open offer, and
+  // inserts, all under a lock on the listing. Nothing about identity crosses the
+  // wire.
+  const { data: made, error } = await supabase.rpc("marketplace_offer_create", {
+    p_listing: input.listingId,
+    p_amount: amountCents,
+    p_note: note,
+    p_parent: input.parentOfferId ?? null,
   });
-  if (error) return { error: "Couldn\u2019t send the offer \u2014 try again." };
+  const created = made as { ok?: boolean; error?: string; buyer_id?: string; conversation_id?: string | null } | null;
+  if (error || !created?.ok) return { error: offerErrorMessage(created?.error) };
 
   const other = me === sellerId ? input.buyerId : sellerId;
   await createNotification({
@@ -109,21 +123,27 @@ export async function respondOffer(input: { offerId: string; convId: string; dec
   if (new Date(o.expires_at).getTime() < Date.now()) return { error: "That offer expired." };
   if (o.actor_id === me) return { error: "You made this offer \u2014 you can withdraw it." };
 
-  await supabase
-    .from("listing_offers")
-    .update({ status: input.decision === "accept" ? "accepted" : "declined", decided_at: new Date().toISOString() })
-    .eq("id", o.id);
-
-  if (input.decision === "accept" && listing.status === "active") {
-    await supabase.from("marketplace_listings").update({ status: "pending" }).eq("id", listing.id);
-  }
+  // KCDX-049: this used to be a TypeScript status check followed by an
+  // UNCONDITIONAL update keyed on the offer id, then a separate listing update.
+  // Two tabs both read "open" and both wrote "accepted". Accepting is a decision
+  // about the LISTING, so the command locks the listing, re-reads the offer under
+  // that lock, compares-and-swaps on status, expires the competing offers, and
+  // moves the listing — in one transaction.
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc("marketplace_offer_respond", {
+    p_offer: o.id,
+    p_accept: input.decision === "accept",
+  });
+  const out = rpcRes as { ok?: boolean; error?: string; notify_user_id?: string; conversation_id?: string | null } | null;
+  if (rpcErr || !out?.ok) return { error: offerErrorMessage(out?.error) };
 
   await createNotification({
     userId: o.actor_id,
     kind: "system",
     title: input.decision === "accept" ? `Offer accepted \u2014 ${listing.title}` : `Offer declined \u2014 ${listing.title}`,
     body: input.decision === "accept" ? "Propose a court and time to meet." : undefined,
-    linkUrl: threadLink(input.convId),
+    // Derived from the listing and buyer inside the command — never the
+    // caller-supplied `convId`, which was the KCDX-012 half of this.
+    linkUrl: threadLink(out.conversation_id ?? input.convId),
   });
   void sellerId;
   revalidatePath(threadLink(input.convId));

@@ -10,13 +10,17 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
     const e = err instanceof Error ? err : new Error(String(err));
     const digest = (err as { digest?: string })?.digest;
     const admin = createAdminClient();
-    await admin.from("error_logs").insert({
-      level: "error",
-      message: `[server] ${context.routerKind} ${context.routePath || request.path}: ${e.message}`.slice(0, 1000),
-      detail: [digest ? `digest: ${digest}` : null, `type: ${context.routeType}`, e.stack].filter(Boolean).join("\n").slice(0, 6000),
-      url: String(request.path ?? "").slice(0, 300),
-      user_agent: String(request.headers["user-agent"] ?? "").slice(0, 400) || null,
+    // KCDX-068: `context.routePath` is already a template, but `request.path` is
+    // the real URL and carries invite codes, join codes and ids; the stack carries
+    // whatever was in scope. Everything persisted goes through the scrubber.
+    const { scrubLogRow } = await import("@/lib/log-scrub");
+    const row = scrubLogRow({
+      message: `[server] ${context.routerKind} ${context.routePath || request.path}: ${e.message}`,
+      detail: [digest ? `digest: ${digest}` : null, `type: ${context.routeType}`, e.stack].filter(Boolean).join("\n"),
+      url: String(request.path ?? ""),
+      userAgent: String(request.headers["user-agent"] ?? ""),
     });
+    await admin.from("error_logs").insert({ level: "error", ...row });
   } catch {
     /* logging must never take a request down */
   }

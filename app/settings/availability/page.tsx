@@ -15,7 +15,7 @@ export default async function AvailabilityPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/settings/availability");
 
-  const { data: p } = await supabase.from("profiles").select("availability").eq("id", user.id).maybeSingle();
+  const { data: p } = await supabase.from("profile_private").select("availability").eq("id", user.id).maybeSingle();
   const raw = Array.isArray(p?.availability) ? (p.availability as unknown[]) : [];
   const initial: Range[] = raw
     .filter((r): r is Range => !!r && typeof r === "object" && "day" in r && "start" in r && "end" in r)

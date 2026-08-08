@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrivilegedClient } from "@/lib/privileged";
 import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
+import { scrubLogRow } from "@/lib/log-scrub";
 
 /** CSP violation collector (K3-06).
  *
@@ -50,14 +51,19 @@ export async function POST(req: Request) {
   }
 
   const admin = getPrivilegedClient({ reason: "csp:violation" });
+  // KCDX-068: the path-only trim below was already the right instinct; the
+  // scrubber makes it the same policy every other writer uses, and templates
+  // the codes a document URI can still carry after the query is stripped.
   await admin.from("error_logs").insert({
     user_id: null,
     level: "warn",
-    message: `[CSP] ${directive} blocked ${blocked || "(inline)"}`,
-    // Path only — a document URI can carry a session code or a person's slug.
-    detail: String(r["document-uri"] ?? "").split("?")[0].slice(0, 300),
+    ...scrubLogRow({
+      message: `[CSP] ${directive} blocked ${blocked || "(inline)"}`,
+      detail: String(r["document-uri"] ?? "").split("?")[0],
+      url: "csp://report-only",
+      userAgent: req.headers.get("user-agent") ?? "",
+    }),
     url: "csp://report-only",
-    user_agent: (req.headers.get("user-agent") ?? "").slice(0, 300),
   });
 
   return new NextResponse(null, { status: 204 });

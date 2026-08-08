@@ -62,7 +62,23 @@ declare
     'function:public.perf_report(integer)',
     'function:public.search_zero_rate(integer)',
     -- 0187 cheap poll head
-    'function:public.queue_poll_head(uuid)'
+    'function:public.queue_poll_head(uuid)',
+    -- 0191/0192 privacy + queue boundaries (added by 0192)
+    'function:public.profile_boundary_intact()',
+    'function:public.queue_boundary_intact()',
+    'function:public.courtside_authorize(uuid,text,uuid)',
+    -- 0193 tournament commands
+    'function:public.tournament_boundary_intact()',
+    'function:public.tournament_register(uuid,uuid,uuid,jsonb,boolean,boolean)',
+    'function:public.tournament_withdraw(uuid)',
+    'function:public.tournament_submit_payment_proof(uuid,text)',
+    'function:public.tournament_review_payment(uuid,text,text)',
+    -- 0194 moderation re-entry
+    'function:public.moderation_reentry_intact()',
+    -- 0195 video containment
+    'function:public.video_disabled_intact()',
+    -- 0196 privilege hygiene
+    'function:public.grant_hygiene_intact()'
   ];
   missing text[] := '{}';
   item text;

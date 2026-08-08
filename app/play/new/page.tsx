@@ -36,7 +36,7 @@ export default async function NewMatchPage({
   if (!user) redirect("/login?next=/play/new");
 
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("profile_private")
     .select("home_zip, primary_sport")
     .eq("id", user.id)
     .maybeSingle();

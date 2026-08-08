@@ -62,7 +62,7 @@ export async function SignedInHome() {
   if (!user) return null;
 
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("profile_private")
     .select("display_name, avatar_hue, avatar_path, home_zip, neighborhood, city, state, country, primary_sport")
     .eq("id", user.id)
     .single();

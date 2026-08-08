@@ -14,7 +14,7 @@ export default async function NewListingPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/marketplace/new");
 
-  const { data: me } = await supabase.from("profiles").select("home_zip, primary_sport").eq("id", user.id).maybeSingle();
+  const { data: me } = await supabase.from("profile_private").select("home_zip, primary_sport").eq("id", user.id).maybeSingle();
   const defaultSport = me?.primary_sport && SPORT_KEYS.includes(me.primary_sport) ? me.primary_sport : null;
 
   return (

@@ -31,7 +31,7 @@ export default async function AccountPage({
 
   const [{ data: profile }, { data: mySports }] = await Promise.all([
     supabase
-      .from("profiles")
+      .from("profile_private")
       .select(
         "display_name, home_zip, neighborhood, city, state, primary_sport, verification_status, avatar_hue, avatar_path, bio, availability, presence_mode",
       )

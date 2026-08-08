@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { QSessionState } from "@/lib/queue";
+import { getInstallId, peekDeviceToken } from "@/lib/courtside-install";
 
 const DYNAMIC_TABLES = ["queue_teams", "queue_matches", "queue_team_members", "queue_courts", "queue_join_requests"];
 
@@ -20,8 +21,18 @@ export function useQueueState(sessionId: string, initial: QSessionState, pollMs 
 
   const refetch = useCallback(async () => {
     try {
-      const headers: HeadersInit = {};
+      const headers: Record<string, string> = {};
       if (etagRef.current) headers["If-None-Match"] = etagRef.current;
+      // KCDX-008: a registered Courtside display identifies itself so the server
+      // can decide whether it is an operator. Ordinary browsers send nothing and
+      // get the ordinary projection; presenting a token proves nothing unless the
+      // database agrees it is live and bound to this session.
+      const deviceToken = peekDeviceToken();
+      const installId = deviceToken ? getInstallId() : null;
+      if (installId && deviceToken) {
+        headers["x-klimr-install"] = installId;
+        headers["x-klimr-device-token"] = deviceToken;
+      }
       const r = await fetch(`/api/queue/${sessionId}`, { cache: "no-store", headers });
       if (r.status === 304) return; // unchanged — keep the state we have
       if (r.ok) {
@@ -43,12 +54,14 @@ export function useQueueState(sessionId: string, initial: QSessionState, pollMs 
       }, 150);
     };
 
-    const supabase = createClient();
-    const channel = supabase.channel(`queue-${sessionId}`);
-    for (const table of DYNAMIC_TABLES) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `session_id=eq.${sessionId}` }, ping);
-    }
-    channel.subscribe();
+    // KCDX-002: this used to subscribe to postgres_changes on the five queue
+    // tables. Realtime publishes whole rows, and those rows ARE the presence
+    // data — who is on which court, right now — so the subscription was a live
+    // feed of it to anyone holding the public anon key. Migration 0192 removes
+    // the tables from the publication; the polling path below already existed
+    // and carries the whole load, at the cost of at most one interval of
+    // latency. `ping` stays for the debounce it shares with refetch.
+    void ping;
 
     const poll = setInterval(() => {
       if (alive) void refetch();
@@ -58,7 +71,6 @@ export function useQueueState(sessionId: string, initial: QSessionState, pollMs 
       alive = false;
       if (debounce) clearTimeout(debounce);
       clearInterval(poll);
-      void supabase.removeChannel(channel);
     };
   }, [sessionId, pollMs, refetch]);
 

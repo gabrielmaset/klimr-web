@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { scrubLogRow } from "@/lib/log-scrub";
 
 type Level = "error" | "warn" | "info";
 const LEVELS: Level[] = ["error", "warn", "info"];
@@ -46,7 +47,11 @@ export async function recordClientError(input: {
 
   try {
     const admin = createAdminClient();
-    await admin.from("error_logs").insert({ user_id: userId, level, message, detail, url, user_agent: userAgent });
+    // KCDX-068: message, detail and url here are supplied by the client. Even
+    // with a trusted first-party caller, whatever the browser had in scope should
+    // not become a durable row verbatim.
+    const row = scrubLogRow({ message, detail, url, userAgent });
+    await admin.from("error_logs").insert({ user_id: userId, level, ...row });
   } catch {
     /* never let logging break anything */
   }

@@ -230,7 +230,12 @@ async function searchPlayers(
   a: { sport?: string; day?: string; time_from?: string; time_to?: string; text?: string },
 ) {
   // Only players who OPTED IN to being found for play (invite privacy).
-  let q = db
+  // KCDX-001: `availability` is private and stays private. It is needed here to
+  // answer "who is free Tuesday evening?", so the read happens with elevated
+  // rights and the schedule never leaves this function — only the players who
+  // match are returned, and only their public fields.
+  const { getPrivilegedClient } = await import("@/lib/privileged");
+  let q = getPrivilegedClient({ reason: "ai-search:player-availability" })
     .from("profiles")
     .select("id, display_name, primary_sport, city, state, availability, open_to_invites")
     .eq("open_to_invites", true)

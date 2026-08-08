@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { roleMeta } from "@/lib/professional-roles";
+import { getPrivilegedClient } from "@/lib/privileged";
 
 export async function requestProfessionalStatus(formData: FormData) {
   const supabase = await createClient();
@@ -41,7 +42,11 @@ export async function requestProfessionalStatus(formData: FormData) {
     if (!okTypes.includes(doc.type)) redirect("/settings/professional?error=doc-type");
     const safe = doc.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80);
     const path = `${user.id}/${Date.now()}-${safe}`;
-    const { error: upErr } = await supabase.storage.from("credential-docs").upload(path, doc, { contentType: doc.type });
+    // KCDX-014/015: the write is performed by the server, not authorised by the
+    // applicant's own policy — and once written it cannot be replaced or deleted
+    // by them, because a reviewer's decision points at these exact bytes.
+    const { error: upErr } = await getPrivilegedClient({ reason: "professional:credential-upload", actorId: user.id })
+      .storage.from("credential-docs").upload(path, doc, { contentType: doc.type });
     if (upErr) {
       console.error("[professional] doc upload failed", upErr.message);
       redirect("/settings/professional?error=doc-upload");

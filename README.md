@@ -25,7 +25,7 @@ Built in phases, each one build-checked before the next.
     cp .env.example .env.local   # then fill in your Supabase keys
     npm run dev
 
-Open http://localhost:3000. The home page and /login work without keys; signing in needs the Supabase values below.
+Open http://localhost:3000. <!-- claim:keyless-pages=false --> **Every page needs the Supabase values**, including `/` and `/login`: `lib/supabase/middleware.ts` constructs a Supabase client on every request, so without `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` you get a 500 rather than a login form. (The previous claim that keyless pages render was disproved at runtime by the August 2026 audit; dummy local values are enough to get the shell up.)
 
 ## Build — the per-phase check
 

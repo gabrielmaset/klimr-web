@@ -6,7 +6,9 @@ import { InvitesBrowser, type InviteItem, type Dir, type Kind } from "@/componen
 
 export const metadata: Metadata = { title: "Invites" };
 
-type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; verification_status: string; primary_sport: string | null; neighborhood: string | null; city: string | null };
+// KCDX-001: neighborhood is private. City is the coarsest label the product
+// promised other members ("City, ST"), and it is what this list shows.
+type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null; verification_status: string; primary_sport: string | null; city: string | null };
 type TeamRow = { id: string; name: string; sport_key: string; city: string | null };
 type MatchRow = { id: string; sport_key: string; scheduled_at: string | null; organizer_id: string; status: string; total_slots: number };
 
@@ -45,7 +47,7 @@ export default async function InvitesPage({ searchParams }: { searchParams: Prom
 
   const [teamRes, profRes, matchRes] = await Promise.all([
     teamIds.length ? supabase.from("teams").select("id, name, sport_key, city").in("id", teamIds) : Promise.resolve({ data: [] as TeamRow[] }),
-    personIds.length ? supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path, verification_status, primary_sport, neighborhood, city").in("id", personIds) : Promise.resolve({ data: [] as Prof[] }),
+    personIds.length ? supabase.from("profiles").select("id, display_name, avatar_hue, avatar_path, verification_status, primary_sport, city").in("id", personIds) : Promise.resolve({ data: [] as Prof[] }),
     matchIds.length ? supabase.from("matches").select("id, sport_key, scheduled_at, organizer_id, status, total_slots").in("id", matchIds) : Promise.resolve({ data: [] as MatchRow[] }),
   ]);
   const teamMap = new Map(((teamRes.data as TeamRow[] | null) ?? []).map((t) => [t.id, t]));

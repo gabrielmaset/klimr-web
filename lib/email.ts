@@ -1,4 +1,5 @@
 import "server-only";
+import { callExternal } from "@/lib/external";
 
 const FROM_DEFAULT = "Klimr <hello@notifications.klimr.com>";
 const REPLY_TO_DEFAULT = "hello@klimr.com";
@@ -12,7 +13,9 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
     return false;
   }
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    // KCDX-056: had no timeout. NO retry — a retried send delivers a second email.
+    const res = await callExternal({ vendor: "resend", timeoutMs: 8000 }, (signal) =>
+    fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -22,7 +25,9 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
         html: opts.html,
         reply_to: opts.replyTo ?? REPLY_TO_DEFAULT,
       }),
-    });
+      signal,
+    }),
+  );
     if (!res.ok) {
       console.error("[email] send failed", res.status, await res.text());
       return false;

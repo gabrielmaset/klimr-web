@@ -17,7 +17,7 @@ export default async function EditProfilePage() {
   if (!user) redirect("/login?next=/settings/profile");
 
   const { data: p } = await supabase
-    .from("profiles")
+    .from("profile_private")
     .select("display_name, first_name, last_name, bio, gender, date_of_birth, home_zip, avatar_hue, avatar_path, timezone, verification_status")
     .eq("id", user.id)
     .maybeSingle();

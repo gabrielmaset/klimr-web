@@ -8,6 +8,7 @@
 // confirmation always wins and clears the inferred marker.
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { callExternal } from "@/lib/external";
 
 const MODEL = "claude-haiku-4-5-20251001";
 const CONFIDENCE_FLOOR = 0.7;
@@ -27,14 +28,18 @@ export async function fetchPlaceEvidence(placeId: string): Promise<string | null
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return null;
   try {
-    const res = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
+    // KCDX-056: had no timeout. A read-only lookup, safe to retry once.
+    const res = await callExternal({ vendor: "google-places", timeoutMs: 6000, retries: 1 }, (signal) =>
+      fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
       headers: {
         "X-Goog-Api-Key": key,
         "X-Goog-FieldMask":
           "displayName,editorialSummary,regularOpeningHours.weekdayDescriptions,reviews.text.text,reviews.rating",
       },
       cache: "no-store",
-    });
+        signal,
+      }),
+    );
     if (!res.ok) return null;
     const data = (await res.json()) as {
       displayName?: { text?: string };

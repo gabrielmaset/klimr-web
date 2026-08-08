@@ -70,6 +70,12 @@ export async function batteryPct(): Promise<number | null> {
   }
 }
 
+/** The device token this display already holds, if any. Read-only: it never
+ *  registers. Callers that need one minted use ensureDeviceToken(). */
+export function peekDeviceToken(): string | null {
+  return readToken();
+}
+
 function readToken(): string | null {
   try {
     return window.localStorage.getItem(TOKEN_KEY) ?? memoryToken;

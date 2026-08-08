@@ -39,10 +39,10 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
 
   const [{ data: seller }, { data: savedRow }, { data: me }] = await Promise.all([
     l.listed_by
-      ? supabase.from("profiles").select("id, display_name, avatar_hue, verification_status, primary_sport, created_at, city, neighborhood").eq("id", l.listed_by).maybeSingle()
+      ? supabase.from("profiles").select("id, display_name, avatar_hue, verification_status, primary_sport, created_at, city").eq("id", l.listed_by).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("saved_listings").select("listing_id").eq("user_id", user.id).eq("listing_id", id).maybeSingle(),
-    supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle(),
+    supabase.from("profile_private").select("home_zip").eq("id", user.id).maybeSingle(),
   ]);
 
   const sport = l.sport_key ?? "multi";
@@ -150,7 +150,7 @@ export default async function ListingPage({ params, searchParams }: { params: Pr
                   {seller.verification_status === "verified" ? <BadgeCheck size={14} className="text-brand-deep" fill="var(--color-tint-brand)" /> : null}
                 </span>
                 <span className="block truncate text-xs text-mute">
-                  {sellerSport ? `Plays ${sellerSport}${seller.neighborhood || seller.city ? ` in ${seller.neighborhood ?? seller.city}` : " nearby"}` : "Klimr player"}
+                  {sellerSport ? `Plays ${sellerSport}${seller.city ? ` in ${seller.city}` : " nearby"}` : "Klimr player"}
                   {sellerSince ? ` · On Klimr since ${sellerSince}` : ""}
                 </span>
               </span>

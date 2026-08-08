@@ -84,7 +84,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   const lane: "nearby" | "circle" = laneRaw === "circle" ? "circle" : "nearby";
 
   const [{ data: profile }, { data: items }] = await Promise.all([
-    supabase.from("profiles").select("display_name, home_zip, primary_sport, avatar_hue").eq("id", user.id).maybeSingle(),
+    supabase.from("profile_private").select("display_name, home_zip, primary_sport, avatar_hue").eq("id", user.id).maybeSingle(),
     supabase.from("feed_items").select("id, kind, title, body, sport_key, link_url, link_label, published_at, actor_id, zip, meta, audience, object_id").order("published_at", { ascending: false }).limit(120),
   ]);
 
@@ -374,12 +374,15 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   const v2Likes = new Map<string, number>();
   const v2Mine = new Set<string>();
   const v2Comments = new Map<string, number>();
-  const v2Profiles = new Map<string, { name: string; hue: number; zip: string | null; verified: boolean }>();
+  // KCDX-001: the author label needs a city, not a home ZIP. `city` is part of the
+  // approved public projection; `home_zip` is not, and deriving one from the other
+  // was the only reason this query ever asked for it.
+  const v2Profiles = new Map<string, { name: string; hue: number; area: string | null; verified: boolean }>();
   if (v2Ids.length) {
     const [{ data: lk }, { data: cm }, { data: prs }] = await Promise.all([
       supabase.from("post_likes").select("post_id, user_id").in("post_id", v2Ids),
       supabase.from("post_comments").select("post_id").in("post_id", v2Ids).eq("moderation_status", "approved"),
-      supabase.from("profiles").select("id, display_name, avatar_hue, home_zip, verification_status").in("id", v2Authors),
+      supabase.from("profiles").select("id, display_name, avatar_hue, city, verification_status").in("id", v2Authors),
     ]);
     for (const l of lk ?? []) {
       v2Likes.set(l.post_id, (v2Likes.get(l.post_id) ?? 0) + 1);
@@ -390,7 +393,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       v2Profiles.set(pr.id, {
         name: pr.display_name ?? "A Klimr member",
         hue: pr.avatar_hue ?? 200,
-        zip: pr.home_zip ?? null,
+        area: pr.city ?? null,
         verified: pr.verification_status === "verified",
       });
     }
@@ -405,8 +408,8 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   const initialsOf = (name: string) =>
     name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "K";
   const feedPosts: FeedPostView[] = visiblePosts.map((p) => {
-    const author = v2Profiles.get(p.author_id) ?? { name: "A Klimr member", hue: 200, zip: null, verified: false };
-    const area = author.zip ? lookupZip(author.zip)?.city ?? "Klimr" : "Klimr";
+    const author = v2Profiles.get(p.author_id) ?? { name: "A Klimr member", hue: 200, area: null, verified: false };
+    const area = author.area ?? "Klimr";
     const ms = (p.milestone ?? null) as { label?: string; rank?: string; place?: string } | null;
     const match = (p.match_summary ?? null) as { winner: string; opponent: string; score: string; court: string } | null;
     const mediaUrl = p.media_path ? signedMedia.get(p.media_path) ?? null : null;

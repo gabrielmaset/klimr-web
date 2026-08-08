@@ -1,4 +1,5 @@
 import "server-only";
+import { callExternal } from "@/lib/external";
 
 const SECRET = process.env.TURNSTILE_SECRET_KEY ?? "";
 
@@ -12,7 +13,12 @@ export async function verifyTurnstile(token: string | null, ip?: string | null):
   try {
     const body = new URLSearchParams({ secret: SECRET, response: token });
     if (ip && ip !== "unknown") body.set("remoteip", ip);
-    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body });
+    // KCDX-056: had no timeout. This verifier fails OPEN, so a hung vendor used
+    // to hold the request until the platform killed it and then open the gate
+    // anyway — the worst of both. 3s, one retry (verification is idempotent).
+    const res = await callExternal({ vendor: "turnstile", timeoutMs: 3000, retries: 1 }, (signal) =>
+      fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body, signal }),
+    );
     const data = (await res.json()) as { success?: boolean };
     return data.success === true;
   } catch (e) {

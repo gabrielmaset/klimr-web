@@ -32,7 +32,7 @@ export async function searchCourts(q: string, sport: string | null): Promise<Cou
   const query = q.trim();
   if (query.length < 2) return [];
 
-  const { data: prof } = await supabase.from("profiles").select("home_zip").eq("id", user.id).maybeSingle();
+  const { data: prof } = await supabase.from("profile_private").select("home_zip").eq("id", user.id).maybeSingle();
   const home = prof?.home_zip ? lookupZip(prof.home_zip) : null;
 
   if (/^\d{5}$/.test(query)) {
