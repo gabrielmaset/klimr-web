@@ -149,8 +149,41 @@ describe("KCDX-058 documentation claims match the source", () => {
     expect(src).toContain("storage_manifest_take");
   });
 
+  it("the relationship policy document matches the migrations that enforce it", () => {
+    expect(claim("docs/RELATIONSHIP-PRIVACY-POLICY.md", "policy-source")).toBe("0233,0234");
+    const doc = readFileSync("docs/RELATIONSHIP-PRIVACY-POLICY.md", "utf8");
+    const m0233 = readFileSync("supabase/migrations/0233_privacy_policy.sql", "utf8");
+    const m0234 = readFileSync("supabase/migrations/0234_mute_and_restrict.sql", "utf8");
+
+    // Every default the document states must be the default the schema sets.
+    // A policy document that drifts from the code is worse than none: it is
+    // consulted, believed, and wrong — which is the condition KCDX-032 recorded.
+    for (const [setting, level] of [
+      ["who_can_request", "everyone"],
+      ["who_can_invite", "everyone"],
+      ["who_can_comment", "everyone"],
+      ["who_can_message", "network"],
+      ["who_can_tag", "following"],
+    ] as const) {
+      // Match on the pair, tolerant of the column alignment padding in the DDL.
+      const declared = new RegExp(`${setting}\\s+public\\.audience_level[^,]*default '${level}'`);
+      expect(m0233, `${setting} must default to ${level}`).toMatch(declared);
+      expect(doc, `${setting} documented`).toContain(setting);
+      expect(doc, `${level} documented for ${setting}`).toContain(`\`${level}\``);
+    }
+    // The functions the document names as enforcement must exist in the source.
+    for (const fn of ["may_act_on", "may_see_connections", "may_see_schedule"]) {
+      expect(m0233, `${fn} defined`).toContain(`function public.${fn}(`);
+      expect(doc, `${fn} referenced`).toContain(fn);
+    }
+    for (const fn of ["is_muted_by", "is_restricted_by", "comment_visible_to"]) {
+      expect(m0234, `${fn} defined`).toContain(`function public.${fn}(`);
+      expect(doc, `${fn} referenced`).toContain(fn);
+    }
+  });
+
   it("every control document names an owner and a reconciliation date", () => {
-    const missing = ["SECURITY.md"].filter((f) => {
+    const missing = ["SECURITY.md", "docs/RELATIONSHIP-PRIVACY-POLICY.md"].filter((f) => {
       const src = readFileSync(f, "utf8");
       return !/\*\*Owner:\*\*/.test(src) || !/Last reconciled against source:/.test(src);
     });

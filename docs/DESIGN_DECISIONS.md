@@ -7357,3 +7357,50 @@ That is one step. The audit is right that these files should not be rewritten in
 one go, and I have not tried; a ratchet now pins all four so they can fall and
 cannot rise.
 
+## 2026-08-10 — INCIDENT: I broke the waitlist sweep for twelve minutes
+
+**17:47–17:58 UTC.** `waitlist-sweep` returned 401 on every run. Cause: I told
+Gabriel to reschedule the job with a placeholder where the secret belonged, and
+he did, because I said the placeholder was already there.
+
+It was not. It was in the CI harness, which applies 0173 verbatim —
+`REPLACE_WITH_SECRET` and all. Production's `cron.job` held the real value,
+substituted correctly when that migration was originally pasted. I read the
+replay database, saw the placeholder, and concluded production had never
+authenticated: that the job had been failing silently for its entire existence.
+
+The pg_net response log settled it immediately — 200s from 17:41 to 17:46, 401s
+from 17:47. It had been working. I stopped it.
+
+**The error is not the typo. It is the inference.** I spent this entire
+remediation writing about tests that pass because nothing ran, guards that are
+always false, canaries pinned to numbers nobody can derive — every one of them a
+case of someone believing a proxy instead of checking the thing. Then I read a
+harness and called it production, in the same session, about the very job whose
+history I was describing.
+
+The harness exists to make migrations reproducible. It is deliberately NOT
+production: it shims `cron.schedule`, it has no pg_cron, no secrets, no real
+data. Every one of those differences is a reason to trust it about SHAPE and
+never about STATE. `net._http_response` was two minutes away the whole time and
+would have told me the truth before I gave the advice rather than after.
+
+Three things follow, and they are worth more than the twelve minutes cost:
+
+**Check state against the system that has it.** For anything with a value in it —
+secrets, schedules, row counts, what actually ran — the harness is evidence of
+nothing. Ask production.
+
+**Rotate rather than restore.** The old secret sat in plaintext in `cron.job` and
+had by then been pasted into a chat. Recovering it would have been faster and
+wrong; rotating cost one extra step and left the system better than before the
+incident.
+
+**Verify the recovery, not just the fix.** 200s resuming proves the request
+authenticates. It does not prove the twelve minutes left nothing behind — a
+waitlist offer expiring unswept means a real person was not promoted.
+`klimr_health()` answered that separately: `0 offer(s) expired but not swept`.
+The canary built two days ago for hypothetical silent failures closed a real
+incident on its first outing, which is the strongest argument for that whole
+class of check that I could have hoped for and did not want to earn this way.
+

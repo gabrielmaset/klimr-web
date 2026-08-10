@@ -112,6 +112,42 @@ Append one row per drill. Empty is honest — fill the first row when you run it
 |---|---|---|---|---|---|---|---|
 | _(pending — no drill has ever been run)_ | | | | | | | |
 
+### Storage backup
+
+Supabase Pro backs up Postgres. It does not back up Storage, so until this runs,
+a database restore returns every row with its `media_path`, `avatar_path` and
+`proof_path` intact and pointing at bytes that no longer exist.
+
+`supabase/harness/storage-backup.sh`, scheduled nightly by
+`.github/workflows/storage-backup.yml`.
+
+**The buckets are three different problems, not one.**
+
+| Bucket | Treatment | Why |
+|---|---|---|
+| `avatars`, `listing-photos`, `tournament-gallery`, `feed-media`, `post-media` | copied plainly | member content; losing it is what we are insuring against |
+| `credential-docs`, `business-docs`, `tournament-payments` | copied **client-side encrypted** | identity and financial documents. They leave our provider, so the backup host stores ciphertext it cannot read |
+| `quarantine` | **never copied** | holds material the CSAM gate and classifier flagged. Copying suspected CSAM to another provider creates new copies in a new jurisdiction under another operator's terms. The duty for this material is to preserve in place and report — not to replicate it nightly to a bucket nobody is thinking about. Anyone minded to change this should speak to a lawyer, not edit a script. |
+
+**A sync is not a backup.** `rclone sync` makes the destination match the source
+including deletions, so an accidental or malicious delete propagates to the only
+other copy. This uses `copy`, which never deletes, plus a dated `--backup-dir`
+for anything that changed — the backup is additive and yesterday's version
+survives today's mistake. The destination bucket should also have object
+versioning on, as a second line.
+
+**Why GitHub Actions and not a Vercel cron.** KCDX-039 found both Vercel cron
+routes had been silently redirected to a login page for their entire lives while
+the scheduler reported healthy runs. A GitHub workflow either succeeds or turns
+red, and red is visible.
+
+**What still has to be done by hand, once:** create the Supabase S3 access key,
+create the destination bucket with versioning, run `rclone config` for the three
+remotes, and set `RCLONE_CONF` and `SUPABASE_DB_URI` as repository secrets. The
+whole rclone config is one secret on purpose — splitting the Supabase keys, the
+R2 keys and the crypt password across four makes rotation a four-step job people
+do partially.
+
 ### How to make the drill produce evidence
 
 A drill that ends in "it seemed to work" is not evidence, and a Storage restore

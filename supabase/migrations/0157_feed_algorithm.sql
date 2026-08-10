@@ -200,8 +200,14 @@ grant execute on function public.get_ranked_feed(text, int) to authenticated;
 -- ── nightly signal refresh + immediate bootstrap ──
 do $$
 begin
+  -- 0227/0231: the SCHEDULING guard tests the function about to be called, not
+  -- a proxy for it. Extension creation still depends on availability; scheduling
+  -- does not, so the CI harness (which shims `cron.schedule`) exercises the same
+  -- path production takes instead of silently skipping it.
   if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
     create extension if not exists pg_cron;
+  end if;
+  if to_regprocedure('cron.schedule(text,text,text)') is not null then
     perform cron.schedule(
       'refresh-feed-affinities-nightly',
       '15 4 * * *',
