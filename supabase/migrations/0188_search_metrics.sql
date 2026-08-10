@@ -92,11 +92,25 @@ as $$
      where created_at > now() - make_interval(hours => greatest(p_hours, 1))
        and metric in ('search_deterministic', 'search_zero')
   )
+  -- REPAIRED 2026-08-10. This `select` had no `from s`, so `metric` was
+  -- unresolvable and the whole `create function` failed with "column metric does
+  -- not exist". The CTE above was defined and never used.
+  --
+  -- The function therefore could NEVER be created from this file. Production has
+  -- a working one only because 0189 re-created it from the corrected text, and
+  -- 0215 has since replaced it again — so nothing downstream was broken, and the
+  -- failure stayed invisible on every database that already existed.
+  --
+  -- What it DID break is rebuilding from zero, which is exactly the disaster
+  -- recovery path: applying migrations into a fresh project stops here. That
+  -- makes this the second gap in the same story as KCDX-053, and the reason the
+  -- from-zero replay is a gate rather than a nicety.
   select
     count(*) filter (where metric = 'search_deterministic')::bigint,
     count(*) filter (where metric = 'search_zero')::bigint,
     round(100.0 * count(*) filter (where metric = 'search_zero')
-          / nullif(count(*) filter (where metric = 'search_deterministic'), 0), 1);
+          / nullif(count(*) filter (where metric = 'search_deterministic'), 0), 1)
+  from s;
 $$;
 
 revoke all on function public.search_zero_rate(int) from anon, authenticated, public;

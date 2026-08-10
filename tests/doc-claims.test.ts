@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 
 /* KCDX-058 — control documents that contradict the source.
  *
@@ -180,6 +180,16 @@ describe("KCDX-058 documentation claims match the source", () => {
       expect(m0234, `${fn} defined`).toContain(`function public.${fn}(`);
       expect(doc, `${fn} referenced`).toContain(fn);
     }
+  });
+
+  it("the document index does not list repo files that no longer exist", () => {
+    const idx = readFileSync("docs/klimr-document-index.md", "utf8");
+    // Every `docs/...md` or root .md the index names must actually be there.
+    // The .docx mirror of this index went stale at July while the index moved on;
+    // an index that names missing files rots the same way, just less visibly.
+    const named = [...idx.matchAll(/`((?:docs\/)?[A-Za-z0-9_.-]+\.md)`/g)].map((m) => m[1]);
+    const missing = [...new Set(named)].filter((f) => !existsSync(f) && !f.startsWith("Klimr_") && !f.startsWith("klimr-"));
+    expect(missing, `index names files that do not exist: ${missing.join(", ")}`).toEqual([]);
   });
 
   it("every control document names an owner and a reconciliation date", () => {

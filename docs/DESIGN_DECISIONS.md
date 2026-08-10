@@ -7404,3 +7404,64 @@ The canary built two days ago for hypothetical silent failures closed a real
 incident on its first outing, which is the strongest argument for that whole
 class of check that I could have hoped for and did not want to earn this way.
 
+## 2026-08-10 — CI caught two things I had been filtering out of my own output
+
+The `schema-replay` job failed on a repository that passed locally, twice over.
+
+### The schema could not be rebuilt from zero (0188)
+
+`search_zero_rate` in 0188 ends:
+
+    with s as (select metric from public.perf_samples where ...)
+    select count(*) filter (where metric = ...) ...
+
+There is no `from s`. The CTE is defined and never used, so `metric` is
+unresolvable and the whole `create function` fails. That function has therefore
+**never been creatable from that file**. Production has a working one only
+because 0189 re-created it from corrected text, and 0215 has since replaced it
+again — so nothing downstream was ever broken.
+
+What it did break is applying the migrations into an empty database. Which is
+precisely the disaster-recovery path: restoring into a fresh project runs every
+migration from zero and stops here. That makes this the second half of the same
+story as KCDX-053, and the reason a from-zero replay is a gate rather than a
+nicety.
+
+### The gate had been told to expect it
+
+`replay.sh` ended with:
+
+    # The empty gate is EXPECTED to fail on 0188 ...
+    [ "$MODE" = empty ] && [ "$fails" -le 1 ] && exit 0
+
+An earlier session found the failure, reasoned correctly that 0189 repairs it,
+and wrote that conclusion into the gate as a standing allowance.
+
+The reasoning was right and the mechanism was wrong. The allowance did not say
+"0188 may fail". It said **one migration may fail, forever, in the mode that
+proves the schema can be rebuilt.** Any future from-zero breakage would have been
+absorbed in silence.
+
+And it nearly was. `FAILED=1` appeared in every `empty` run I made this entire
+week. I grepped for `MODE=` and the suite results and read past it every time —
+because it had been declared expected, and a number somebody has already
+explained is a number you stop seeing. That is the same failure as the crons that
+reported healthy, the tests that passed vacuously, and the metric that got less
+accurate as things got worse. I spent the week writing about it and then did it.
+
+0188 is repaired and the tolerance is gone. Verified by breaking it again: the
+gate now exits non-zero.
+
+### The harness assumed a virgin cluster (shim.sql)
+
+`create role anon nologin noinherit;` unguarded. Roles are cluster-level; the
+local harness drops and recreates the whole cluster between runs, so it never
+noticed. CI runs `empty` and `upgrade` against ONE Postgres service, so the
+second invocation met roles the first had made and aborted before a single
+migration ran.
+
+That is why a repository that passes locally failed in CI: the harness encoded an
+assumption about its environment that only one of the two environments met.
+Guarded now, and verified by running empty → upgrade → empty against a single
+cluster without a restart.
+

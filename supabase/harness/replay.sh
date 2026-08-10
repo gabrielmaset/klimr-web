@@ -88,7 +88,23 @@ if [ "$CI_MODE" = "1" ]; then
 else
   $PGBIN/pg_ctl -D "$D" stop -m fast >/dev/null 2>&1
 fi
-# The empty gate is EXPECTED to fail on 0188 (its repo copy cannot create
-# search_zero_rate); 0189 repairs it and the probes below must still be clean.
-[ "$MODE" = empty ] && [ "$fails" -le 1 ] && exit 0
+# REMOVED 2026-08-10: this used to read
+#
+#     # The empty gate is EXPECTED to fail on 0188 ...
+#     [ "$MODE" = empty ] && [ "$fails" -le 1 ] && exit 0
+#
+# An earlier session found that 0188 could not create `search_zero_rate` from
+# zero, reasoned that 0189 repairs it, and wrote that conclusion into the gate as
+# a standing allowance. The reasoning was even correct — nothing downstream was
+# broken.
+#
+# But the allowance did not say "0188 may fail". It said "ONE migration may fail",
+# forever, in the mode that proves the schema can be rebuilt. Any future
+# from-zero breakage would have been absorbed silently, and this session came
+# close to proving it: the FAILED=1 sat in my own output for a week and I filtered
+# it out as expected noise, because it had been declared expected.
+#
+# 0188 is repaired. A migration that fails now fails the gate. If a from-zero
+# failure is ever genuinely acceptable, that belongs in the migration as a guard
+# with a reason — not in the scoreboard as a tolerance.
 exit $fails

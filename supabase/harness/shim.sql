@@ -1,7 +1,18 @@
-create role anon nologin noinherit;
-create role authenticated nologin noinherit;
-create role service_role nologin noinherit bypassrls;
-create role authenticator noinherit login password 'x';
+-- Roles are CLUSTER-level, not database-level. The local harness drops and
+-- recreates the whole cluster between runs, so bare `create role` worked; CI
+-- runs `empty` and `upgrade` against ONE Postgres service container, so the
+-- second invocation met roles the first had already made and the shim aborted
+-- with `role "anon" already exists` — before a single migration ran.
+--
+-- That is why CI failed on a repository that passes locally: the harness encoded
+-- an assumption about its environment that only one of the two environments met.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon')          then create role anon nologin noinherit; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin noinherit; end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role')  then create role service_role nologin noinherit bypassrls; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticator') then create role authenticator noinherit login password 'x'; end if;
+end $$;
 grant anon to authenticator; grant authenticated to authenticator; grant service_role to authenticator;
 create role supabase_auth_admin superuser;
 create role supabase_storage_admin superuser;
