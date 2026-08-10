@@ -13,7 +13,11 @@ Built in phases, each one build-checked before the next.
 
 ## Prerequisites
 
-- Node.js 20+ (built on Node 22)
+- Node.js 22.x — pinned in `package.json` `engines` and `.nvmrc`.
+  <!-- claim:node-version=22 -->
+  This used to read "20+ (built on Node 22)". CI ran 22, `package.json` pinned
+  nothing, and Vercel picks its own default — three answers to one question, which
+  is how a build passes locally and fails in a way nobody can reproduce (KCDX-052).
 - npm
 - A GitHub repo (you own it)
 - A Supabase project (free tier) — needed from Phase 2 on

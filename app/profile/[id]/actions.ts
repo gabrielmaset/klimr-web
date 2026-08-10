@@ -33,7 +33,11 @@ export async function unblockUser(formData: FormData) {
   const target = String(formData.get("userId"));
   const { supabase, user } = await ctx();
   if (!user) redirect(`/login?next=/profile/${target}`);
-  await supabase.from("blocks").delete().eq("blocker_id", user.id).eq("blocked_id", target);
+  // KCDX-028: unblocking used to be a raw delete here AND in the other of these
+  // two files, while blocking was a transaction — which is how the two halves of
+  // one invariant drift apart. Both now call the command, so the edge matrix has
+  // a single definition.
+  await supabase.rpc("unblock_player", { p_target: target });
   revalidatePath(`/profile/${target}`);
 }
 

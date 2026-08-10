@@ -39,7 +39,7 @@ end $$;
 
 do $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron')
+  if to_regprocedure('cron.schedule(text,text,text)') is not null
      and not exists (select 1 from cron.job where jobname = 'klimr-listing-expiry') then
     perform cron.schedule('klimr-listing-expiry', '0 16 * * *', 'select public.notify_expiring_listings()');
   end if;

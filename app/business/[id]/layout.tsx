@@ -49,7 +49,7 @@ export default async function BusinessPortalLayout({
     url: profile?.avatar_path ? supabase.storage.from("avatars").getPublicUrl(profile.avatar_path).data.publicUrl : null,
   };
 
-  const bar = await getTopBarData(supabase, user.id);
+  const bar = await getTopBarData(supabase);
 
   return (
     <div className="md:flex md:min-h-dvh">

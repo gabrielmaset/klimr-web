@@ -266,6 +266,7 @@ export async function inviteToTeam(formData: FormData) {
   if (error) return;
 
   await createNotification({
+    actorId: user.id,
     userId: inviteeId,
     kind: "system",
     title: `You're invited to ${team.name}`,
@@ -352,6 +353,7 @@ export async function leaveTeam(formData: FormData) {
       await logTeamEvent(teamId, { kind: "owner_transferred", actorId: user.id, targetId: next.user_id });
       await notifyTeamMembers(teamId, user.id, { title: `${myName} left ${teamName}`, linkUrl: `/teams/${teamId}` });
       await createNotification({
+        actorId: user.id,
         userId: next.user_id,
         kind: "system",
         title: `You're now the owner of ${teamName}`,
@@ -398,6 +400,7 @@ export async function removeMember(formData: FormData) {
   const { data: tn } = await admin.from("teams").select("name").eq("id", teamId).maybeSingle();
   await logTeamEvent(teamId, { kind: "member_removed", actorId: user.id, targetId: memberId });
   await createNotification({
+    actorId: user.id,
     userId: memberId,
     kind: "system",
     title: `You were removed from ${tn?.name ?? "a team"}`,
@@ -426,6 +429,7 @@ export async function setMemberRole(formData: FormData) {
   const roleLabel = role === "manager" ? "Manager" : role === "staff" ? "Staff" : "Member";
   await logTeamEvent(teamId, { kind: "role_changed", actorId: user.id, targetId: memberId, body: roleLabel });
   await createNotification({
+    actorId: user.id,
     userId: memberId,
     kind: "system",
     title: `Your role in ${team?.name ?? "your team"} is now ${roleLabel}`,
@@ -480,6 +484,7 @@ export async function transferOwnership(formData: FormData) {
   if (tErr || !(tRes as { ok?: boolean } | null)?.ok) return;
 
   await createNotification({
+    actorId: user.id,
     userId: memberId,
     kind: "system",
     title: isPro ? "You're now a team owner" : "You're now the team manager",

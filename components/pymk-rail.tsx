@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { UserPlus, Check, X, Sparkles } from "lucide-react";
 import { PlayerCard } from "@/components/player-card";
-import { requestConnection } from "@/app/network/actions";
+import { requestConnection, dismissSuggestion } from "@/app/network/actions";
 import { pymkReason, type PymkRow } from "@/lib/social";
 
 // "People you may know" — recommendations from the sports-aware graph RPC
@@ -35,7 +35,19 @@ export function PymkRail({ people, avatarUrlFor }: { people: PymkRow[]; avatarUr
   }
 
   function dismiss(id: string) {
+    // KCDX-029: this used to be React state alone — the comment said "dismisses
+    // for this visit" and it meant it, so a refresh brought the person straight
+    // back, forever. The row goes first for responsiveness; the server records a
+    // 90-day dismissal so it survives the refresh.
     setRows((xs) => xs.filter((x) => x.user_id !== id));
+    startTransition(async () => {
+      const res = await dismissSuggestion(id);
+      if (res?.error) {
+        // Put them back rather than silently pretending it stuck.
+        setRows((xs) => (xs.some((x) => x.user_id === id) ? xs : [...people.filter((p) => p.user_id === id), ...xs]));
+        setNote("Couldn\u2019t hide that suggestion \u2014 try again.");
+      }
+    });
   }
 
   return (

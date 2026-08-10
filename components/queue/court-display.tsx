@@ -232,7 +232,7 @@ const emptySnapshot = () => "";
 
 export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, isApp = false }: { initial: QSessionState; courtId: string; canOperate: boolean; code?: string; enteredCode?: string; isApp?: boolean }) {
   const sid = initial.session.id;
-  const { state, refetch } = useQueueState(sid, initial, 3000);
+  const { state, refetch, stale } = useQueueState(sid, initial, 3000);
   // null until mounted: the server cannot know the client clock, and
   // rendering a server timestamp then hydrating a client one is React #418.
   const [now, setNow] = useState<number | null>(null);
@@ -475,6 +475,15 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
 
   return (
     <div className="fixed inset-0 h-[100dvh] z-[120] flex flex-col overflow-y-auto overscroll-contain text-white lg:overflow-hidden" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0a0c12, #000000 62%)" }}>
+    {/* KCDX-042: the poll used to fail silently, so a venue whose network
+        had dropped showed a confidently stale queue. On a court that is the
+        difference between "nobody is ahead of me" and "this stopped updating
+        twenty minutes ago". */}
+    {stale && (
+      <p role="status" aria-live="polite" className="mb-3 rounded-lg border border-[#E9E1D1] bg-[#FFFDF8] px-3 py-2 text-sm text-[#6E6555]">
+        Not updating \u2014 checking again\u2026 the list below may be out of date.
+      </p>
+    )}
       {/* top bar. Centered on purpose: in fullscreen, iPadOS floats its own ✕
           dismiss control at the top-left and the status bar stays over the top
           edge — so the safe-area padding clears the clock/battery, and centring

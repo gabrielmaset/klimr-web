@@ -47,7 +47,20 @@ export function FeedControls({
           })}
         </div>
         <span className="flex-1" />
-        <span className="shrink-0 font-mono text-floor tracking-[0.12em] text-faint">NEWEST FIRST · ALWAYS</span>
+        {/* KCDX-063: this said "NEWEST FIRST · ALWAYS" while `get_ranked_feed`
+            ranks on recency, sport affinity, graph closeness, engagement and an
+            author-diversity penalty. Recency is the largest single term, which is
+            presumably where the copy came from — but "always" was a promise the
+            ranking does not make, and a member who scrolls past a three-hour-old
+            post above a one-hour-old one is entitled to think the feed is broken.
+            Naming the signals is also the honest thing: people are owed an
+            explanation of why they are seeing what they are seeing. */}
+        <span
+          className="shrink-0 font-mono text-floor tracking-[0.12em] text-faint"
+          title="Ranked by how recent a post is, the sports you play, how close the author is to you, and engagement — with a limit on consecutive posts from one person."
+        >
+          RANKED FOR YOU
+        </span>
       </div>
 
       <div className="flex items-stretch gap-0.5 overflow-x-auto border-b border-rule">

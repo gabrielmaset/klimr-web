@@ -41,7 +41,7 @@ export default async function TeamLayout({
   };
 
   // One shared fetch powers both the team switcher and the global top bar.
-  const bar = await getTopBarData(supabase, user.id);
+  const bar = await getTopBarData(supabase);
 
   return (
     <div className="md:flex md:min-h-dvh">

@@ -40,6 +40,7 @@ export async function requestConnection(targetId: string): Promise<SocialActionR
 
   if (result === "requested") {
     await createNotification({
+      actorId: user.id,
       userId: targetId,
       kind: "friend_request",
       title: `${await myName(supabase, user.id)} wants to connect`,
@@ -49,6 +50,7 @@ export async function requestConnection(targetId: string): Promise<SocialActionR
   } else if (result === "accepted") {
     // They had asked first — sending back sealed it. Tell them.
     await createNotification({
+      actorId: user.id,
       userId: targetId,
       kind: "friend_accept",
       title: `${await myName(supabase, user.id)} accepted your connection request`,
@@ -75,6 +77,7 @@ export async function acceptConnection(requesterId: string): Promise<SocialActio
     return { ok: false, message: "Couldn't accept that request — it may have been withdrawn." };
   }
   await createNotification({
+    actorId: user.id,
     userId: requesterId,
     kind: "friend_accept",
     title: `${await myName(supabase, user.id)} accepted your connection request`,
@@ -127,23 +130,45 @@ export async function unfollow(targetId: string): Promise<SocialActionResult> {
   return { ok: true, message: null };
 }
 
-// ---- form-compatible wrappers (return void) — kept name-stable for existing
-// <form action> callers like the Invites page. ----
+// ---- form-compatible wrappers — kept name-stable for existing <form action>
+// callers like the Invites page.
+//
+// KCDX-062: these used to return `void`, so every result — including `blocked`,
+// `rate_limited` and `cooldown` — was discarded before the caller could see it.
+// The network browser then applied an optimistic patch and caught-and-ignored,
+// so a refused request still rendered as "Requested". They now RETURN the
+// result. `<form action>` ignores a return value, so those callers are
+// unaffected; the ones that await get the truth. ----
 
-export async function sendFriendRequest(formData: FormData) {
-  await requestConnection(String(formData.get("userId") ?? ""));
+export async function sendFriendRequest(formData: FormData): Promise<SocialActionResult> {
+  return requestConnection(String(formData.get("userId") ?? ""));
 }
-export async function acceptFriendRequest(formData: FormData) {
-  await acceptConnection(String(formData.get("userId") ?? ""));
+export async function acceptFriendRequest(formData: FormData): Promise<SocialActionResult> {
+  return acceptConnection(String(formData.get("userId") ?? ""));
 }
 /** Decline / cancel / unfriend from a form. Declines pass declined=1 so the
  *  cooldown only applies to true declines, never to cancels or unfriends. */
-export async function removeFriend(formData: FormData) {
-  await removeConnection(String(formData.get("userId") ?? ""), String(formData.get("declined") ?? "") === "1");
+export async function removeFriend(formData: FormData): Promise<SocialActionResult> {
+  return removeConnection(String(formData.get("userId") ?? ""), String(formData.get("declined") ?? "") === "1");
 }
-export async function followUser(formData: FormData) {
-  await follow(String(formData.get("userId") ?? ""));
+export async function followUser(formData: FormData): Promise<SocialActionResult> {
+  return follow(String(formData.get("userId") ?? ""));
 }
-export async function unfollowUser(formData: FormData) {
-  await unfollow(String(formData.get("userId") ?? ""));
+export async function unfollowUser(formData: FormData): Promise<SocialActionResult> {
+  return unfollow(String(formData.get("userId") ?? ""));
+}
+
+/** KCDX-029: persist a "not this person" so it survives a page refresh.
+ *  Expiring (90 days) by design — "not right now" and "never" are different
+ *  answers, and one tap should not be permanent. */
+export async function dismissSuggestion(targetId: string): Promise<{ ok?: true; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first." };
+  const { error } = await supabase.rpc("pymk_dismiss", { p_target: targetId });
+  if (error) return { error: "Couldn\u2019t hide that suggestion." };
+  revalidatePath("/network");
+  return { ok: true };
 }

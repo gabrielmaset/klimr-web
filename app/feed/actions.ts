@@ -94,6 +94,7 @@ export async function addPostComment(input: {
   if (post && post.author_id !== user.id) {
     const { data: me } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
     await createNotification({
+      actorId: user.id,
       userId: post.author_id,
       kind: "system",
       title: `${me?.display_name ?? "A member"} commented on your post`,
@@ -159,7 +160,8 @@ export async function togglePostLike(postId: string): Promise<{ ok: boolean; lik
       .limit(1);
     if (!recent?.length) {
       const { data: me } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
-      await createNotification({ userId: post.author_id, kind: "system", title: `${me?.display_name ?? "A member"} aced your post`, linkUrl: "/feed" });
+      await createNotification({
+        actorId: user.id, userId: post.author_id, kind: "system", title: `${me?.display_name ?? "A member"} aced your post`, linkUrl: "/feed" });
     }
   }
   return { ok: true, liked: true };
@@ -209,69 +211,32 @@ export async function listPostComments(postId: string): Promise<{ comments: Thre
   };
 }
 
-/** One-tap repost toggle. A repost is a post with `repost_of` set and no body
- *  (commentary is schema-ready for later). The 0133 trigger enforces the rules
- *  (published originals only, no repost-of-repost, one per member); the unique
- *  index makes the toggle deterministic. No AI pass needed — there is no new
- *  text — so the service role approves directly and the feed card emits. */
+/** DISABLED (KCDX-038). Repost machinery exists in three places and the product
+ *  says it does not exist in a fourth:
+ *
+ *    · 0133 creates the schema, the trigger and the unique index
+ *    · this action implements the toggle
+ *    · 0157's ranking EXCLUDES reposts (`where p.repost_of is null`) and even
+ *      indexes on that exclusion
+ *    · `feed-post-card.tsx` tells the member "No reposts on Klimr — sharing is
+ *      person-to-person"
+ *
+ *  So a repost created through this path is a real row that no feed will ever
+ *  show. Not an error, not a warning: silent, permanent invisibility. The audit
+ *  asks to choose one policy and either remove or complete it, and the product
+ *  has already chosen — the card states it to members, which is the most
+ *  binding of the four.
+ *
+ *  The SCHEMA stays: 0133's rows may exist in production, and dropping a table
+ *  to tidy a contradiction destroys data to make a codebase read better. The
+ *  implementation does not stay — it is in git, and a dead function that still
+ *  works is an invitation to call it, which is how the contradiction would
+ *  return. Re-enabling means removing this guard AND the ranking exclusion AND
+ *  the card's copy; one place will not do it, which is exactly the failure being
+ *  fixed here. */
 export async function toggleRepost(postId: string): Promise<{ ok: boolean; reposted: boolean; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, reposted: false, error: "Sign in first." };
-  if (!(await accountActive(supabase, user.id))) return { ok: false, reposted: false, error: "Your account can't repost right now." };
-
-  const { data: mine } = await supabase
-    .from("posts")
-    .select("id")
-    .eq("author_id", user.id)
-    .eq("repost_of", postId)
-    .maybeSingle();
-  if (mine) {
-    await supabase.from("posts").delete().eq("id", mine.id).eq("author_id", user.id);
-    revalidatePath("/feed");
-    return { ok: true, reposted: false };
-  }
-
-  const { data: original } = await supabase
-    .from("posts")
-    .select("id, author_id, repost_of, moderation_status")
-    .eq("id", postId)
-    .maybeSingle();
-  if (!original || original.moderation_status !== "approved") return { ok: false, reposted: false, error: "That post isn't available." };
-  if (original.repost_of) return { ok: false, reposted: false, error: "Repost the original instead." };
-
-  const { data: inserted, error: insErr } = await supabase
-    .from("posts")
-    .insert({ author_id: user.id, repost_of: postId })
-    .select("id")
-    .maybeSingle();
-  if (insErr || !inserted) return { ok: false, reposted: false, error: "Couldn't repost." };
-
-  const admin = createAdminClient();
-  await admin.from("posts").update({ moderation_status: "approved" }).eq("id", inserted.id);
-
-  if (original.author_id !== user.id) {
-    const { data: recent } = await admin
-      .from("notifications")
-      .select("id")
-      .eq("user_id", original.author_id)
-      .eq("link_url", "/feed")
-      .gte("created_at", new Date(Date.now() - 60 * 60000).toISOString())
-      .limit(1);
-    if (!recent?.length) {
-      const { data: me } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
-      await createNotification({
-        userId: original.author_id,
-        kind: "system",
-        title: `${me?.display_name ?? "A member"} reposted your post`,
-        linkUrl: "/feed",
-      });
-    }
-  }
-  revalidatePath("/feed");
-  return { ok: true, reposted: true };
+  void postId;
+  return { ok: false, reposted: false, error: "Reposts aren\u2019t part of Klimr — share the link instead." };
 }
 
 /* ============ Recap tag consent (decision #4: pending until approved) ============ */
@@ -295,6 +260,7 @@ export async function tagPlayersOnPost(postId: string, userIds: string[]): Promi
   await Promise.all(
     ids.map((uid) =>
       createNotification({
+        actorId: user.id,
         userId: uid,
         kind: "system",
         title: `${me?.display_name ?? "A member"} tagged you in a recap`,
@@ -327,6 +293,7 @@ export async function respondToTag(formData: FormData): Promise<void> {
   if (!error && decision === "approved" && tag && tag.tagged_by !== user.id) {
     const { data: me } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
     await createNotification({
+      actorId: user.id,
       userId: tag.tagged_by,
       kind: "system",
       title: `${me?.display_name ?? "A member"} approved your tag`,
@@ -500,4 +467,49 @@ export async function createTypedFeedPost(formData: FormData): Promise<CreatePos
   }
   revalidatePath("/feed");
   return { ok: true, status };
+}
+
+/** KCDX-034: a member reporting a post from the Feed.
+ *
+ *  There was no way to do this. Not a slow way or an awkward way — none. Every
+ *  other safety control on the Feed is automated detection (the CSAM hash gate,
+ *  the classifier, re-moderation on edit, video containment); this is the one
+ *  that catches what automation misses, and the active card had no affordance
+ *  for it at all.
+ *
+ *  The command snapshots the body and preserves the media, because the author
+ *  can delete the content the moment they suspect a report — and a report that
+ *  dies with its subject stops working exactly when someone is trying to escape
+ *  it. */
+export async function reportPost(
+  postId: string,
+  reason: string,
+  detail?: string,
+): Promise<{ ok?: true; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first." };
+
+  const { data, error } = await supabase.rpc("report_post", {
+    p_post: postId,
+    p_reason: reason,
+    p_detail: detail ?? null,
+  });
+  const res = data as { ok?: boolean; error?: string; already_reported?: boolean } | null;
+  if (error || !res?.ok) {
+    switch (res?.error) {
+      case "own_post":
+        return { error: "That's your own post — you can delete it instead." };
+      case "rate_limited":
+        return { error: "You've reported a lot recently. Try again shortly." };
+      case "not_found":
+        return { error: "That post is no longer here." };
+      default:
+        return { error: "Couldn't send that report. Please try again." };
+    }
+  }
+  revalidatePath("/feed");
+  return { ok: true };
 }

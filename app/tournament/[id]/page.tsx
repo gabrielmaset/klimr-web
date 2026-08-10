@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { retireSessionIfStale } from "@/lib/queue-state";
 import { EventQueueAdmin } from "@/components/event-queue-admin";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SportIcon } from "@/components/sport-icons";
@@ -79,7 +78,8 @@ export default async function TournamentDashboard({ params }: { params: Promise<
   if (t.queue_enabled) {
     const qadmin = createAdminClient();
     const { data: qs } = await qadmin.from("court_sessions").select("id, code, display_code, status, paused, paused_by, created_at").eq("tournament_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (qs && (await retireSessionIfStale(qadmin, qs))) qs.status = "ended";
+    // KCDX-042: retirement moved out of the render path entirely — it is a
+    // scheduled transaction now (0207), not something a page view triggers.
     if (qs) {
       const { data: courtRows } = await qadmin.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
       let pausedByName: string | null = null;

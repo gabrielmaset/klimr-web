@@ -78,7 +78,10 @@ declare
     -- 0195 video containment
     'function:public.video_disabled_intact()',
     -- 0196 privilege hygiene
-    'function:public.grant_hygiene_intact()'
+    'function:public.grant_hygiene_intact()',
+    -- 0207 session expiry
+    'function:public.end_court_session(uuid,uuid,text)',
+    'function:public.end_stale_court_sessions(integer)'
   ];
   missing text[] := '{}';
   item text;

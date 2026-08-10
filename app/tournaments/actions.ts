@@ -14,11 +14,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveEventPin } from "@/lib/maps-url";
 import { sanitizeRichText } from "@/lib/rich-text";
 import { getAdminRole } from "@/lib/admin";
-import { rateLimit } from "@/lib/ratelimit";
 import { withinRecoverWindow } from "@/lib/recover";
 import { placementPoints, bracketPlaces, RESERVE_FACTOR } from "@/lib/ranking";
 import { recomputePlayerPoints } from "@/lib/points";
-import { notifyRegistration, notifyPayment } from "@/lib/emails/notify";
+import { notifyRegistration } from "@/lib/emails/notify";
 import { randomInt, randomUUID } from "node:crypto";
 import { createNotification } from "@/lib/notify";
 
@@ -1092,16 +1091,6 @@ function registerErrorMessage(code?: string): string {
   }
 }
 
-function paymentErrorMessage(code?: string): string {
-  switch (code) {
-    case "not_signed_in": return "Sign in first.";
-    case "not_found": return "Entry not found.";
-    case "not_allowed": return "That isn't your entry.";
-    case "no_proof": return "Attach your payment proof first.";
-    case "already_confirmed": return "This entry is already marked paid.";
-    default: return "Couldn't submit that proof. Please try again.";
-  }
-}
 
 /** Team entry: the team owner enters one of their squads. Validates sport, roster
  *  size against the on-court count, reserve cap, gender minimums, and double-entry.
@@ -1357,154 +1346,6 @@ export async function confirmMembership(
   return { ok: true as const };
 }
 
-/** Records a payment proof the registrant uploaded to the private bucket, computes
- *  the amount owed from the division, and flips the entry to "proof submitted". */
-export async function submitPaymentProof(registrationId: string, proofPath: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not signed in." };
-
-  const allowed = await rateLimit(`payproof:${user.id}`, 20, 600); // 20 / 10 min
-  if (!allowed) return { ok: false as const, error: "Too many upload attempts. Please wait a few minutes and try again." };
-
-  const { data: reg } = await supabase
-    .from("tournament_registrations")
-    .select("id, tournament_id, registrant_id, division_id, team_id")
-    .eq("id", registrationId)
-    .maybeSingle();
-  if (!reg) return { ok: false as const, error: "Entry not found." };
-  if (reg.registrant_id !== user.id) return { ok: false as const, error: "Only the registrant can submit payment." };
-
-  let amount: number | null = null;
-  if (reg.division_id) {
-    const { data: div } = await supabase.from("tournament_divisions").select("fee_cents, fee_basis").eq("id", reg.division_id).maybeSingle();
-    if (div) {
-      if (div.fee_basis === "per_team") {
-        amount = div.fee_cents ?? 0;
-      } else {
-        const { count } = await supabase
-          .from("tournament_registration_players")
-          .select("id", { count: "exact", head: true })
-          .eq("registration_id", reg.id)
-          .eq("is_reserve", false);
-        amount = (div.fee_cents ?? 0) * (count ?? 1);
-      }
-    }
-  }
-
-  // KCDX-003: the registrant supplies evidence, never a verdict. The command
-  // writes the payment row with status 'submitted' and recomputes the amount
-  // from the division fee server-side — both used to be caller-supplied.
-  void amount;
-  const { data: res, error: rpcErr } = await supabase.rpc("tournament_submit_payment_proof", {
-    p_registration: reg.id,
-    p_proof_path: proofPath,
-  });
-  const out = res as { ok?: boolean; error?: string } | null;
-  if (rpcErr || !out?.ok) return { ok: false as const, error: paymentErrorMessage(out?.error) };
-  return { ok: true as const };
-}
-
-/** Organizer confirms a registration's payment. Staff-only. */
-export async function confirmPayment(registrationId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not signed in." };
-
-  const { data: reg } = await supabase.from("tournament_registrations").select("id, tournament_id").eq("id", registrationId).maybeSingle();
-  if (!reg) return { ok: false as const, error: "Entry not found." };
-
-  const { data: to } = await supabase.from("tournaments").select("owner_id").eq("id", reg.tournament_id).maybeSingle();
-  let staff = to?.owner_id === user.id;
-  if (!staff) {
-    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", reg.tournament_id).eq("user_id", user.id).maybeSingle();
-    staff = !!m;
-  }
-  if (!staff) return { ok: false as const, error: "Not allowed." };
-
-  // KCDX-003: the decision is staff-owned in the database, not just in this
-  // function. The command re-checks is_tournament_staff() before writing.
-  const { data: cRes, error: cErr } = await supabase.rpc("tournament_review_payment", {
-    p_registration: registrationId,
-    p_decision: "confirmed",
-    p_reason: null,
-  });
-  if (cErr || !(cRes as { ok?: boolean } | null)?.ok) return { ok: false as const, error: "Couldn't confirm that payment." };
-  await notifyPayment(registrationId, "confirmed");
-  revalidatePath(`/tournament/${reg.tournament_id}/payments`);
-  return { ok: true as const };
-}
-
-/** Record that an entry's fee was returned. Staff-only (payments ops). */
-export async function markPaymentRefunded(registrationId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not signed in." };
-
-  const { data: reg } = await supabase.from("tournament_registrations").select("id, tournament_id, registrant_id").eq("id", registrationId).maybeSingle();
-  if (!reg) return { ok: false as const, error: "Entry not found." };
-
-  const { data: to } = await supabase.from("tournaments").select("owner_id, title").eq("id", reg.tournament_id).maybeSingle();
-  let staff = to?.owner_id === user.id;
-  if (!staff) {
-    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", reg.tournament_id).eq("user_id", user.id).maybeSingle();
-    staff = !!m;
-  }
-  if (!staff) return { ok: false as const, error: "Not allowed." };
-
-  const { data: rRes, error: rErr } = await supabase.rpc("tournament_review_payment", {
-    p_registration: registrationId,
-    p_decision: "refunded",
-    p_reason: null,
-  });
-  if (rErr || !(rRes as { ok?: boolean } | null)?.ok) return { ok: false as const, error: "Couldn't record that refund." };
-  await createNotification({
-    userId: reg.registrant_id,
-    kind: "system",
-    title: `Your entry fee was refunded — ${to?.title ?? "your event"}`,
-  });
-  revalidatePath(`/tournament/${reg.tournament_id}/payments`);
-  return { ok: true as const };
-}
-
-/** Organizer declines a payment with a reason the entrant will see. Staff-only. */
-export async function denyPayment(registrationId: string, reason: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not signed in." };
-
-  const { data: reg } = await supabase.from("tournament_registrations").select("id, tournament_id").eq("id", registrationId).maybeSingle();
-  if (!reg) return { ok: false as const, error: "Entry not found." };
-
-  const { data: to } = await supabase.from("tournaments").select("owner_id").eq("id", reg.tournament_id).maybeSingle();
-  let staff = to?.owner_id === user.id;
-  if (!staff) {
-    const { data: m } = await supabase.from("tournament_managers").select("user_id").eq("tournament_id", reg.tournament_id).eq("user_id", user.id).maybeSingle();
-    staff = !!m;
-  }
-  if (!staff) return { ok: false as const, error: "Not allowed." };
-
-  const { data: dRes, error: dErr } = await supabase.rpc("tournament_review_payment", {
-    p_registration: registrationId,
-    p_decision: "denied",
-    p_reason: reason.trim() || null,
-  });
-  if (dErr || !(dRes as { ok?: boolean } | null)?.ok) return { ok: false as const, error: "Couldn't record that decision." };
-  await notifyPayment(registrationId, "denied", reason);
-  revalidatePath(`/tournament/${reg.tournament_id}/payments`);
-  return { ok: true as const };
-}
-
-/** Snake-seed a division's active entries into N pools. Regenerating clears the
- *  division's existing pools and any pool matches first. Staff-only. */
 export async function generateGroups(tournamentId: string, divisionId: string) {
   const supabase = await createClient();
   const {
@@ -1990,7 +1831,7 @@ export async function recordMatchScore(matchId: string, scoreA: number, scoreB: 
   } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, error: "Not signed in." };
 
-  const { data: m } = await supabase.from("tournament_matches").select("id, tournament_id, entry_a, entry_b, next_match_id, next_slot").eq("id", matchId).maybeSingle();
+  const { data: m } = await supabase.from("tournament_matches").select("id, tournament_id, entry_a, entry_b, next_match_id, next_slot, status").eq("id", matchId).maybeSingle();
   if (!m) return { ok: false as const, error: "Match not found." };
 
   const { data: to } = await supabase.from("tournaments").select("owner_id").eq("id", m.tournament_id).maybeSingle();
@@ -2006,16 +1847,32 @@ export async function recordMatchScore(matchId: string, scoreA: number, scoreB: 
   const b = Math.max(0, Math.round(scoreB));
   const winner = a > b ? m.entry_a : b > a ? m.entry_b : null;
 
-  const { error } = await supabase
-    .from("tournament_matches")
-    .update({ score_a: a, score_b: b, winner_id: winner, status: "completed", updated_at: new Date().toISOString() })
-    .eq("id", matchId);
-  if (error) return { ok: false as const, error: error.message };
-
-  // Bracket advancement: push the winner into the next match's slot.
-  if (m.next_match_id) {
-    if (m.next_slot === "b") await supabase.from("tournament_matches").update({ entry_b: winner }).eq("id", m.next_match_id);
-    else await supabase.from("tournament_matches").update({ entry_a: winner }).eq("id", m.next_match_id);
+  // KCDX-046: this wrote the result with no compare-and-swap and then advanced
+  // the winner as a SEPARATE statement. Two staff recording different scores for
+  // the same match — one from the sheet, one from the court — both wrote, and
+  // each had already pushed a different entrant downstream, so the bracket could
+  // advance the player who lost. A failure between the two left the match
+  // completed with nobody advanced.
+  //
+  // One transaction, with the match locked, and `p_expected_status` carrying
+  // what this staff member was looking at: if it moved, the write is refused
+  // rather than silently overwriting someone else's entry.
+  void winner;
+  const { data: scored, error } = await supabase.rpc("tournament_score_match", {
+    p_match: matchId,
+    p_score_a: a,
+    p_score_b: b,
+    p_expected_status: m.status ?? null,
+  });
+  const sres = scored as { ok?: boolean; error?: string; detail?: string } | null;
+  if (error || !sres?.ok) {
+    return {
+      ok: false as const,
+      error:
+        sres?.error === "changed_since_view"
+          ? "Someone else recorded this match while you had it open — reload and check."
+          : sres?.detail ?? "Couldn\u2019t record that score.",
+    };
   }
 
   await republishResultsIfAuto(m.tournament_id);
@@ -2043,16 +1900,18 @@ export async function clearMatchScore(matchId: string) {
   }
   if (!staff) return { ok: false as const, error: "Not allowed." };
 
-  const { error } = await supabase
-    .from("tournament_matches")
-    .update({ score_a: null, score_b: null, winner_id: null, status: "pending", updated_at: new Date().toISOString() })
-    .eq("id", matchId);
-  if (error) return { ok: false as const, error: error.message };
-
-  // Retract the advanced winner from the next match's slot.
-  if (m.next_match_id) {
-    if (m.next_slot === "b") await supabase.from("tournament_matches").update({ entry_b: null }).eq("id", m.next_match_id);
-    else await supabase.from("tournament_matches").update({ entry_a: null }).eq("id", m.next_match_id);
+  // KCDX-046: this nulled the downstream slot UNCONDITIONALLY — with no check on
+  // whether that match had already been played. Correcting a quarter-final after
+  // the semi was played removed a player from the semi they had already won,
+  // while the semi's own result and advancement stayed put: a completed match
+  // with an empty side, and a bracket nobody could reconstruct.
+  //
+  // A correction that invalidates played matches is an adjudication, not a
+  // correction. The command refuses and says so.
+  const { data: cleared, error } = await supabase.rpc("tournament_clear_match", { p_match: matchId });
+  const cres = cleared as { ok?: boolean; error?: string; detail?: string } | null;
+  if (error || !cres?.ok) {
+    return { ok: false as const, error: cres?.detail ?? "Couldn\u2019t clear that result." };
   }
 
   await republishResultsIfAuto(m.tournament_id);

@@ -42,17 +42,27 @@ export async function rsvp(formData: FormData) {
   }
   const status = ev.join_policy === "approval" && !isAdmin ? "pending" : "going";
 
-  if (status === "going" && ev.capacity != null) {
-    // Only count RSVPs from the current cycle toward capacity (stale ones don't fill seats).
-    const cycleStartISO = rsvpCycleStartISO(ev.starts_at, ev.recurrence, ev.recurrence_days ?? []);
-    let q = supabase.from("event_rsvps").select("*", { count: "exact", head: true }).eq("event_id", id).eq("status", "going");
-    if (cycleStartISO) q = q.gt("created_at", cycleStartISO);
-    const { count } = await q;
-    if ((count ?? 0) >= ev.capacity) return; // full
-  }
-
-  // Refresh created_at so a re-RSVP after a reset counts for the new cycle.
-  await supabase.from("event_rsvps").upsert({ event_id: id, user_id: user.id, status, created_at: new Date().toISOString() }, { onConflict: "event_id,user_id" });
+  // KCDX-043: this counted the cycle's `going` rows and then upserted, with
+  // nothing holding between the two — so two people tapping Going on the last
+  // seat both read capacity-minus-one and both got in, and the seat that does
+  // not exist was discovered at the court. `event_admit` locks the event, counts
+  // under the lock, and writes, so the decision and the write cannot be
+  // separated.
+  //
+  // The cycle boundary is still computed here: `rsvpCycleStartISO` understands
+  // the recurrence rules and a second definition in SQL would be free to drift
+  // from this one. The command is service_role-only for exactly that reason —
+  // a caller who can choose the boundary can choose the count.
+  void status;
+  const cycleStartISO = rsvpCycleStartISO(ev.starts_at, ev.recurrence, ev.recurrence_days ?? []);
+  const { data: admitted } = await createAdminClient().rpc("event_admit", {
+    p_event: id,
+    p_user: user.id,
+    p_cycle_start: cycleStartISO,
+    p_force_going: false,
+  });
+  const res = admitted as { ok?: boolean; error?: string; status?: string } | null;
+  if (!res?.ok) return; // full, or the event vanished — the page re-renders the truth
 
   // Organizers hear about their own event filling up (not about themselves).
   if (ev.created_by && ev.created_by !== user.id) {
@@ -439,7 +449,18 @@ export async function approveMember(formData: FormData) {
   const guard = await eventAdminGuard(eventId);
   if (!guard.ok) return;
   const admin = createAdminClient();
-  await admin.from("event_rsvps").update({ status: "going" }).eq("event_id", eventId).eq("user_id", userId).eq("status", "pending");
+  // KCDX-043: this set `going` with NO capacity check at all — an organiser
+  // working through a pending list could admit forty people to a twelve-person
+  // event and nothing objected. The same locked command decides here, so an
+  // approval is a seat like any other.
+  const { data: ev } = await admin.from("events").select("starts_at, recurrence, recurrence_days").eq("id", eventId).maybeSingle();
+  const cycleStartISO = ev ? rsvpCycleStartISO(ev.starts_at, ev.recurrence, ev.recurrence_days ?? []) : null;
+  await admin.rpc("event_admit", {
+    p_event: eventId,
+    p_user: userId,
+    p_cycle_start: cycleStartISO,
+    p_force_going: true,
+  });
   revalidatePath(`/events/${eventId}`);
 }
 

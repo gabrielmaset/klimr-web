@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Upload, FileCheck2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { submitPaymentProof } from "@/app/tournaments/actions";
+import { submitPaymentProof } from "@/app/tournaments/payment-actions";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const OK_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif", "application/pdf"];

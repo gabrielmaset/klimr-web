@@ -45,6 +45,7 @@ export async function notifyMatchThreadMessage(input: { matchId: string; convId:
       .map((id) =>
         createNotification({
           userId: id,
+          actorId: user.id,
           kind: "system",
           title: `New message \u2014 ${label}`,
           body: `From ${me?.display_name || "a player"}`,

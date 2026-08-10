@@ -186,7 +186,17 @@ export async function loadSessionState(admin: Admin, sessionId: string, meId?: s
     .maybeSingle();
   if (!s) return null;
 
-  if (await retireSessionIfStale(admin, s)) s.status = "ended";
+  // KCDX-042: this used to call `retireSessionIfStale` — from inside a READ that
+  // the browser polls every three seconds, per viewer. Past a 12-hour idle
+  // threshold it called `wipeSession`: a destructive delete of play state,
+  // courts and settings, plus flipping the parent event's queue toggle. Eight
+  // people watching one court meant eight clients each able to trigger an
+  // unsynchronised wipe, concurrently, with no lock. It was idempotent only by
+  // luck — the second wipe finds nothing left to delete.
+  //
+  // Retirement now belongs to `end_stale_court_sessions` (0207): hourly, one
+  // transaction per session, history preserved, and the one-switch rule moved
+  // into `end_court_session` (0217). This read no longer writes anything.
 
   const [{ data: courts }, { data: teams }, { data: matches }, { data: requests }] = await Promise.all([
     admin.from("queue_courts").select("id, label, team_size, levels, sort, created_at, closed_at").eq("session_id", sessionId).order("sort").order("created_at"),

@@ -40,7 +40,7 @@ export default async function TournamentLayout({
 
   // The workspace renders its own left sidebar but still shows the global top
   // bar (search, presence, next match, notifications, account) across the top.
-  const bar = await getTopBarData(supabase, user.id);
+  const bar = await getTopBarData(supabase);
 
   return (
     <div className="md:flex md:min-h-dvh">

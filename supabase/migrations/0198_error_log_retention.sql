@@ -40,7 +40,7 @@ comment on function public.prune_error_logs is
 -- Nightly, alongside the other prunes.
 do $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+  if to_regprocedure('cron.schedule(text,text,text)') is not null then
     perform cron.unschedule('klimr-error-log-prune');
   end if;
 exception when others then
@@ -49,7 +49,7 @@ end $$;
 
 do $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+  if to_regprocedure('cron.schedule(text,text,text)') is not null then
     perform cron.schedule('klimr-error-log-prune', '40 16 * * *', 'select public.prune_error_logs()');
   end if;
 end $$;

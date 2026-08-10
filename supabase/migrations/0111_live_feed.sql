@@ -161,7 +161,7 @@ $$;
 
 do $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron')
+  if to_regprocedure('cron.schedule(text,text,text)') is not null
      and not exists (select 1 from cron.job where jobname = 'klimr-feed-prune') then
     perform cron.schedule('klimr-feed-prune', '20 16 * * *', 'select public.prune_feed_items()');
   end if;

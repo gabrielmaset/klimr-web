@@ -63,7 +63,7 @@ end $$;
 
 do $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron')
+  if to_regprocedure('cron.schedule(text,text,text)') is not null
      and not exists (select 1 from cron.job where jobname = 'klimr-credential-expiry') then
     perform cron.schedule('klimr-credential-expiry', '10 16 * * *', 'select public.notify_expiring_credentials()');
   end if;

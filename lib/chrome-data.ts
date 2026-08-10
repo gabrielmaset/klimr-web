@@ -22,69 +22,35 @@ export type TopBarData = {
   nextMatch: NextMatch;
 };
 
-export async function getTopBarData(supabase: SupabaseServerClient, userId: string): Promise<TopBarData> {
-  // Presence preference — read on its own so the bar still loads if migration
-  // 0047 hasn't been applied yet (missing column → defaults to "auto").
-  let presenceMode: PresenceMode = "auto";
-  const { data: pm } = await supabase.from("profiles").select("presence_mode").eq("id", userId).maybeSingle();
-  if (pm?.presence_mode) presenceMode = pm.presence_mode as PresenceMode;
-
-  // Teams the user belongs to → the account/team switcher.
-  let teams: ChromeTeam[] = [];
-  const { data: tm } = await supabase.from("team_members").select("team_id").eq("user_id", userId);
-  const tIds = [...new Set((tm ?? []).map((r) => r.team_id))];
-  if (tIds.length) {
-    const { data: ts } = await supabase.from("teams").select("id, name, sport_key, category").in("id", tIds);
-    teams = (ts as ChromeTeam[] | null) ?? [];
-  }
-
-  const { count } = await supabase
-    .from("notifications")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("read_at", null);
-  const unread = count ?? 0;
-
-  const { data: cu } = await supabase.rpc("chat_unread_count");
+/** KCDX-065: no `userId` parameter any more. `chrome_data()` derives the caller
+ *  from `auth.uid()`, so passing an id alongside the session was a second source
+ *  of truth about who is asking — and two sources of truth about identity is
+ *  exactly the shape that produces a bug nobody can reproduce. */
+export async function getTopBarData(supabase: SupabaseServerClient): Promise<TopBarData> {
+  // KCDX-065: this ran nine serial reads plus a per-match COUNT loop on EVERY
+  // page view, for every signed-in member, to render a header. The loop scaled
+  // in the wrong direction — it looked for the first match whose roster is FULL,
+  // so the more matches a member had coming up, the more queries their header
+  // cost. Active members paid the most.
+  //
+  // One round trip now; the roster-full test is a grouped join. `chat_unread`
+  // stays separate because it is its own RPC with its own visibility rules, and
+  // folding it in would mean duplicating those rules in a second place.
+  const [{ data: chrome }, { data: cu }] = await Promise.all([
+    supabase.rpc("chrome_data"),
+    supabase.rpc("chat_unread_count"),
+  ]);
+  const c = (chrome ?? {}) as {
+    presenceMode?: string | null;
+    teams?: { id: string; name: string; sport_key: string; category: string }[];
+    unread?: number;
+    nextMatch?: { id: string; sportKey: string; scheduledAt: string; place: string | null } | null;
+  };
+  const presenceMode = (c.presenceMode ?? "auto") as PresenceMode;
+  const teams = c.teams ?? [];
+  const unread = c.unread ?? 0;
+  const nextMatch = c.nextMatch ?? null;
   const chatUnread = typeof cu === "number" ? cu : 0;
-
-  // Next scheduled match → top-bar reminder chip.
-  let nextMatch: NextMatch = null;
-  const { data: parts } = await supabase.from("match_participants").select("match_id").eq("user_id", userId);
-  const mIds = [...new Set((parts ?? []).map((x) => x.match_id))];
-  if (mIds.length) {
-    // "Ready to go" only (Gabriel): the NEXT chip shows a match whose roster
-    // is FULL — every slot claimed. Scan the next few upcoming and take the
-    // first full one, so a half-empty morning match doesn't mask a full
-    // afternoon one.
-    const { data: upcoming } = await supabase
-      .from("matches")
-      .select("id, sport_key, scheduled_at, location_text, court_id, total_slots")
-      .in("id", mIds)
-      .in("status", ["open", "scheduled"])
-      .gte("scheduled_at", new Date().toISOString())
-      .order("scheduled_at", { ascending: true })
-      .limit(5);
-    let nm: (typeof upcoming extends (infer U)[] | null ? U : never) | null = null;
-    for (const cand of upcoming ?? []) {
-      const { count: filled } = await supabase
-        .from("match_participants")
-        .select("*", { count: "exact", head: true })
-        .eq("match_id", cand.id);
-      if ((filled ?? 0) >= cand.total_slots) {
-        nm = cand;
-        break;
-      }
-    }
-    if (nm) {
-      let place: string | null = nm.location_text ?? null;
-      if (nm.court_id) {
-        const { data: c } = await supabase.from("courts").select("name").eq("id", nm.court_id).maybeSingle();
-        if (c?.name) place = c.name;
-      }
-      nextMatch = { id: nm.id, sportKey: nm.sport_key, scheduledAt: nm.scheduled_at, place };
-    }
-  }
 
   return { presenceMode, teams, chatUnread, unread, nextMatch };
 }

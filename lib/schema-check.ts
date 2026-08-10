@@ -149,6 +149,25 @@ export async function assertSchemaCurrent(): Promise<void> {
     console.warn(`[schema] grant hygiene probe inconclusive (${gErr.message}) — continuing.`);
   }
 
+  // KCDX-052: one call covering EVERY boundary check, discovered rather than
+  // listed. Sixteen `%_intact()` functions existed and six were wired here —
+  // each batch added its own probe and its own wiring, which guarantees the
+  // newest check (the one guarding what we just learned was broken) is the one
+  // most likely to be left unwired. `klimr_ready` also asserts the COUNT, so a
+  // dropped check fails rather than quietly leaving nothing to fail.
+  const { data: ready, error: readyErr } = await admin.rpc("klimr_ready", {});
+  if (!readyErr && ready === false) {
+    const { data: failures } = await admin.rpc("klimr_readiness", {});
+    const failed = (failures ?? []).filter((f) => !f.passed).map((f) => f.check_name);
+    const msg =
+      `[schema] READINESS FAILED: ${failed.length ? failed.join(", ") : "a boundary check is missing"}. ` +
+      `The database does not satisfy the contract this build expects.`;
+    console.error(msg);
+    if (process.env.NODE_ENV === "production") throw new Error(msg);
+  } else if (readyErr && !MISSING_FUNCTION.test(readyErr.message)) {
+    console.warn(`[schema] readiness probe inconclusive (${readyErr.message}) — continuing.`);
+  }
+
   if (data && data.length > 0) {
     const msg =
       `[schema] STALE DATABASE: ${data.length} required object(s) missing or ungranted — ${data.join("; ")}. ` +

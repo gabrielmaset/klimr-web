@@ -51,7 +51,6 @@ export const adminGrandfather = [
   "app/marketplace/actions.ts",
   "app/marketplace/chat-actions.ts",
   "app/messages/notify-actions.ts",
-  "app/network/page.tsx",
   "app/onboarding/actions.ts",
   "app/play/\\[id\\]/page.tsx",
   "app/profile/\\[id\\]/page.tsx",

@@ -166,14 +166,29 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
         >
           {initials}
         </span>
-        <input
+        {/* KCDX-037: this was a single-line <input> where Enter submitted. A
+            member writing anything with a paragraph in it could not — pressing
+            Enter posted the half-written thought instead of breaking the line.
+            For a surface whose entire purpose is people writing things, that is
+            a content-quality problem disguised as a keyboard shortcut.
+
+            Enter now does what Enter does in a text box. Cmd/Ctrl+Enter submits,
+            which is the convention people already have from every other composer,
+            and the visible button remains the primary path. */}
+        <textarea
           value={body}
           onChange={(e) => { setBody(e.target.value); setNote(null); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") post();
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              post();
+            }
           }}
+          rows={2}
+          aria-label="Write a post"
+          aria-describedby="composer-hint"
           placeholder="Share something with players nearby — a highlight, a question, a win…"
-          className="h-10 min-w-0 flex-1 rounded-[11px] border border-rule-2 bg-ink/[0.03] px-3.5 text-[13.5px] text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/10"
+          className="min-h-[2.5rem] min-w-0 flex-1 resize-y rounded-[11px] border border-rule-2 bg-ink/[0.03] px-3.5 py-2 text-[13.5px] leading-snug text-ink outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/10"
         />
       </div>
 
@@ -228,6 +243,13 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
             );
           })}
         </div>
+
+        {/* The hint the textarea's aria-describedby points at. Announced to a
+            screen reader on focus, so the submit shortcut is discoverable
+            without being visually loud. */}
+        <span id="composer-hint" className="text-[11px] text-faint">
+          Enter for a new line · ⌘/Ctrl+Enter to post
+        </span>
 
         <span className="ml-auto flex items-center gap-2">
           <div className="relative" onClick={(e) => e.stopPropagation()}>

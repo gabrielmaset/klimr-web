@@ -80,8 +80,36 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/feed");
   const spRaw = await searchParams;
-  const laneRaw = Array.isArray(spRaw.lane) ? spRaw.lane[0] : spRaw.lane;
-  const lane: "nearby" | "circle" = laneRaw === "circle" ? "circle" : "nearby";
+  // KCDX-033: `feed-controls.tsx` writes `?scope=`, this read `?lane=`. They
+  // never met — so clicking "Your circle" navigated somewhere the page ignored,
+  // defaulted back to nearby, and the feed did not change. The primary control
+  // on the primary surface of the product did nothing at all.
+  //
+  // One name now, with `lane` still accepted so links and bookmarks people
+  // already have keep working.
+  // KCDX-038: `feed-post-card.tsx` copies `${origin}/feed?post=${id}` to the
+  // clipboard and this page never read `post`. Every share link anyone has ever
+  // sent landed on the generic Feed — and because the Feed is ranked and
+  // personalised, the recipient often could not find the post at all: outside
+  // their circle, outside their area, or below the fold of a different ranking.
+  // Nothing errored, so nobody knew.
+  //
+  // Filtering the ranked results would only work when the post happens to be in
+  // them, which is the case that did not need fixing. It is resolved by id, and
+  // the resolver distinguishes deleted / not-yours-to-see / awaiting review so
+  // the recipient gets a true answer rather than a shrug.
+  const focusId = Array.isArray(spRaw.post) ? spRaw.post[0] : spRaw.post;
+  let focus: { id: string; reason: string } | null = null;
+  if (focusId) {
+    const { data: resolved } = await supabase.rpc("resolve_feed_post", { p_post: focusId });
+    const r = (resolved ?? [])[0] as { post_id: string; visible: boolean; reason: string } | undefined;
+    focus = r ? { id: r.post_id, reason: r.reason } : { id: focusId, reason: "not_found" };
+  }
+
+  const scopeRaw =
+    (Array.isArray(spRaw.scope) ? spRaw.scope[0] : spRaw.scope) ??
+    (Array.isArray(spRaw.lane) ? spRaw.lane[0] : spRaw.lane);
+  const lane: "nearby" | "circle" = scopeRaw === "circle" ? "circle" : "nearby";
 
   const [{ data: profile }, { data: items }] = await Promise.all([
     supabase.from("profile_private").select("display_name, home_zip, primary_sport, avatar_hue").eq("id", user.id).maybeSingle(),
@@ -362,7 +390,13 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   }
   const scopedPosts = (v2Rows ?? []).filter((p) => {
     if (blocked.has(p.author_id)) return false;
-    if (lane === "circle") return p.author_id === user.id || circle.has(p.author_id);
+    // KCDX-033: this re-filtered the ranked results against a FRIENDS-ONLY set,
+    // while `get_ranked_feed` had already scoped to circle using friends AND
+    // follows. So "Your circle" silently dropped everyone you follow but are not
+    // connected to — two definitions of the same word, and the narrower one ran
+    // last. The RPC's definition is the product's definition; this filter is
+    // gone rather than corrected, because a second copy would drift again.
+    if (lane === "circle") return true;
     return true;
   });
   const typeCounts: Record<string, number> = { all: scopedPosts.length, match: 0, photo: 0, video: 0, ask: 0, milestone: 0 };
@@ -454,8 +488,27 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
       time: fmtAgo(w.when),
     }));
 
+  // KCDX-038: a shared link that cannot be shown says WHICH kind of unavailable
+  // it is. One generic "not found" for all three would tell someone whose friend
+  // shared a friends-only post that the post is gone — and the block case is the
+  // one exception, deliberately collapsed into the generic answer, because any
+  // distinguishable response reveals the block.
+  const focusNote =
+    focus && focus.reason !== "ok"
+      ? focus.reason === "pending_review"
+        ? "That post is still being reviewed. It'll appear here once it's approved."
+        : focus.reason === "not_visible"
+          ? "That post was shared with a smaller audience, so it isn't visible to you."
+          : "That post is no longer available."
+      : null;
+
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      {focusNote && (
+        <p role="status" className="mb-4 rounded-lg border border-rule bg-surface px-3.5 py-2.5 text-sm text-mute">
+          {focusNote}
+        </p>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3.5">
         <PageHeader
           kicker={`Home — ${todayLabel}`}

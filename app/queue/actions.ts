@@ -297,7 +297,10 @@ async function validateJoin(admin: Admin, court: CourtLite, s: Session, member: 
 /** Place a member on a team at this court — ATOMIC (K2-01, migration 0176).
  *
  *  The whole read-then-write now happens inside one transaction in
- *  `public.place_on_team()`, serialized per court by an advisory lock. The old
+ *  `public.place_on_team()`, serialized by TWO advisory locks: session+user
+ *  first, then the court (0219). The court lock alone could not enforce "one
+ *  team per person per session" — two taps on two courts took two different
+ *  locks and both placed. The old
  *  multi-statement version raced: two joins fired at the same instant on an
  *  empty court both found "no forming team" and both opened one, stranding two
  *  players on separate half-empty teams (reproduced in a scratch Postgres
@@ -311,6 +314,14 @@ async function placeOnTeam(admin: Admin, court: CourtLite, member: Member, idemp
     p_idempotency_key: idempotencyKey ?? null,
   });
   if (error) {
+    // KCDX-040: `already_in_session` is now raised by the command itself, after
+    // the session+user lock — the TypeScript check above it can pass and this
+    // still refuse, which is the whole point. It is a normal outcome (two taps,
+    // two courts), not a failure, so it gets the message rather than the
+    // generic one.
+    if (error.message.includes("already_in_session")) {
+      return { error: "You're already in a team this session. Leave it first to switch courts." };
+    }
     console.error("[queue] place_on_team failed", error.message);
     return { error: "Couldn't join — try again." };
   }
@@ -334,7 +345,11 @@ async function requestOrJoin(admin: Admin, courtId: string, member: Member, coor
     return { ok: true, sessionId: court.session_id, pending: true };
   }
 
-  const p = await placeOnTeam(admin, court, member);
+  // KCDX-040: the idempotency key was optional and never supplied, so a
+  // double-tap or a retried request placed the member twice. Derived from the
+  // facts of the join, not generated per call — a RETRY of the same join must
+  // produce the same key, which a random uuid never would.
+  const p = await placeOnTeam(admin, court, member, `join:${court.id}:${member.user_id ?? `g:${member.guest_name ?? ""}`}`);
   return p.error ? { error: p.error, sessionId: court.session_id } : { ok: true, sessionId: court.session_id };
 }
 
@@ -633,58 +648,43 @@ async function applyGameOver(admin: Admin, match: MatchRow, winCap: number, winn
   const loserId = winnerId === match.team_a ? match.team_b : match.team_a;
   const nowIso = new Date().toISOString();
 
-  // Finalize atomically: only the first request to flip a *live* match proceeds. This
-  // guards against double-taps / two devices recording the same match (no double points).
-  const { data: finalized } = await admin.from("queue_matches").update({ status: "final", winner_team: winnerId, ended_at: nowIso }).eq("id", match.id).eq("status", "live").select("id");
-  if (!finalized || finalized.length === 0) return { ok: true };
-
-  await admin.from("queue_teams").update({ status: "done" }).eq("id", loserId);
-
-  const { data: winner } = await admin.from("queue_teams").select("wins").eq("id", winnerId).maybeSingle();
-  const newWins = (winner?.wins ?? 0) + 1;
-  if (newWins >= winCap) {
-    await admin.from("queue_teams").update({ status: "done", wins: newWins }).eq("id", winnerId);
-  } else {
-    await admin.from("queue_teams").update({ status: "queued", wins: newWins, hold_court: true, queued_at: nowIso }).eq("id", winnerId);
+  // KCDX-041: this was eight separate writes — finalize, retire the loser, read
+  // and rewrite the winner's win count, award the ledger, read-modify-write each
+  // player's counters, recompute rankings, stamp the timestamp.
+  //
+  // The CAS on the first write looked protective and was the opposite: if the
+  // invocation died after it, the match was FINAL and the other seven never
+  // happened — and because the CAS then fails, no retry could ever repair it.
+  // The winner never advanced, nobody got their points, and nothing recorded
+  // that any of it was owed. Step five was separately wrong even when nothing
+  // failed: read-modify-write on `matches_played`, so two courts finishing at
+  // once with a shared player lost an increment.
+  //
+  // One transaction now. Either the match is finished and everyone has their
+  // points, or nothing happened and this can safely be retried.
+  void nowIso;
+  void loserId;
+  void winCap;
+  const { data: res, error: finishErr } = await admin.rpc("queue_finish_match", {
+    p_match: match.id,
+    p_winner: winnerId,
+  });
+  const out = res as { ok?: boolean; error?: string; already_final?: boolean } | null;
+  if (finishErr || !out?.ok) {
+    return { error: out?.error === "winner_not_in_match" ? "Pick one of the two teams." : "Couldn\u2019t record that result — try again." };
   }
-
-  // count the match toward the rankings for any logged-in players (guests don't earn points)
-  await awardQueueMatchPoints(admin, match, winnerId);
 
   revalidatePath(`/queue/${match.session_id}`);
   return { ok: true };
 }
 
-/** Record one finished pickup match for the community rankings: every logged-in player on
- *  either team gets a match counted (win or loss) plus points per lib/ranking's pickup rule,
- *  then their per-sport ranking points are recomputed. Idempotent per (match, player). */
-async function awardQueueMatchPoints(admin: Admin, match: MatchRow, winnerId: string): Promise<void> {
-  const { data: sess } = await admin.from("court_sessions").select("sport_key").eq("id", match.session_id).maybeSingle();
-  const sport = sess?.sport_key;
-  if (!sport) return;
+/** REMOVED (KCDX-041). `awardQueueMatchPoints` did the ledger upsert, the
+ *  per-player read-modify-write of `matches_played`/`wins`, the ranking recompute
+ *  and the timestamp — as four separate round trips after the match had already
+ *  been finalized. All of it is inside `queue_finish_match` (0218) now, in the
+ *  same transaction as the result it records. Deleted rather than left unused:
+ *  a dead helper that still works is an invitation to call it again. */
 
-  const { data: mem } = await admin.from("queue_team_members").select("team_id, user_id").in("team_id", [match.team_a, match.team_b]);
-  const players = (mem ?? []).filter((m): m is { team_id: string; user_id: string } => !!m.user_id);
-  if (!players.length) return;
-
-  const nowIso = new Date().toISOString();
-  const ledger = players.map((p) => {
-    const won = p.team_id === winnerId;
-    return { user_id: p.user_id, sport_key: sport, session_id: match.session_id, match_id: match.id, points: pickupMatchPoints(won), won };
-  });
-  await admin.from("queue_points").upsert(ledger, { onConflict: "match_id,user_id" });
-
-  for (const p of players) {
-    const won = p.team_id === winnerId;
-    const { data: cur } = await admin.from("player_sports").select("matches_played, wins").eq("user_id", p.user_id).eq("sport_key", sport).maybeSingle();
-    await admin.from("player_sports").upsert(
-      { user_id: p.user_id, sport_key: sport, matches_played: (cur?.matches_played ?? 0) + 1, wins: (cur?.wins ?? 0) + (won ? 1 : 0), updated_at: nowIso },
-      { onConflict: "user_id,sport_key" },
-    );
-    await recomputePlayerPoints(admin, p.user_id, sport);
-    await admin.from("player_sports").update({ last_result_at: new Date().toISOString() }).eq("user_id", p.user_id).eq("sport_key", sport);
-  }
-}
 
 /** Core next-match logic (holder first, then earliest queued). No auth here. */
 async function applyStartNext(admin: Admin, courtId: string, sessionId: string): Promise<Result> {
@@ -912,7 +912,9 @@ export async function approveRequest(formData: FormData): Promise<Result> {
     }
   }
 
-  const p = await placeOnTeam(admin, court, { user_id: req.user_id ?? undefined, guest_name: req.guest_name ?? undefined });
+  // Keyed on the REQUEST, so approving the same request twice — two staff, two
+  // taps — places once.
+  const p = await placeOnTeam(admin, court, { user_id: req.user_id ?? undefined, guest_name: req.guest_name ?? undefined }, `approve:${req.id}`);
   if (p.error) return { error: p.error };
   await admin.from("queue_join_requests").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", requestId);
   revalidatePath(`/queue/${req.session_id}`);

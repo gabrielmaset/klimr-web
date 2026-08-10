@@ -93,6 +93,7 @@ export async function makeOffer(input: {
 
   const other = me === sellerId ? input.buyerId : sellerId;
   await createNotification({
+    actorId: me,
     userId: other,
     kind: "system",
     title: input.parentOfferId ? "Counter-offer on your gear thread" : `New offer: ${listing.title}`,
@@ -137,6 +138,7 @@ export async function respondOffer(input: { offerId: string; convId: string; dec
   if (rpcErr || !out?.ok) return { error: offerErrorMessage(out?.error) };
 
   await createNotification({
+    actorId: me,
     userId: o.actor_id,
     kind: "system",
     title: input.decision === "accept" ? `Offer accepted \u2014 ${listing.title}` : `Offer declined \u2014 ${listing.title}`,
@@ -206,6 +208,7 @@ export async function proposeMeetup(input: {
 
   const other = me === sellerId ? input.buyerId : sellerId;
   await createNotification({
+    actorId: me,
     userId: other,
     kind: "system",
     title: `Meetup proposed \u2014 ${listing.title}`,
@@ -243,6 +246,7 @@ export async function respondMeetup(input: { meetupId: string; convId: string; d
 
   const other = me === sellerId ? m.buyer_id : sellerId;
   await createNotification({
+    actorId: me,
     userId: input.decision === "cancel" ? other : m.proposed_by,
     kind: "system",
     title:

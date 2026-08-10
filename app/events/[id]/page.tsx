@@ -47,7 +47,6 @@ import { EventPinRecheck } from "@/components/event-pin-recheck";
 // Module-level clock — render-purity rule bans bare Date.now() in components.
 const nowMs = () => Date.now();
 import { createAdminClient } from "@/lib/supabase/admin";
-import { retireSessionIfStale } from "@/lib/queue-state";
 import { DangerConfirm } from "@/components/danger-confirm";
 import { cancelEventById, reopenEvent } from "../actions";
 import { withinRecoverWindow, recoverDaysLeft } from "@/lib/recover";
@@ -272,7 +271,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     } else {
       qs = full.data;
     }
-    if (qs && (await retireSessionIfStale(qadmin, qs))) qs.status = "ended";
+    // KCDX-042: retirement moved out of the render path entirely — it is a
+    // scheduled transaction now (0207), not something a page view triggers.
     if (qs) {
       const { data: courtRows } = await qadmin.from("queue_courts").select("id, label, sort, closed_at").eq("session_id", qs.id).order("sort");
       let pausedByName: string | null = null;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Check, X, ExternalLink } from "lucide-react";
-import { confirmPayment, denyPayment, markPaymentRefunded } from "@/app/tournaments/actions";
+import { confirmPayment, denyPayment, markPaymentRefunded } from "@/app/tournaments/payment-actions";
 
 const money = (c: number | null) => (c == null ? null : `$${(c / 100).toFixed(2)}`);
 const PAY_LABEL: Record<string, string> = { unpaid: "No proof yet", proof_submitted: "Awaiting review", confirmed: "Confirmed", denied: "Declined", refunded: "Refunded" };

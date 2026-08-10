@@ -22,26 +22,18 @@ import { sportMeta } from "@/lib/sports";
  *  leaveWaitlist call promoteForMatch directly (instant offers); the
  *  pg_cron-pinged sweep route expires overdue offers and cascades. */
 
-type Admin = ReturnType<typeof createAdminClient>;
 
 export { offerWindowMinutes } from "@/lib/waitlist-window";
 
 const windowLabel = (mins: number) => (mins === 20 ? "20 minutes" : mins === 60 ? "1 hour" : "4 hours");
 
-/** Re-rank the remaining 'waitlisted' rows 1..n by join order. */
-async function renumber(admin: Admin, matchId: string): Promise<void> {
-  const { data: rows } = await admin
-    .from("join_requests")
-    .select("id, waitlist_position")
-    .eq("match_id", matchId)
-    .eq("status", "waitlisted")
-    .order("created_at", { ascending: true });
-  let pos = 1;
-  for (const r of rows ?? []) {
-    if (r.waitlist_position !== pos) await admin.from("join_requests").update({ waitlist_position: pos }).eq("id", r.id);
-    pos += 1;
-  }
-}
+/** REMOVED (KCDX-044). `renumber` rewrote the whole waitlist's positions from
+ *  application code, in its own round trip after the offers had been issued —
+ *  so between the two, the line a member saw did not match the line that
+ *  existed. It is inside `match_promote_waitlist` now, in the same transaction
+ *  as the promotion that changed the line. Deleted rather than left unused: a
+ *  dead helper that still works invites a caller. */
+
 
 /** Offer open spots to the front of the line until spots or the line run out. */
 export async function promoteForMatch(matchId: string): Promise<void> {
@@ -49,54 +41,45 @@ export async function promoteForMatch(matchId: string): Promise<void> {
   try {
     const { data: match } = await admin
       .from("matches")
-      .select("id, total_slots, scheduled_at, status, sport_key")
+      .select("id, scheduled_at, status, sport_key")
       .eq("id", matchId)
       .maybeSingle();
     if (!match || match.status !== "open") return;
-    const nowMs = Date.now();
-    const nowIso = new Date(nowMs).toISOString();
-    const [{ count: filled }, { count: activeOffers }] = await Promise.all([
-      admin.from("match_participants").select("*", { count: "exact", head: true }).eq("match_id", matchId),
-      admin
-        .from("join_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("match_id", matchId)
-        .eq("status", "offered")
-        .gt("offer_expires_at", nowIso),
-    ]);
-    let free = match.total_slots - (filled ?? 0) - (activeOffers ?? 0);
-    if (free <= 0) return;
 
-    const { data: line } = await admin
-      .from("join_requests")
-      .select("id, requester_id")
-      .eq("match_id", matchId)
-      .eq("status", "waitlisted")
-      .order("created_at", { ascending: true })
-      .limit(free);
+    const mins = offerWindowMinutes(match.scheduled_at, Date.now());
+
+    // KCDX-044: free slots used to be `total_slots − filled − activeOffers` from
+    // two independent counts, followed by a loop issuing offers one at a time and
+    // ignoring every error (`if (error) continue`). Two promotions running
+    // together — a sweep and a decline, say — could each believe the same slot
+    // was free. The command locks the match, counts both under that lock, claims
+    // the FIFO head with `FOR UPDATE SKIP LOCKED`, and renumbers the remaining
+    // line in the same transaction.
+    const { data, error } = await admin.rpc("match_promote_waitlist", {
+      p_match: matchId,
+      p_offer_mins: mins,
+    });
+    if (error) {
+      console.error("[waitlist] promote failed", matchId, error.message);
+      return;
+    }
+    const offeredTo = ((data as { offered_to?: string[] } | null)?.offered_to ?? []) as string[];
+    if (offeredTo.length === 0) return;
+
+    // Telling people happens AFTER the transaction commits. A notification sent
+    // inside it would be a promise about a state that might still roll back.
     const sportName = sportMeta(match.sport_key).name;
-
-    for (const nextUp of line ?? []) {
-      if (free <= 0) break;
-      const mins = offerWindowMinutes(match.scheduled_at, Date.now());
-      const expires = new Date(Date.now() + mins * 60_000).toISOString();
-      const { error } = await admin
-        .from("join_requests")
-        .update({ status: "offered", offered_at: new Date().toISOString(), offer_expires_at: expires, waitlist_position: null })
-        .eq("id", nextUp.id)
-        .eq("status", "waitlisted");
-      if (error) continue;
-      free -= 1;
-
+    for (const requesterId of offeredTo) {
       await createNotification({
-        userId: nextUp.requester_id,
+        userId: requesterId,
+        actorId: null,
         kind: "waitlist_offer",
         title: "A spot opened — confirm to join",
         body: `${sportName} match · you have ${windowLabel(mins)} to confirm your spot before it goes to the next player.`,
         linkUrl: `/play/${matchId}`,
       });
       try {
-        const { data: au } = await admin.auth.admin.getUserById(nextUp.requester_id);
+        const { data: au } = await admin.auth.admin.getUserById(requesterId);
         const email = au?.user?.email;
         if (email) {
           await sendEmail({
@@ -112,13 +95,11 @@ export async function promoteForMatch(matchId: string): Promise<void> {
         console.error("[waitlist] offer email failed", e instanceof Error ? e.message : e);
       }
     }
-    await renumber(admin, matchId);
   } catch (e) {
     console.error("[waitlist] promoteForMatch failed", matchId, e instanceof Error ? e.message : e);
   }
 }
 
-/** Expire overdue offers (they leave the line, may rejoin) and cascade. */
 export async function sweepWaitlists(): Promise<{ expired: number; matches: number }> {
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
@@ -149,42 +130,34 @@ export async function sweepWaitlists(): Promise<{ expired: number; matches: numb
 /** Confirm an active offer: the player becomes a confirmed participant. */
 export async function confirmOffer(matchId: string, userId: string): Promise<{ ok: boolean; reason?: string }> {
   const admin = createAdminClient();
-  const nowIso = new Date().toISOString();
-  const { data: row } = await admin
-    .from("join_requests")
-    .select("id, status, offer_expires_at")
-    .eq("match_id", matchId)
-    .eq("requester_id", userId)
-    .maybeSingle();
-  if (!row || row.status !== "offered") return { ok: false, reason: "no_offer" };
-  if (!row.offer_expires_at || row.offer_expires_at < nowIso) return { ok: false, reason: "expired" };
-  const { data: match } = await admin.from("matches").select("total_slots, status, organizer_id, sport_key").eq("id", matchId).maybeSingle();
-  if (!match || match.status !== "open") return { ok: false, reason: "closed" };
-  const { count: filled } = await admin.from("match_participants").select("*", { count: "exact", head: true }).eq("match_id", matchId);
-  if ((filled ?? 0) >= match.total_slots) return { ok: false, reason: "full" };
-  const { error } = await admin.from("match_participants").insert({
-    match_id: matchId,
-    user_id: userId,
-    slot: (filled ?? 0) + 1,
-    is_organizer: false,
-    confirmed: true, // confirming the offer IS confirming presence
-  });
-  if (error) return { ok: false, reason: "join_failed" };
-  await admin.from("join_requests").update({ status: "joined" }).eq("id", row.id);
-  if (match.organizer_id && match.organizer_id !== userId) {
+  // KCDX-044: this was five steps with nothing holding across them — read the
+  // offer, read the match, COUNT participants against total_slots, insert, mark
+  // the offer joined. Two people whose offers arrived together (the normal case,
+  // since promotion issues several at once) both counted slots-minus-one and
+  // both inserted. And the last two steps were unrelated: a participant could
+  // land while the offer still read `offered`, so a sweep could expire an offer
+  // that had already been taken.
+  //
+  // One transaction with the match row locked. Idempotent: someone already in
+  // the match gets `ok` without consuming a second slot.
+  const { data, error } = await admin.rpc("match_confirm_offer", { p_match: matchId, p_user: userId });
+  const res = data as { ok?: boolean; reason?: string; organizer_id?: string; already_in?: boolean } | null;
+  if (error || !res?.ok) return { ok: false, reason: res?.reason ?? "join_failed" };
+
+  if (res.organizer_id && res.organizer_id !== userId && !res.already_in) {
     const { data: me } = await admin.from("profiles").select("display_name").eq("id", userId).maybeSingle();
     await createNotification({
-      userId: match.organizer_id,
+      userId: res.organizer_id,
+      actorId: userId,
       kind: "match_join",
-      title: `${me?.display_name || "A player"} claimed a waitlist spot`,
-      body: `${sportMeta(match.sport_key).name} · confirmed and on your roster.`,
+      title: `${me?.display_name ?? "A player"} claimed a spot`,
+      body: "Someone from the waitlist took an open slot.",
       linkUrl: `/play/${matchId}`,
     });
   }
   return { ok: true };
 }
 
-/** Decline an active offer: same terminal path as expiry, cascade follows. */
 export async function declineOffer(matchId: string, userId: string): Promise<void> {
   const admin = createAdminClient();
   const { data: row } = await admin

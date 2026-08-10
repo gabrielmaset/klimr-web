@@ -19,7 +19,7 @@
 --    the job may never have been scheduled).
 do $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+  if to_regprocedure('cron.schedule(text,text,text)') is not null then
     if exists (select 1 from cron.job where jobname = 'purge-expired-content-daily') then
       perform cron.unschedule('purge-expired-content-daily');
     end if;

@@ -100,7 +100,7 @@ let businesses: { id: string; name: string }[] = [];
 
     // Everything the global TopBar needs (teams, unread, chat, presence, next
     // match) comes from one shared helper so the workspaces show the same bar.
-    const bar = await getTopBarData(supabase, user.id);
+    const bar = await getTopBarData(supabase);
     presenceMode = bar.presenceMode;
     teams = bar.teams;
     unread = bar.unread;

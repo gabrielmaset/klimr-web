@@ -53,6 +53,30 @@ else
   echo "rls_negative_suite=FAIL"; grep -E "FAIL|ERROR" "$W/neg.out" | head -5; fails=$((fails+1))
 fi
 
+# KCDX-051: the concurrency proofs. Every locked command in this remediation was
+# verified against a real race, and every one of those proofs lived in a shell
+# session that closed. A race that was fixed and never re-tested is a race
+# waiting to come back, because the next author to simplify a lock has nothing
+# telling them what it was for.
+echo "-- concurrency --"
+if PSQL="$P" bash "$REPO/supabase/harness/concurrency.sh" > "$W/conc.out" 2>&1; then
+  echo "$(grep concurrency_suite= "$W/conc.out")"
+else
+  echo "concurrency_suite=FAIL"; grep -E "FAIL " "$W/conc.out" | head -6; fails=$((fails+1))
+fi
+
+# KCDX-052: the readiness gate, after the replay. A migration that opens a
+# boundary now fails CI rather than being discovered at boot in production.
+echo "-- readiness --"
+ready=$($P -tAc "select public.klimr_ready()" 2>/dev/null | tr -d ' ')
+if [ "$ready" = "t" ]; then
+  echo "klimr_ready=PASS ($($P -tAc 'select count(*) from public.klimr_readiness()' | tr -d ' ') checks)"
+else
+  echo "klimr_ready=FAIL"
+  $P -tAc "select '   ' || check_name || coalesce(' — '||detail,'') from public.klimr_readiness() where not passed" 2>/dev/null
+  fails=$((fails+1))
+fi
+
 echo "-- acceptance probes --"
 $P -tAc "select 'manifest_missing='||coalesce(array_to_string(public.schema_manifest_missing(), ', '), '')" 
 $P -tAc "select 'avatar_path='||count(*) from information_schema.columns where table_name='profiles' and column_name='avatar_path'"

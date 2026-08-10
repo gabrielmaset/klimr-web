@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { BadgeCheck, MessagesSquare, Send, Link2, MessageCircle, Play, Trophy, Loader2, Users, Lock } from "lucide-react";
+import { BadgeCheck, MessagesSquare, Send, Link2, MessageCircle, Play, Trophy, Loader2, Users, Lock, Flag } from "lucide-react";
 import { SportIcon } from "@/components/sport-icons";
 import { sportMeta } from "@/lib/sports";
 import { togglePostLike, addPostComment, listPostComments, type ThreadComment } from "@/app/feed/actions";
+import { reportPost } from "@/app/feed/actions";
 
 /** Ace = the tennis-ball like. Inline SVG (no lucide equivalent). */
 function TennisBall({ size = 16, filled = false }: { size?: number; filled?: boolean }) {
@@ -81,6 +82,10 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
   const [shareOpen, setShareOpen] = useState(false);
   const [sharedNote, setSharedNote] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // KCDX-034: the active card had no report control at all. A member seeing
+  // something harmful in the Feed had no way to tell us — not a slow way, none.
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportNote, setReportNote] = useState<string | null>(null);
 
   const ace = () => {
     const next = !aced;
@@ -372,6 +377,57 @@ export function FeedPostCard({ post, viewer }: { post: FeedPostView; viewer: { i
           </div>
         </div>
       ) : null}
+      {/* KCDX-034: report. Deliberately plain and always reachable rather than
+          hidden behind a hover menu — someone who needs it is usually not in a
+          state to go looking for it. */}
+      <div className="flex items-center justify-end border-t border-rule-soft pt-2">
+        {reportNote ? (
+          <p role="status" aria-live="polite" className="text-[11px] text-mute">
+            {reportNote}
+          </p>
+        ) : reportOpen ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-mute">Report this post as</span>
+            {([
+              ["harassment", "Harassment"],
+              ["hate", "Hate"],
+              ["sexual", "Sexual"],
+              ["violence", "Violence"],
+              ["minor_safety", "Child safety"],
+              ["spam", "Spam"],
+              ["other", "Other"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  startTransition(async () => {
+                    const res = await reportPost(post.id, value);
+                    setReportOpen(false);
+                    setReportNote(res.error ?? "Reported — thank you. Our team will review it.");
+                  })
+                }
+                className="rounded-full border border-rule px-2 py-0.5 text-[11px] text-mute hover:text-ink"
+              >
+                {label}
+              </button>
+            ))}
+            <button type="button" onClick={() => setReportOpen(false)} className="px-1 text-[11px] text-faint hover:text-ink">
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setReportOpen(true)}
+            aria-label="Report this post"
+            className="flex items-center gap-1 text-[11px] text-faint hover:text-ink"
+          >
+            <Flag size={11} aria-hidden /> Report
+          </button>
+        )}
+      </div>
     </article>
   );
 }

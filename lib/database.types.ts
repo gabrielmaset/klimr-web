@@ -654,6 +654,12 @@ export interface Database {
         Update: { status?: string };
         Relationships: [];
       };
+      post_reports: {
+        Row: { id: string; post_id: string | null; reporter_id: string; author_id: string | null; reason: string; detail: string | null; body_snapshot: string | null; media_snapshot: string | null; status: string; created_at: string; reviewed_by: string | null; reviewed_at: string | null; resolution: string | null };
+        Insert: { post_id?: string | null; reporter_id: string; author_id?: string | null; reason: string; detail?: string | null; body_snapshot?: string | null; media_snapshot?: string | null; status?: string };
+        Update: { status?: string; reviewed_by?: string | null; reviewed_at?: string | null; resolution?: string | null };
+        Relationships: [];
+      };
       posts: {
         Row: {
           id: string;
@@ -797,6 +803,12 @@ export interface Database {
           preserved_until?: string | null;
           notes?: string | null;
         };
+        Relationships: [];
+      };
+      pymk_dismissals: {
+        Row: { user_id: string; dismissed_id: string; dismissed_at: string; expires_at: string };
+        Insert: { user_id: string; dismissed_id: string; dismissed_at?: string; expires_at?: string };
+        Update: { expires_at?: string };
         Relationships: [];
       };
       pymk_cache: {
@@ -1106,6 +1118,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          actor_id: string | null;
           kind: string;
           title: string;
           body: string | null;
@@ -1116,6 +1129,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
+          actor_id?: string | null;
           kind?: string;
           title: string;
           body?: string | null;
@@ -2110,14 +2124,14 @@ export interface Database {
     Functions: {
       get_ranked_feed: {
         Args: { p_scope?: string; p_limit?: number };
-        Returns: { id: string; score: number }[];
+        Returns: { id: string; score: number; likes: number; comments: number; viewer_liked: boolean }[];
       };
       refresh_feed_affinities: {
         Args: Record<string, never>;
         Returns: undefined;
       };
       global_search: {
-        Args: { p_q: string; p_limit?: number };
+        Args: { p_q: string; p_limit?: number; p_kinds?: string[] | null };
         Returns: { kind: string; id: string; title: string; subtitle: string | null; rank: number }[];
       };
       accept_substitution: {
@@ -2237,6 +2251,40 @@ export interface Database {
       moderation_reentry_intact: { Args: Record<string, never>; Returns: boolean };
       video_disabled_intact: { Args: Record<string, never>; Returns: boolean };
       grant_hygiene_intact: { Args: Record<string, never>; Returns: boolean };
+      end_court_session: { Args: { p_session_id: string; p_actor: string | null; p_reason: string }; Returns: boolean };
+      end_stale_court_sessions: { Args: { p_max_hours?: number }; Returns: number };
+      unblock_player: { Args: { p_target: string }; Returns: undefined };
+      social_invariants_intact: { Args: Record<string, never>; Returns: boolean };
+      pymk_dismiss: { Args: { p_target: string }; Returns: undefined };
+      pymk_valid_targets: { Args: { p_ids: string[] }; Returns: string[] };
+      played_together_counts: { Args: { p_ids: string[] }; Returns: { other_id: string; matches: number }[] };
+      is_discoverable_player: { Args: { p_id: string }; Returns: boolean };
+      is_discoverable_tournament: { Args: { p_id: string }; Returns: boolean };
+      discoverable_players: { Args: { p_ids: string[] }; Returns: { player_id: string }[] };
+      queue_finish_match: { Args: { p_match: string; p_winner: string }; Returns: Json };
+      event_admit: { Args: { p_event: string; p_user: string; p_cycle_start: string | null; p_force_going?: boolean }; Returns: Json };
+      queue_placement_intact: { Args: Record<string, never>; Returns: boolean };
+      event_capacity_intact: { Args: Record<string, never>; Returns: boolean };
+      match_confirm_offer: { Args: { p_match: string; p_user: string }; Returns: Json };
+      match_promote_waitlist: { Args: { p_match: string; p_offer_mins: number }; Returns: Json };
+      match_capacity_intact: { Args: Record<string, never>; Returns: boolean };
+      tournament_score_match: { Args: { p_match: string; p_score_a: number; p_score_b: number; p_expected_status?: string | null }; Returns: Json };
+      tournament_clear_match: { Args: { p_match: string }; Returns: Json };
+      bracket_graph_intact: { Args: Record<string, never>; Returns: boolean };
+      klimr_readiness: { Args: Record<string, never>; Returns: { check_name: string; passed: boolean; detail: string | null }[] };
+      klimr_ready: { Args: { p_min_checks?: number }; Returns: boolean };
+      report_post: { Args: { p_post: string; p_reason: string; p_detail?: string | null }; Returns: Json };
+      purge_orphan_feed_media: { Args: { p_grace_hours?: number }; Returns: number };
+      resolve_feed_post: { Args: { p_post: string }; Returns: { post_id: string; visible: boolean; reason: string; author_id: string | null }[] };
+      klimr_health: { Args: Record<string, never>; Returns: { subsystem: string; ok: boolean; detail: string }[] };
+      klimr_healthy: { Args: Record<string, never>; Returns: boolean };
+      chrome_data: { Args: Record<string, never>; Returns: Json };
+      storage_manifest_take: { Args: { p_note?: string | null }; Returns: string };
+      pymk_pool_saturation: { Args: Record<string, never>; Returns: { pool: string; members_at_cap: number; cap: number }[] };
+      deliver_social_outbox: { Args: { p_limit?: number }; Returns: number };
+      social_outbox_stuck: { Args: Record<string, never>; Returns: { id: number; kind: string; created_at: string; attempts: number; last_error: string | null }[] };
+      post_media_inventory: { Args: Record<string, never>; Returns: { storage_path: string; size_bytes: number; uploaded_at: string; still_referenced: boolean; referencing_post: string | null }[] };
+      legacy_media_retired: { Args: Record<string, never>; Returns: boolean };
       media_integrity_intact: { Args: Record<string, never>; Returns: boolean };
       recompute_player_points: { Args: { p_user: string; p_sport: string }; Returns: number };
       enrollment_boundary_intact: { Args: Record<string, never>; Returns: boolean };

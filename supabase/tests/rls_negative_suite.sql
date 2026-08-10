@@ -31,10 +31,18 @@ create function pg_temp.as_role(p_role text, p_sub uuid) returns void
 language plpgsql as $$
 begin
   execute format('set local role %I', p_role);
+  -- `auth.role()` reads `request.jwt.claim.role` (singular), not the claims JSON.
+  -- Without it every check ran as `auth.role() = 'anon'`, so a policy written
+  -- against auth.role() would have denied and the denial would have looked like
+  -- a pass. Set on every switch, including anon, so the role is never stale from
+  -- a previous check.
+  perform set_config('request.jwt.claim.role', p_role, true);
   if p_sub is not null then
     perform set_config('request.jwt.claim.sub', p_sub::text, true);
     perform set_config('request.jwt.claims',
       json_build_object('sub', p_sub::text, 'role', p_role)::text, true);
+  else
+    perform set_config('request.jwt.claim.sub', '', true);
   end if;
 end $$;
 
@@ -170,6 +178,11 @@ begin
   perform pg_temp.expect_error('service_role posts a video (no privileged bypass)', format(
     'insert into public.posts (author_id, body, post_type, audience) values (%L, ''x'', ''video'', ''public'')', A),
     '23514', 'service_role');
+
+  raise notice '';
+  raise notice 'BLOCKS — a blocked pair must not see each other, in either direction';
+  perform pg_temp.expect_ok('blocked-pair predicate is callable by a member',
+    format('select public.is_blocked_pair(%L, %L)', A, B), 'authenticated', A);
 
   raise notice '';
   raise notice 'KCDX-016 — privileges RLS cannot constrain';

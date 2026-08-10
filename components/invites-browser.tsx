@@ -73,7 +73,11 @@ export function InvitesBrowser({ items: items0, initialDir, initialKind }: { ite
   const perform = (item: InviteItem, run: Run) => {
     setItems((xs) => xs.filter((x) => x.key !== item.key));
     const fd = new FormData();
-    let fn: (f: FormData) => Promise<void>;
+    // KCDX-062: the social actions now return a result instead of discarding it,
+    // so this union has to admit one. This browser removes the row optimistically
+    // and does not yet act on a rejection — tracked with the rest of the
+    // optimistic-rollback work; widening the type here does not make it worse.
+    let fn: (f: FormData) => Promise<unknown>;
     switch (run) {
       case "friendAccept":
         fd.set("userId", item.friendUserId ?? "");

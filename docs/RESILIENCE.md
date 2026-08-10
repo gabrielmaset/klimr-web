@@ -29,8 +29,8 @@ not enterprise numbers, and deliberately honest about it.
 
 | Measure | Target | Reasoning |
 |---|---|---|
-| **RPO** (data we could lose) | **≤ 24 hours** | Daily backups. Worst case is a failure just before the next snapshot. |
-| **RTO** (time to serving again) | **≤ 4 hours** | Restore into a fresh project, repoint env vars, redeploy. |
+| **RPO** (data we could lose) | **≤ 24 hours — UNVALIDATED** | <!-- claim:drill-run=never --> Daily backups; worst case is a failure just before the next snapshot. **No drill has ever been run**, so this is an inference from the backup schedule, not a measurement. It is also DATABASE-only: Storage has no backup, so the real RPO for objects is unbounded. |
+| **RTO** (time to serving again) | **≤ 4 hours — UNVALIDATED** | Restore into a fresh project, repoint env vars, redeploy. Nobody has done this, and the steps below have never been executed end to end. Treat the number as a target to be tested, not a commitment already met (KCDX-053). |
 | **RTO for code-only rollback** | **≤ 15 minutes** | Vercel instant rollback to a prior deployment; no data involved. |
 | **Degraded-mode target** | **immediate** | Venues fall back to paper (`VENUE-PLAYBOOK.md`, `RUNBOOKS.md`). Open play never depends on Klimr being up. |
 
@@ -108,6 +108,27 @@ Know these before an incident, not during one:
 
 Append one row per drill. Empty is honest — fill the first row when you run it.
 
-| Date | Backup timestamp | Observed RPO | Observed RTO | Schema check | App check | Notes |
-|---|---|---|---|---|---|---|
-| _(pending — first drill due now that Pro is active)_ | | | | | | |
+| Date | Backup timestamp | Observed RPO | Observed RTO | Schema check | App check | Storage manifest | Notes |
+|---|---|---|---|---|---|---|---|
+| _(pending — no drill has ever been run)_ | | | | | | | |
+
+### How to make the drill produce evidence
+
+A drill that ends in "it seemed to work" is not evidence, and a Storage restore
+is the specific case where that is hard to notice: a partial restore looks exactly
+like a complete one until somebody opens a profile and finds a broken image.
+
+`storage_manifest_take()` (0226) records every object with its content
+fingerprint. The sequence that produces a defensible row above is:
+
+1. `select public.storage_manifest_take('pre-drill');` — note the returned id.
+2. Copy the objects out (this is the part with no automation yet — see §5).
+3. Restore database **and** objects into the throwaway project.
+4. `select * from public.storage_manifest_summary('<id>');` — `verified = true`
+   means every object came back with matching content. `storage_manifest_verify()`
+   names the ones that did not.
+5. `select * from public.klimr_readiness();` — every boundary check on the
+   restored database.
+6. Smoke: sign in, open a Queue, open a tournament, load a signed object URL.
+
+Steps 1, 4 and 5 are the ones that turn an impression into an artifact.

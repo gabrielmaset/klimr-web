@@ -106,7 +106,7 @@ function SettingRow({ title, desc, on, disabled, onToggle }: { title: React.Reac
 
 export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; isOrganizer: boolean }) {
   const sid = initial.session.id;
-  const { state, refetch } = useQueueState(sid, initial, 3000);
+  const { state, refetch, stale } = useQueueState(sid, initial, 3000);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -181,6 +181,15 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
 
   return (
     <div className="space-y-5">
+    {/* KCDX-042: the poll used to fail silently, so a venue whose network
+        had dropped showed a confidently stale queue. On a court that is the
+        difference between "nobody is ahead of me" and "this stopped updating
+        twenty minutes ago". */}
+    {stale && (
+      <p role="status" aria-live="polite" className="mb-3 rounded-lg border border-[#E9E1D1] bg-[#FFFDF8] px-3 py-2 text-sm text-[#6E6555]">
+        Not updating \u2014 checking again\u2026 the list below may be out of date.
+      </p>
+    )}
       {/* header */}
       <div className="rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">

@@ -74,6 +74,7 @@ export function NetworkBrowser({
   const [partnersOnly, setPartnersOnly] = useState(false);
   const [shown, setShown] = useState(PAGE);
   const [, startTransition] = useTransition();
+  const [note, setNote] = useState<string | null>(null);
 
   // optimistic flag updates, applied everywhere the person appears
   const patch = (id: string, partial: Partial<Person>) => {
@@ -82,35 +83,59 @@ export function NetworkBrowser({
     setFollowing(upd);
     setFollowers(upd);
   };
-  const run = (fn: (fd: FormData) => Promise<void>, id: string) => {
+  // KCDX-062: this used to catch-and-ignore, with the comment "a refresh
+  // reconciles if the server rejected". It does not: nothing triggers that
+  // refresh, so a request the server refused — blocked, rate-limited, in
+  // cooldown — kept rendering as "Requested" until the member reloaded by hand,
+  // and the reason was never shown at all.
+  //
+  // Now the prior state is captured before the optimistic patch and restored on
+  // any non-success, and the server's message is announced. Errors are announced
+  // through an aria-live region so a screen reader hears the rollback rather than
+  // silently reading a value that changed back.
+  const run = (
+    fn: (fd: FormData) => Promise<{ ok: boolean; message: string | null } | unknown>,
+    id: string,
+    rollback: () => void,
+  ) => {
     const fd = new FormData();
     fd.set("userId", id);
     startTransition(async () => {
       try {
-        await fn(fd);
+        const res = (await fn(fd)) as { ok?: boolean; message?: string | null } | undefined;
+        if (res && res.ok === false) {
+          rollback();
+          setNote(res.message ?? "That didn\u2019t go through.");
+        }
       } catch {
-        /* optimistic UI; a refresh reconciles if the server rejected */
+        rollback();
+        setNote("Something went wrong \u2014 nothing was changed.");
       }
     });
   };
   const onFollow = (p: Person) => {
+    const before = { iFollow: p.iFollow };
     const next = !p.iFollow;
     patch(p.id, { iFollow: next });
-    run(next ? followUser : unfollowUser, p.id);
+    run(next ? followUser : unfollowUser, p.id, () => patch(p.id, before));
   };
   const onFriend = (p: Person) => {
+    // The snapshot is taken from the row as it is NOW, so the rollback restores
+    // what was actually there rather than a guess at the inverse transition.
+    const before = { friendStatus: p.friendStatus, isFriend: p.isFriend };
+    const undo = () => patch(p.id, before);
     if (p.friendStatus === "none") {
       patch(p.id, { friendStatus: "requested" });
-      run(sendFriendRequest, p.id);
+      run(sendFriendRequest, p.id, undo);
     } else if (p.friendStatus === "requested") {
       patch(p.id, { friendStatus: "none" });
-      run(removeFriend, p.id);
+      run(removeFriend, p.id, undo);
     } else if (p.friendStatus === "incoming") {
       patch(p.id, { friendStatus: "friends", isFriend: true });
-      run(acceptFriendRequest, p.id);
+      run(acceptFriendRequest, p.id, undo);
     } else {
       patch(p.id, { friendStatus: "none", isFriend: false });
-      run(removeFriend, p.id);
+      run(removeFriend, p.id, undo);
     }
   };
 
@@ -190,6 +215,12 @@ export function NetworkBrowser({
 
   return (
     <div>
+    {/* KCDX-062: rollbacks are announced, not silent. A visual-only revert
+        reads to a screen reader as a value that changed for no reason. */}
+    <p aria-live="polite" role="status" className="sr-only">{note ?? ""}</p>
+    {note && (
+      <p className="mb-3 rounded-lg border border-[#E9E1D1] bg-[#FFFDF8] px-3 py-2 text-sm text-[#6E6555]">{note}</p>
+    )}
       <div className="mb-5 inline-flex rounded-full border border-rule bg-surface p-1">
         {TABS.map((t) => {
           const on = t.key === tab;

@@ -100,6 +100,55 @@ describe("KCDX-058 documentation claims match the source", () => {
     expect(route).toContain("format_version: 2");
   });
 
+  it("0218's pickup points match lib/ranking.ts", () => {
+    const ts = readFileSync("lib/ranking.ts", "utf8");
+    const win = Number(ts.match(/PICKUP_WIN_POINTS\s*=\s*(\d+)/)?.[1]);
+    const loss = Number(ts.match(/PICKUP_LOSS_POINTS\s*=\s*(\d+)/)?.[1]);
+    const sql = readFileSync("supabase/migrations/0218_queue_finish_match.sql", "utf8");
+    // The award moved into SQL, so the two copies of these numbers must agree.
+    // This is the third duplicated-constant pair in the schema; each one gets a
+    // test rather than a comment asking people to remember.
+    expect(sql, `PICKUP_WIN_POINTS is ${win}`).toContain(`then ${win} else ${loss} end`);
+  });
+
+  it("klimr_ready's expected check count matches the checks that exist", () => {
+    const names = new Set<string>();
+    for (const f of readdirSync("supabase/migrations")) {
+      if (!f.endsWith(".sql")) continue;
+      const src = readFileSync(`supabase/migrations/${f}`, "utf8");
+      for (const m of src.matchAll(/create or replace function public\.(\w+_intact)\s*\(\s*\)/g)) {
+        names.add(m[1]);
+      }
+    }
+    const readiness = readFileSync("supabase/migrations/0223_readiness.sql", "utf8");
+    const expected = Number(readiness.match(/p_min_checks integer default (\d+)/)?.[1]);
+    // A dropped check does not FAIL readiness — it vanishes from the list, and a
+    // list with nothing in it has nothing failing in it. So the count is part of
+    // the contract, and this is what stops it drifting: add a check, bump the
+    // number, or the build tells you.
+    expect(names.size, `${names.size} *_intact() functions defined; klimr_ready expects ${expected}`).toBe(expected);
+  });
+
+  it("the Node version is one number in three places", () => {
+    const stated = claim("README.md", "node-version");
+    const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { engines?: { node?: string } };
+    const nvmrc = readFileSync(".nvmrc", "utf8").trim();
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    expect(pkg.engines?.node, "package.json engines.node").toBe(`${stated}.x`);
+    expect(nvmrc, ".nvmrc").toBe(stated);
+    expect(ci, "CI node-version").toContain(`node-version: ${stated}`);
+  });
+
+  it("RESILIENCE does not claim a drill has been run until one has", () => {
+    // The targets are inferences from the backup schedule, not measurements. If
+    // someone marks them validated, they must also record a drill — this is what
+    // stops "≤ 4 hours" quietly becoming a commitment nobody tested.
+    expect(claim("docs/RESILIENCE.md", "drill-run")).toBe("never");
+    const src = readFileSync("docs/RESILIENCE.md", "utf8");
+    expect(src).toContain("UNVALIDATED");
+    expect(src).toContain("storage_manifest_take");
+  });
+
   it("every control document names an owner and a reconciliation date", () => {
     const missing = ["SECURITY.md"].filter((f) => {
       const src = readFileSync(f, "utf8");

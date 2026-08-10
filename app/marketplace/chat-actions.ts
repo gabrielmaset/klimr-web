@@ -102,6 +102,7 @@ export async function buyNow(formData: FormData): Promise<void> {
     });
     if (!error) {
       await createNotification({
+        actorId: user.id,
         userId: l.listed_by!,
         kind: "system",
         title: `Wants to buy at asking — ${l.title}`,
@@ -154,6 +155,7 @@ export async function notifyThreadMessage(input: { convId: string }): Promise<vo
   if (recent && recent.length > 0) return;
 
   await createNotification({
+    actorId: user.id,
     userId: other,
     kind: "system",
     title: `New message — ${l.title}`,

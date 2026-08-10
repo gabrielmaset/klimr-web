@@ -68,6 +68,14 @@ export function MobileMenu({
        which was letting iPhones scroll into phantom space past the footer. */
     <div
       aria-hidden={!open}
+      /* KCDX-066: `aria-hidden` with focusable descendants is itself the
+         violation — the links stayed in the tab order, so a keyboard user
+         tabbing through the page fell into a menu they could not see and could
+         not tell they were in. `pointer-events-none` stops a mouse and does
+         nothing for a keyboard. `inert` (React 19) removes the subtree from the
+         tab order AND the accessibility tree, which is what `aria-hidden` was
+         reaching for and could not do alone. */
+      inert={!open}
       className={`fixed inset-0 z-[58] overflow-hidden md:hidden ${open ? "" : "pointer-events-none"}`}
     >
       <div

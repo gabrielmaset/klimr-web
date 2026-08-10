@@ -4,7 +4,7 @@
 // (inline top bar today, command palette on its next touch). Keeping the
 // Ask-row + results panel here means the two can never drift.
 
-import { useState } from "react";
+import { useState, useRef} from "react";
 import { Sparkles, Loader2, ArrowUpRight } from "lucide-react";
 import { aiSearch } from "@/app/search/ai-actions";
 import type { AiSearchResult } from "@/lib/ai-search";
@@ -13,11 +13,23 @@ export type AiState = { state: "idle" | "loading" | "done" | "error"; query?: st
 
 export function useAiSearch() {
   const [ai, setAi] = useState<AiState>({ state: "idle" });
+  // KCDX-060: `if (ai.state === "loading") return` REFUSED the newer query while
+  // an older one was still running — so a member who refined their search sat
+  // watching a spinner for a question they had already replaced, and got the
+  // stale answer when it finally arrived. A server action cannot be aborted from
+  // here, but the result of a superseded run can be discarded, which is the part
+  // the member actually experiences.
+  const latest = useRef(0);
   const runAi = (q: string) => {
     const query = q.trim();
-    if (query.length < 3 || ai.state === "loading") return;
+    if (query.length < 3) return;
+    const token = ++latest.current;
     setAi({ state: "loading", query });
     void aiSearch(query).then((res) => {
+      // A run that is no longer the newest writes nothing. Without this, an
+      // earlier slow query lands last and overwrites the answer to the question
+      // the member is actually looking at.
+      if (token !== latest.current) return;
       setAi(
         res.ok && res.result
           ? { state: "done", query, result: res.result }
@@ -25,7 +37,14 @@ export function useAiSearch() {
       );
     });
   };
-  return { ai, runAi, resetAi: () => setAi({ state: "idle" }) };
+  return {
+    ai,
+    runAi,
+    resetAi: () => {
+      latest.current++; // supersede anything in flight
+      setAi({ state: "idle" });
+    },
+  };
 }
 
 export function AiAskRow({ query, hint, onRun }: { query: string; hint?: string; onRun: () => void }) {

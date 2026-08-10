@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useDialogA11y } from "@/components/use-dialog-a11y";
 import Link from "next/link";
 import { X, Check, Loader2, Mail, UserRound, Trophy, ArrowRight } from "lucide-react";
 import { joinWaitlistEmail } from "@/app/e/[code]/waitlist-actions";
@@ -19,6 +20,11 @@ export function JoinWaitlistDialog({
   triggerStyle?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
+  // KCDX-066: `aria-modal` tells a screen reader the page behind is inert; it
+  // does not make it so. Without a trap, Tab walks out of the dialog into
+  // controls the user cannot see while their screen reader insists they are in a
+  // modal — and on close, focus fell to document.body, so a keyboard user lost
+  // their place and restarted from the top of the page every time.
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,14 +41,18 @@ export function JoinWaitlistDialog({
     if (r.ok) setDone(true);
     else setErr(r.error ?? "Something went wrong.");
   }
-  function close() {
+  // Stable identity: the a11y hook depends on it, and a fresh function each
+  // render would re-run the trap effect on every keystroke in the form.
+  const close = useCallback(() => {
     setOpen(false);
     setTimeout(() => {
       setDone(false);
       setErr(null);
       setBusy(false);
     }, 200);
-  }
+  }, []);
+
+  const dialogRef = useDialogA11y(open, close);
 
   return (
     <>
@@ -52,6 +62,8 @@ export function JoinWaitlistDialog({
 
       {open ? (
         <div
+          ref={dialogRef}
+          tabIndex={-1}
           className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4"
           onClick={close}
           role="dialog"

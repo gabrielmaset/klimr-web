@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { sportMeta } from "@/lib/sports";
 import { NetworkBrowser, type Person, type Tab, type FriendStatus } from "@/components/network-browser";
 import { PymkRail } from "@/components/pymk-rail";
@@ -76,24 +75,22 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
   }
 
   // Play frequency: how many matches the user has shared with each connection.
-  // match_participants rows for others aren't broadly readable under RLS, so this
-  // aggregates on the admin client — scoped to the user's own matches, chunked so
-  // the query stays bounded no matter how active the player is.
+  // KCDX-030: this used to select EVERY `match_participants` row for the viewer,
+  // chunk the match ids 400 at a time, pull every participant of every one of
+  // those matches into Node, and count in JavaScript. The old comment said it was
+  // "chunked so the query stays bounded" — chunking bounds each QUERY, not the
+  // WORK. A member with 2,000 matches materialised tens of thousands of rows on
+  // every render to produce a number shown beside a few dozen people.
+  //
+  // `played_together_counts` asks the question that was actually being asked:
+  // for THESE people, how many matches do we share. One indexed join, one row per
+  // person, work proportional to the answer rather than to the archive. It is
+  // SECURITY DEFINER and scoped to `auth.uid()`'s own matches, so it needs no
+  // admin client and cannot reveal anyone else's history.
   const playedWith = new Map<string, number>();
   if (allIds.length) {
-    const admin = createAdminClient();
-    const { data: mine } = await admin.from("match_participants").select("match_id").eq("user_id", user.id);
-    const myMatchIds = [...new Set((mine ?? []).map((r) => r.match_id))];
-    const connSet = new Set(allIds);
-    const CHUNK = 400;
-    for (let i = 0; i < myMatchIds.length; i += CHUNK) {
-      const batch = myMatchIds.slice(i, i + CHUNK);
-      const { data: co } = await admin.from("match_participants").select("user_id").in("match_id", batch);
-      for (const r of co ?? []) {
-        if (r.user_id === user.id || !connSet.has(r.user_id)) continue;
-        playedWith.set(r.user_id, (playedWith.get(r.user_id) ?? 0) + 1);
-      }
-    }
+    const { data: counts } = await supabase.rpc("played_together_counts", { p_ids: allIds });
+    for (const r of counts ?? []) playedWith.set(r.other_id, r.matches);
   }
 
   const toPerson = (id: string, addedAt: string): Person | null => {

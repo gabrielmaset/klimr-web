@@ -79,13 +79,34 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
     if (out.length) return out;
   }
 
-  const { data: rows } = await supabase.rpc("global_search", { p_q: condensed || q, p_limit: 30 });
   const prettySport = (s: string | null): string | null =>
     s && (SPORT_KEYS as string[]).includes(s) ? sportMeta(s).name : s;
   const KIND_OF_RPC: Record<string, SearchResultType> = {
     player: "player", court: "court", team: "team", event: "event",
     tournament: "tournament", listing: "listing", class: "class", provider: "class",
+    // KCDX-020: published businesses are searchable as of 0216. They surface
+    // under the Classes & Coaching hub, which is where a venue or pro shop is
+    // reachable in the product today.
+    business: "class",
   };
+
+  // KCDX-025: the inferred kinds go INTO the query. They used to be applied here,
+  // after the RPC had already capped each branch and then capped the union — so a
+  // search for courts competed with players, teams and tournaments for the cap
+  // first and was narrowed to courts second. A query that should have returned
+  // six courts could return two, because four slots went to rows the user never
+  // wanted and which were then thrown away.
+  const wantedRpcKinds = kindHints.size
+    ? Object.entries(KIND_OF_RPC).filter(([, v]) => kindHints.has(v)).map(([k]) => k)
+    : null;
+
+  const { data: rows } = await supabase.rpc("global_search", {
+    p_q: condensed || q,
+    p_limit: 30,
+    p_kinds: wantedRpcKinds,
+  });
+  // The RPC has already excluded unwanted branches; this stays as a belt for the
+  // `provider → class` mapping, which is many-to-one.
   const list = (rows ?? []).filter((r) => kindHints.size === 0 || kindHints.has(KIND_OF_RPC[r.kind] ?? "event"));
 
   // Players need avatar + location hydration and the account/block screens.
@@ -146,15 +167,23 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
   if (searchRoll() < 0.1) {
     try {
       const { getPrivilegedClient } = await import("@/lib/privileged");
-      await getPrivilegedClient({ reason: "search:telemetry" })
-        .from("perf_samples")
-        .insert({
-          // Every search records latency; a MISS additionally records the zero
-          // metric, so zero-rate = count(search_zero) / count(search_deterministic).
-          metric: results.length === 0 ? "search_zero" : "search_deterministic",
-          value_ms: Date.now() - startedAt,
-          route: "/search",
-        });
+      // KCDX-061: the comment above this used to say "every search records
+      // latency; a MISS additionally records the zero metric" — and the code was
+      // a TERNARY, so a zero-result search recorded ONLY `search_zero` and never
+      // `search_deterministic`. The reporting query then divided zeros by
+      // `search_deterministic`, i.e. zeros by HITS rather than by total.
+      //
+      // The error grows with the thing being measured: 2 zeros in 10 searches
+      // reported 2/8 = 25% instead of 20%; 5 in 10 reported 100%; and a period
+      // where every search missed divided by zero and reported nothing at all.
+      // The metric was least trustworthy exactly when it mattered most.
+      //
+      // Now it does what the comment always claimed: one row per search for the
+      // denominator, plus a second row on a miss.
+      const elapsed = Date.now() - startedAt;
+      const rows = [{ metric: "search_deterministic", value_ms: elapsed, route: "/search" }];
+      if (results.length === 0) rows.push({ metric: "search_zero", value_ms: elapsed, route: "/search" });
+      await getPrivilegedClient({ reason: "search:telemetry" }).from("perf_samples").insert(rows);
     } catch {
       /* telemetry must never break a search */
     }

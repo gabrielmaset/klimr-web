@@ -61,6 +61,10 @@ export async function createNotification(input: {
   title: string;
   body?: string;
   linkUrl?: string;
+  /** Who this notification is ABOUT. Supply it whenever a person triggered the
+   *  event: `notifications_block_filter` (0209) uses it to drop deliveries
+   *  between a blocked pair, and without it a block cannot reach the bell. */
+  actorId?: string | null;
 }) {
   try {
     const admin = createAdminClient();
@@ -73,15 +77,29 @@ export async function createNotification(input: {
         .maybeSingle();
       if (prefs && prefs[prefCol] === false) return; // muted by the recipient
     }
-    await admin.from("notifications").insert({
+    // The block check is a BEFORE INSERT trigger rather than a condition here,
+    // because there are dozens of notification call sites and there will be
+    // more. A rule each of them must remember is a rule that gets forgotten.
+    const { error: insErr } = await admin.from("notifications").insert({
       user_id: input.userId,
+      actor_id: input.actorId ?? null,
       kind: input.kind,
       title: input.title,
       body: input.body ?? null,
       link_url: input.linkUrl ?? null,
     });
+    // supabase-js does NOT throw on a constraint violation — it returns
+    // `{ error }`. The catch below was therefore never going to see one, and
+    // five notification kinds failed this check silently for months. Log it: a
+    // notification that cannot be written is non-critical to the ACTION, and
+    // critical to know about.
+    if (insErr) {
+      console.error(`[notify] insert failed kind=${input.kind} user=${input.userId}: ${insErr.message}`);
+      return;
+    }
     void deliverPush(input);
-  } catch {
-    // notifications are non-critical; don't block the triggering action
+  } catch (err) {
+    // Still non-critical to the triggering action — but no longer invisible.
+    console.error(`[notify] unexpected failure kind=${input.kind}:`, err);
   }
 }

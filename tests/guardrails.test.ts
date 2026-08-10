@@ -584,7 +584,12 @@ describe("KCDX-054 privilege layer", () => {
     const entries = src.match(/"[^"]+"/g) ?? [];
     // Ratchet: lower this number when files migrate. Never raise it. A new file
     // needing the raw client is a design decision, not a list edit.
-    expect(entries.length).toBeLessThanOrEqual(87);
+    // 87 → 86: app/network/page.tsx came off when KCDX-030 moved its
+    // played-together aggregation into a SECURITY DEFINER function, which removed
+    // the reason it held an admin client at all. That is the shape these
+    // migrations take — the privilege goes away because the work moved, not
+    // because someone swapped a client.
+    expect(entries.length).toBeLessThanOrEqual(86);
   });
 
   // Comments in this file quote the old pattern in order to explain it, so a
@@ -713,4 +718,106 @@ describe("KCDX-047 tournament config patches", () => {
     }
     expect(offenders).toEqual([]);
   });
+});
+
+/* ── Blocking: notifications must carry an actor to be filterable ────────────
+ * `notifications_block_filter` (0209) drops deliveries between a blocked pair —
+ * but only when `actor_id` is set. A call site that omits it is a notification a
+ * block cannot reach, so the count of such sites is a real measure and must only
+ * ever go down. 41 remain, all of them system/admin notices with no person
+ * behind them; every person-to-person path is wired. */
+describe("block enforcement: notification actors", () => {
+  it("createNotification sites without an actor never increase", () => {
+    const listFiles = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const e of readdirSync(dir)) {
+        const p = `${dir}/${e}`;
+        if (statSync(p).isDirectory()) out.push(...listFiles(p));
+        else if (/\.(ts|tsx)$/.test(p) && !p.endsWith(".test.ts")) out.push(p);
+      }
+      return out;
+    };
+    let without = 0;
+    for (const f of [...listFiles("app"), ...listFiles("lib")]) {
+      const src = readFileSync(f, "utf8");
+      const re = /createNotification\(\{/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src))) {
+        let i = m.index + m[0].length;
+        let depth = 1;
+        while (depth > 0 && i < src.length) {
+          const c = src[i];
+          if (c === "{") depth++;
+          else if (c === "}") depth--;
+          i++;
+        }
+        if (!/actorId\s*:/.test(src.slice(m.index, i))) without++;
+      }
+    }
+    // Ratchet: lower this when sites are wired. Never raise it — a new
+    // person-to-person notification without an actor is one a block cannot stop.
+    expect(without).toBeLessThanOrEqual(41);
+  });
+});
+
+/* KCDX-066 — modal keyboard behaviour.
+ *
+ * `aria-modal="true"` tells a screen reader the page behind is inert; it does
+ * not make it so. Every dialog needs a focus trap, focus restore and Escape,
+ * and they were each getting some and none getting all. `useDialogA11y` is the
+ * shared implementation; this counts the ones not yet using it. */
+describe("KCDX-066 dialog accessibility", () => {
+  it("dialogs without the shared a11y hook never increase", () => {
+    const listFiles = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const e of readdirSync(dir)) {
+        const p = `${dir}/${e}`;
+        if (statSync(p).isDirectory()) out.push(...listFiles(p));
+        else if (/\.tsx$/.test(p)) out.push(p);
+      }
+      return out;
+    };
+    const offenders: string[] = [];
+    for (const f of [...listFiles("components"), ...listFiles("app")]) {
+      const src = readFileSync(f, "utf8");
+      if (!/role="dialog"/.test(src)) continue;
+      if (/useDialogA11y/.test(src)) continue;
+      offenders.push(f);
+    }
+    // Lower this as dialogs adopt the hook. Never raise it: a new modal without
+    // a trap is a keyboard user walking into the page behind it.
+    expect(offenders.length, `dialogs missing useDialogA11y: ${offenders.join(", ")}`).toBeLessThanOrEqual(10);
+  });
+});
+
+/* KCDX-067 — server-action module size.
+ *
+ * These files combine too many invariants and side effects. The audit warns
+ * against a big-bang rewrite, so this is a ratchet rather than a target: each
+ * number may fall as a coherent concern is extracted, and may never rise.
+ *
+ * Worth recording honestly: over this remediation the files initially GREW
+ * (tournaments 2606 → 2684) even as their invariants moved into locked database
+ * commands, because each replaced block gained an explanation of what had been
+ * wrong. Line count and invariant density are different things, and only one of
+ * them is what the finding is actually about — but line count is the one that
+ * can be measured, so it is the one pinned here. */
+describe("KCDX-067 server-action module size", () => {
+  const budgets: Record<string, number> = {
+    "app/tournaments/actions.ts": 2525,
+    "app/queue/actions.ts": 972,
+    "app/events/actions.ts": 898,
+    "app/feed/actions.ts": 515,
+  };
+  for (const [file, max] of Object.entries(budgets)) {
+    it(`${file} does not grow`, () => {
+      // `split("\n")` counts the trailing newline as a line; `wc -l` does not.
+      // The budgets were set from `wc -l`, so measure the same way — off-by-one
+      // in a ratchet is worse than no ratchet, because the first person to hit
+      // it raises the number instead of asking why.
+      const src = readFileSync(file, "utf8");
+      const lines = src.split("\n").length - (src.endsWith("\n") ? 1 : 0);
+      expect(lines, `${file} is ${lines} lines, budget ${max}`).toBeLessThanOrEqual(max);
+    });
+  }
 });
