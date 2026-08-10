@@ -1,21 +1,42 @@
 -- Roles are CLUSTER-level, not database-level. The local harness drops and
--- recreates the whole cluster between runs, so bare `create role` worked; CI
+-- recreated the whole cluster between runs, so bare `create role` worked; CI
 -- runs `empty` and `upgrade` against ONE Postgres service container, so the
 -- second invocation met roles the first had already made and the shim aborted
 -- with `role "anon" already exists` — before a single migration ran.
 --
 -- That is why CI failed on a repository that passes locally: the harness encoded
 -- an assumption about its environment that only one of the two environments met.
+-- Guarded structurally rather than one `if not exists` per role. My first
+-- attempt at this wrapped the four roles I could see in the opening block and
+-- missed two more twelve lines further down, so CI failed again on
+-- `supabase_auth_admin`. Fixing the instances I noticed, instead of the pattern,
+-- is how a bug survives a fix — and it is the same shape as the guards in §9 of
+-- the audit report, written the same afternoon.
+--
+-- This loop cannot miss one: a role added to the list below is created if
+-- absent, and a role added ANY OTHER WAY still has to survive re-running, which
+-- the comment above the list says out loud.
 do $$
+declare r record;
 begin
-  if not exists (select 1 from pg_roles where rolname = 'anon')          then create role anon nologin noinherit; end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin noinherit; end if;
-  if not exists (select 1 from pg_roles where rolname = 'service_role')  then create role service_role nologin noinherit bypassrls; end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticator') then create role authenticator noinherit login password 'x'; end if;
+  for r in
+    select * from (values
+      ('anon',                   'nologin noinherit'),
+      ('authenticated',          'nologin noinherit'),
+      ('service_role',           'nologin noinherit bypassrls'),
+      ('authenticator',          'noinherit login password ''x'''),
+      ('supabase_auth_admin',    'superuser'),
+      ('supabase_storage_admin', 'superuser')
+    ) as t(name, opts)
+  loop
+    if not exists (select 1 from pg_roles where rolname = r.name) then
+      execute format('create role %I %s', r.name, r.opts);
+    end if;
+  end loop;
 end $$;
+
+-- Idempotent: granting a role that is already granted is a no-op in Postgres.
 grant anon to authenticator; grant authenticated to authenticator; grant service_role to authenticator;
-create role supabase_auth_admin superuser;
-create role supabase_storage_admin superuser;
 create schema if not exists auth;
 create schema if not exists storage;
 create schema if not exists extensions;

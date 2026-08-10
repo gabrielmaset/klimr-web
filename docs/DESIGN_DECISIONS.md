@@ -7465,3 +7465,29 @@ assumption about its environment that only one of the two environments met.
 Guarded now, and verified by running empty → upgrade → empty against a single
 cluster without a restart.
 
+## 2026-08-10 (later) — I fixed the instances instead of the pattern
+
+The shim fix failed. CI came back with `role "supabase_auth_admin" already
+exists` — a different role, twelve lines below the four I had guarded.
+
+I had run `grep -n "create role\|anon" shim.sql | head -5`, seen four roles in
+the opening block, wrapped those four, and shipped. There were six. The `head -5`
+was mine, and the two it cut off were the two that failed.
+
+This is the same shape as half the audit: fixing what is in front of you rather
+than the thing that generates it. `is_blocked_pair` inlined in four policies
+because one grant was missing. Discoverability defined three different ways
+across three surfaces. Cron guards testing the wrong condition in ten migrations,
+then an eleventh with a third variant. Every one of them is somebody patching the
+copies they could see.
+
+The roles are now a list walked by a loop, so adding one cannot reintroduce the
+bug, and re-running cannot break. Verified the way it should have been the first
+time — CI's actual sequence, twice through: empty → upgrade → empty → upgrade
+against a single cluster, all four exit 0.
+
+The lesson is not "read all the grep output". It is that when a fix consists of
+repeating the same guard N times, N is the bug. A loop, a shared predicate, or a
+single function is the fix — and I have now written that sentence in this file
+four times while failing to apply it once.
+
