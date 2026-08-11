@@ -192,6 +192,18 @@ describe("KCDX-058 documentation claims match the source", () => {
     expect(missing, `index names files that do not exist: ${missing.join(", ")}`).toEqual([]);
   });
 
+  it("the decisions register and the contract point at each other", () => {
+    const reg = readFileSync("docs/DECISIONS_REGISTER.md", "utf8");
+    const contract = readFileSync("CLAUDE.md", "utf8");
+    // A continuity rule nobody can find is not a continuity rule.
+    expect(contract, "CLAUDE.md must point at the register").toContain("DECISIONS_REGISTER.md");
+    expect(reg, "register must carry the superseded $825K figure so it is searchable").toContain("825");
+    expect(reg).toContain("$900,000");
+    // Every decision row is numbered so it can be cited in a later session.
+    const rows = reg.match(/^\| D-\d+ \|/gm) ?? [];
+    expect(rows.length, "register must hold decisions").toBeGreaterThanOrEqual(20);
+  });
+
   it("every control document names an owner and a reconciliation date", () => {
     const missing = ["SECURITY.md", "docs/RELATIONSHIP-PRIVACY-POLICY.md"].filter((f) => {
       const src = readFileSync(f, "utf8");

@@ -821,3 +821,22 @@ describe("KCDX-067 server-action module size", () => {
     });
   }
 });
+
+/* ADAPTATION 3 — the lint ratchet ceiling cannot be raised silently.
+ *
+ * The source package said "ratchet to zero, then enforce --max-warnings 0",
+ * which leaves the gate off during exactly the period the backlog is largest.
+ * Instead the gate is live at the measured baseline. The only way that helps is
+ * if the number can fall and never rise, so the ceiling is asserted here: raise
+ * it and the build fails, which is the whole point of a ratchet. */
+describe("lint ratchet", () => {
+  it("the --max-warnings ceiling never rises", () => {
+    const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { scripts: Record<string, string> };
+    const m = /--max-warnings\s+(\d+)/.exec(pkg.scripts.lint ?? "");
+    expect(m, "lint script must carry an explicit --max-warnings ceiling").not.toBeNull();
+    const ceiling = Number(m![1]);
+    // Lower this when debt is cleaned. Never raise it: a new warning is a
+    // decision, not a number to edit.
+    expect(ceiling, `lint ceiling is ${ceiling}`).toBeLessThanOrEqual(137);
+  });
+});

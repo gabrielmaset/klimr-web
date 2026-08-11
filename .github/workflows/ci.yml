@@ -50,7 +50,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx eslint .
+      # ADAPTATION 3: the ratchet, not a bare lint run. Fails on warning 138.
+      - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm test
       # K2-06: build once, capture the output, and publish the per-route
