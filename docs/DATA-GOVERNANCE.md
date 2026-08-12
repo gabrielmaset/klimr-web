@@ -194,7 +194,16 @@ portability.
 <!-- claim:export-coverage=partial-with-index -->
 **Implementation status: BUILT, PARTIAL, AND HONEST ABOUT IT (Aug 2026, KCDX-057).**
 `/settings/export` returns all nine categories above — identity, social, content,
-play, teams, commerce, communications, safety, devices — as `format_version: 2`.
+play, teams, commerce, communications, safety, devices — as `format_version: 3`.
+
+**Version 3 (KRA-016, 2026-08-10)** changed two things that mattered. The archive now carries a
+`status` of `complete` or `incomplete` plus an `incomplete_datasets` list: previously every query
+helper discarded its `{ error }`, so a schema, grant or policy regression turned a dataset into an
+empty array and the member still received a successful-looking archive — the worst shape for a
+data-rights response, because they believe they have everything and nobody is prompted to fulfil
+the rest. And `reports_i_filed` now reads `post_reports`/`reports` by `reporter_id`; it was being
+populated from `safety_incidents` about the member's OWN uploads, which is the inverse of the
+category name. Those incidents are still returned, under `incidents_about_my_uploads`.
 
 It previously returned five things while this table promised nine, which is the
 worst version of a data-rights route: the member believes they have their data

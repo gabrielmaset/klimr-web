@@ -70,7 +70,13 @@ async function reportToNCMEC(
     return;
   }
   try {
-    const res = await fetch(endpoint, {
+    // KRA-014: had no deadline. A hung reporting endpoint held the invocation
+    // that was in the middle of a legally-required escalation. 10s, and
+    // deliberately NO retry — a duplicated CyberTipline submission is its own
+    // problem, and the catch below already routes failure to a manual report.
+    const res = await callExternal({ vendor: "ncmec", timeoutMs: 10000, retries: 0 }, (signal) =>
+      fetch(endpoint, {
+      signal,
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -84,7 +90,7 @@ async function reportToNCMEC(
         matchRef: input.matchRef ?? null,
         uploaderId: input.uploaderId,
       }),
-    });
+    }));
     if (res.ok) {
       await admin
         .from("safety_incidents")

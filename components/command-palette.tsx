@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, User, MapPin, Users, CalendarDays, Plus, Trophy, CornerDownLeft, Loader2, Sparkles, ArrowUpRight, ShoppingBag, GraduationCap } from "lucide-react";
+import { Search, User, MapPin, Users, CalendarDays, Plus, Trophy, CornerDownLeft, Loader2, Sparkles, ArrowUpRight, ShoppingBag, GraduationCap, Store } from "lucide-react";
 import { globalSearch } from "@/app/search/actions";
 import { aiSearch } from "@/app/search/ai-actions";
 import type { AiSearchResult } from "@/lib/ai-search";
@@ -17,6 +17,10 @@ const TYPE_ICON: Record<SearchResultType, typeof User> = {
   tournament: Trophy,
   listing: ShoppingBag,
   class: GraduationCap,
+  // KRA-022: businesses were retrieved and then dropped for want of a route.
+  // These exhaustive Records are why the fix could not be half-done — adding the
+  // kind made every surface demand its icon and label.
+  business: Store,
 };
 const TYPE_LABEL: Record<SearchResultType, string> = {
   player: "Player",
@@ -26,6 +30,7 @@ const TYPE_LABEL: Record<SearchResultType, string> = {
   tournament: "Tournament",
   listing: "Listing",
   class: "Class",
+  business: "Business",
 };
 
 type QuickAction = { label: string; href: string; Icon: typeof Plus };

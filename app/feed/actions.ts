@@ -1,10 +1,12 @@
 "use server";
 
+import { stampPostOrigin } from "@/lib/post-origin";
+import { screenAndClassifyPhoto } from "@/lib/media-safety";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notify";
-import { moderateText, moderateImage } from "@/lib/moderation";
+import { moderateText } from "@/lib/moderation";
 import { accountActive } from "@/lib/guards";
 import { getPrivilegedClient } from "@/lib/privileged";
 
@@ -29,6 +31,8 @@ export async function createFeedPost(formData: FormData): Promise<void> {
     .select("id")
     .maybeSingle();
   if (!inserted) return;
+  // OD-7: record where this came from, once, before it can be ranked.
+  await stampPostOrigin(inserted.id, user.id);
   const v = await moderateText(body);
   const admin = createAdminClient();
   await admin
@@ -432,26 +436,22 @@ export async function createTypedFeedPost(formData: FormData): Promise<CreatePos
   const admin = createAdminClient();
   const verdicts = [await moderateText(body || milestoneLabel || postType)];
   const extraLabels: string[] = [];
-  if (postType === "photo" && mediaPath) {
-    const { data: file } = await admin.storage.from("feed-media").download(mediaPath);
-    if (!file) {
-      verdicts.push({ allowed: false, categories: ["moderation_error"], reason: "Could not read the upload." });
-    } else {
-      const buf = Buffer.from(await file.arrayBuffer());
-      if (buf.byteLength <= 4_500_000) {
-        verdicts.push(await moderateImage(buf.toString("base64"), file.type || "image/jpeg"));
-      } else {
-        verdicts.push({ allowed: false, categories: ["image_review"], reason: "Large image queued for review." });
-      }
-    }
-  }
+  // KRA-005 / KCDX-067: the photo decision lives in lib/media-safety.ts. It is a
+  // concern with its own subject — known-content screening, byte sniffing and the
+  // hold-vs-publish rule — and nothing else in this module touches it, so it
+  // leaves rather than being relocated (the payment-actions.ts precedent).
+  const photo = await screenAndClassifyPhoto({ bucket: "feed-media", path: mediaPath, uploaderId: user.id, isPhoto: postType === "photo" });
+  verdicts.push(...photo.verdicts);
+  extraLabels.push(...photo.labels);
 
   const labels = [...new Set([...verdicts.flatMap((v) => v.categories), ...extraLabels])];
   const flagged = verdicts.some((v) => !v.allowed && v.categories.some((c) => !GATE_DOWN.has(c)));
   const gateDown = !flagged && verdicts.some((v) => !v.allowed);
   const status: "approved" | "pending" | "rejected" = flagged ? "rejected" : gateDown ? "pending" : "approved";
 
-  if (status === "rejected" && mediaPath) {
+  // `mediaRemoved` guards the double-remove: on a hash match the seam has already
+  // taken the object out of the servable bucket after preserving it.
+  if (status === "rejected" && mediaPath && !photo.mediaRemoved) {
     await admin.storage.from("feed-media").remove([mediaPath]);
   }
   const { error: pubErr } = await admin

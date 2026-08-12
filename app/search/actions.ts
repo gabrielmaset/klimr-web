@@ -2,7 +2,6 @@
 
 import { sportMeta, SPORT_KEYS } from "@/lib/sports";
 
-const nowMs = () => Date.now();
 // Module scope: the lint rule forbids impure calls inside a handler body.
 const searchRoll = () => Math.random();
 
@@ -20,6 +19,10 @@ const joinLoc = (...parts: (string | null | undefined)[]) => parts.filter(Boolea
  * single query stays fast. Wildcards are stripped so user input can't smuggle
  * ILIKE patterns. Existing RLS governs what each viewer can see.
  */
+function prettySportName(s: string | null): string | null {
+  return s && (SPORT_KEYS as string[]).includes(s) ? sportMeta(s).name : s;
+}
+
 export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
   const startedAt = Date.now();
   const q = (qRaw ?? "").trim();
@@ -54,33 +57,59 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
   // match. List the kind's upcoming items directly; falling back to the
   // raw phrase would match nothing (the screenshot bug).
   if (kindHints.size > 0 && condensed === "") {
+    // KRA-023: this implemented browse for `event` and `tournament` and let the
+    // other six kinds fall through to the lexical matcher with an EMPTY string,
+    // which matches nothing by construction. So "courts", "teams", "gear for
+    // sale" each produced the empty result the browse branch exists to prevent —
+    // its own comment names that as "the screenshot bug".
+    //
+    // One RPC per hinted kind rather than six hand-written queries here: a column
+    // name guessed in TypeScript fails at runtime and returns an empty list,
+    // indistinguishable from "nothing matched", while the same guess in SQL fails
+    // the migration replay immediately. It did, twice, before this shipped.
+    const HREF_FOR: Record<string, (id: string) => string> = {
+      event: (id) => `/events/${id}`,
+      tournament: (id) => `/e/${id}`,
+      court: (id) => `/courts/${id}`,
+      team: (id) => `/teams/${id}`,
+      listing: (id) => `/marketplace/${id}`,
+      business: (id) => `/business/${id}`,
+    };
+    const order = ["event", "tournament", "court", "team", "listing", "business"] as const;
+    const wanted = order.filter((k) => kindHints.has(k as SearchResultType));
+
+    const batches = await Promise.all(
+      wanted.map(async (k) => {
+        const { data, error } = await supabase.rpc("browse_kind", { p_kind: k, p_limit: 6 });
+        // supabase-js does not throw. A discarded error here would reproduce the
+        // silent-empty-list failure this fix is about.
+        if (error) console.error("[search] browse failed", k, error.message);
+        return (data ?? []) as { kind: string; id: string; title: string; subtitle: string | null; sort_at: string | null }[];
+      }),
+    );
+
     const out: SearchResult[] = [];
-    if (kindHints.has("event")) {
-      const { data: evs } = await supabase
-        .from("events")
-        .select("id, title, sport_key, starts_at")
-        .in("status", ["active", "published"])
-        .gte("starts_at", new Date(nowMs() - 86_400_000).toISOString())
-        .order("starts_at", { ascending: true })
-        .limit(6);
-      for (const e of evs ?? []) out.push({ type: "event", id: e.id, title: e.title, subtitle: `${sportMeta(e.sport_key).name} · ${new Date(e.starts_at ?? 0).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, href: `/events/${e.id}` });
-    }
-    if (kindHints.has("tournament")) {
-      const { data: ts } = await supabase
-        .from("tournaments")
-        .select("code, title, sport_key, starts_at")
-        .eq("visibility", "public")
-        .is("cancelled_at", null)
-        .gte("starts_at", new Date(nowMs() - 86_400_000).toISOString())
-        .order("starts_at", { ascending: true })
-        .limit(6);
-      for (const t of ts ?? []) out.push({ type: "tournament", id: t.code, title: t.title, subtitle: `${sportMeta(t.sport_key).name} · ${new Date(t.starts_at ?? 0).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, href: `/e/${t.code}` });
+    for (const rows of batches) {
+      for (const r of rows) {
+        const href = HREF_FOR[r.kind]?.(r.id);
+        if (!href) continue;
+        const when = r.sort_at
+          ? new Date(r.sort_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : null;
+        const sport = prettySportName(r.subtitle);
+        out.push({
+          type: r.kind as SearchResult["type"],
+          id: r.id,
+          title: r.title,
+          subtitle: [sport, when].filter(Boolean).join(" · ") || null,
+          href,
+        });
+      }
     }
     if (out.length) return out;
   }
 
-  const prettySport = (s: string | null): string | null =>
-    s && (SPORT_KEYS as string[]).includes(s) ? sportMeta(s).name : s;
+  const prettySport = (s: string | null): string | null => prettySportName(s);
   const KIND_OF_RPC: Record<string, SearchResultType> = {
     player: "player", court: "court", team: "team", event: "event",
     tournament: "tournament", listing: "listing", class: "class", provider: "class",
@@ -140,6 +169,12 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
     listing: (id) => `/marketplace/${id}`,
     class: (id) => `/classes/${id}`,
     provider: (id) => `/profile/${id}`,
+    // KRA-022: `global_search` has returned published businesses since 0216 and
+    // the kind router asks for them — but this map had no `business` entry, and
+    // the loop below drops any row whose href is undefined. So every business
+    // result was retrieved successfully and then silently thrown away. That is a
+    // hole INSIDE the fix that claimed to add them, not an unbuilt feature.
+    business: (id) => `/business/${id}`,
   };
 
   const out: SearchResult[] = [];
@@ -151,6 +186,9 @@ export async function globalSearch(qRaw: string): Promise<SearchResult[]> {
     } else {
       const href = HREF[r.kind]?.(r.id);
       if (!href) continue;
+      // A provider is surfaced under Classes & coaching; a business is its own
+      // kind with its own destination and must NOT be folded into `class` — the
+      // classes page does not accept a business id.
       const type = (r.kind === "provider" ? "class" : r.kind) as SearchResult["type"];
       out.push({ type, id: r.id, title: r.title, subtitle: prettySport(r.subtitle), href });
     }

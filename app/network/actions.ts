@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createNotification } from "@/lib/notify";
 import { requestResultMessage } from "@/lib/social";
 
 // Every graph write goes through the SECURITY DEFINER RPCs from migration 0099:
@@ -19,11 +18,6 @@ async function me() {
   return { supabase, user };
 }
 
-async function myName(supabase: Awaited<ReturnType<typeof createClient>>, id: string) {
-  const { data } = await supabase.from("profiles").select("display_name").eq("id", id).maybeSingle();
-  return data?.display_name || "A player";
-}
-
 export type SocialActionResult = { ok: boolean; message: string | null; state?: "requested" | "friends" };
 
 /** Send a connection request (auto-accepts if they asked first). */
@@ -38,26 +32,16 @@ export async function requestConnection(targetId: string): Promise<SocialActionR
     return { ok: false, message: "That didn't go through — try again." };
   }
 
-  if (result === "requested") {
-    await createNotification({
-      actorId: user.id,
-      userId: targetId,
-      kind: "friend_request",
-      title: `${await myName(supabase, user.id)} wants to connect`,
-      body: "Respond in your invites.",
-      linkUrl: "/invites",
-    });
-  } else if (result === "accepted") {
-    // They had asked first — sending back sealed it. Tell them.
-    await createNotification({
-      actorId: user.id,
-      userId: targetId,
-      kind: "friend_accept",
-      title: `${await myName(supabase, user.id)} accepted your connection request`,
-      body: "You're now connected on Klimr.",
-      linkUrl: `/profile/${user.id}`,
-    });
-  }
+  // KRA-021: these two `createNotification` calls are gone. 0212's trigger on
+  // `friendships` already enqueues `connection_requested` / `connection_accepted`
+  // into `social_outbox`, and `deliver_social_outbox()` writes the SAME
+  // notification rows — same kind, same title, same body, same link. Every
+  // connection request produced two identical notifications.
+  //
+  // The outbox is the path that survives: it is trigger-fired inside the same
+  // transaction as the friendship row, it retries, and it delivers even if this
+  // request dies between the RPC and the notification. The inline call is the one
+  // that can silently not happen, so it is the one that goes.
 
   revalidatePath(`/profile/${targetId}`);
   revalidatePath("/network");
@@ -76,14 +60,8 @@ export async function acceptConnection(requesterId: string): Promise<SocialActio
     if (error) console.error("[social] accept_connection failed", error.code, error.message);
     return { ok: false, message: "Couldn't accept that request — it may have been withdrawn." };
   }
-  await createNotification({
-    actorId: user.id,
-    userId: requesterId,
-    kind: "friend_accept",
-    title: `${await myName(supabase, user.id)} accepted your connection request`,
-    body: "You're now connected on Klimr.",
-    linkUrl: `/profile/${user.id}`,
-  });
+  // KRA-021: same duplicate. The trigger fires on the friendship status change,
+  // so accepting already enqueues `connection_accepted`.
   revalidatePath("/invites");
   revalidatePath(`/profile/${requesterId}`);
   revalidatePath("/network");

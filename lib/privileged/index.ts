@@ -59,7 +59,7 @@ async function writeAudit(
   client: AdminClient,
   ctx: PrivilegedContext,
   commandId: string,
-  outcome: "started" | "ok" | "error",
+  outcome: "started" | "ok" | "error" | "issued",
   detail?: string | null,
 ): Promise<void> {
   const { error } = await client.from("admin_actions").insert({
@@ -89,7 +89,16 @@ async function writeAudit(
 export function getPrivilegedClient(ctx: PrivilegedContext): AdminClient {
   const client = createAdminClient();
   const commandId = randomUUID();
-  durably(() => writeAudit(client, ctx, commandId, "ok"));
+  // KRA-017: this wrote "ok" HERE — before the operation being audited had run.
+  // Every one of those rows asserted a success nobody observed, which is worse
+  // than no audit row: an incident review reads them as evidence.
+  //
+  // "issued" (0246) is the honest state: a client was created, nothing is
+  // promised about the outcome, and no partner row will arrive. It is
+  // deliberately NOT "started", because "started with no partner" is the incident
+  // query 0197 exists to answer, and filling it with routine handouts would bury
+  // the real signal.
+  durably(() => writeAudit(client, ctx, commandId, "issued"));
   return client;
 }
 

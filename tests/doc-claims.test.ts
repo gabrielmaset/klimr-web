@@ -97,7 +97,7 @@ describe("KCDX-058 documentation claims match the source", () => {
     }
     expect(route).toContain("coverage");
     expect(route).toContain("excluded");
-    expect(route).toContain("format_version: 2");
+    expect(route).toContain("format_version: 3");
   });
 
   it("0218's pickup points match lib/ranking.ts", () => {
@@ -120,8 +120,21 @@ describe("KCDX-058 documentation claims match the source", () => {
         names.add(m[1]);
       }
     }
-    const readiness = readFileSync("supabase/migrations/0223_readiness.sql", "utf8");
-    const expected = Number(readiness.match(/p_min_checks integer default (\d+)/)?.[1]);
+    // 0223 introduced the floor, but a later migration may raise it when it adds a
+    // check — and 0223 is applied in production, so it is never edited. The
+    // EFFECTIVE default is the one in the highest-numbered migration that
+    // redefines klimr_ready; resolve that rather than trusting one filename.
+    const readinessFiles = readdirSync("supabase/migrations")
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .filter((f) =>
+        /create or replace function public\.klimr_ready\s*\(\s*p_min_checks/.test(
+          readFileSync(`supabase/migrations/${f}`, "utf8"),
+        ),
+      );
+    expect(readinessFiles.length, "no migration defines klimr_ready").toBeGreaterThan(0);
+    const effective = readFileSync(`supabase/migrations/${readinessFiles[readinessFiles.length - 1]}`, "utf8");
+    const expected = Number(effective.match(/p_min_checks integer default (\d+)/)?.[1]);
     // A dropped check does not FAIL readiness — it vanishes from the list, and a
     // list with nothing in it has nothing failing in it. So the count is part of
     // the contract, and this is what stops it drifting: add a check, bump the

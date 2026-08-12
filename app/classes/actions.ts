@@ -136,44 +136,30 @@ export async function enrollInSession(formData: FormData) {
   if (!user) redirect("/login");
   if (!sessionId) return;
 
+  // KRA-033: this read the session, the class, the existing enrollment, then
+  // COUNTED active enrollments, then wrote -- five round trips with no lock
+  // between the count and the insert. Two members racing the last seat both
+  // counted `cap - 1` and both inserted; the unique key is (session_id, user_id)
+  // so it cannot see a capacity breach, and nothing errored. Re-joining also
+  // recomputed `payment_status` from scratch, so a member who had PAID came back
+  // `pending` -- or `not_required` if the class had since been made free.
+  const { data: outcome, error: enrollErr } = await supabase.rpc("class_enroll", { p_session: sessionId });
+  // supabase-js does not throw; the original discarded both write errors and sent
+  // a cheerful "you're signed up" for an enrollment that never happened.
+  if (enrollErr) {
+    console.error("[classes] enroll failed", enrollErr.message);
+    return;
+  }
+  if (outcome !== "enrolled" && outcome !== "waitlisted") return;
+  const full = outcome === "waitlisted";
+
   const admin = createAdminClient();
   const { data: session } = await admin
-    .from("class_sessions")
-    .select("id, class_id, capacity, status")
-    .eq("id", sessionId)
-    .maybeSingle();
-  if (!session || session.status !== "scheduled") return;
-
+    .from("class_sessions").select("class_id").eq("id", sessionId).maybeSingle();
+  if (!session) return;
   const { data: cls } = await admin
-    .from("classes")
-    .select("id, title, provider_id, status, capacity, is_paid")
-    .eq("id", session.class_id)
-    .maybeSingle();
-  if (!cls || cls.status !== "published") return;
-
-  // Already have a (non-cancelled) enrollment? Re-activate a cancelled one; otherwise no-op.
-  const { data: existing } = await admin
-    .from("class_enrollments")
-    .select("id, status")
-    .eq("session_id", sessionId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  // Seat math against active enrollments.
-  const { data: active } = await admin.from("class_enrollments").select("status").eq("session_id", sessionId);
-  const taken = (active ?? []).filter((e) => takesSeat(e.status)).length;
-  const cap = session.capacity ?? cls.capacity;
-  const full = cap != null && taken >= cap;
-  const status = full ? "waitlisted" : "enrolled";
-  const payment_status = cls.is_paid ? "pending" : "not_required";
-
-  if (existing) {
-    if (existing.status === "cancelled") {
-      await supabase.from("class_enrollments").update({ status, payment_status, updated_at: new Date().toISOString() }).eq("id", existing.id);
-    }
-  } else {
-    await supabase.from("class_enrollments").insert({ session_id: sessionId, class_id: cls.id, user_id: user.id, status, payment_status });
-  }
+    .from("classes").select("id, title, provider_id").eq("id", session.class_id).maybeSingle();
+  if (!cls) return;
 
   await createNotification({
     userId: cls.provider_id,

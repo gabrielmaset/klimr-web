@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadSessionState } from "@/lib/queue-state";
+import { loadQueueFor } from "@/lib/queue-audience";
 import { GuestJoin } from "@/components/queue/guest-join";
 
 export const metadata: Metadata = { title: "Join the queue" };
@@ -19,8 +19,10 @@ export default async function PublicQueuePage({ params }: { params: Promise<{ co
     );
   }
 
-  const state = await loadSessionState(admin, row.id, null);
-  if (!state) {
+  // KRA-002: anonymous visitor — the public projection, never the raw state.
+  // Everything here is serialized into the RSC payload whether it renders or not.
+  const snapshot = await loadQueueFor(admin, row.id, null);
+  if (!snapshot) {
     return (
       <div className="mx-auto max-w-md px-5 py-16 text-center">
         <h1 className="font-display text-2xl text-ink">Queue not found</h1>
@@ -28,5 +30,5 @@ export default async function PublicQueuePage({ params }: { params: Promise<{ co
     );
   }
 
-  return <GuestJoin initial={state} />;
+  return <GuestJoin initial={snapshot.state} />;
 }

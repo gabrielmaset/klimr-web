@@ -44,8 +44,26 @@ export async function GET(request: Request) {
   // moderation record, for instance — and never to reach another member's data.
   const priv = getPrivilegedClient({ reason: "export:self-service-dsar", actorId: uid, targetUserId: uid });
 
-  const one = async <T,>(p: PromiseLike<{ data: T | null }>): Promise<T | null> => (await p).data ?? null;
-  const many = async <T,>(p: PromiseLike<{ data: T[] | null }>): Promise<T[]> => (await p).data ?? [];
+  // KRA-016: these coerced `data` and DISCARDED `{ error }` entirely. supabase-js
+  // does not throw, so a schema, grant or policy regression turned one dataset
+  // into an empty array and the route still returned a successful archive — the
+  // worst possible shape for a data-rights response, because the member believes
+  // they have their data and nobody is prompted to fulfil the rest.
+  //
+  // Failures are collected rather than thrown so the member still receives what
+  // DID load, but the archive says plainly that it is incomplete and names what
+  // is missing. A silent empty category is the thing being removed.
+  const failures: { dataset: string; error: string }[] = [];
+  const one = async <T,>(dataset: string, p: PromiseLike<{ data: T | null; error: { message: string } | null }>): Promise<T | null> => {
+    const { data, error } = await p;
+    if (error) failures.push({ dataset, error: error.message });
+    return data ?? null;
+  };
+  const many = async <T,>(dataset: string, p: PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> => {
+    const { data, error } = await p;
+    if (error) failures.push({ dataset, error: error.message });
+    return data ?? [];
+  };
 
   const { data: organized } = await priv.from("court_sessions").select("id").eq("organizer_id", uid);
   const organizedSessionIds = (organized ?? []).map((s) => s.id);
@@ -57,45 +75,56 @@ export async function GET(request: Request) {
     eventRegs, tournamentRegs, queueMembership, rankSnapshots,
     teams, listings, offers, providerApps,
     threads, notifications,
-    reportsFiled, moderationOnMe, devices,
+    incidentsAboutMyUploads, postReportsFiled, peopleReportsFiled, moderationOnMe, devices,
   ] = await Promise.all([
-    one(supabase.from("profile_private").select("*").eq("id", uid).maybeSingle()),
-    many(supabase.from("player_sports").select("*").eq("user_id", uid)),
-    one(supabase.from("user_preferences").select("*").eq("user_id", uid).maybeSingle()),
+    one("profile_private", supabase.from("profile_private").select("*").eq("id", uid).maybeSingle()),
+    many("player_sports", supabase.from("player_sports").select("*").eq("user_id", uid)),
+    one("user_preferences", supabase.from("user_preferences").select("*").eq("user_id", uid).maybeSingle()),
 
-    many(supabase.from("posts").select("id, body, post_type, sport_key, audience, moderation_status, created_at").eq("author_id", uid)),
-    many(supabase.from("post_comments").select("id, post_id, body, created_at").eq("author_id", uid)),
+    many("posts", supabase.from("posts").select("id, body, post_type, sport_key, audience, moderation_status, created_at").eq("author_id", uid)),
+    many("post_comments", supabase.from("post_comments").select("id, post_id, body, created_at").eq("author_id", uid)),
 
-    many(priv.from("friendships").select("requester_id, addressee_id, status, created_at, responded_at").or(`requester_id.eq.${uid},addressee_id.eq.${uid}`)),
-    many(priv.from("follows").select("follower_id, followee_id, created_at").or(`follower_id.eq.${uid},followee_id.eq.${uid}`)),
-    many(priv.from("blocks").select("blocker_id, blocked_id, created_at").or(`blocker_id.eq.${uid},blocked_id.eq.${uid}`)),
-    many(priv.from("invite_codes").select("code, note, uses, max_uses, active, created_at, last_used_at").eq("owner_id", uid)),
+    many("friendships", priv.from("friendships").select("requester_id, addressee_id, status, created_at, responded_at").or(`requester_id.eq.${uid},addressee_id.eq.${uid}`)),
+    many("follows", priv.from("follows").select("follower_id, followee_id, created_at").or(`follower_id.eq.${uid},followee_id.eq.${uid}`)),
+    many("blocks", priv.from("blocks").select("blocker_id, blocked_id, created_at").or(`blocker_id.eq.${uid},blocked_id.eq.${uid}`)),
+    many("invite_codes", priv.from("invite_codes").select("code, note, uses, max_uses, active, created_at, last_used_at").eq("owner_id", uid)),
 
-    many(supabase.from("event_rsvps").select("event_id, status, created_at").eq("user_id", uid)),
-    many(supabase.from("tournament_registrations").select("id, tournament_id, division_id, status, payment_status, created_at").eq("registrant_id", uid)),
-    many(priv.from("queue_team_members").select("team_id, user_id, joined_at").eq("user_id", uid)),
-    many(priv.from("rank_snapshots").select("snap_date, sport_key, points, rank").eq("user_id", uid)),
+    many("event_rsvps", supabase.from("event_rsvps").select("event_id, status, created_at").eq("user_id", uid)),
+    many("tournament_registrations", supabase.from("tournament_registrations").select("id, tournament_id, division_id, status, payment_status, created_at").eq("registrant_id", uid)),
+    many("queue_team_members", priv.from("queue_team_members").select("team_id, user_id, joined_at").eq("user_id", uid)),
+    many("rank_snapshots", priv.from("rank_snapshots").select("snap_date, sport_key, points, rank").eq("user_id", uid)),
 
-    many(supabase.from("team_members").select("team_id, role, joined_at").eq("user_id", uid)),
-    many(supabase.from("marketplace_listings").select("id, title, kind, mode, status, created_at").eq("listed_by", uid)),
-    many(priv.from("listing_offers").select("id, listing_id, amount_cents, status, created_at").eq("buyer_id", uid)),
-    many(supabase.from("provider_applications").select("id, role, status, review_note, reviewed_at, created_at").eq("user_id", uid)),
+    many("team_members", supabase.from("team_members").select("team_id, role, joined_at").eq("user_id", uid)),
+    many("marketplace_listings", supabase.from("marketplace_listings").select("id, title, kind, mode, status, created_at").eq("listed_by", uid)),
+    many("listing_offers", priv.from("listing_offers").select("id, listing_id, amount_cents, status, created_at").eq("buyer_id", uid)),
+    many("provider_applications", supabase.from("provider_applications").select("id, role, status, review_note, reviewed_at, created_at").eq("user_id", uid)),
 
     // Metadata only: bodies are E2EE and the server holds ciphertext.
-    many(priv.from("conversation_reads").select("conversation_id, last_read_at").eq("user_id", uid)),
-    many(supabase.from("notifications").select("id, kind, title, created_at, read_at").eq("user_id", uid)),
+    many("conversation_reads", priv.from("conversation_reads").select("conversation_id, last_read_at").eq("user_id", uid)),
+    many("notifications", supabase.from("notifications").select("id, kind, title, created_at, read_at").eq("user_id", uid)),
 
-    many(priv.from("safety_incidents").select("id, kind, status, created_at").eq("uploader_id", uid)),
+    // KRA-016: this was labelled `reports_i_filed`. It is not — it is incidents
+    // raised about the member's OWN uploads. A member asking for the reports they
+    // filed received a list of times they were the SUBJECT, which inverts the
+    // meaning of the category, and the actual reports were never queried at all.
+    many("incidents_about_my_uploads", priv.from("safety_incidents").select("id, kind, status, created_at").eq("uploader_id", uid)),
+    many("reports_i_filed_posts", priv.from("post_reports").select("id, reason, status, created_at").eq("reporter_id", uid)),
+    many("reports_i_filed_people", priv.from("reports").select("id, reason, status, created_at").eq("reporter_id", uid)),
     // Staff identity withheld, per DATA-GOVERNANCE: the member learns what was
     // done about them, not who did it.
-    many(priv.from("admin_actions").select("action, detail, created_at").eq("target_user_id", uid)),
+    many("admin_actions", priv.from("admin_actions").select("action, detail, created_at").eq("target_user_id", uid)),
     // DATA-GOVERNANCE scopes devices to sessions the member ORGANIZES, so the link
     // is through court_sessions rather than a column on the device.
-    many(priv.from("courtside_devices").select("install_id, label, venue_name, first_seen_at, last_seen_at, retired_at, session_id").in("session_id", organizedSessionIds)),
+    many("courtside_devices", priv.from("courtside_devices").select("install_id, label, venue_name, first_seen_at, last_seen_at, retired_at, session_id").in("session_id", organizedSessionIds)),
   ]);
 
   const payload = {
-    format_version: 2,
+    format_version: 3,
+    // KRA-016: the archive states its own completeness. `complete: false` with a
+    // named list is a truthful partial export; a successful-looking archive with
+    // a silently empty category is not.
+    status: failures.length === 0 ? "complete" : "incomplete",
+    incomplete_datasets: failures,
     exported_at: new Date().toISOString(),
     account: { id: uid, email: user.email, created_at: user.created_at },
 
@@ -106,7 +135,11 @@ export async function GET(request: Request) {
     teams,
     commerce: { listings, offers_made: offers, professional_status_requests: providerApps },
     communications: { threads, notifications },
-    safety: { reports_i_filed: reportsFiled, actions_taken_about_me: moderationOnMe },
+    safety: {
+      reports_i_filed: { posts: postReportsFiled, people: peopleReportsFiled },
+      incidents_about_my_uploads: incidentsAboutMyUploads,
+      actions_taken_about_me: moderationOnMe,
+    },
     devices,
 
     coverage: {

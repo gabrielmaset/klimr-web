@@ -385,18 +385,28 @@ export async function removeMember(formData: FormData) {
   const memberId = String(formData.get("userId"));
   if (!teamId || !memberId || memberId === user.id) return;
 
-  const [actorRole, { data: targetRow }] = await Promise.all([
-    teamRole(supabase, teamId, user.id),
-    supabase.from("team_members").select("role").eq("team_id", teamId).eq("user_id", memberId).maybeSingle(),
-  ]);
-  if (!canManageRoster(actorRole)) return; // owner / manager remove
-  const targetRole = targetRow?.role ?? "member";
-  if (targetRole === "owner") return; // the owner can't be removed (transfer first)
-  if (actorRole === "manager" && targetRole === "manager") return; // a manager can't remove a peer manager
+  // KRA-039: this read the actor's and target's roles, checked them, and THEN
+  // issued a service-role delete keyed only on (team_id, user_id) — no lock, and
+  // no `role <> 'owner'` predicate on the delete itself. Between the read and the
+  // write the target could be promoted, or two managers could act at once, and
+  // the sole owner was stripped: a team nobody can administer, with no path back
+  // through the product.
+  //
+  // One locked command now, with authorization re-derived under the caller's own
+  // identity inside it — so this action cannot grant more than the caller has,
+  // and a direct RPC call gets the identical answer.
+  const { data: outcome, error: rmErr } = await supabase.rpc("team_remove_member", {
+    p_team: teamId,
+    p_target: memberId,
+  });
+  // supabase-js does not throw; a discarded error would silently no-op the removal.
+  if (rmErr) {
+    console.error("[teams] remove failed", rmErr.message);
+    return;
+  }
+  if (outcome !== "removed") return;
 
   const admin = createAdminClient();
-  await admin.from("team_members").delete().eq("team_id", teamId).eq("user_id", memberId);
-  await admin.from("team_invites").delete().eq("team_id", teamId).eq("invited_user_id", memberId); // clear any stale invite
   const { data: tn } = await admin.from("teams").select("name").eq("id", teamId).maybeSingle();
   await logTeamEvent(teamId, { kind: "member_removed", actorId: user.id, targetId: memberId });
   await createNotification({

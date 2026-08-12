@@ -1,5 +1,6 @@
 "use server";
 
+import { callExternal } from "@/lib/external";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimitStrict, clientIp } from "@/lib/ratelimit";
 import { enqueueJob, newCorrelationId } from "@/lib/jobs";
@@ -1284,8 +1285,12 @@ export async function reverseToZip(input: { lat: number; lng: number }): Promise
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key || !Number.isFinite(input.lat) || !Number.isFinite(input.lng)) return { zip: null };
   try {
+    // KRA-014: a variable URL, which is exactly what the literal-only guardrail
+    // could not see. 6s, one retry — geocoding is idempotent.
     const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${input.lat},${input.lng}&result_type=postal_code&key=${key}`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await callExternal({ vendor: "places", timeoutMs: 6000, retries: 1 }, (signal) =>
+      fetch(url, { cache: "no-store", signal }),
+    );
     if (!res.ok) return { zip: null };
     const data = (await res.json()) as { results?: { address_components?: { types: string[]; short_name: string }[] }[] };
     for (const r of data.results ?? []) {

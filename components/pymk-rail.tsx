@@ -76,7 +76,7 @@ export function PymkRail({ people, avatarUrlFor }: { people: PymkRow[]; avatarUr
                 avatarUrl={avatarUrlFor[p.user_id] ?? null}
                 verified={p.verification_status === "verified"}
                 primarySport={p.primary_sport ?? undefined}
-                location={p.neighborhood ?? p.city ?? null}
+                location={p.city ?? null}
                 contextChip={pymkReason(p)}
                 footerAction={
                   <button

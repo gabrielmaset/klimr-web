@@ -42,7 +42,10 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
   const meta = sportMeta(t.sport_key);
 
   // What we disclose to the organizer from the registrant's Klimr account.
-  const { data: prof } = await supabase.from("profiles").select("first_name, last_name, display_name, gender").eq("id", user.id).maybeSingle();
+  // KRA-010: legal name is no longer granted on `profiles`. This is an OWN-ROW
+  // read, so it goes through `profile_private` (0191), which is filtered to
+  // auth.uid() — the caller sees their own name and nobody else's.
+  const { data: prof } = await supabase.from("profile_private").select("first_name, last_name, display_name, gender").eq("id", user.id).maybeSingle();
   const fullName = [prof?.first_name, prof?.last_name].filter(Boolean).join(" ").trim() || prof?.display_name || "—";
   const sharedInfo: SharedInfo = { name: fullName, email: user.email ?? "—", gender: genderLabel(prof?.gender ?? null) };
 

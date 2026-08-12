@@ -99,11 +99,13 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   // the resolver distinguishes deleted / not-yours-to-see / awaiting review so
   // the recipient gets a true answer rather than a shrug.
   const focusId = Array.isArray(spRaw.post) ? spRaw.post[0] : spRaw.post;
-  let focus: { id: string; reason: string } | null = null;
+  let focus: { id: string; reason: string; visible: boolean } | null = null;
   if (focusId) {
     const { data: resolved } = await supabase.rpc("resolve_feed_post", { p_post: focusId });
     const r = (resolved ?? [])[0] as { post_id: string; visible: boolean; reason: string } | undefined;
-    focus = r ? { id: r.post_id, reason: r.reason } : { id: focusId, reason: "not_found" };
+    focus = r
+      ? { id: r.post_id, reason: r.reason, visible: r.visible }
+      : { id: focusId, reason: "unavailable", visible: false };
   }
 
   const scopeRaw =
@@ -367,12 +369,30 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   // ONE set-based RPC. INVOKER rights: posts RLS (audience 0140/0142) still
   // decides visibility; the RPC decides ORDER — sport interest, relationship
   // strength, engagement, recency, author diversity.
+  // OD-7: "Nearby" now means nearby. The viewer's point is the one this page
+  // already resolved for the regional lane, passed in rather than looked up in
+  // SQL — the ranker never reads anyone's location, and a viewer with no home ZIP
+  // falls back to the global set instead of an empty feed.
   const { data: ranked, error: v2Err } = await supabase.rpc("get_ranked_feed", {
-    p_scope: lane === "circle" ? "circle" : "all",
+    p_scope: lane === "circle" ? "circle" : "nearby",
     p_limit: 60,
+    p_lat: viewerPt?.lat ?? null,
+    p_lng: viewerPt?.lng ?? null,
+    p_radius_mi: RADIUS_MI,
   });
   if (v2Err) console.error("[feed] ranked feed failed", v2Err.message);
+  // KRA-025: the deep link was RESOLVED and then never rendered. The ranked feed
+  // caps at 60 and is personalised, so the precise original failure — an allowed
+  // shared post outside the recipient's candidate window — was unchanged by 0228.
+  // A resolver that says "yes, you may see this" and then does not show it is a
+  // more confusing outcome than the shrug it replaced.
+  //
+  // The id is prepended to the ranked set so it is fetched through the SAME
+  // caller-RLS read as everything else — nothing here bypasses a policy — and
+  // deduped so a post that is also ranked appears once.
+  const focusVisibleId = focus?.visible && focus.reason === "ok" ? focus.id : null;
   const rankedIds = (ranked ?? []).map((r) => r.id);
+  if (focusVisibleId && !rankedIds.includes(focusVisibleId)) rankedIds.unshift(focusVisibleId);
   const rankPos = new Map(rankedIds.map((id, i) => [id, i] as const));
   let v2Rows: {
     id: string; author_id: string; body: string | null; sport_key: string | null; post_type: string;
@@ -399,8 +419,26 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     if (lane === "circle") return true;
     return true;
   });
-  const typeCounts: Record<string, number> = { all: scopedPosts.length, match: 0, photo: 0, video: 0, ask: 0, milestone: 0 };
-  for (const p of scopedPosts) if (typeCounts[p.post_type] !== undefined) typeCounts[p.post_type] += 1;
+  // KRA-029: these were counted from `scopedPosts`, which is the ranked set AFTER
+  // the top-60 cap — so "Photos 3" meant "3 of the 60 we happened to rank", and
+  // selecting the filter showed items the count never described. `feed_type_counts`
+  // counts over the same candidate rule the ranker draws from, before the cap.
+  const { data: countRows, error: countErr } = await supabase.rpc("feed_type_counts", {
+    p_scope: lane === "circle" ? "circle" : "all",
+  });
+  if (countErr) console.error("[feed] type counts failed", countErr.message);
+  const typeCounts: Record<string, number> = { all: 0, match: 0, photo: 0, video: 0, ask: 0, milestone: 0 };
+  for (const r of countRows ?? []) {
+    if (typeCounts[r.post_type] !== undefined) typeCounts[r.post_type] += r.n;
+    typeCounts.all += r.n;
+  }
+  // If the count query failed, fall back to describing the window rather than
+  // showing zeros — a wrong-but-plausible number beats an empty control, and the
+  // error is on the server log either way.
+  if (countErr) {
+    typeCounts.all = scopedPosts.length;
+    for (const p of scopedPosts) if (typeCounts[p.post_type] !== undefined) typeCounts[p.post_type] += 1;
+  }
   const visiblePosts = activeType === "all" ? scopedPosts : scopedPosts.filter((p) => p.post_type === activeType);
 
   const v2Ids = visiblePosts.map((p) => p.id);
@@ -493,13 +531,20 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   // shared a friends-only post that the post is gone — and the block case is the
   // one exception, deliberately collapsed into the generic answer, because any
   // distinguishable response reveals the block.
+  // KRA-026 / OD-3: ONE message for every refusal. The previous version named
+  // which kind of unavailable it was, which told a caller holding a UUID that the
+  // post exists, that it is private rather than deleted, and where it sits in
+  // moderation. The block case alone was collapsed, which protected the blocked
+  // person and nobody else.
+  //
+  // `pending_review` survives for the AUTHOR only — the resolver returns it to
+  // nobody else — because telling someone their own post is under review is the
+  // point, not a leak.
   const focusNote =
     focus && focus.reason !== "ok"
       ? focus.reason === "pending_review"
         ? "That post is still being reviewed. It'll appear here once it's approved."
-        : focus.reason === "not_visible"
-          ? "That post was shared with a smaller audience, so it isn't visible to you."
-          : "That post is no longer available."
+        : "That post isn't available."
       : null;
 
   return (

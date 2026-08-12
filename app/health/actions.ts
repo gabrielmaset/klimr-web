@@ -35,6 +35,13 @@ export async function messagePro(formData: FormData): Promise<void> {
     .maybeSingle();
   let convId = existing?.id ?? null;
   if (!convId) {
+    // KRA-008: who_can_message is now enforced in the DM insert policy. Ask first
+    // so the person gets a true answer instead of the generic "chat unavailable"
+    // notice an RLS refusal would otherwise produce. The predicate collapses a
+    // block and a ladder denial into one false, so this reveals no relationship
+    // state — which is the same non-disclosure rule as OD-3.
+    const { data: mayMessage } = await supabase.rpc("can_i_act_on", { p_subject: proId, p_action: "message" });
+    if (mayMessage !== true) redirect(`/health?pro=${proId}&notice=nomsg`);
     const { data: created, error } = await supabase
       .from("conversations")
       .insert({ kind: "dm", created_by: user.id, peer_id: proId })

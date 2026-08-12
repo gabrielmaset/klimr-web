@@ -255,16 +255,35 @@ async function searchPlayers(
   // Note the privileged client is still needed here: availability lives behind
   // the profile boundary (0191) and this tool matches on it. That is legitimate,
   // and it is exactly why the discoverability check cannot be left to RLS.
+  // KRA-020 — this was a schedule oracle. The slots are never printed, but a
+  // caller could name a person AND narrow the window ("Alice Monday 18:00-18:15",
+  // then 18:15-18:30, …) and reconstruct a private weekly schedule from which
+  // queries returned her and which did not.
+  //
+  // Two changes, and the first is the one that matters:
+  //
+  // (1) OD-2 — availability discovery follows the SUBJECT's own privacy setting.
+  //     A member discoverable by schedule is one who would accept a request from
+  //     this caller, decided by the same ladder as every other action rather than
+  //     by a rule availability invented for itself.
+  //
+  // (2) A name filter and a time grid together is targeting, not discovery.
+  //     "Who is free Tuesday evening" is the product. "Is Alice free at 18:15" is
+  //     the extraction primitive, and it is the COMBINATION that makes it one —
+  //     so when a time window is asked for, the name filter is dropped rather
+  //     than the query refused. The feature keeps working; the probe does not.
+  const timeScoped = !!(a.day || a.time_from || a.time_to);
+  const nameFilter = timeScoped ? undefined : a.text;
+
   const { getPrivilegedClient } = await import("@/lib/privileged");
   let q = getPrivilegedClient({ reason: "ai-search:player-availability" })
     .from("profiles")
-    .select("id, display_name, primary_sport, city, state, availability, open_to_invites")
-    .eq("open_to_invites", true)
+    .select("id, display_name, primary_sport, city, state, availability")
     .eq("account_status", "active")
     .limit(120);
   const sport = normSport(a.sport);
   if (sport) q = q.eq("primary_sport", sport);
-  if (a.text) q = q.ilike("display_name", `%${a.text.replace(/[%,()]/g, "")}%`);
+  if (nameFilter) q = q.ilike("display_name", `%${nameFilter.replace(/[%,()]/g, "")}%`);
   const { data: candidates } = await q;
 
   // The block test runs as the CALLER, not the privileged client — the whole
@@ -272,9 +291,17 @@ async function searchPlayers(
   const ids = (candidates ?? []).map((r) => r.id);
   let data = candidates ?? [];
   if (ids.length) {
-    const { data: ok } = await db.rpc("discoverable_players", { p_ids: ids });
+    // Both predicates run as the CALLER: "may THIS member find them" and "would
+    // this member accept a request from them". The second replaces the old
+    // `open_to_invites` filter, which after 0241 is a derived mirror of one point
+    // on the ladder rather than the ladder itself.
+    const [{ data: ok }, { data: open }] = await Promise.all([
+      db.rpc("discoverable_players", { p_ids: ids }),
+      db.rpc("players_open_to_requests", { p_ids: ids }),
+    ]);
     const allowed = new Set((ok ?? []).map((r: { player_id: string }) => r.player_id));
-    data = data.filter((r) => allowed.has(r.id)).slice(0, 40);
+    const openTo = new Set((open ?? []).map((r: { player_id: string }) => r.player_id));
+    data = data.filter((r) => allowed.has(r.id) && openTo.has(r.id)).slice(0, 40);
   }
   const day = a.day?.slice(0, 3).toLowerCase();
   const within = (slot: { day: string; start: string; end: string }) => {
@@ -294,7 +321,10 @@ async function searchPlayers(
       title: p.display_name,
       subtitle: p.primary_sport ?? undefined,
       meta: [p.city, p.state].filter(Boolean).join(", ") || undefined,
-      href: `/play/${p.id}`,
+      // KRA-024: was `/play/${p.id}`. `/play/[id]` is the MATCH page and queries
+      // `matches.id`, so every AI player result pointed at a match that does not
+      // exist. The player page is `/profile/[id]`.
+      href: `/profile/${p.id}`,
     }));
 }
 
@@ -387,7 +417,8 @@ async function searchProsAndClasses(db: DB, a: { role?: string; sport?: string; 
       title: p.headline ?? "Verified provider",
       subtitle: (p.roles ?? []).map(roleLabel).join(", ") || undefined,
       meta: p.area_text ?? (p.price_from_cents != null ? `from $${(p.price_from_cents / 100).toFixed(0)}` : undefined),
-      href: `/play/${p.user_id}`,
+      // KRA-024: the same defect on provider cards.
+      href: `/profile/${p.user_id}`,
     });
   }
   if (healthSpec && prosList.length > 3) {

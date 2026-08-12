@@ -1187,10 +1187,14 @@ export async function signUpTeam(
   // decides status/payment_status itself. The roster snapshot below then hangs
   // off the entry the database created.
   void status;
-  const { data: teamRes, error } = await supabase.rpc("tournament_register", {
+  const { data: teamRes, error } = await supabase.rpc("tournament_register_team", {
     p_tournament: tournamentId,
     p_division: divisionId,
     p_team: team.id,
+    // KRA-035: the roster is an ARGUMENT now, written inside the same
+    // transaction as the entry. The command re-checks every listed player is
+    // actually a member of this team — the app's list is not the authority.
+    p_roster: roster.map((m) => ({ user_id: m.user_id, is_reserve: m.designation === "sub" })) as unknown as Json,
     p_answers: (input.teamAnswers ?? {}) as Json,
     p_accept_waiver: false,
     p_accept_rules: false,
@@ -1201,13 +1205,9 @@ export async function signUpTeam(
   }
   const reg = { id: teamOut.registration_id };
 
-  const playerRows = roster.map((m) => ({
-    registration_id: reg.id,
-    tournament_id: tournamentId,
-    user_id: m.user_id,
-    is_reserve: m.designation === "sub",
-  }));
-  await getPrivilegedClient({ reason: "tournament:team-roster-snapshot" }).from("tournament_registration_players").insert(playerRows);
+  // KRA-035: the roster was bulk-inserted here, outside the command's
+  // transaction, with the error discarded. It travels into the command now —
+  // see 0259 for the full account.
 
   await convertEmailWaitlist(tournamentId, user.email);
   if (!full) await notifyRegistration(reg.id);

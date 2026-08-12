@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadSessionState } from "@/lib/queue-state";
+import { loadQueueFor } from "@/lib/queue-audience";
 import { CourtDisplay } from "@/components/queue/court-display";
 
 export const metadata: Metadata = { title: "Court display" };
@@ -16,9 +16,11 @@ export default async function CourtDisplayPage({ params }: { params: Promise<{ i
   if (!user) redirect(`/login?next=/queue/${id}/court/${courtId}`);
 
   const admin = createAdminClient();
-  const state = await loadSessionState(admin, id, user.id);
-  if (!state) notFound();
+  // KRA-002: the organizer operates this display; anyone else signed in who opens
+  // it is an ordinary viewer and gets the projection.
+  const snapshot = await loadQueueFor(admin, id, user.id);
+  if (!snapshot) notFound();
 
-  const isOrganizer = state.session.organizerId === user.id;
-  return <CourtDisplay initial={state} courtId={courtId} canOperate={isOrganizer} />;
+  const isOrganizer = snapshot.viewer.isOrganizer;
+  return <CourtDisplay initial={snapshot.state} courtId={courtId} canOperate={isOrganizer} />;
 }

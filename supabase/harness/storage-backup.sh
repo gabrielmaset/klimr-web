@@ -102,29 +102,38 @@ echo "== personal documents → both providers, encrypted =="
 for b in "${ENC[@]}"; do copy "$b" "$DST_A_ENC" "R2/enc"; copy "$b" "$DST_B_ENC" "B2/enc"; done
 
 echo
-echo "== quarantine =="
-# Only the items NOT confirmed as CSAM. The predicate is asked of the database
-# rather than assumed from the bucket, because the bucket cannot tell the
-# difference and a mistake here is not recoverable by apologising.
+echo "== quarantine — NOT COPIED, deliberately =="
+# OWNER DECISION OD-4 (revised 2026-08-10, after statutory research; see
+# docs/KRA_DISPOSITION_REGISTER.md). NOTHING in this bucket leaves the primary
+# provider — not confirmed matches, and not unconfirmed ones either.
+#
+# The previous version copied "only the items NOT confirmed as CSAM" to both
+# encrypted destinations. That reasoning was wrong in one specific way:
+# "unconfirmed" is a statement about what WE currently know, not about what the
+# bytes are. Material later confirmed would already have been replicated to two
+# vendors before anyone knew what it was, and a copy cannot be un-made.
+#
+# 18 U.S.C. 2258A(h)(4) tells a provider to keep preserved material in a secure
+# location and LIMIT access; replication is the opposite instruction. 2258B's
+# immunity covers performing the reporting/preservation duty and is disapplied
+# for reckless acts. The REPORT Act had to create a special carve-out for vendors
+# NCMEC retains, and the Safe Cloud Storage Act (still a BILL, not law) exists to
+# extend that to other approved vendors — Congress is legislating precisely this
+# gap. Commercial object-storage terms generally forbid the material outright.
+#
+# What IS protected instead: the provenance record — uploader identity, IP,
+# timestamps, content hashes, decision log, report ids — which is metadata rather
+# than depiction, carries no distribution exposure, is required by 2258A(b) for a
+# complete CyberTipline report, and is the part genuinely lost in a disaster. It
+# travels with the database backup.
+#
+# This matches docs/RESILIENCE.md, which has said "never copied" all along; the
+# script was the half that diverged (KRA-018).
 CONFIRMED=$(q "select count(*) from public.safety_incidents where kind in ('csam_hash_match','ai_csae_flag') and status in ('preserved','reported')")
-echo "   ${CONFIRMED} confirmed incident(s) — EXCLUDED, legal hold, see header"
-q "select coalesce(string_agg(name, e'\n'), '') from storage.objects o
-    where o.bucket_id = 'quarantine'
-      and not exists (select 1 from public.safety_incidents s
-                       where s.storage_path = o.name
-                         and s.kind in ('csam_hash_match','ai_csae_flag')
-                         and s.status in ('preserved','reported'))" > /tmp/q-include.txt
-INCLUDE=$(wc -l < /tmp/q-include.txt)
-if [ "$INCLUDE" -gt 0 ]; then
-  for d in "$DST_A_ENC" "$DST_B_ENC"; do
-    rclone copy "${RCLONE_SRC}:quarantine" "${d}/quarantine" \
-      --files-from /tmp/q-include.txt --backup-dir "${d}/_superseded/${STAMP}/quarantine" \
-      --transfers 4 --checksum >/dev/null 2>&1 \
-      && echo "   ok    quarantine (${INCLUDE} unconfirmed) → ${d}" \
-      || { echo "   FAIL  quarantine → ${d}"; fails=$((fails+1)); }
-  done
-fi
-rm -f /tmp/q-include.txt
+PENDING=$(q "select count(*) from storage.objects where bucket_id = 'quarantine'")
+echo "   ${CONFIRMED} confirmed incident(s) — preserved in place, legal hold"
+echo "   ${PENDING} object(s) in quarantine — NOT copied, by decision"
+echo "   provenance/decision rows travel with the database backup"
 
 echo
 echo "== configuration =="
@@ -154,14 +163,45 @@ done
 
 echo
 echo "== verify =="
+# KRA-018: this checked object COUNTS, and only for the plain buckets — so the
+# encrypted document copies and the configuration copy were unverified entirely,
+# and even the plain ones passed on a count match with different bytes. Counting
+# is the weakest possible check: it cannot distinguish "the file came back" from
+# "a file with that name came back", which is the exact distinction 0226's
+# manifest exists to make.
+#
+# Every destination class is checked now, and the plain buckets are checked by
+# rclone's CHECKSUM comparison rather than a tally.
 for b in "${PLAIN[@]}"; do
   s=$(rclone size "${RCLONE_SRC}:${b}" --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
   a=$(rclone size "${DST_A}/${b}"      --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
   bb=$(rclone size "${DST_B}/${b}"     --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
   if [ "${s:-0}" = "${a:-0}" ] && [ "${s:-0}" = "${bb:-0}" ]; then
-    echo "   ok    ${b}: ${s:-0} objects in source, R2 and B2"
+    # Counts agree; now prove the BYTES do. `check` compares hashes and exits
+    # non-zero on any difference or missing object.
+    if rclone check "${RCLONE_SRC}:${b}" "${DST_A}/${b}" --one-way >/dev/null 2>&1 \
+       && rclone check "${RCLONE_SRC}:${b}" "${DST_B}/${b}" --one-way >/dev/null 2>&1; then
+      echo "   ok    ${b}: ${s:-0} objects, checksums match on R2 and B2"
+    else
+      echo "   FAIL  ${b}: counts agree but CONTENT differs — a partial restore would look complete"
+      fails=$((fails+1))
+    fi
   else
     echo "   WARN  ${b}: source ${s:-0}, R2 ${a:-0}, B2 ${bb:-0}"; fails=$((fails+1))
+  fi
+done
+
+# Encrypted destinations: the ciphertext differs from the source by design, so a
+# checksum comparison against the source is meaningless. Object count is what can
+# be asserted here, and it is asserted rather than skipped — which is what it was.
+for b in "${ENC[@]}"; do
+  s=$(rclone size "${RCLONE_SRC}:${b}" --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
+  a=$(rclone size "${DST_A_ENC}/${b}"  --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
+  bb=$(rclone size "${DST_B_ENC}/${b}" --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
+  if [ "${s:-0}" = "${a:-0}" ] && [ "${s:-0}" = "${bb:-0}" ]; then
+    echo "   ok    ${b} (encrypted): ${s:-0} objects on both"
+  else
+    echo "   WARN  ${b} (encrypted): source ${s:-0}, R2 ${a:-0}, B2 ${bb:-0}"; fails=$((fails+1))
   fi
 done
 

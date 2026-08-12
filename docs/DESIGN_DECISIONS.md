@@ -7491,3 +7491,1424 @@ repeating the same guard N times, N is the bug. A loop, a shared predicate, or a
 single function is the fix — and I have now written that sentence in this file
 four times while failing to apply it once.
 
+
+## 2026-08-10 — Re-audit batch 1A: two P0s, and two bugs I wrote into the fix
+
+The Codex re-audit (42 findings, NO-GO) landed. Intake first: the package examined a
+zip whose hash differs from the current tree, and its own metadata says "static proof
+is not production proof". So 14 findings were re-checked against real code before any
+of it was believed. All 14 were present. The audit is credible; its *deployment-state*
+claims are the weak part, and the owner's confirmation that 0234 is live already
+resolved half of KRA-012.
+
+### The projection existed and four of five callers skipped it (KRA-002)
+
+`projectQueueState` was wired into the polling API and nowhere else. Four server
+components handed raw `loadSessionState` output to client components — and a server
+component serializes the whole prop object into the RSC payload whether or not a
+field is rendered. The public `/q/[code]` page was therefore publishing every pending
+join request, the geofence centre, the organizer UUID and the Courtside display code
+to anyone who fetched the page source.
+
+Nothing errored. Nothing looked wrong. The projection was correct the entire time.
+
+This is the shape the audit keeps finding and this file keeps naming: **the fix that
+has to be remembered is not a fix.** So loading and projecting became one operation
+(`lib/queue-audience.ts`), audience resolution moved there too — the poll route had its
+own inline copy of the device-capability check — and a guardrail now fails the build
+on any other importer of `loadSessionState`. A new queue page cannot leak by omission.
+
+The guardrail was watched failing before it was believed: restoring the bad import
+turned it red and named the file. It also caught me breaking an existing ordering
+guardrail through the rename, which was retargeted rather than relaxed.
+
+### The credential printed on the poster (KRA-001)
+
+KCDX-007 made the operator *commands* demand a proved device token. It never asked how
+the token was obtained. `courtside_register` accepted the session join code — the value
+on the poster, in the walk-up QR, deliberately public — or the display code, plus any
+UUID the caller invented, and returned an operator token. The upsert then set
+`revoked_at = null`, so revocation lasted exactly until the device registered again.
+
+0235 makes enrollment a one-time organizer-issued secret (owner decision OD-1),
+server-minted, stored only as SHA-256. Clearing `revoked_at` is safe now precisely
+because reaching that line requires a secret issued *after* the revocation.
+
+### The part worth keeping: I wrote the documented bug, twice
+
+**First**, I gated issuance on `public.is_privileged_writer()` — which inside a
+SECURITY DEFINER function evaluates the definer, not the caller. It was true for
+everybody, so any member could issue an enrollment for anyone's session. That pitfall
+is written in `CLAUDE.md`. It is written in this file under 0203. It cost three of our
+own writes in August. I read both documents this session and made the mistake anyway.
+
+**Second**, the replacement compared `auth.uid() = v_organizer` directly. For a caller
+with no identity that expression is NULL, `not NULL` is NULL, and `if NULL then` does
+not fire — an unauthenticated caller walked through the guard. Indeterminate became
+allow, which is the exact fail-open shape KRA-015 raises against the CAPTCHA and MFA
+paths *in this same audit*. Now `is distinct from`, role check coalesced.
+
+**And the fixture was wrong underneath both.** The harness `auth.uid()` reads
+`request.jwt.claim.sub`; my test set `request.jwt.claims`, the JSON blob. So `auth.uid()`
+was NULL throughout, and the "organizer can issue" case had been passing *vacuously*
+through the same fall-through I was trying to test. A green result from a fixture that
+was never wired to anything — the failure mode this file has recorded four times.
+
+The suite now asserts the fixture identity is live before it believes any allow or deny.
+That assertion is worth more than the two fixes it guards.
+
+Reading code found none of this. Running it found all of it, in order.
+
+### Ratchets
+
+The module-size ratchet fired at 1027 lines against a 972 budget. The number was not
+raised — device provisioning moved to `app/queue/courtside-actions.ts`, following the
+`payment-actions.ts` precedent of removing a concern rather than relocating lines.
+`klimr_ready`'s floor went 16 → 17 in 0235 because 0223 asserts a COUNT and 0223 is
+applied in production, so the effective default now resolves from the newest migration
+that defines it rather than from one hard-coded filename.
+
+### Evidence
+
+Replay from zero: 235 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 17/17. KRA-001 acceptance 11/11. tsc 0, eslint 0 (137, at ceiling),
+vitest 250/250. **Executed-local. Neither P0 is production-verified.**
+
+iPhone impact: **yes — Courtside app contract change.** The tablet app must send
+`enrollmentCode` (the one-time secret) instead of `code` at `/api/courtside/register`.
+Until it does, existing displays cannot enroll. That is the correct failure direction —
+they fail closed rather than enrolling on a public code — but it is a real break and the
+app needs a matching batch before 0235 is pasted. The klimr-web bottom nav, brand tokens
+and login flow are unchanged.
+
+## 2026-08-10 — Re-audit batch 1B: a boundary that was only ever a document
+
+KRA-008/009/010 close the privacy half of batch 1. The three findings are one
+story: a policy was written down, the vocabulary to enforce it was built, and
+nothing ever called it.
+
+### The ladder had zero call sites (KRA-008)
+
+0233/0234 defined `may_act_on`, `may_see_connections`, `may_see_schedule` and
+`comment_visible_to`, granted them, and RELATIONSHIP-PRIVACY-POLICY.md said the
+rules were enforced. A whole-tree search finds no caller. The only test covering
+them asserted that the *names* appeared in a document.
+
+That test is the lesson. A vocabulary check passes whether or not the boundary
+exists, and it passed for a month. The new guardrail asserts **call sites**, and
+was watched failing when the DM check was removed.
+
+Underneath, two surfaces had reimplemented the block rule rather than calling it —
+0144's invite trigger and 0208's `request_connection` each carried their own
+`from public.blocks` EXISTS. That is the fifth and sixth instance of the pattern
+this file has now named five times. Both deleted, not supplemented.
+
+The split between `can_i_act_on` (RLS) and `may_act_on` (definer commands) is not
+style: 0237 revoked member EXECUTE on the raw predicate, and a policy expression is
+evaluated with the querying role's rights. Measured on the cluster — revoking
+`is_blocked_pair` and reading `posts` as a member fails outright.
+
+### Direct messages have never worked
+
+Found while testing the above. 0075 added `conversations_one_anchor` — exactly one
+of `match_id` / `team_id`. 0110 then added DMs, which have neither (they anchor on
+`peer_id` with `kind='dm'`), and never touched the constraint. So every DM insert
+has been rejected since 0110 shipped. `app/health/actions.ts` re-queries on error
+and falls through to a generic notice, so it failed silently for its entire life.
+
+The reason it matters that I found it *here*: without the fix, this migration would
+have been enforcing `who_can_message` on a path that cannot execute. The deny test
+would have passed and the allow test was impossible — a boundary proved in one
+direction only, which is the same vacuous-green shape as a fixture that was never
+wired up. The acceptance suite now asserts both, and the allow case is what caught
+it.
+
+`coalesce(kind, '')` in the replacement constraint is deliberate: a CHECK that
+evaluates to NULL **passes**, so a legacy null would otherwise let an unanchored
+conversation through.
+
+### The oracle fix failed on another finding from the same audit (KRA-009)
+
+Revoking the raw pair predicates from `authenticated` did nothing — the sentinel
+said so on the first replay. A function carries an implicit **PUBLIC** EXECUTE
+entry, and the role keeps the privilege through PUBLIC no matter what is revoked
+from the role. That is **KRA-003** of this audit, reproduced on brand-new code by
+someone who had read KRA-003 that morning. It also confirms KRA-003 independently.
+
+No member-facing wrapper was added for `is_muted_by` / `is_restricted_by`. D-13
+says mute and restrict are silent; a function answering "has this person muted me"
+would disclose exactly what the feature promises not to.
+
+### Legal name was documented private and granted readable (KRA-010)
+
+0191 said in its own header that it was leaving `first_name`/`last_name` readable
+"deliberately". 0233 then documented them as private and dropped them from
+`profiles_public` — and never revoked the base-table grant. PostgREST answered to
+the grant. `gender` stays public per owner decision OD-5, and the sentinel now
+asserts it *remains* readable so a later tidy-up cannot silently reverse an owner
+decision.
+
+### Evidence
+
+Replay from zero: 238 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 20/20. Three acceptance suites, each with a non-zero baseline and
+each proving allow as well as deny. tsc 0, eslint 0 (137, at ceiling), vitest
+253/253. **Executed-local. None of it is production-verified** — Tier 2 against a
+real PostgREST/Storage boundary is still owed, and remains blocker B-03.
+
+iPhone impact: **none** for 0236–0238 (no tab, brand-token, login-flow or
+in-shell-host change). The Courtside app contract change from 0235 still stands.
+
+## 2026-08-10 — Batch 1 tail + batch 2 opens: the default nobody chose
+
+### Quarantine stops being replicated (D-22 amended)
+
+The owner accepted the researched position, so D-22 changed and the change is
+recorded rather than made quietly. Was: confirmed matches preserved in place,
+*pending reviews backed up encrypted*. The pending clause is withdrawn.
+
+The reasoning that moved it: "unconfirmed" describes what we currently know, not
+what the bytes are. Material later confirmed would already have been replicated to
+two commercial vendors before anyone knew what it was, and a copy cannot be
+un-made. 18 U.S.C. § 2258A(h)(4) instructs a provider to preserve in a secure
+location and LIMIT access — replication is the opposite instruction — and
+§ 2258B's immunity is disapplied for reckless acts. The Safe Cloud Storage Act,
+still a bill, exists precisely because third-party CSAM storage has no clear
+protection today.
+
+What IS replicated is the provenance record — uploader identity, IP, timestamps,
+hashes, decision log, report ids. That is metadata rather than depiction, carries
+no distribution exposure, is required by § 2258A(b) for a complete report, and is
+the part genuinely lost in a disaster.
+
+`storage-backup.sh` copied "only the items NOT confirmed" to both encrypted
+destinations. That block is gone. `RESILIENCE.md` had said "never copied" all
+along — the script was the half that diverged, which is the contradiction KRA-018
+reports. Still owed: uploader IP is not captured at upload time, so the provenance
+record is currently incomplete for a report. Named, not glossed.
+
+### The privilege that ACL text does not mention (KRA-003)
+
+0196 set out to remove PUBLIC EXECUTE and matched only functions whose `proacl`
+text already listed PUBLIC — which is exactly the set that did not have the
+problem. A function nobody has granted anything has `proacl IS NULL`: owner rights
+plus the default, and the default for a function is EXECUTE to PUBLIC.
+
+The shape is worth keeping: **a check that reads the record of decisions cannot
+see a privilege that arrives because no decision was made.** `grant_hygiene_intact`
+read relation privileges and missed it entirely. The new sentinel asks
+`has_function_privilege`, which is the effective answer.
+
+Confirmed twice this week without needing the audit: 0237's revoke silently did
+nothing, and `feed_emit` — SECURITY DEFINER, caller-chosen actor and audience,
+inserts Feed rows — had never been granted or revoked, so any PostgREST caller
+could forge a Feed entry with someone else's name on it.
+
+The sweep re-applies explicit grants read from the catalog and drops the default,
+so 168 deliberate member grants survive untouched. `alter default privileges` is
+what turns it from a cleanup into a rule.
+
+*And I typed a signature by hand again.* `feed_emit`'s argument list was wrong
+(`p_object_kind` is text, not uuid) and the migration failed on apply. Names are
+now resolved from the catalog — the same reason this project forbids retyping a
+migration instead of `cat`-ing it.
+
+### A canary that fires on correct code (D-15)
+
+`may_see_connections` and `may_see_schedule` are built and callable, and the
+surfaces they gate **do not exist**: `/network` shows only the caller's own
+connections, and nothing renders another member's upcoming matches. Enforcement
+for a page that does not exist is speculative architecture, so none was written.
+
+The tripwire that replaces it took three drafts, and the first two would have been
+worse than nothing — one flagged match-keyed pages showing their own roster, the
+other flagged the profile page reading PAST results from the points ledger. D-15
+is about a member's location at a known FUTURE time. Neither was the risk, and a
+canary that cries wolf gets muted, which takes the real alarm with it. The shipped
+version asserts the derivable thing and was watched failing.
+
+### Evidence
+
+Replay from zero: 239 applied, 0 failed. RLS negative 26/26 (the regression proof
+for the ACL sweep). Concurrency pass. `klimr_ready` 21/21. tsc 0, eslint 0 (137,
+at ceiling), vitest 256/256. Two negative controls observed failing and restored.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — One invite control, and two controls of mine that were not real
+
+Owner authorised a `nobody` level, so the ladder can finally express what the old
+boolean expressed and the two invite settings collapse into one. Shipped as an
+enum split (0240 commits the value, 0241 uses it) for the reason 0172/0173 were
+split. `open_to_invites` survives as a maintained mirror because two surfaces
+filter on it with an index — derived, never authored.
+
+Closed a fail-open while in there: `may_act_on`'s trailing `else true` fired when
+the subject had no profiles row. Only reachable for a non-existent subject, but
+"indeterminate never becomes allow" is the acceptance criterion of KRA-015 in the
+same audit, so it denies now.
+
+### The control that did nothing
+
+0239 carried `alter default privileges in schema public revoke execute on
+functions from public`, a comment claiming it turned the sweep into a rule, and a
+test asserting the line was present.
+
+Measured: `pg_default_acl` stays empty and a function created immediately
+afterwards still has `proacl IS NULL` — PUBLIC EXECUTE. The statement records
+nothing. The built-in function default applies when proacl is NULL and is not
+removable by revoking it from the default set.
+
+So I shipped a decorative control **and a test asserting the claim rather than the
+behaviour**, in the middle of an audit whose central finding is decorative
+controls with tests asserting names. Writing it down because the reflex it should
+build is: a guardrail that pins a LINE OF SQL proves the line exists; only running
+it proves it works.
+
+Replaced by an event trigger on `ddl_command_end`, guarded so the migration still
+applies where event triggers are refused. Watched working — a probe function comes
+out `{postgres=X/postgres}`, anon and authenticated both false. And the trigger
+function was itself born with PUBLIC, since it is created before the trigger that
+would catch it; `function_acl_intact()` failed the replay on that bootstrap case,
+which is twice in one batch that the sentinel found something review did not.
+
+### `_` is a wildcard
+
+The invite sentinel asserted `pg_get_functiondef(...) not like '%open_to_invites%'`.
+The function it checks raises `'not open to invites'`. In LIKE, `_` matches any
+single character, so the pattern matched the exception text and the gate reported
+the invite path dirty while it was clean. Positive assertion plus `position(...) = 0`
+now. The older rule in this file — guardrails assert on CODE, not prose — was
+right, and I had drifted from it.
+
+### Evidence
+
+Replay from zero: 241 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 22/22. Invite acceptance 7/7 with a non-zero baseline. tsc 0,
+eslint 0 (137), vitest 256/256. **Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — Batch 2: a report that fetched, a beacon that never said no
+
+### The snapshot was the exfiltration (KRA-019)
+
+`report_post` selected the post by id, with no visibility test, and wrote its body
+and media path into a `post_reports` row the reporter is expressly allowed to read
+back. Any post UUID — an old share link, a notification — returned the contents of
+a private, friends-only, pending or blocked-author post.
+
+The snapshot exists for a good reason: an author can delete content the moment they
+suspect a report, and a report that dies with its subject stops working exactly
+when someone is trying to escape. But a feature that copies content into a place
+the caller can read has to ask first whether the caller could read it anyway. Gate
+now runs before the rate limit and before the copy, and every denial — missing,
+pending, private, blocked — returns the same answer, per OD-3.
+
+### "The client samples at 10%" is not a control (KRA-031)
+
+`/api/rum` accepted an anonymous request and did a service-role insert, with no
+per-source limit and no global budget. The route's comment said the worst case was
+a skewed dashboard. It was also unbounded writes, storage growth and index churn,
+driven by anyone with the URL.
+
+The sampling rate lived in the browser. That is a request to the client, not a
+bound on the server, and the distinction is the whole finding. The budget now sits
+in the database where it cannot be declined, and it COUNTS what it drops — a
+budget that discards traffic silently is indistinguishable from a system nobody is
+talking to, which is the same shape as every silent failure in this file.
+
+### Availability follows the ladder, and the probe is the combination (KRA-020)
+
+The slots were never printed. But a caller could name a person and narrow the
+window — 18:00-18:15, then 18:15-18:30 — and reconstruct a schedule from which
+queries returned her. Per the owner's decision the ladder decides discoverability,
+so availability stops having a private rule of its own.
+
+The second change is the more interesting one: "who is free Tuesday evening" is the
+product, "is Alice free at 18:15" is an extraction primitive, and neither the name
+nor the time window is the problem on its own. It is the COMBINATION. So the name
+filter is dropped when a window is asked for, rather than the query refused. The
+feature keeps working and the probe does not.
+
+Residual, stated plainly: with the default `everyone`, a member can still learn
+that somebody is free in a window. OD-2 accepts that trade. The person-targeted
+probe is what has gone.
+
+### Four of my own defects, every one found by running it
+
+- `rum_ingest` put the test and both counters in one UPDATE and inferred the result
+  from RETURNING. At the cap both branches leave `accepted` equal to the cap, so
+  the call past the limit counted a drop, returned `ok`, and inserted anyway — a
+  budget that reported enforcing itself while letting the row through.
+- The KRA-019 fixture was vacuous **twice**: first an invalid `post_type` meant no
+  posts existed and every "not_found" was denial-of-nothing; then a trigger pinned
+  new posts to `pending`, so the ALLOW case denied too. That is precisely the
+  correction KCDX-018 recorded when its own suite passed for the wrong reason, and
+  I repeated it. The suite now asserts its preconditions before believing a result.
+- My patch helper re-read the file from disk per replacement, so three of four
+  edits to the RUM route were discarded and it shipped without its rate limiter.
+  The guardrail caught it.
+- A guardrail sliced on the bare string `KRA-031`, which also appears in the file
+  header, producing an EMPTY slice — so the assertion passed against nothing. It
+  asserts the slice is non-empty first now.
+
+The pattern across all four: each one produced a green result that meant nothing,
+and none of them was visible by reading. That is the argument for the acceptance
+suites, and it is stronger evidence than any of the fixes.
+
+### Evidence
+
+Replay from zero: 242 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 23/23. Batch-2 acceptance on a clean replay with preconditions
+asserted and both allow and deny proven. tsc 0, eslint 0 (137, at ceiling), vitest
+259/259. Two negative controls observed failing and restored.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — Batch 3: the gate that had never run, and deletion that deleted nothing
+
+### Fail-closed means "never publishes", not "always rejects" (KRA-005)
+
+`scanForKnownCSAM` and `escalateCSAE` were fully built, documented in SAFETY.md,
+reasoned about across three migrations — and called from nowhere. The Feed
+downloaded the photo and ran the AI classifier. Avatars and listings issued signed
+upload URLs on a caller-declared MIME and inspected no bytes at all.
+
+The reason it stayed dead is the interesting part. The scanner is fail-closed, so
+with no provider configured it blocks. Wiring it naively refuses every photo
+upload on a pre-launch project. The choice had been "break uploads" or "leave the
+gate disconnected", and the second was taken silently — which is the worst version,
+because SAFETY.md went on describing a control that did not execute.
+
+The fix separates two outcomes that were being treated as one:
+
+- a known **match** — preserved, escalated, never publishes. No degradation.
+- a scan that could not **run** — also never publishes, but held as `pending`
+  rather than destroyed. `pending` is invisible to everyone but the author, so
+  nothing reaches another member without a successful decision, while a vendor
+  outage does not silently delete somebody's upload.
+
+Only the first of those is a safety property. Conflating them is what made the
+gate look impossible to turn on.
+
+### The delete that left the bytes (KRA-011)
+
+0224 cleaned up with `delete from storage.objects`. Supabase's own documentation
+says plainly that removing the metadata row does not remove the object. So the row
+vanished, the application believed cleanup succeeded, and the bytes stayed —
+invisible to `storage_manifest_verify()`, which reconciles against the very table
+that had just been emptied. The manifest built to detect an incomplete restore had
+been made blind to the incompleteness.
+
+The member-facing version is worse than the invoice: an object someone believes
+they deleted is gone from every surface and still fetchable with a signed URL.
+
+A migration cannot call the Storage API — the same wall 0226 hit and recorded
+instead of pretending around. So the intent is durable and a worker performs it,
+with an absence canary for intents nobody has performed. **The worker does not
+exist yet**, and that is written down rather than implied: bytes still persist,
+but they are now recorded as owed instead of silently orphaned.
+
+### I repeated the 0214 lesson, and my sentinel hid it
+
+0224 declares `purge_orphan_feed_media(p_grace_hours integer default 24)`. I wrote
+the replacement with no arguments. That does not replace a function — it adds an
+overload. The original survived, still carrying the raw catalog delete, and the
+nightly cron entry calls `purge_orphan_feed_media()`, so the vulnerable copy would
+have kept running while my clean one sat beside it doing nothing.
+
+The sentinel reported PASS. It used `limit 1` with no ORDER BY across two rows and
+sampled the clean one. **A check that samples one of several overloads is not a
+check** — it is a coin toss that reports confidence. It now asserts across every
+function of either name.
+
+### A guardrail that asserted an import
+
+My first KRA-005 tripwire was `toContain("scanForKnownCSAM")`. The import line
+satisfies that. Removing the actual call left the test green — the negative control
+caught it. For a finding whose entire content is *"this function exists and is
+never invoked"*, asserting that the name appears in the file is the one form of
+evidence guaranteed to prove nothing. That is three times this week a guardrail of
+mine has passed against something other than the behaviour, and every one was
+found by deliberately breaking the code rather than by reading the test.
+
+### Evidence
+
+Replay from zero: 243 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 24/24. Storage acceptance with a non-zero baseline throughout, plus
+the canary proven to move (0 → 1 after backdating). tsc 0, eslint 0 (137, at
+ceiling — the extraction left a dead `moderateImage` import that pushed it to 138;
+removed rather than absorbed). vitest 262/262.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — Batch 3 part 2: the sweep broke something and the replay could not see it
+
+### A regression the migration harness is structurally blind to
+
+0239's ACL sweep re-granted `service_role` only where the previous ACL already
+named it. `provider_application_hash` had never been granted anything — it sat on
+the PUBLIC default — and 0203's freeze trigger runs with **invoker** rights and
+calls it. So after the sweep, every write to `provider_applications` failed with
+`permission denied for function`.
+
+The replay applied all 245 migrations cleanly and reported green, because
+**applying migrations fires no triggers**. The RLS suite passed. The concurrency
+suite passed. It took an acceptance test that actually updated a row to find it.
+
+That is the useful generalisation: a from-zero replay proves the schema can be
+BUILT, not that it WORKS. Anything reachable only through a trigger body, a
+policy predicate at write time, or a rarely-exercised code path is invisible to
+it. Every invoker-rights function calling a helper that lived on the PUBLIC
+default breaks the same way, and I cannot claim to have found them all —
+`service_role` is now granted unconditionally, which closes the class, but the
+residual is written down rather than assumed away.
+
+`service_role` already bypasses RLS entirely. Withholding EXECUTE from it was
+never a safety property; `anon` and `authenticated` are where the finding's risk
+actually lives, and those stay revoked unless explicitly granted.
+
+### "We asked" is not "it happened" (KRA-011 completed)
+
+The worker writes `deleted_at` only after the Storage API confirms removal. The
+original defect was a system treating a vanished catalog row as proof, so any
+optimistic marking here would reproduce it wearing a different hat.
+
+It drains on the existing every-minute tick rather than a new cron entry, for the
+reason the jobs worker is already there: KCDX-039 found both scheduled routes had
+never executed for their whole lives. A new schedule is a new thing that can be
+silently broken; a tick known to fire is not.
+
+Two canaries, deliberately separate: `_stuck()` counts intents still waiting,
+`_abandoned()` counts the ones the worker gave up on after eight attempts. Folding
+them together would let the actionable number hide inside the tolerable one.
+
+### The evidence a decision rested on (KRA-004 / KRA-006)
+
+0203's hash covered credential text and omitted `document_path` — the item the
+reviewer actually opens, and the one the admin console signs a URL for. So the
+single most decision-relevant field was the one that could change without
+invalidating the decision. The freeze had the same gap; a hash nobody can rely on
+and a freeze with holes in it fail together, and they failed together here.
+
+The hash is REPLACED in place, not added beside. I nearly repeated the mistake
+0243 made against `purge_orphan_feed_media` — 0203's trigger and
+`provider_review_decide()` both call the existing name, so a parallel function
+would have left every caller on the narrow hash while the wide one sat unused.
+Twice in one batch is enough to say the reflex is: before writing
+`create or replace`, read the existing signature.
+
+### Four guardrails of mine that proved nothing
+
+Running tally this week, all found by deliberately breaking the code and none by
+reading the test:
+
+- `toContain("scanForKnownCSAM")` — satisfied by the import line;
+- `limit 1` across two overloads — sampled the clean one;
+- `not like '%open_to_invites%'` — `_` is a LIKE wildcard, so it matched the
+  function's own exception text;
+- a slice to end-of-file — swept in the sentinel that names the same fields.
+
+Each was a guardrail asserting something adjacent to the property. The negative
+control is what separates the two, and it is now non-optional for anything I add.
+
+### Evidence
+
+Replay from zero: 245 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 25/25. Evidence acceptance with allow and deny both proven.
+tsc 0, eslint 0 (137, at ceiling), vitest 265/265.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — Batch 4: three controls that reported on themselves
+
+### An archive that looked complete (KRA-016)
+
+The export's query helpers coerced `data` and threw `{ error }` away. supabase-js
+does not throw, so a single regressed grant turned a dataset into an empty array
+and the member received a successful archive with a category silently missing.
+
+That is the worst shape a data-rights response can take. A failed export gets
+retried. A complete-looking one with a hole in it ends the conversation — the
+member believes they have everything and nobody is prompted to fulfil the rest.
+Twenty-one datasets are individually named and checked now, and the archive states
+its own completeness rather than implying it.
+
+The mislabel underneath was worse than the swallowing. `reports_i_filed` was read
+from `safety_incidents` where the member was the **uploader** — so someone asking
+for the reports they filed received a list of times they were the *subject*. The
+category name and its contents were inverses.
+
+### An audit row that asserted a success nobody observed (KRA-017)
+
+`getPrivilegedClient` wrote `ok` at the moment it handed out the client, before
+the operation ran. That is worse than having no audit row, because an incident
+review reads it as evidence.
+
+The instructive part is why `started` would also have been wrong. Every routine
+handout would then produce an unpaired `started`, and "started with no partner" is
+the entire incident query 0197 exists to answer — the fix would have destroyed the
+signal it was meant to protect. `issued` is a third state that promises nothing
+and pairs with nothing. Verified that 50 issued rows and a completed pair leave
+the incident count where it was.
+
+### Verification weaker than the tooling beside it (KRA-018)
+
+The backup compared object COUNTS, and only for the plain buckets — the encrypted
+document copies and the configuration copy were not verified at all. Counting
+cannot distinguish "the file came back" from "a file with that name came back",
+which is exactly the distinction 0226's manifest was built to make. The backup's
+own check was weaker than a control already sitting next to it.
+
+Still true and still blocking: no run history, no alerting, **no restore drill**.
+Nothing in this entry should be read as recoverability.
+
+### The doc-claims mechanism earned its place
+
+Changing the export to `format_version: 3` failed a test binding DATA-GOVERNANCE
+to the route. That is KCDX-058 working exactly as designed — the document and the
+code could not drift apart silently, and the fix was to move both together rather
+than to edit the assertion.
+
+### Evidence
+
+Replay from zero: 246 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 26/26. KRA-017 acceptance 5/5. tsc 0, eslint 0 (137, at ceiling),
+vitest 270/270. Three negative controls observed failing and restored.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — KRA-042: the advisory that had no workaround
+
+Four high advisories in the production tree, one of them applicable rather than
+theoretical: GHSA-m99w-x7hq-7vfj, denial of service in App Router Server Actions,
+for which GitHub states there is no mitigation other than upgrading. Klimr uses
+App Router and Server Actions everywhere, so the prerequisites were all present.
+
+`next` 16.2.7 → **16.2.12**, exact pin. postcss, sharp and nanoid pinned by
+override. `npm audit --omit=dev` goes from four high to **zero**.
+
+### Overrides rather than `--force`
+
+The three transitive advisories were reported *through* `next`, and
+`npm audit fix --force` offered to move Next across a **major** to satisfy a
+bundled leaf dependency. Rewriting the framework to silence an advisory in
+`nanoid` is not a trade worth making, and it would have produced a change far
+larger than the one being verified.
+
+`nanoid` is the instructive one. The patched line people reach for is 5.x or 6.x,
+and both would have broken `postcss`, which depends on `^3`. **3.3.18 carries the
+fix inside 3.x** — so the smallest correct move was two minor releases along a
+line nobody looks at, not the newest version on the registry.
+
+An override for `postcss` was already in the file at `^8.5.10`, and the lockfile
+had resolved it to 8.5.15 — which is inside the vulnerable range. The override
+existed and was not doing its job, which is worth remembering the next time one
+looks like coverage.
+
+### I wrote a caret and got a minor jump
+
+`^16.2.12` resolved to **16.3.0**. The stated intent one paragraph earlier was
+"the smallest move that clears the advisory", and the pin already in the file was
+exact. Corrected, and the new gate now asserts that `next` is an exact pin rather
+than a range — so the next caret cannot quietly widen it.
+
+### Evidence
+
+`npm audit --omit=dev` → found 0 vulnerabilities. tsc 0, eslint 0 (137, at
+ceiling), vitest 272/272. **Full production build: compiled successfully in 92s,
+88/88 static pages, 164 routes, zero compile or type errors**, with every route
+touched this session present. Negative control: reverting the pin turns the gate
+red. **Executed-local — the artifact builds here and has not been deployed.**
+
+`package.json` and `package-lock.json` both changed and must travel together.
+
+iPhone impact: none. The web deploy is live in the shell automatically; no tab,
+brand-token, login-flow or in-shell-host contract changed.
+
+## 2026-08-10 — Batch 5 part 1: retrieved and discarded, resolved and not shown
+
+### The type system found three of the four surfaces (KRA-022)
+
+0216 added businesses to `global_search`; the kind router asked for them; the href
+map had no entry for them; and the result loop drops any row without an href. So
+the SQL returned business rows and the application threw every one away — a hole
+inside the fix that claimed to add the feature.
+
+Adding `"business"` to `SearchResultType` immediately failed the build in four
+places, because the icon and label maps are `Record<SearchResultType, …>` rather
+than loose string maps. That is the whole argument for exhaustive records: the
+compiler enumerated the surfaces I would otherwise have had to remember.
+
+### Resolved, and then not shown (KRA-025)
+
+0228 built `resolve_feed_post`, and the page stored `{ id, reason }` and used it
+only to render an unavailable note. On success it did nothing at all — the post
+was not fetched, not prepended, not focused. The ranked feed caps at 60 and is
+personalised, which is exactly the failure the resolver was built to fix.
+
+A resolver that answers "yes, you may see this" and then does not show it is worse
+than the original shrug, because it looks like it worked.
+
+### Collapsing for one person is not collapsing (KRA-026)
+
+0228 folded the BLOCK case into `not_found` for a good reason, written down at the
+time: any distinguishable answer tells the blocked person they were blocked. Three
+other answers stayed distinguishable — moderation was checked before audience, so
+a stranger learned a private post was `pending_review`; a hidden approved post
+returned `not_visible` **and the author id**, which is the identity the audience
+rule exists to protect.
+
+So the collapse protected the blocked person and nobody else, while a caller
+holding a UUID from an old share link could still separate "no such post" from "a
+post you may not see" from "a post awaiting review, by this person".
+
+Per the owner's decision every refusal is one answer with no author now. The
+author check moved to the top, so the collapse cannot hide a member's own post
+from them — that is a worse failure than the information it would withhold, and
+they already know their post exists.
+
+### A negative control that was itself a no-op
+
+My first attempt to re-break the resolver used inline shell escaping that silently
+failed to modify the file. The suite passed, and I nearly wrote that down as the
+control succeeding. Redone from a script file that asserts its marker matched
+before writing — and then it fails correctly.
+
+A negative control that does not apply its change is indistinguishable from a
+guardrail that does not work. That is the exact failure mode this practice exists
+to catch, arriving one level up, and it is the sixth time this week something of
+mine reported a result it had not measured.
+
+### Evidence
+
+Replay from zero: 247 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 27/27. Acceptance: public post resolves with author; friends-only,
+pending, absent and blocked are indistinguishable with no author; the author still
+reaches their own post under review. tsc 0, eslint 0 (137), vitest 276/276.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — Batch 5 part 2: a signal measuring the wrong thing, and a lane that cannot exist yet
+
+### Ranking rewarded moderation traffic (KRA-028)
+
+0229 replaced two correlated scalar subqueries with grouped CTEs — a real win, and
+the reasoning was written down carefully at the time. It also counted every row in
+`post_comments` regardless of moderation status, while the Feed displays only
+approved ones.
+
+So a post that attracted forty rejected or pending comments ranked as though forty
+people had engaged with it. The direction matters: content that draws removed
+comments is precisely what should not be promoted, and the ranker was promoting it.
+The engagement signal was measuring moderation traffic and calling it interest.
+
+The general form is worth keeping: **an aggregate used for ranking must count the
+same rows the reader will see.** When the two diverge, the ranking optimises for
+something nobody is looking at.
+
+### Counts that described the window (KRA-029, counts half)
+
+`typeCounts` was computed after the top-60 cap, so "Photos 3" meant "3 of the 60
+we ranked". Selecting the filter then showed items the count had never accounted
+for. Counting now happens over the same candidate rule the ranker uses, before the
+cap, in SQL as INVOKER so RLS applies as everywhere else.
+
+### The lane that cannot exist yet (KRA-029, Nearby half) — OD-7
+
+The audit is right that `nearby` passes `p_scope: "all"`, i.e. no location filter.
+The cause is not the parameter. **`posts` carries no location column** — no zip, no
+lat/lng, no city — and location in the older regional stream is resolved in
+JavaScript by `lookupZip()`. There is no ZIP geometry in Postgres at all.
+
+So no value of the scope parameter can make the ranker distance-aware. Writing a
+`nearby` branch that silently did nothing would be strictly worse than today, and
+inventing a location model — is a post's location the author's home ZIP, where they
+were, or the court they mention? — is a product decision.
+
+Raised as OD-7 with three options and a recommendation: rename the lane now, build
+the data model later. The label is the part that is currently untrue and it is one
+string; "Nearby" is a real feature and deserves to be scheduled as one rather than
+smuggled in under an audit remediation.
+
+This is the third time this audit has produced a finding whose honest answer is
+"this needs a decision, not a patch" — OD-2, OD-4 and now OD-7. Recording them as
+decisions rather than quietly picking one is what keeps the next audit from
+re-flagging the same line.
+
+### Evidence
+
+Replay from zero: 248 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 28/28. tsc 0, eslint 0 (137, at ceiling), vitest 279/279. The
+negative control now runs from a script that asserts its marker matched before
+writing — added after the previous one silently no-opped and nearly got recorded
+as a pass.
+
+iPhone impact: none.
+
+## 2026-08-10 — Batch 5 complete: the browse branch that did not browse
+
+`runSearch` detects a browse intent — a kind word with no informative terms — and
+implemented it for `event` and `tournament`. The other six kinds fell through to
+the lexical matcher with an empty string, which matches nothing by construction.
+The branch whose own comment names "the screenshot bug" as the thing it prevents
+was producing that bug for six of the eight kinds it routes.
+
+### Why this went in SQL
+
+Twice this session a wrong name went into a migration and the replay rejected it
+in seconds: `purge_orphan_feed_media`'s signature, and a table called
+`professional_applications` that does not exist. Writing the same six queries in
+TypeScript would have failed at runtime and returned an empty array —
+**indistinguishable from "nothing matched"**, which is the exact failure being
+fixed.
+
+0249 still rejected two syntax errors before it applied. That is the argument for
+putting it there, not a mark against it.
+
+### The fixture that made a working fix look broken
+
+The first acceptance run had `browse_kind('court')` returning zero rows as
+`authenticated` and one row as superuser — the signature of a fix that does not
+work. The cause was mine: the `courts readable` policy keys on `auth.role()`, and
+I had set the POSTGRES role without setting `request.jwt.claim.role`, so the
+shim's `auth.role()` returned `anon`.
+
+Worth writing down because it cuts both ways. A wrong fixture has now produced a
+false PASS (0245's vacuous suite, KRA-019's twice) and a false FAIL in the same
+session. The false fail is the safer one, and it is still expensive — I nearly
+went looking for a bug in correct code. Every suite now asserts its identity
+before believing an allow or a deny.
+
+Earlier suites asserted on `auth.uid()`-derived predicates and proved their allow
+paths, so their results stand. But any test of an `auth.role()`-keyed policy
+written before this point was measuring an anonymous caller.
+
+### Evidence
+
+Replay from zero: 249 applied, 0 failed. RLS negative 26/26. Concurrency pass.
+`klimr_ready` 29/29. Acceptance: courts and teams return rows under a
+proven-authenticated caller, an unknown kind returns nothing rather than
+everything, the limit clamps. tsc 0, eslint 0 (137, at ceiling — a dead `nowMs`
+helper left by the extraction pushed it to 138 and was deleted). vitest 282/282.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — The lost update, reproduced
+
+`recompute_player_points` read the rolling-best-8 total and then upserted it, with
+nothing serialising the pair. Two matches finishing for the same player and sport
+at the same moment both read the ledger before the other's row landed, both
+computed a total omitting it, and the second write won.
+
+Reproduced rather than reasoned about, which is the point:
+
+| | ledger rows | stored total |
+|---|---|---|
+| without the lock | 2 | **50** |
+| with the lock | 2 | **100** |
+
+Nothing errors in the broken case. The upsert succeeds — it just succeeds with a
+number computed from a stale read. A player loses points and no log line anywhere
+says so.
+
+The control was run FIRST. A concurrency test that passes without the fix proves
+nothing, and this one would have passed under light load: both transactions
+frequently serialise by accident. Deliberately inserting a delay between the read
+and the write is what makes the window observable, and that is the difference
+between testing a race and hoping about one.
+
+The lock is per (player, sport) rather than table-wide, because two players'
+recomputes are genuinely independent and queueing them behind each other would
+trade a correctness bug for a throughput one. It is taken BEFORE the read: taken
+after, it would sit entirely inside the window it is meant to close, which is the
+kind of fix that looks right in review and changes nothing.
+
+### The sweep that measured the wrong clock
+
+`end_stale_court_sessions` filtered on `created_at`. `restartSession` exists so an
+organiser can reuse a session, and `activated_at` already recorded when that
+happened — the sweep just never read it. So a session restarted five minutes ago
+was "older than twelve hours" and ended mid-play, with an audit row confidently
+stating a duration measured from the wrong event.
+
+### Seventh vacuous slice
+
+The KRA-032 guardrail sliced to `indexOf("KRA-038")`, which matched the file header
+above the function. Empty string, every content assertion satisfied. That is now
+seven times this week a guardrail of mine has asserted against something adjacent
+to the property — an import, a sampled overload, a LIKE wildcard, an unbounded
+slice, a comment, a no-op control, and a header collision.
+
+The pattern is consistent enough to name: **I write the assertion against the text
+I expect to be looking at, rather than proving I am looking at it.** The length
+check now comes first in these blocks, and the negative control is what catches
+the rest.
+
+### Evidence
+
+Replay from zero: 251 applied, 0 failed. RLS negative 26/26. Concurrency suite
+pass. `klimr_ready` 31/31. tsc 0, eslint 0 (137, at ceiling), vitest 284/284.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — The detector that never ran
+
+Wiring points-drift into `klimr_health()` meant calling `klimr_health()`. It threw.
+
+It queries `notification_outbox` and `waitlist_offers`. Neither table exists —
+they are `social_outbox` and `tournament_waitlist`, and the latter has no expiry
+column, so the original assertion could never have been true of it.
+
+plpgsql resolves table names at execution. The migration applied cleanly, the
+replay passed, `pg_get_functiondef` returned a well-formed function, and every
+call since 0227 raised `relation does not exist`. `klimr_healthy()` propagated the
+exception rather than returning false, so even the boolean wrapper gave you an
+error instead of an answer.
+
+The audit's KRA-040 says nothing schedules or exports these canaries. The truth is
+worse: **they had never run at all.** The function written to detect silent
+failures was one, for the same reason as everything else in this remediation —
+nothing called it. Not CI, not the replay, not the readiness gate. A migration
+applying is not a function working, and this is the cleanest example of that
+distinction the project has produced.
+
+### A check cannot execute the graph it belongs to
+
+My first sentinel proved the repair by executing `klimr_health()` — correct
+reasoning, since only running it proves it runs. It hung the replay: readiness
+discovers every `*_intact()` function, `klimr_health()` calls `klimr_ready()`, and
+`klimr_ready()` calls readiness again.
+
+The rule worth keeping: **a check that participates in the graph it checks cannot
+execute that graph.** `to_regclass` asserts every named table exists without
+recursing, which catches exactly this defect class, and execution is proven from
+outside in the acceptance suite where there is no cycle.
+
+### Points drift now has a watcher
+
+Threshold zero, because there is no tolerable amount of "the ledger and the
+balance disagree", and the detail line carries the recovery command so whoever
+sees the alert does not have to find the runbook. Proven end to end: green →
+inject 4242 → red → rebuild → green.
+
+Stuck and abandoned deletions stay separate canaries. Folded together, the number
+that needs a human hides inside the number that does not.
+
+### Evidence
+
+Replay on a freshly initialised cluster: 253 applied, 0 failed. RLS negative
+26/26. Concurrency pass. `klimr_ready` 33/33. tsc 0, eslint 0 (137, at ceiling),
+vitest 290/290. An intermediate run failed from migration 0049 onward; that was a
+cluster I had corrupted killing the hung recursion, not the migration — rebuilding
+cleared it, and the clean-cluster result is the recorded one.
+
+iPhone impact: none.
+
+## 2026-08-10 — Building a control and not running it
+
+That is now the most repeated failure in this codebase, found five times in one
+remediation: both cron routes, the CSAM scanner, `withPrivileged`, `klimr_health`
+itself, and the points-drift check added hours earlier. Repairing health and
+leaving it uncalled would have been the sixth.
+
+`lib/health-watch.ts` runs on the existing every-minute tick. Not a new schedule —
+a new cron entry is a new thing that can be silently broken, which is exactly how
+both existing routes spent their whole lives never executing.
+
+### Alert on transitions, not on state
+
+A subsystem unhealthy for a day produces 1,440 identical alerts if you alert on
+state. The first thing anyone does with 1,440 identical alerts is mute the
+channel, which takes the next real one with it. That is the same
+canary-that-cries-wolf failure this file already records, arriving through volume
+instead of through a bad threshold.
+
+Recovery is announced too. When the alert was "the ledger and the balance
+disagree", knowing it is fixed matters as much as knowing it broke.
+
+`since` moves only when the state flips, so it measures how long a condition has
+held rather than how long ago we last looked. Rewriting it each tick would report
+a three-day outage as one minute — verified by backdating it and confirming a
+snapshot leaves it alone.
+
+### A third function that compiled and could not run
+
+`record_health_snapshot` returns columns named `subsystem`, `ok`, `detail`. Those
+are also columns of `health_state`, so `on conflict (subsystem)` could not tell a
+plpgsql OUT parameter from a column and raised "ambiguous" on every call — while
+the migration applied cleanly and the source read perfectly.
+
+Found the same way the dead `klimr_health()` was found an hour earlier, and the
+same way the missing `posts_within` grant was: by calling it. **A function that
+compiles is not a function that runs**, and this session now has three independent
+proofs of that sentence. The replay proves a schema can be BUILT. Only an
+acceptance test proves it WORKS.
+
+### Evidence
+
+Replay 254 applied, 0 failed. `klimr_ready` 34/34. tsc 0, eslint 0 (137, at
+ceiling), vitest 293/293. Negative control (alerting on state rather than
+transitions) observed failing. **Executed-local.** That the tick fires in
+production depends on the cron entry — which is precisely what KCDX-039 got wrong.
+
+iPhone impact: none.
+
+## 2026-08-10 — The invariant belongs at the table
+
+`removeMember` checked that the target was not an owner, then deleted by
+`(team_id, user_id)` with a service-role client — no lock, no predicate. Promote
+the target in between, or run two managers at once, and the sole owner goes. What
+is left is a team nobody can administer and no product path back.
+
+The tempting fix is a predicate on that delete. It fixes that caller. The rule is
+"a team has at least one owner", and it has to hold for the admin console, a
+support script, a bulk tool nobody has written yet, and the next migration.
+
+This project has now found **five inline copies of the block rule**, each written
+by a surface that needed it and none of them agreeing. That is what happens to a
+rule enforced per caller. So the invariant is a trigger, the command is the
+ergonomics, and the delete carries its own `role <> 'owner'` predicate so a stale
+read is harmless rather than merely unlikely.
+
+Three layers for one rule sounds excessive until you notice that the audit found
+this class of bug eight times, and that each was a place where the rule existed
+somewhere other than where the write happened.
+
+### My test was wrong twice, in the safe direction
+
+Two assertions failed because an earlier step in the same script had promoted the
+actor to owner — so "a manager cannot remove a peer manager" was never exercised,
+and the follow-up target had already gone. Re-run on a clean fixture that asserts
+the actor's role BEFORE the rule it is testing.
+
+That is the same habit as every other correction this week, and it is the only one
+that generalises: **assert the fixture before believing the result.** A wrong
+fixture has produced false passes and false failures in this session, and only the
+precondition check tells them apart.
+
+### Evidence
+
+Replay 255 applied, 0 failed. `klimr_ready` 35/35. tsc 0, eslint 0 (137, at
+ceiling), vitest 296/296. Negative control observed failing.
+**Executed-local. Not production-verified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — KRA-033: a migration that applies and does not work
+
+0256 adds `class_enroll`, a single locked command meant to close three defects in
+class enrollment: overbooking under a race, a recorded payment being recomputed
+away by a re-join, and two writes whose errors were discarded.
+
+It applies cleanly. 256 migrations, zero failures, readiness 36/36.
+
+**Its acceptance test fails.** Two concurrent callers for a session with capacity
+1 produced two enrolled rows and no waitlist. The same run returned
+`payment_status = 'not_required'` for a class with `is_paid = true`.
+
+What I have established: exactly one `class_enroll` overload exists, so this is
+not the overload trap that caught 0243 and 0245; `pg_get_functiondef` confirms the
+deployed body contains the right column; and the identical SELECT INTO run
+standalone against the same fixture returns `cap=1, paid=t`. The SQL is right, the
+join is right, and inside the function it yields neither value.
+
+I do not know why yet. So the disposition is IN PROGRESS, not FIXED, and the
+migration is marked do-not-paste.
+
+Writing this down because the alternative was available and tempting: the
+migration count went up, readiness went up, the suite is green, and every number
+on the dashboard says this batch succeeded. Shipping it on those numbers would
+have been exactly the failure this whole audit is about — a control that exists,
+reports success, and does not work. The green replay proves the schema can be
+BUILT. Only the acceptance test speaks to whether it WORKS, and it said no.
+
+The app is deliberately left on the original code path. An unverified command
+that nobody calls is inert; an unverified command wired into enrollment is a
+second bug on top of the first.
+
+### Evidence
+
+Replay 256 applied, 0 failed; `klimr_ready` 36/36 — and **the KRA-033 acceptance
+test FAILED**: 2 seats sold against a capacity of 1. tsc 0, eslint 0 (137, at
+ceiling), vitest 296/296 — none of which test the failing behaviour, which is
+precisely the point.
+
+iPhone impact: none.
+
+## 2026-08-10 — Correcting a failure claim
+
+I recorded "the race is NOT closed" for KRA-033. That was not sound either, and
+withdrawing it matters as much as withdrawing a false success — both are the same
+mistake wearing different clothes: reporting a result the evidence does not carry.
+
+Instrumenting the real function and calling it as an authenticated caller showed
+`cap=1 paid=t`, `taken=0`, `enrolled/pending`. The logic is right. The failing run
+had reported `not_required` for the same class, and both cannot be true of the
+same code — so that run's fixture was not what its script claimed.
+
+A test with a wrong fixture produces false passes and false failures with equal
+ease. This session has produced both, several times each. The only defence that
+has consistently worked is asserting the preconditions before believing the
+result, and the race script now does that.
+
+So KRA-033 is neither fixed nor known-broken. It is **unverified**, which is the
+only claim the evidence supports, and the migration stays marked do-not-paste.
+`enrollInSession` remains on its original path: an unverified command that nothing
+calls is inert, and wiring it in would add a second unknown on top of the first.
+
+The replay harness has also become unstable — successive from-zero runs now lose
+the server mid-way, and the harness's own probes report it. That is a container
+problem rather than a schema one, and it means the remaining verification needs a
+fresh session rather than more attempts in this one.
+
+### Evidence
+
+tsc 0, eslint 0 (137, at ceiling), vitest 296/296. All diagnostic instrumentation
+lived in /tmp; 0256 in the repo contains no RAISE NOTICE and no probe function.
+**Executed-local for everything through 0255; 0256 unverified.**
+
+iPhone impact: none.
+
+## 2026-08-10 — KRA-033: two correct controls, colliding
+
+The enrollment race was not a locking bug. `class_enroll` counted seats correctly
+under a lock on the session and computed `waitlisted` correctly — and then 0201's
+`guard_enrollment_insert` overwrote the answer.
+
+That trigger pins `enrolled/not_required` unless the caller is the provider or
+`service_role`, which is right: the INSERT policy only checks identity, so without
+it a learner could POST themselves in as `attended/paid`. But `class_enroll` is
+SECURITY DEFINER, so `current_user` is `postgres` and `auth.uid()` is the learner
+— the guard fires, and the verdict computed a microsecond earlier is discarded.
+
+Neither control was wrong. Each was written without the other in view, and the
+newer one lost silently. This project has spent the week finding one rule
+reimplemented in five places; this is the mirror image — two rules meeting at the
+same row, both correct, and the composition wrong.
+
+The tempting fix was `if current_user = 'postgres' then return new`. It works, and
+it exempts every definer function ever written, including the ones written next
+year by someone who has never heard of this trigger. A transaction-local flag
+exempts exactly one caller and cannot be set from PostgREST.
+
+### Three claims, two withdrawn
+
+I reported the race open. Then withdrew it as unverified. Now it is closed, with
+`SEATS=1 WAITLIST=1` and the tampering path still pinned.
+
+The withdrawal was correct on the evidence at the time — my instrumented copy
+REPLACED the function, which incidentally dropped the trigger's effect from view,
+so it disagreed with the race run and I could not say which was true. What settled
+it was not more reasoning. It was a clean harness (the "instability" was stray
+processes I had killed) and a fixture that PRINTS `cap=1 paid=t` before the calls
+it tests.
+
+Every wrong turn this week has had the same root: believing a result without
+proving the conditions it was measured under. The fix is boring and it is the same
+one each time — assert the preconditions, in the test, out loud.
+
+### Evidence
+
+Replay 257 applied, 0 failed. RLS negative 26/26. Concurrency pass. `klimr_ready`
+37/37. tsc 0, eslint 0 (137, at ceiling), vitest 300/300. Negative control (blanket
+definer bypass) observed failing. **0256 and 0257 paste together** — 0256 alone
+reproduces the collision.
+
+iPhone impact: none.
+
+## 2026-08-10 — The dispute I nearly filed
+
+KRA-034 says the registration command ignores `capacity_mode` and `capacity_unit`.
+Those are not columns on `tournaments`. I checked the live schema, found only
+`capacity` and `entry_type`, and was one step from recording a confident dispute
+that the audit had invented them.
+
+They live in the `format_config` JSONB, read by five application surfaces. The
+audit's citation pointed at the UI model, and the UI model was right.
+
+"The column does not exist" felt like proof. It proved that I had looked in one
+place. That is the same error as every wrong fixture this week — believing a
+result without establishing the conditions it was measured under — arriving in a
+dispute rather than a test, where it would have been harder to catch, because a
+dispute is recorded and then trusted.
+
+### The drift underneath
+
+The UI implements four capacity combinations: pooled or per-division, counted in
+teams or in people. The command implemented one — count registrations, scope to a
+division if one happened to be supplied. So a person-capped draw counted a doubles
+pair as one seat, and a pooled tournament with divisions silently became
+per-division.
+
+The UI refused correctly. The command admitted the registration. **The check a
+caller can bypass was right; the check they cannot bypass was wrong** — which is
+the worse way round, and is the shape of most of this audit.
+
+### The guardrail and its control were both wrong
+
+The assertion matched a table name that the migration's own comment mentions, so
+deleting the query left it green. Then the negative control edited the `from`
+clause while the assertion had moved to the `join` — changing something the test
+never looked at, and reporting a pass.
+
+That is the ninth prose-not-code guardrail this week and the second no-op control.
+Both were found the same way: by breaking the code and demanding the test notice.
+Nothing else has caught them, and reading them more carefully has never once
+worked.
+
+### Evidence
+
+Replay 258 applied, 0 failed. `klimr_ready` 38/38. tsc 0, eslint 0 (137, at
+ceiling), vitest 302/302. Acceptance: person-unit capacity 2 waitlists the third
+registrant; a per-division cap of 2 admits two while the pooled cap of 1 correctly
+does not apply.
+
+iPhone impact: none.
+
+## 2026-08-10 — A roster written after the transaction closed
+
+The command inserted the captain. The caller then inserted everyone else, in a
+separate round trip, outside the transaction, and threw the error away.
+
+So: the captain appeared twice, because the roster the page sends includes them
+and there was no unique key to notice. Or the entry had one player and reported
+success, because the second insert failed and nobody asked. And since tournament
+points are awarded per registration player, both outcomes end at the ledger — a
+captain credited twice, a teammate credited never.
+
+That last consequence is what makes this worth more than its P1 label. A week ago
+it was a roster inconsistency. After D-35 it is a credit posted to the wrong
+account, and the fix is the same either way: make the wrong state impossible to
+write rather than unlikely to occur.
+
+The unique index comes first and the command second. The index is what holds for
+paths nobody has written yet; the command is ergonomics on top of it. And the
+command delegates every check back to `tournament_register` rather than restating
+them — restating is precisely how the UI and the command drifted apart in KRA-034,
+one migration ago.
+
+It re-checks team membership too. The application's roster list is not the
+authority for who is on a team, and a caller reaching the RPC directly should not
+be able to enter a stranger into someone else's event.
+
+### The ratchet caught my comment
+
+Explaining all of the above in `app/tournaments/actions.ts` pushed it six lines
+past budget. The number stayed where it was; the comment moved into the migration,
+which is the better home for it — the migration is what a future reader will find
+when they ask why the roster travels as an argument.
+
+### Evidence
+
+Replay 259 applied, 0 failed. `klimr_ready` 39/39. tsc 0, eslint 0 (137, at
+ceiling), vitest 305/305. Acceptance: a four-entry roster with the captain and a
+stranger yields three players, captain once, stranger none, reserve preserved; a
+subsequent duplicate insert is refused. Negative control observed failing.
+
+iPhone impact: none.
+
+## 2026-08-10 — The index is the guarantee, the check is the message
+
+Starting a queue match inserted the match, then moved the two teams in a separate
+statement, and threw that error away. When it failed the match was `live` and both
+teams were still `queued` — so the same players stayed in the pool for the next
+start and got pulled into a second match while their first was running.
+
+And the "is a match already live?" check was not serialised with the insert. A
+Courtside tablet and the organizer's phone are the ordinary setup, and both pass
+the check before either writes.
+
+Two layers, deliberately. The partial unique index on `(court_id) where status =
+'live'` makes the bad state unrepresentable for every path — including the ones
+nobody has written yet. The command's own check exists so a human sees "A match is
+already live on this court" rather than a constraint violation. Neither replaces
+the other: the index without the check is a bad error message, and the check
+without the index is a race.
+
+The sort moved into SQL alongside the write. Choosing candidates in the
+application and then writing based on that choice is only safe if nothing changes
+in between, which is exactly the assumption being removed.
+
+### The precondition line earned its keep again
+
+The first run reported `teams=0`. My fixture had used `queue_courts.name`; the
+column is `label`, so the insert failed and every number after it was measuring an
+empty court. Without the precondition echo that would have read as a clean pass —
+one live match, no double-start, all correct, all meaningless.
+
+Then every query came back empty: six stray `postgres` processes from commands I
+killed earlier, the same cause as the "harness instability" I recorded and
+corrected this morning. I did not recognise it the second time either, until I
+looked at the process count.
+
+### Tenth prose-not-code guardrail
+
+The assertion matched `v_moved <> 2` inside the migration's own comment explaining
+the check. Deleting the check left the test green. Bounded the slice at the
+`comment on function` block.
+
+Ten of these now, all found by breaking the code, none by re-reading the test. The
+lesson has stopped being "write better assertions" — it is that **an assertion is
+only trustworthy after you have watched it fail**, and I should treat any guardrail
+without an observed failure as decorative until proven otherwise.
+
+### Evidence
+
+Replay 260 applied, 0 failed. `klimr_ready` 40/40. Race: preconditions court=1
+teams=3, two simultaneous starts, result 1 live / 2 playing / 1 queued. tsc 0,
+eslint 0 (137, at ceiling), vitest 308/308.
+
+iPhone impact: none. The Courtside app calls the same server action, whose
+signature is unchanged.
+
+## 2026-08-10 — The register disagreed with the disk
+
+I began writing migration 0259 for KRA-035 and found the file already there. 0260
+too. Both written earlier in this session, both correct, neither recorded in the
+disposition register.
+
+That is a real failure and not a clerical one. The register is the durable
+artifact — the thing a future session reads to know what happened. If it disagrees
+with the disk, the disk is right and the register has failed at its only job. A
+replay reporting "260 applied" was the sole signal anything existed.
+
+The fix is to check the disk before writing, which I now have to do anyway because
+this session has too much in it to hold.
+
+### KRA-035, verified
+
+The captain went in inside the locked command; the rest of the roster went in
+afterwards, outside the transaction, with the error discarded. So: a duplicate
+captain (there was no unique key on `(registration_id, user_id)`), a silently
+one-player entry when the second insert failed, and — because points are awarded
+per registration player — credits landing on the wrong people. Under D-35 that
+last one is a currency error.
+
+Roster travels into the command now. Verified with a roster that included both the
+captain and a non-member: two players, captain once, stranger rejected.
+
+### KRA-036, NOT verified — and that distinction is the whole point
+
+0260 exists, applies cleanly, and the app is wired to it. The race test never ran:
+my fixture used three table names that do not exist, and correcting them left it
+still empty, so more columns are wrong.
+
+The code reads correctly. That is exactly the evidence standard this remediation
+exists to reject — the same standard under which `klimr_health()` threw for months
+and `class_enroll` had its verdict silently overwritten by a trigger, both of which
+also read correctly. So KRA-036 stays CODE COMPLETE, not FIXED.
+
+I would rather hand over eight verified findings and one honest gap than nine that
+all look the same on a dashboard.
+
+### Evidence
+
+Replay 260 applied, 0 failed. `klimr_ready` 40/40. tsc 0, eslint 0 (137, at
+ceiling), vitest 308/308. KRA-035 acceptance passed; KRA-036 acceptance not
+executed. The harness degrades under repeated from-zero replays in one container,
+so KRA-036 needs a fresh one.
+
+iPhone impact: none.
+
+## 2026-08-10 — KRA-036: three failed runs, one command
+
+The race test for the queue match start failed three times before it ran. Each
+time for the same reason: I wrote the fixture from memory. The tables were
+`court_session_courts`, `court_queue_teams`, `court_matches` — none exist. Then,
+with the names corrected, the columns were wrong too: `name` and `position` on a
+table that carries `status`, `wins`, `hold_court`, `queued_at`.
+
+The definitions were in `0081_court_queue.sql`. Reading them took one command.
+
+That is the whole lesson and it is not a new one — it is the same one as the
+`purge_orphan_feed_media` signature, the `professional_applications` table that
+does not exist, and the `feed_emit` argument list. **Read the schema; do not
+recall it.** Four instances in one session, and the cost each time is not the
+wrong guess but the runs spent believing it.
+
+### The control is what made the result mean anything
+
+`queue_matches` already carries `queue_matches_one_live_per_court`, a partial
+unique index. So `LIVE=1` proves nothing about my fix — the index guarantees it
+whether the command is atomic or not. A test asserting only that would have been
+another green number measuring a constraint written in 2025.
+
+The finding's actual failure is a live match whose teams still read `queued`,
+because the team update was a separate statement with its error discarded. So the
+control creates exactly that state — insert the match, never land the update — and
+the consistency assertion returns NO, while the real command returns yes.
+
+Writing the assertion was easy. Knowing which assertion was worth writing required
+noticing that the obvious one was already true.
+
+### Evidence
+
+Replay 260 applied, 0 failed. Race: precondition `queued=4 live=0`, result
+`LIVE=1 PLAYING=2 STILL_QUEUED=2 CONSISTENT=yes`. Negative control: `CONSISTENT=NO`.
+Second control on the guardrail (lock removed) fails correctly. tsc 0, eslint 0
+(137, at ceiling), vitest 311/311.
+
+The container's Postgres is now unreliable across repeated replays — several runs
+timed out before this one completed. Further DB verification needs a fresh
+container.
+
+iPhone impact: none.
+
+## 2026-08-10 — Two fixes that needed no database
+
+The replay harness is unreliable in this container, so these two were chosen
+because their evidence does not depend on it. Worth saying plainly: their claims
+rest on tsc, eslint, vitest and negative controls, and on nothing else.
+
+### One event, two notifications (KRA-021)
+
+The connection flow notified twice — once from the server action, once from
+0212's outbox worker, with identical kind, title, body and link.
+
+The interesting part is which copy to delete. The outbox is trigger-fired inside
+the same transaction as the friendship row, it retries, and it delivers even if
+the request dies halfway. The inline call is the one that can silently fail to
+happen. So the durable path stays and the convenient one goes — which is the same
+choice as every other one this week, and it keeps coming out the same way.
+
+A side effect worth keeping: `myName()` became dead, because the outbox reads the
+display name in SQL at delivery time. That is more correct than what it replaced —
+the name as it is when the notification is sent, not as it was when the request
+was made.
+
+### The failure mode with no handler (KRA-041)
+
+`assertSchemaCurrent()` runs during startup and awaited two Supabase calls with no
+deadline. A refused connection was always fine: it errors fast, and there is
+already an "inconclusive, continuing" branch for it.
+
+A blackholed endpoint is different. It accepts the connection and never answers.
+No error to catch. No timeout to hit. The promise simply never settles, the
+instance never finishes booting, and nothing is ever logged to say so — the
+platform kills it and the log shows a start that stopped mid-sentence.
+
+That is the shape worth remembering: the handled failure is the one that fails
+loudly, and the unhandled one is the one that does nothing at all. This audit has
+been almost entirely about that distinction.
+
+The deadline is 8 seconds and deliberately generous — a cold start, not a request
+path, and a slow-but-alive database should still get to answer. The point is only
+that "never" is not one of the outcomes.
+
+### Evidence
+
+tsc 0, eslint 0 (137, at ceiling — the removals left two dead symbols at 139,
+deleted rather than absorbed), vitest 315/315. Negative controls on both new
+guardrails observed failing. **No database verification for either.**
+
+iPhone impact: none.

@@ -688,37 +688,34 @@ async function applyGameOver(admin: Admin, match: MatchRow, winCap: number, winn
 
 /** Core next-match logic (holder first, then earliest queued). No auth here. */
 async function applyStartNext(admin: Admin, courtId: string, sessionId: string): Promise<Result> {
-  const { data: sess } = await admin.from("court_sessions").select("paused, status").eq("id", sessionId).maybeSingle();
-  // The courtside screen operates by public code — the session state is the only
-  // real gate, so it must be enforced here, not just hidden in the UI.
-  if (!sess) return { error: "Session not found." };
-  if (sess.status === "ended") return { error: "This session has ended." };
-  if (sess.status !== "live") return { error: "The queue hasn't started yet." };
-  if (sess.paused) {
-    let who = "The organizer";
-    const { data: full } = await admin.from("court_sessions").select("paused_by").eq("id", sessionId).maybeSingle();
-    if (full?.paused_by) {
-      const { data: prof } = await admin.from("profiles").select("display_name").eq("id", full.paused_by).maybeSingle();
-      if (prof?.display_name) who = prof.display_name;
-    }
-    return { error: `${who} has paused the games — the current match can finish, but the next one waits.` };
+  // KRA-036: this read the session, checked for a live match, sorted the queue in
+  // JavaScript, inserted the match, and THEN updated the two teams in a separate
+  // statement whose error was discarded. Two silent failures followed: a live
+  // match whose teams still read `queued` (so the same players were candidates
+  // for the next start), and two operators — a Courtside tablet and the
+  // organizer's phone, the ordinary setup — both passing the "no live match"
+  // check and both inserting.
+  //
+  // One locked command now. The ordering moved into SQL with the write, because
+  // choosing in the application and writing afterwards is only safe if nothing
+  // changes in between, which is the assumption being removed.
+  const { data, error } = await admin.rpc("queue_start_next", { p_court: courtId });
+  if (error) {
+    console.error("[queue] start failed", error.message);
+    return { error: "Couldn't start the match — refresh and try again." };
   }
-
-  const { data: liveExisting } = await admin.from("queue_matches").select("id").eq("court_id", courtId).eq("status", "live").maybeSingle();
-  if (liveExisting) return { error: "A match is already live on this court." };
-
-  const { data: queued } = await admin.from("queue_teams").select("id, hold_court, created_at").eq("court_id", courtId).eq("status", "queued");
-  const sorted = (queued ?? []).sort((a, b) => {
-    if (a.hold_court !== b.hold_court) return a.hold_court ? -1 : 1;
-    return (a.created_at ?? "").localeCompare(b.created_at ?? ""); // fair: order by when each team's first player joined
-  });
-  if (sorted.length < 2) return { error: "Need at least two teams in the queue to start a match." };
-
-  const teamA = sorted[0].id;
-  const teamB = sorted[1].id;
-  const { error: insErr } = await admin.from("queue_matches").insert({ session_id: sessionId, court_id: courtId, team_a: teamA, team_b: teamB, status: "live" });
-  if (insErr) return { error: "Couldn't start the match — refresh and try again." };
-  await admin.from("queue_teams").update({ status: "playing", hold_court: false }).in("id", [teamA, teamB]);
+  const out = data as { ok?: boolean; error?: string } | null;
+  if (!out?.ok) {
+    const msg: Record<string, string> = {
+      court_not_found: "Court not found.",
+      ended: "This session has ended.",
+      not_started: "The queue hasn't started yet.",
+      paused: "The games are paused — the current match can finish, but the next one waits.",
+      already_live: "A match is already live on this court.",
+      need_two_teams: "Need at least two teams in the queue to start a match.",
+    };
+    return { error: msg[out?.error ?? ""] ?? "Couldn't start the match — refresh and try again." };
+  }
   revalidatePath(`/queue/${sessionId}`);
   return { ok: true };
 }

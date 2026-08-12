@@ -76,7 +76,14 @@ export async function judgeCourtFacts(input: {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    // KRA-014: this call had NO signal and no deadline, so a hung vendor held a
+    // serverless invocation until the platform killed it. The guardrail did not
+    // see it because it scanned only fetches whose first argument is a literal
+    // URL AND accepted the substring "signal" anywhere in the call — and the
+    // PROMPT in this very function contains the word "signals".
+    const res = await callExternal({ vendor: "anthropic", timeoutMs: 20000, retries: 1 }, (signal) =>
+      fetch("https://api.anthropic.com/v1/messages", {
+      signal,
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
@@ -91,7 +98,7 @@ export async function judgeCourtFacts(input: {
           },
         ],
       }),
-    });
+    }));
     if (!res.ok) return null;
     const data = (await res.json()) as { content?: { type: string; text?: string }[] };
     const text = (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim();

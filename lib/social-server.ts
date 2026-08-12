@@ -50,12 +50,23 @@ export async function getPeopleYouMayKnow(userClient: UserRpcClient, userId: str
     const rows = cached.payload as unknown as PymkRow[];
     const stillValid = await validSuggestions(userClient, rows.map((r) => r.user_id));
     if (stillValid) return rows.filter((r) => stillValid.has(r.user_id)).slice(0, limit);
+    // KRA-027: `validSuggestions` returns null when the validation RPC itself
+    // fails. Falling through to recompute is right; falling through to SERVE the
+    // unvalidated payload is not, and the branch below used to do exactly that.
+    console.warn("[social] pymk validation unavailable — recomputing rather than serving a stale payload");
   }
 
   const { data, error } = await userClient.rpc("people_you_may_know", { p_limit: 24 });
   if (error || !data) {
     if (error) console.error("[social] pymk rpc failed", error);
-    return cached ? (cached.payload as unknown as PymkRow[]).slice(0, limit) : [];
+    // KRA-027: this returned `cached.payload` verbatim — the up-to-24h-old list,
+    // with NO validation, precisely when validation was known to be unavailable.
+    // The one moment the guarantee mattered was the one moment it was skipped.
+    //
+    // A suggestion rail is discretionary: showing nothing costs a member an empty
+    // shelf, while showing a stale one can offer a Connect button for somebody who
+    // has since blocked them. Empty is the correct failure.
+    return [];
   }
 
   await admin

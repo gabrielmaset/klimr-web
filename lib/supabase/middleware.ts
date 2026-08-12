@@ -89,9 +89,32 @@ export async function updateSession(request: NextRequest) {
   // 2) Signed in but two-factor not yet satisfied → complete 2FA first.
   //    Required on every protected page; marketing/auth pages are exempt.
   if (user && cls !== "public" && !matches(path, AAL_EXEMPT) && !isPublicEventPage) {
+    // KRA-015: three states, and indeterminate is not allow.
+    //
+    // This read `if (aal?.currentLevel && …)`, so a null/absent level fell through
+    // to the protected page, and the catch below did the same on any error. Both
+    // were justified as avoiding a lockout on a transient failure — but the
+    // failure mode chosen was "serve the protected page to someone whose
+    // second factor we could not confirm".
+    //
+    // Unsatisfied AND indeterminate now take the SAME branch, and that branch is
+    // /mfa rather than a hard 403 for navigations. That is fail-closed without a
+    // lockout: a member whose session really is aal2 completes the step and
+    // continues, and a transient error costs one redirect instead of admitting an
+    // unverified session.
+    let mfaSatisfied = false;
     try {
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (aal?.currentLevel && aal.currentLevel !== "aal2") {
+      mfaSatisfied = aal?.currentLevel === "aal2";
+      if (!aal?.currentLevel) {
+        console.warn("[auth] AAL indeterminate — treating as unsatisfied");
+      }
+    } catch (e) {
+      console.error("[auth] AAL lookup failed — treating as unsatisfied", e);
+    }
+
+    {
+      if (!mfaSatisfied) {
         if (!mayRedirectToLogin(path)) {
           return new NextResponse(JSON.stringify({ error: "mfa_required" }), {
             status: 403,
@@ -103,9 +126,6 @@ export async function updateSession(request: NextRequest) {
         url.searchParams.set("next", path);
         return NextResponse.redirect(url);
       }
-    } catch {
-      // Fail open for this request rather than risk locking a user out on a
-      // transient error; the gate still applies on the next navigation.
     }
   }
 

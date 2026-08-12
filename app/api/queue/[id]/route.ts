@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import { createHash } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadSessionState } from "@/lib/queue-state";
-import { projectQueueState } from "@/lib/queue-projection";
+import { loadQueueFor, resolveQueueViewer } from "@/lib/queue-audience";
 import { getAdminRole } from "@/lib/admin";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import { queueEtag, canServe304 } from "@/lib/queue-etag";
 
 // Module scope: the lint rule forbids impure calls inside render/handlers.
@@ -64,17 +61,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   // nothing else the organizer sees. The capability is proved, not asserted:
   // headers carry the install id and the token minted at registration, and the
   // database checks both against this session.
-  let isOperator = false;
-  const installId = req.headers.get("x-klimr-install") ?? "";
-  const deviceToken = req.headers.get("x-klimr-device-token") ?? "";
-  if (UUID_RE.test(installId) && deviceToken.length >= 20) {
-    const { data } = await admin.rpc("courtside_authorize", {
-      p_install_id: installId,
-      p_token_hash: createHash("sha256").update(deviceToken).digest("hex"),
-      p_session_id: id,
-    });
-    isOperator = data === true;
-  }
+  // KRA-002: audience resolution (including the device-capability check) lives in
+  // lib/queue-audience.ts so this route and the four server components cannot drift.
+  const viewer = await resolveQueueViewer(admin, id, meId, {
+    isAdmin,
+    organizerId,
+    operator: {
+      installId: req.headers.get("x-klimr-install") ?? "",
+      deviceToken: req.headers.get("x-klimr-device-token") ?? "",
+    },
+  });
+  const isOperator = viewer.isOperator;
 
   const audience = isOrganizer || isAdmin ? "org" : isOperator ? "operator" : meId ? "player" : "public";
   const etag = queueEtag(id, version, audience, meId);
@@ -90,15 +87,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   // this path is sampled, so the percentile measures the work that actually
   // costs something rather than being flattered by 304s.
   const t0 = Date.now();
-  const state = await loadSessionState(admin, id, meId);
+  const snapshot = await loadQueueFor(admin, id, meId, { viewer });
   const snapshotMs = Date.now() - t0;
-  if (!state) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!snapshot) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (sampleRoll() < 0.1) {
     void admin.from("perf_samples").insert({ metric: "queue_snapshot", value_ms: snapshotMs, route: "/api/queue/[id]" });
   }
 
-  const safe = projectQueueState(state, { isOrganizer, isAdmin, isOperator });
-  return NextResponse.json(safe, {
+  return NextResponse.json(snapshot.state, {
     headers: { ETag: etag, "Cache-Control": "private, no-cache" },
   });
 }

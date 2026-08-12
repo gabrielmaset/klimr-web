@@ -36,10 +36,56 @@ const PROBES: { table: "court_sessions" | "join_requests" | "court_sport_intel";
 const MISSING_COLUMN = /column .* does not exist|42703|could not find/i;
 const MISSING_FUNCTION = /could not find the function|does not exist|42883|PGRST202/i;
 
+/** KRA-041 — a boot probe with no deadline.
+ *
+ *  These run from `instrumentation.ts`, i.e. during startup. A Supabase endpoint
+ *  that BLACKHOLES — accepts the connection and never answers, which is what a
+ *  network partition or a firewall drop looks like — leaves each probe awaiting a
+ *  promise that never settles. There is no error to catch and no timeout to hit,
+ *  so the instance never finishes booting and never reports why: the platform
+ *  eventually kills it, and the logs show a start that stopped mid-sentence.
+ *
+ *  A refused connection was always fine — that errors quickly and the existing
+ *  "inconclusive, continuing" path handles it. Hanging is the case with no
+ *  handler at all.
+ *
+ *  The deadline is deliberately generous: this is a cold start, not a request
+ *  path, and a slow-but-alive database should still be allowed to answer. What
+ *  matters is that "never" is not one of the outcomes. */
+const PROBE_TIMEOUT_MS = 8000;
+
+type ProbeResult<T> = T & { data?: unknown; error: { message: string } | null };
+
+async function withDeadline<T extends { error: unknown }>(
+  work: PromiseLike<T>,
+  label: string,
+): Promise<{ data?: unknown; error: { message: string } | null }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const raced = await Promise.race<{ data?: unknown; error: { message: string } | null }>([
+      Promise.resolve(work) as Promise<ProbeResult<T>>,
+      new Promise<{ data?: undefined; error: { message: string } }>((resolve) => {
+        timer = setTimeout(
+          () => resolve({ error: { message: `${label} timed out after ${PROBE_TIMEOUT_MS}ms` } }),
+          PROBE_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    return raced;
+  } finally {
+    // Without this the pending timer holds the event loop open and delays the
+    // very startup this function is protecting.
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function assertSchemaCurrent(): Promise<void> {
   const admin = createAdminClient();
   for (const p of PROBES) {
-    const { error } = await admin.from(p.table).select(p.columns).limit(0);
+    const { error } = await withDeadline(
+      admin.from(p.table).select(p.columns).limit(0),
+      `probe on ${p.table}`,
+    );
     if (!error) continue;
     if (MISSING_COLUMN.test(error.message)) {
       const msg =
@@ -54,7 +100,10 @@ export async function assertSchemaCurrent(): Promise<void> {
   }
 
   // Layer 2: ask the database what the deployed code is missing.
-  const { data, error } = await admin.rpc("schema_manifest_missing");
+  const { data, error } = await withDeadline(
+    admin.rpc("schema_manifest_missing"),
+    "manifest probe",
+  );
   if (error) {
     if (MISSING_FUNCTION.test(error.message)) {
       const msg =
@@ -168,9 +217,14 @@ export async function assertSchemaCurrent(): Promise<void> {
     console.warn(`[schema] readiness probe inconclusive (${readyErr.message}) — continuing.`);
   }
 
-  if (data && data.length > 0) {
+  // `withDeadline` widens `data` to unknown because the timeout branch carries
+  // none. `schema_manifest_missing()` returns text[]; narrow here rather than
+  // loosening the helper, so a future caller with a different shape is not
+  // silently accommodated.
+  const missing = Array.isArray(data) ? (data as string[]) : [];
+  if (missing.length > 0) {
     const msg =
-      `[schema] STALE DATABASE: ${data.length} required object(s) missing or ungranted — ${data.join("; ")}. ` +
+      `[schema] STALE DATABASE: ${missing.length} required object(s) missing or ungranted — ${missing.join("; ")}. ` +
       `Apply pending migrations per docs/MIGRATIONS_LEDGER.md before deploying this build.`;
     console.error(msg);
     if (process.env.NODE_ENV === "production") throw new Error(msg);

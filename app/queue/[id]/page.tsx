@@ -3,7 +3,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadSessionState } from "@/lib/queue-state";
+import { loadQueueFor } from "@/lib/queue-audience";
 import { QueueClient } from "@/components/queue/queue-client";
 
 export const metadata: Metadata = { title: "Live queue" };
@@ -17,10 +17,13 @@ export default async function QueueSessionPage({ params }: { params: Promise<{ i
   if (!user) redirect(`/login?next=/queue/${id}`);
 
   const admin = createAdminClient();
-  const state = await loadSessionState(admin, id, user.id);
-  if (!state) notFound();
-
-  const isOrganizer = state.session.organizerId === user.id;
+  // KRA-002: the organizer keeps the full state; every other signed-in viewer of
+  // this page gets the projection. The audience is resolved from the raw row inside
+  // the seam, so `isOrganizer` no longer depends on a field the projection blanks.
+  const snapshot = await loadQueueFor(admin, id, user.id);
+  if (!snapshot) notFound();
+  const state = snapshot.state;
+  const isOrganizer = snapshot.viewer.isOrganizer;
 
   return (
     <div className="mx-auto max-w-page px-5 py-8">

@@ -9,6 +9,7 @@ import { sportMeta } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { useQueueState } from "@/components/queue/use-queue-state";
 import { joinCourt, leaveTeam, gameOver, startNextMatch, addCourt, removeCourt, startSession, restartSession, removeTeam, approveRequest, denyRequest, cancelRequest, closeCourt, reopenCourt, setPaused, resetSession, updateSessionSettings, updateCourt, resetSessionCodes } from "@/app/queue/actions";
+import { issueCourtsideEnrollment } from "@/app/queue/courtside-actions";
 
 type Action = (fd: FormData) => Promise<{ ok?: true; error?: string }>;
 
@@ -112,6 +113,11 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  // KRA-001: a one-time enrollment secret, shown exactly once. Held in component
+  // state and never persisted — the database stores only its SHA-256, so there is
+  // nothing to re-read and nothing to leak on a later render.
+  const [enrollCode, setEnrollCode] = useState<string | null>(null);
+  const [enrollErr, setEnrollErr] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState(initial.session.title);
 
   useEffect(() => {
@@ -140,6 +146,16 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
     const f = new FormData();
     for (const [k, v] of Object.entries(obj)) f.append(k, v);
     return f;
+  };
+
+  const issueEnrollment = () => {
+    setEnrollErr(null);
+    setEnrollCode(null);
+    start(async () => {
+      const res = await issueCourtsideEnrollment(fd({ sessionId: sid }));
+      if (res.error) setEnrollErr(res.error);
+      else if (res.code) setEnrollCode(res.code);
+    });
   };
 
   const { session, courts, me } = state;
@@ -303,6 +319,43 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                 <p className="text-xs text-mute">
                   Courtside screen on a separate tablet? Open <span className="font-mono font-semibold text-ink">klimr.com/q</span> and enter the display code <span className="font-mono font-bold tracking-wider text-ink">{dCode}</span> + the court number. It’s different from the join code on purpose — only people you show it to can run the screen.
                 </p>
+                {/* KRA-001: the Courtside APP enrolls with a one-time secret issued
+                    here. The join code and the display code cannot enroll a device —
+                    both are meant to be seen, and a credential you print on a poster
+                    is not a credential. */}
+                <div className="rounded-2xl border border-rule bg-bg/40 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">Add a Courtside app display</p>
+                      <p className="text-xs text-mute">Issues a one-time code for the tablet app. It expires in 30 minutes and works for one device.</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={issueEnrollment}
+                      className="press inline-flex items-center gap-1.5 rounded-[10px] border border-rule bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-brand hover:text-ink disabled:opacity-50"
+                    >
+                      <Monitor size={13} /> Get a display code
+                    </button>
+                  </div>
+                  {enrollCode ? (
+                    <div className="mt-3 rounded-[10px] border border-brand/40 bg-tint-brand p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-deep">Enter this in the app — shown once</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-lg font-bold tracking-widest text-ink">{enrollCode}</span>
+                        <button
+                          type="button"
+                          className="press rounded-[9px] border border-rule bg-white px-2.5 py-1.5 text-xs font-semibold hover:border-brand"
+                          onClick={() => navigator.clipboard?.writeText(enrollCode)}
+                        >
+                          <Copy size={12} /> Copy
+                        </button>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-mute">We store only a hash of it, so it can’t be shown again. Expired or lost? Issue another.</p>
+                    </div>
+                  ) : null}
+                  {enrollErr ? <p className="mt-2 text-xs font-semibold text-danger">{enrollErr}</p> : null}
+                </div>
                 <p className="text-xs text-faint">Turning off resets the queue and stops it — it won&rsquo;t cancel the event or its recurring series.</p>
               </>
             ) : (

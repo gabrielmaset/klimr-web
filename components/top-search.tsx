@@ -3,7 +3,7 @@
 import { SITE_INDEX, type PageSection } from "@/lib/site-index";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X, Trophy, ShoppingBag, GraduationCap } from "lucide-react";
+import { Search, User, MapPin, Users, CalendarDays, Loader2, CornerDownLeft, X, Trophy, ShoppingBag, GraduationCap, Store } from "lucide-react";
 import { globalSearch } from "@/app/search/actions";
 import { useAiSearch } from "@/components/ai-search-panel";
 import type { SearchResult, SearchResultType } from "@/app/search/types";
@@ -116,6 +116,10 @@ const TYPE_ICON: Record<SearchResultType, typeof User> = {
   tournament: Trophy,
   listing: ShoppingBag,
   class: GraduationCap,
+  // KRA-022: businesses were retrieved and then dropped for want of a route.
+  // These exhaustive Records are why the fix could not be half-done — adding the
+  // kind made every surface demand its icon and label.
+  business: Store,
 };
 
 function TopSearchInner() {
