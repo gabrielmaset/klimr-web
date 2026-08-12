@@ -31,17 +31,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  // KRA-001 (P0): enrollment takes a ONE-TIME secret the organizer issued, never
-  // the session join code. The join code is printed on the poster and rendered as
-  // the walk-up QR — it cannot also be the credential that mints operator rights.
-  // `code` is deliberately no longer read: an old client sending it gets a 400
-  // rather than a silent downgrade to the vulnerable path.
+  // KRA-001 IS NOT ACTIVE ON THIS PATH YET — reverted 2026-08-11 after it broke
+  // Courtside registration in production.
+  //
+  // The hardened version of this route reads `enrollmentCode` and calls
+  // `courtside_register(p_secret_hash …)`. Both halves of that require migration
+  // 0235, which is deliberately NOT pasted: the handoff records that 0235 must
+  // ship together with a Courtside app batch, because the tablet sends `code`.
+  //
+  // Shipping the route without the migration and without the app batch produced
+  // exactly the predicted failure — `ensureDeviceToken()` got a 400, returned
+  // null, and every display reported "This display isn't registered yet". The
+  // ordering constraint was written down and then not honoured on deploy, which
+  // is the failure worth remembering: a documented constraint only helps if the
+  // thing it constrains cannot ship without it.
+  //
+  // This restores the pre-KRA-001 behaviour, which matches the deployed database.
+  // The vulnerability (the public join code can mint an operator token) is
+  // therefore OPEN again and stays open until 0235 + the app batch ship together.
   const installId = String(body.installId ?? "");
-  const enrollmentCode = String(body.enrollmentCode ?? "").trim().toUpperCase();
-  if (!UUID_RE.test(installId) || enrollmentCode.length < 8 || enrollmentCode.length > 40) {
-    return NextResponse.json({ ok: false, error: "enrollment_required" }, { status: 400 });
+  const code = String(body.code ?? "").trim().toUpperCase();
+  if (!UUID_RE.test(installId) || code.length < 4 || code.length > 12) {
+    return NextResponse.json({ ok: false }, { status: 400 });
   }
-  const secretHash = createHash("sha256").update(enrollmentCode).digest("hex");
 
   // Server-minted: the client never chooses its own token.
   const token = randomBytes(32).toString("base64url");
@@ -50,16 +62,15 @@ export async function POST(req: Request) {
   const admin = getPrivilegedClient({ reason: "courtside:register" });
   const { data, error } = await admin.rpc("courtside_register", {
     p_install_id: installId,
-    p_secret_hash: secretHash,
+    p_code: code,
     p_token_hash: tokenHash,
     p_platform: String(body.platform ?? "").slice(0, 40) || null,
     p_app_version: String(body.appVersion ?? "").slice(0, 40) || null,
   });
 
   if (error || data !== true) {
-    // One response for every refusal — wrong secret, already consumed, expired,
-    // ended session. Distinguishing them would turn this into a probing oracle.
-    return NextResponse.json({ ok: false, error: "enrollment_invalid" }, { status: 403 });
+    // Same response for a bad code and a dead session: no oracle for guessing.
+    return NextResponse.json({ ok: false }, { status: 403 });
   }
   // The token is returned exactly once and never stored in plaintext anywhere.
   return NextResponse.json({ ok: true, token }, { headers: { "Cache-Control": "no-store" } });

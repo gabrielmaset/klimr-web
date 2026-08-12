@@ -86,7 +86,7 @@ companion roadmap section below. `GB` = auditor marked it a go-blocker.
 
 | KRA | Sev | Eff | KCDX | GB | Subsystem | Disposition | One-line |
 |---|---|---|---|---|---|---|---|
-| KRA-001 | P0 | S | 007 | ● | Queue/Courtside authz | **FIXED — Executed-local** | 0235: enrollment consumes a one-time organizer-issued secret; join and display codes register nothing. Acceptance 11/11 on a full 235-migration replay (both exploits, replay, expiry, revocation-sticks, member-read-denied). Guardrail + negative control. **Production-unverified.** |
+| KRA-001 | P0 | S | 007 | ● | Queue/Courtside authz | **REOPENED 2026-08-11 — reverted after a production incident** | 0235: enrollment consumes a one-time organizer-issued secret; join and display codes register nothing. Acceptance 11/11 on a full 235-migration replay (both exploits, replay, expiry, revocation-sticks, member-read-denied). Guardrail + negative control. **Production-unverified.** |
 | KRA-002 | P0 | S | 008 | ● | Queue SSR privacy | **FIXED — Executed-local** | `lib/queue-audience.ts` loads+projects in one operation; all 5 call sites converted (4 were leaking). Guardrail forbids any other importer of `loadSessionState`; negative control observed failing. **Browser/RSC-payload proof owed (B-03).** |
 | KRA-003 | P1 | S | 016 | ● | DB privileges | **FIXED — Executed-local** | 0239 sweeps every public function: revokes PUBLIC/anon, re-applies only EXPLICIT grants read from the catalog, and sets default privileges so future functions inherit the rule. `feed_emit`/`prune_feed_items` denied to members. Acceptance: anon executable = 0, implicit-authenticated = 0, **168 explicit grants preserved** (no over-revoke). Confirmed live twice independently during this batch. |
 | KRA-004 | P1 | M | 011,015 | ● | Professional review | **FIXED — Executed-local** | 0245 REPLACES `provider_application_hash` in place (not a parallel function) to cover `document_path`, `phone`, `attestations`, and widens the freeze to the same set. Pending rows rebound. Acceptance: swapping the document moves the hash; the applicant cannot swap while pending; stored hash never disagrees with contents. |
@@ -1613,3 +1613,102 @@ reading the test.** The negative control is not optional.
 The counterpart, four times over: `purge_orphan_feed_media`'s signature, a `professional_applications`
 table that does not exist, `feed_emit`'s argument list, and three invented queue column names.
 **Read the schema; do not recall it.**
+
+---
+
+### 2026-08-11 — INCIDENT: KRA-001 broke Courtside registration in production. Reverted.
+
+**Symptom.** Every Courtside display showed *"This display isn't registered yet — re-enter the code to
+set it up."* Owner reported it live, ~5:31 PM, on a session that was otherwise healthy (queue
+rendering, 5 teams, live data).
+
+**Cause — mine, and predicted in writing.** The hardened `app/api/courtside/register/route.ts`
+shipped to production. It reads `body.enrollmentCode` and calls
+`courtside_register(p_secret_hash …)`. Neither half can work yet:
+
+- `lib/courtside-install.ts` sends `code`, so `enrollmentCode` is undefined → the route returns
+  **400 `enrollment_required`** → `ensureDeviceToken()` returns null → the display reports itself
+  unregistered and cannot record a result.
+- Migration **0235 is deliberately unpasted**, so the deployed database still has
+  `courtside_register(uuid, text, text, text, text)` expecting `p_code`. Even a correct client would
+  have failed on the argument name.
+
+The handoff written hours earlier says exactly this: *"0235 needs the Courtside iOS batch first — the
+tablet app must send `enrollmentCode` instead of `code`. Until it does, existing displays cannot
+enroll. Fails closed, which is correct, but it IS a break."*
+
+**So the constraint was documented, understood, and still shipped.** That is the lesson, and it is
+not "write the constraint down" — it already was. A documented ordering constraint only helps if the
+thing it constrains cannot ship without it. Prose in a register does not gate a deploy.
+
+**Fix applied: revert, not forward-fix.** `route.ts` accepts `code` again and calls `p_code`;
+`database.types.ts` restored to the deployed signature. Deliberately NOT patched to "accept either" —
+a compatibility shim would leave the vulnerable path live indefinitely and quietly, which is how
+KCDX-007 left the token mintable in the first place.
+
+**Consequence, stated plainly: KRA-001 is OPEN again.** The public join code can once more mint a
+Courtside operator token. That was true before this remediation began, so the system is no worse than
+it was — but it is not fixed, and the register now says so.
+
+**The guardrail was pinned to the wrong thing.** The old test asserted the FIX (`route must send
+p_secret_hash`), so it passed happily while client, route and RPC signature were out of step, and
+failed the moment the revert restored a *working* system. Backwards.
+
+Replaced with one that asserts the **three-way coupling**: `lib/courtside-install.ts`,
+`app/api/courtside/register/route.ts` and the `courtside_register` signature in `database.types.ts`
+must all be on the same scheme. **Negative control: hardening the route alone — exactly what shipped —
+turns it red.** That test would have caught this before deploy.
+
+**To ship KRA-001 properly, all three move in one change:**
+1. `lib/courtside-install.ts` → send `enrollmentCode` from the organizer-issued secret
+2. `app/api/courtside/register/route.ts` → the hardened version (in git history / this entry)
+3. Migration **0235** pasted, plus the organizer UI to issue codes (`issueCourtsideEnrollment`, already
+   written and wired in `queue-client.tsx`)
+
+**Unrelated, and worth separating:** the CSP report-only violations are NOT connected. Report-only
+cannot block anything, and the enforced policy still carries `'self' 'unsafe-inline'`. Different
+issue, no interaction.
+
+**Evidence.** tsc 0, eslint 0 (137), vitest 321/321 after the revert. Negative control reproducing the
+incident observed failing.
+
+### 2026-08-11 — Incident correction: 0235 WAS deployed, so the route revert alone was wrong
+
+Owner then reported **all migrations through 0262 are deployed**. That inverts the diagnosis I gave an
+hour earlier and is worth recording as a correction rather than an edit.
+
+0235 does `drop function if exists public.courtside_register(uuid, text, text, text, text)` and
+recreates it with `p_secret_hash`. Both forms have identical argument TYPES, so the drop replaced it:
+**the deployed database now has only the secret-hash form.** My route revert sends `p_code`, and
+PostgREST resolves RPCs by argument NAME — so the reverted app alone would still fail, with
+"function does not exist" instead of a 400. Same outage, different error.
+
+**Note that the outage is consistent with EITHER ordering** — app-hardened-first, or
+migration-pasted-first. Both leave the three pieces out of step, which is exactly why the replacement
+guardrail asserts the coupling rather than either end of it.
+
+**0263 restores the `p_code` form** and drops the secret-hash form first, so no two functions with
+identical argument types survive together — 0214 and 0243 both record what happens when a vulnerable
+overload lives beside its replacement and the caller picks.
+
+**KRA-001 is OPEN.** The public join code can mint an operator token again, and the rollback comment
+names the specific regression it reintroduces: clearing `revoked_at` on re-register lets a revoked
+device re-enroll itself with a public code.
+
+**Kept deliberately:** `courtside_enrollments`, `courtside_issue_enrollment`, and the organizer's
+"Get a display code" button. Inert without a client that uses them, and most of the work already done
+for shipping KRA-001 properly.
+
+**VERIFICATION GAP, stated plainly.** 0263 has **not been executed**. The container's Postgres no
+longer starts at all — not the replay harness, not a fresh `initdb`. What was checked: dollar-quoting
+and quote balance (balanced once comment apostrophes are excluded), drop-before-create ordering, and
+the session predicate compared line-for-line against the deployed 0184 original it restores. That is
+static review, not proof. **Paste it inside `begin; … rollback;` first if you want certainty before
+committing** — a syntax error then costs nothing.
+
+**Also unrelated, and now confirmed by the second screenshot:** the CSP violations at 5:31 PM come
+from `KlimrCourtside/1.0` on `/q/JC2ETF/1` — the Courtside app itself. Still `csp://report-only`.
+Report-only **cannot block anything**; the enforced policy in `next.config.ts` still carries
+`'self' 'unsafe-inline'`, which permits those chunks. The display failed because registration
+returned an error, not because a script was blocked. Two independent problems that happened to
+surface in the same ten minutes.

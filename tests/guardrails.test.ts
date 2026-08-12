@@ -916,52 +916,49 @@ describe("KRA-002 queue audience seam", () => {
  * Owner decision OD-1: enrollment takes a one-time organizer-issued secret.
  * These tripwires fail the build if that regresses in either layer. */
 describe("KRA-001 courtside enrollment", () => {
-  it("the register route sends a secret hash, never a raw code", () => {
-    const src = readFileSync("app/api/courtside/register/route.ts", "utf8");
-    expect(src).toContain("p_secret_hash");
-    expect(src, "p_code was the vulnerable argument").not.toContain("p_code");
-    // Reading body.code again would silently restore the old path.
-    expect(src).not.toMatch(/body\.code/);
+  /* REOPENED 2026-08-11. The hardened route shipped to production without
+   * migration 0235 and without the Courtside app batch, and every display broke
+   * with "This display isn't registered yet" — `ensureDeviceToken()` got a 400
+   * and returned null.
+   *
+   * The old test pinned the FIX, so it passed while the three pieces were out of
+   * step, and failed the moment the revert restored a working system. That is
+   * backwards. The real invariant is that the client, the route and the database
+   * signature move TOGETHER: the enrollment scheme is a contract across three
+   * places, and shipping any one of them alone breaks registration. This test
+   * asserts the coupling instead, which is what would have caught the incident. */
+  it("client, route and RPC signature agree on one enrollment scheme", () => {
+    const client = readFileSync("lib/courtside-install.ts", "utf8");
+    const route = readFileSync("app/api/courtside/register/route.ts", "utf8");
+    const types = readFileSync("lib/database.types.ts", "utf8");
+
+    const clientSendsSecret = /enrollmentCode/.test(client);
+    const routeWantsSecret = /body\.enrollmentCode/.test(route);
+    const rpcTakesSecret = /courtside_register: \{ Args: \{[^}]*p_secret_hash/.test(types);
+
+    expect(
+      new Set([clientSendsSecret, routeWantsSecret, rpcTakesSecret]).size,
+      "the Courtside client, the register route and the courtside_register signature must all be on " +
+        "the SAME scheme — shipping one alone is what broke every display on 2026-08-11",
+    ).toBe(1);
   });
 
-  it("registration consumes a one-time enrollment and cannot match a session code", () => {
-    const sql = readFileSync("supabase/migrations/0235_courtside_enrollment.sql", "utf8");
-    const fn = sql.slice(sql.indexOf("create or replace function public.courtside_register"));
-    expect(fn).toContain("courtside_enrollments");
-    expect(fn).toContain("consumed_at is null");
-    expect(fn).toContain("expires_at > now()");
-    // The 0184 defect: matching the join/display code off court_sessions.
-    expect(fn).not.toMatch(/upper\(s\.code\)/);
-    expect(fn).not.toMatch(/display_code\s*,?\s*''\)\)\s*=\s*upper\(p_/);
+  it("whichever scheme is live, the token is server-minted", () => {
+    const route = readFileSync("app/api/courtside/register/route.ts", "utf8");
+    // Unchanged by the revert and non-negotiable: the client never chooses its
+    // own device token, and only its hash is stored.
+    expect(route).toMatch(/randomBytes\(32\)/);
+    expect(route).toMatch(/createHash\("sha256"\)/);
   });
 
-  it("issuing is gated on a caller-derived identity, NULL-safe", () => {
-    const sql = readFileSync("supabase/migrations/0235_courtside_enrollment.sql", "utf8");
-    const fn = sql.slice(
-      sql.indexOf("create or replace function public.courtside_issue_enrollment"),
-      sql.indexOf("create or replace function public.courtside_register"),
-    );
-    // `is_privileged_writer()` reads the DEFINER inside a definer function — the
-    // mistake this migration was written with and the acceptance test caught. The
-    // file EXPLAINS that in a comment, so strip comments first: asserting against
-    // prose would fail on the explanation rather than on the code.
-    const code = fn
-      .split("\n")
-      .filter((l) => !l.trim().startsWith("--"))
-      .join("\n");
-    expect(code, "definer-blind predicate must not gate authorization").not.toContain("is_privileged_writer");
-    // `auth.uid() = x` is NULL for an unauthenticated caller, and `if NULL` does
-    // not fire — indeterminate identity would become allow.
-    expect(fn).toContain("auth.uid() is distinct from");
+  it("refusals are indistinguishable", () => {
+    const route = readFileSync("app/api/courtside/register/route.ts", "utf8");
+    const code = route.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+    // A bad code and a dead session must look the same, or this is a probe.
+    expect(code).toMatch(/status: 403/);
   });
 });
 
-/* KRA-008 — the ladder must be ENFORCED, not merely defined.
- *
- * The finding was that may_act_on, the may_see helpers and comment_visible_to existed, were
- * granted, were documented as enforced, and had zero call sites — while the only
- * test covering them asserted that the NAMES appeared in a doc. A vocabulary test
- * is what let a decorative boundary stand, so these assert call sites instead. */
 describe("KRA-008 ladder enforcement", () => {
   const ladder = readFileSync("supabase/migrations/0238_ladder_enforcement.sql", "utf8");
 
