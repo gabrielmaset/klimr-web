@@ -65,6 +65,16 @@ else
   echo "concurrency_suite=FAIL"; grep -E "FAIL " "$W/conc.out" | head -6; fails=$((fails+1))
 fi
 
+# Feed visibility as a real member. Added 2026-08-12 after the ranked feed
+# emptied twice (0250 semantics, then 0264's INVOKER read of a member-revoked
+# table) — both invisible to suites that ran as postgres.
+echo "-- feed visibility --"
+if $P -f "$REPO/supabase/tests/feed_visibility_suite.sql" > "$W/feedvis.out" 2>&1; then
+  echo "feed_visibility_suite=PASS ($(grep -c 'ok   ' "$W/feedvis.out") checks)"
+else
+  echo "feed_visibility_suite=FAIL"; grep -E "FEED|COUNTS|STALE|FIXTURE|ERROR" "$W/feedvis.out" | head -4; fails=$((fails+1))
+fi
+
 # KCDX-052: the readiness gate, after the replay. A migration that opens a
 # boundary now fails CI rather than being discovered at boot in production.
 echo "-- readiness --"
@@ -75,6 +85,24 @@ else
   echo "klimr_ready=FAIL"
   $P -tAc "select '   ' || check_name || coalesce(' — '||detail,'') from public.klimr_readiness() where not passed" 2>/dev/null
   fails=$((fails+1))
+fi
+
+# rpc-grants: every app-called RPC exists and is executable by authenticated or
+# service_role. Added 2026-08-12 after get_ranked_feed(5-arg) shipped with no
+# grant at all and rode on platform default privileges the harness did not model.
+echo "-- rpc grants --"
+if PSQL="$P" REPO="$REPO" bash "$REPO/supabase/harness/rpc-grants.sh" > "$W/rpc.out" 2>&1; then
+  echo "$(grep rpc_grants= "$W/rpc.out")"
+else
+  echo "rpc_grants=FAIL"; grep -E "FAIL " "$W/rpc.out" | head -6; fails=$((fails+1))
+fi
+
+# policy-fn-grants: every policy-referenced function is executable by the roles
+# that evaluate the policy (0268; third sighting of the grant-gap class).
+if PSQL="$P" bash "$REPO/supabase/harness/policy-fn-grants.sh" > "$W/polfn.out" 2>&1; then
+  echo "policy_fn_grants=PASS"
+else
+  echo "policy_fn_grants=FAIL"; grep -E "VIOLATIONS|\[" "$W/polfn.out" | head -6; fails=$((fails+1))
 fi
 
 echo "-- acceptance probes --"

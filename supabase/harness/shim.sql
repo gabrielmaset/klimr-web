@@ -87,4 +87,10 @@ grant usage on schema net, cron to service_role;
 -- carry only the grants the migrations issue, and the grant catalog diverges
 -- from production for every table created after 0043. Fidelity, not policy.
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+-- Parity with the hosted platform: Supabase's baseline grants EXECUTE on new
+-- public functions to these roles via default privileges. Without this line the
+-- harness modeled a stricter world than production — which produced a false
+-- alarm (get_ranked_feed "denied") while hiding the true production ACL state.
+-- 0239's event trigger then strips public/anon here exactly as it does hosted.
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;

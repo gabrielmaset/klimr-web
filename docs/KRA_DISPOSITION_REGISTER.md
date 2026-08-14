@@ -1712,3 +1712,137 @@ Report-only **cannot block anything**; the enforced policy in `next.config.ts` s
 `'self' 'unsafe-inline'`, which permits those chunks. The display failed because registration
 returned an error, not because a script was blocked. Two independent problems that happened to
 surface in the same ten minutes.
+
+### 2026-08-11 — Feed regression: I emptied the default lane, and photos stopped publishing
+
+Reported as *"when I post something on the feed, it doesn't show up in the actual feed."* **Two
+independent causes, both mine, both from this remediation.**
+
+**Cause 1 — unknown origin treated as "far away" (fixed in 0264).** 0250 gave the ranker a real
+`nearby` scope and the Feed page began passing `p_scope = 'nearby'` for the DEFAULT lane. The distance
+predicate required a `post_origins` row. Origins are stamped at write time and **the backfill was
+never run** — it was recorded as owed and then not treated as blocking. Every pre-deploy post has no
+origin, the predicate is false for all of them, and the default lane collapsed to "my own posts plus
+my connections'".
+
+The defect is the semantics, not the missing backfill. **"We do not know where this came from" is not
+"this is far away."** A post is now excluded only when it HAS an origin outside the radius; unknown
+origins stay visible, so the lane degrades gracefully instead of emptying. That also makes the
+backfill a quality improvement rather than a prerequisite — the right shape for any derived-data
+feature, and what I should have written the first time.
+
+**Also fixed: the counts and the ranker disagreed again.** The page passed `'all'` to
+`feed_type_counts` while passing `'nearby'` to the ranker — a number above a filter describing a
+different feed. That is precisely the defect KRA-029 was raised about, reintroduced by me when the
+nearby lane landed, three days after I wrote the entry explaining why it mattered. The single-argument
+`feed_type_counts(text)` is dropped so a stale caller fails loudly.
+
+**Cause 2 — every photo post is held for review. NOT fixed; this is the owner's call.**
+`CSAM_SCAN_PROVIDER` defaults to `none`, and `scanForKnownCSAM()` then returns `blocked` by design.
+KRA-005 wired that scanner into the Feed, my seam maps `blocked` → `undecided` → `moderation_error`,
+which is in `GATE_DOWN`, which resolves to **`pending`** — invisible to everyone but the author.
+
+The behaviour is exactly what KRA-005 specified: never publish unscreened media. The consequence in a
+deployment with no scanner configured is that **photo posting is silently switched off**. My entry at
+the time said "fail-closed means never publishes, not always rejects" — true, and I did not follow it
+through to "with no provider configured, never publishes means never." Three options, all the owner's:
+
+1. **Configure a provider** (`CSAM_SCAN_PROVIDER=webhook` + `CSAM_SCAN_WEBHOOK_URL`) — the intended
+   end state; photos publish once screened.
+2. **`SAFETY_DEV_BYPASS=true`** — the file says explicitly "local development ONLY, never in
+   production". Not recommended, and named here only so the option is not hidden.
+3. **Accept photos held** — safe, but photo posting does not work, and the author is not clearly told.
+
+### 2026-08-11 — B-01 confirmed by machine evidence: the storage backup has never run
+
+`storage-backup #2` failed in 16s at `storage-backup.sh: line 72: PGURI: set PGURI` — the
+`: "${PGURI:?set PGURI}"` guard. The GitHub Actions secret is not configured, so **the workflow has
+never produced a backup**. KRA-018 and blocker B-01 said there was no run evidence; there is now
+positive evidence of the opposite, which is better than an absence.
+
+The script's own guard did its job — it refused to run half a backup. Set `PGURI` (plus the rclone
+remotes) in repository secrets, then the FIRST run is a test, not a backup: B-02 (restore drill)
+remains untouched and is the blocker that actually matters.
+
+### 2026-08-11 — CI `gates` failing on the Dependabot PR
+
+`schema-replay` **passes**; `gates` fails after the build ("route table not found" means the build log
+never contained the route table, i.e. the build itself failed). The ten annotations are pre-existing
+`jsx-a11y` warnings, not the cause.
+
+**Do not merge that PR as-is.** It bumps 24 packages and would overwrite the KRA-042 security work:
+the exact `next` pin at 16.2.12 (the Server-Action DoS fix) and the `postcss`/`sharp`/`nanoid`
+overrides that took `npm audit --omit=dev` from 4 high to 0. Re-run it after this branch lands so it
+rebases onto the pins, and check `npm audit --omit=dev` still reports 0 before merging.
+
+
+---
+
+## 2026-08-12 — Session 9 continuation: 0263/0264 verdicts, 0265–0267, KRA-037
+
+**0263 — verified correct.** Executed-local, from-zero replay + full acceptance: one
+`courtside_register` form (the `p_code` shape), anon/authenticated denied,
+service_role granted, `ON CONFLICT (install_id)` backed by a real unique index,
+join and display codes register case-insensitively, wrong code refused with no
+row, ended session refused, revoked device re-enrolls with `revoked_at` cleared —
+the documented KRA-001 cost, confirmed behaving exactly as documented.
+`journal_migration` returns void: the `NULL` the owner saw pasting 0264 is the
+expected success output.
+
+**0264 — verified WRONG; fixed by 0266.** Its predicate reads `post_origins`
+directly inside two INVOKER functions; 0250 revoked that table from members, and
+the executor checks all relation privileges up front. At the 0264 head, every
+member call to `get_ranked_feed` and `feed_type_counts` raises "permission denied
+for table post_origins" — all scopes. Proven Executed-local by running the
+acceptance as `authenticated`; production inference is strong (the revoke is
+explicit in the ledger) but owner should confirm with
+`select has_function_privilege('authenticated','public.get_ranked_feed(text,integer,double precision,double precision,double precision)','EXECUTE');`
+and by pasting 0265+0266. 0266 adds DEFINER `posts_with_origin(since)` (ids only,
+30-day bound) and rewrites both functions to use it. New permanent
+`feed_visibility_suite.sql` runs in every replay as a real member; negative
+control (revoke the helper) observed red.
+
+**0264's fail-loudly claim falsified.** The four-argument forms' parameter
+defaults absorb the old one- and two-argument call shapes: a stale deployed build
+gets 'all'-scope results silently, no error. Pinned in the suite as a rolling-
+compat guarantee; removing the defaults is a contraction step gated on the owner
+confirming the current build is deployed.
+
+**0265 — explicit grants for `get_ranked_feed(5-arg)`.** 0250 created it with no
+grant; it rode platform default privileges. Audit of all app-called RPC names:
+exactly one executable by neither `authenticated` nor `service_role`. Shim now
+models Supabase's function default privileges; permanent `rpc-grants.sh` probe in
+the replay (95 names / 0 failing at head; negative control: revoke one → exactly
+one red).
+
+**KRA-037 → Resolved (Executed-local; production paste + app deploy pending).**
+0267, both halves: (1) `place_on_team` honors a key hit only while the logged
+placement is still live for that identity; dead/vacated placements start a new
+epoch and the log row is refreshed. (2) `queue_join_full_team` — atomic team +
+members, key-locked, liveness-replayed, standard lock order; the split TS writes
+and their hand-rolled delete rollback are gone. App side: guests and full teams
+send one-shot form tokens (`components/queue/guest-join.tsx`), keys composed in
+`app/queue/actions.ts` (member identity / guest token / legacy name fallback),
+sanitizer in `lib/idem-token.ts`, `queue_join_full_team` + `posts_with_origin`
+registered in `lib/database.types.ts`, KCDX-067 budget consciously 972 → 985
+(reason recorded beside the number in `tests/guardrails.test.ts`). Evidence:
+concurrency suite 13/13 with 8 new checks, observed red pre-0267 exactly at the
+defect (dead-epoch, guest-ghost, full-team); sealing from-zero replay 267/0 with
+every gate green; tsc 0 / eslint 0 / vitest green. Old deployed builds keep
+working: `place_on_team` accepts token-less keys, and the old split-write path
+is simply replaced server-side on next deploy.
+
+**Paste order:** 0265 → 0266 → 0267, in one sitting, any app version — all three
+are app-independent and restore the member feed without a deploy. Open items
+unchanged: CSAM provider decision, B-01 `PGURI` secret, Dependabot rebase after
+this branch, deploy-status question to owner.
+
+
+## Session addendum 2026-08-12 (b)
+- Grant-gap class, third instance: policy-referenced functions (0268). Production drift confirmed for is_match_participant (granted at replayed head, denied in prod report) — reconciler-with-NOTICE chosen precisely so the paste output documents what production was missing. Deny-list (0237 six) enforced by exception, not exemption.
+- Guardrail lesson: policy-fn gate v1 passed on a dead database (empty output ≡ clean). Gates now must prove they measured: psql exit + SCANNED sentinel. Negative control observed red before trust.
+- KRA-029 extension: counts and ranker share the visibility definition including author-own-pending (0269); suite pins author/stranger agreement both ways.
+
+
+## 2026-08-13 — B-01 CLOSED
+storage-backup run #4 fully green: PASS (0 issues), checksums verified on both providers, config snapshot on both. Secrets live: SUPABASE_DB_URI, RCLONE_CONF (crypt plaintext in owner password manager). Root cause of final blocker: bucket-scoped R2 token vs rclone bucket check on virgin prefix; fixed with --s3-no-check-bucket (script, main) + no_check_bucket=true (template).

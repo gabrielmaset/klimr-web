@@ -108,6 +108,9 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
 
   return (
     <div className="mt-6 space-y-6 rounded-3xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-x-12">
+      <div className="space-y-5">
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-faint">Session</p>
       <div>
         <label className="mb-1 block text-sm font-semibold text-ink">Session name</label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Saturday beach volley" className="w-full rounded-[10px] border border-rule-2 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
@@ -127,10 +130,37 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
         </select>
       </div>
 
+      </div>
+
+      <div className="space-y-5">
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-faint">Rules</p>
+      <div>
+        <label className="mb-1 block text-sm font-semibold text-ink">Win rule</label>
+        <select value={winCap} onChange={(e) => setWinCap(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
+          {WIN_RULES.map((r) => (
+            <option key={r.v} value={r.v}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-faint">Losers re-form; the winner stays until this many wins.</p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-semibold text-ink">Team names</label>
+        <select value={teamNameMode} onChange={(e) => setTeamNameMode(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
+          <option value="letters">Team A / Team B</option>
+          <option value="first_player">First joined player&rsquo;s name</option>
+          <option value="initials">Each player&rsquo;s initials (M&middot;G&middot;K)</option>
+        </select>
+        <p className="mt-1 text-xs text-faint">How teams appear on the courtside display and boards. You can change it anytime.</p>
+      </div>
+      </div>
+      </div>
       <div>
         <label className="mb-1 block text-sm font-semibold text-ink">Court / venue (optional)</label>
         {venueCourt ? (
-          <div className="flex items-center justify-between gap-2 rounded-[10px] border border-rule-2 bg-white px-3 py-2.5">
+          <div className="flex max-w-xl items-center justify-between gap-2 rounded-[10px] border border-rule-2 bg-white px-3 py-2.5">
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-ink">{venueCourt.name}</span>
               {venueCourt.area ? <span className="block truncate text-xs text-faint">{venueCourt.area}</span> : null}
@@ -149,7 +179,7 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
             </button>
           </div>
         ) : (
-          <div className="relative">
+          <div className="relative max-w-xl">
             <input
               value={venueQuery}
               onChange={(e) => onVenueQuery(e.target.value)}
@@ -183,32 +213,11 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
         </p>
       </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-semibold text-ink">Win rule</label>
-        <select value={winCap} onChange={(e) => setWinCap(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
-          {WIN_RULES.map((r) => (
-            <option key={r.v} value={r.v}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-xs text-faint">King of the court: the losing team always re-forms; the winner keeps playing until it hits this many wins.</p>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-semibold text-ink">Team names</label>
-        <select value={teamNameMode} onChange={(e) => setTeamNameMode(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
-          <option value="letters">Team A / Team B</option>
-          <option value="first_player">First joined player&rsquo;s name</option>
-          <option value="initials">Each player&rsquo;s initials (M&middot;G&middot;K)</option>
-        </select>
-        <p className="mt-1 text-xs text-faint">How teams appear on the courtside display and boards. You can change it anytime.</p>
-      </div>
-
       <div className="border-t border-rule pt-5">
-        <p className="text-sm font-semibold text-ink">First court</p>
+        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-faint">First court</p>
         <p className="mb-3 text-xs text-faint">You can add more courts after you create the session.</p>
-        <div className="mb-3">
+        <div className="lg:flex lg:items-start lg:gap-12">
+        <div className="mb-3 lg:mb-0 lg:w-64 lg:shrink-0">
           <label className="mb-1.5 block text-xs font-semibold text-mute">Court name</label>
           <input value={courtLabel} onChange={(e) => setCourtLabel(e.target.value.slice(0, 40))} placeholder="Court 1" className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm" />
           <p className="mt-1 text-xs text-faint">Name it your way &mdash; Court A, Green Court, North&hellip; Blank keeps &ldquo;Court 1&rdquo;.</p>
@@ -221,12 +230,13 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
                 key={n}
                 type="button"
                 onClick={() => setSize(n)}
-                className={`rounded-full border px-4 py-2 text-sm font-bold transition-colors ${size === n ? "border-brand bg-brand text-white" : "border-rule bg-white text-ink-soft hover:border-brand"}`}
+                className={`rounded-xl border px-4 py-2 text-sm font-bold transition-colors ${size === n ? "border-brand bg-brand text-white" : "border-rule bg-white text-ink-soft hover:border-brand"}`}
               >
                 {formationLabel(n)}
               </button>
             ))}
           </div>
+        </div>
         </div>
         <div className="mt-4">
           <label className="mb-1.5 block text-xs font-semibold text-mute">Levels (optional)</label>
@@ -236,7 +246,7 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
                 key={l.key}
                 type="button"
                 onClick={() => toggleLevel(l.key)}
-                className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${levels.includes(l.key) ? "border-brand bg-tint-brand text-brand-deep" : "border-rule bg-white text-ink-soft hover:border-brand"}`}
+                className={`rounded-xl border px-3 py-1.5 text-sm font-semibold transition-colors ${levels.includes(l.key) ? "border-brand bg-tint-brand text-brand-deep" : "border-rule bg-white text-ink-soft hover:border-brand"}`}
               >
                 {l.label}
               </button>
@@ -245,7 +255,9 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
         </div>
       </div>
 
-      <div className="space-y-2 border-t border-rule pt-5">
+      <div className="border-t border-rule pt-5">
+      <p className="mb-3 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-faint">Joining</p>
+      <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-x-10">
         <Toggle on={allowGuests} set={setAllowGuests}>
           Allow walk-up sign-ups (no Klimr account — join by name)
         </Toggle>
@@ -266,11 +278,12 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
           </Toggle>
         ) : null}
       </div>
+      </div>
 
       {requireLocation ? <p className="text-xs text-mute">On-site check pins the court to <span className="font-semibold">your current location</span> when you create the session — so create it at the venue. We&apos;ll ask for location access.</p> : null}
       {err ? <p className="rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-3 py-2 text-sm font-medium text-[#b91c1c]">{err}</p> : null}
 
-      <button type="button" onClick={submit} disabled={pending || title.trim().length < 2} className="press inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-50">
+      <button type="button" onClick={submit} disabled={pending || title.trim().length < 2} className="press inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep disabled:opacity-50">
         {pending ? <Loader2 size={16} className="animate-spin" /> : null} Create session
       </button>
     </div>

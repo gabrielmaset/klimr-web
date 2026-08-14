@@ -67,3 +67,14 @@ Changing a settled decision quietly is worse than the original mistake.
 A row is added when the owner states a decision, not when Claude proposes one. Record the
 decision, the reason in one line, and what it supersedes. Date it in
 `docs/DESIGN_DECISIONS.md`, where the reasoning lives.
+
+
+## 2026-08-13 — Owner decisions (production issues batch)
+
+- **D-36 · Media classifier = OpenAI.** `MODERATION_PROVIDER=openai` + `OPENAI_API_KEY` (omni-moderation-latest, free, text+images). Conservative thresholds at launch: uncertain stays pending for manual review.
+- **D-37 · CSAM hash lane = Cloudflare CSAM Scanning Tool now.** PhotoDNA application and NCMEC ESP registration deferred to incorporation (both effectively expect a legal entity). Interim manual reporting path stays documented in MEDIA_SCREENING_PLAN.
+- **D-38 · Platform is 18+ only** (already enforced client-side at onboarding, line 316; server-side re-check to be added). Parent-managed accounts for minors are a future concept, not designed. The rankings minor-filter constraint is moot under this posture; revisit if under-18 accounts ever ship.
+- **D-39 · Rankings page shape.** The Mountain graphic is PERSONAL (the viewer's own ascent). Below it: a global, endlessly scrollable leaderboard with filters — sport, age group, gender, location, court-scoped boards — plus a rank-range jump (view ranks N to M). Age brackets: 18-24, 25-34, 35-44, 45-54, 55-64, 65+. Design reference: the phone demo in the klimr-vision project.
+- **D-40 · Team joinability is chosen at creation** — "anyone can ask to join" vs "friends only" — revising the June blanket friends-only-add rule to a per-team option. Open teams show an Ask-to-join button when spots exist; friends-only teams show a notice; team search surfaces only openly joinable teams for join-seekers.
+- **D-41 · Team challenges: GO,** same-sport constraint (challenger team's sport must match the target's), send/accept gated to managers/captains; acceptance creates a match with both rosters seeded.
+- **D-42 · Open-match visibility is the flagship flow.** Match creation must offer an explicit visibility choice (public / network / friends per the audience ladder) plus a desired-skill range for open spots, and public open matches must surface in discovery filtered by skill. Top of next build batch.

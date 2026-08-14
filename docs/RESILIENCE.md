@@ -142,8 +142,8 @@ the scheduler reported healthy runs. A GitHub workflow either succeeds or turns
 red, and red is visible.
 
 **What still has to be done by hand, once:** create the Supabase S3 access key,
-create the destination bucket with versioning, run `rclone config` for the three
-remotes, and set `RCLONE_CONF` and `SUPABASE_DB_URI` as repository secrets. The
+create the destination bucket with versioning, fill `supabase/harness/rclone.conf.template`
+(five remotes: supa, r2, b2, r2enc, b2enc), and set `RCLONE_CONF` and `SUPABASE_DB_URI` as repository secrets. The
 whole rclone config is one secret on purpose — splitting the Supabase keys, the
 R2 keys and the crypt password across four makes rotation a four-step job people
 do partially.

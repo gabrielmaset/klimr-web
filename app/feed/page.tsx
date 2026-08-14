@@ -423,8 +423,15 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   // the top-60 cap — so "Photos 3" meant "3 of the 60 we happened to rank", and
   // selecting the filter showed items the count never described. `feed_type_counts`
   // counts over the same candidate rule the ranker draws from, before the cap.
+  // The counts must describe the SAME set the list below them shows. Passing
+  // 'all' here while the ranker got 'nearby' put a number above a filter that
+  // counted a different feed — the exact defect KRA-029 was raised about,
+  // reintroduced when the nearby lane landed.
   const { data: countRows, error: countErr } = await supabase.rpc("feed_type_counts", {
-    p_scope: lane === "circle" ? "circle" : "all",
+    p_scope: lane === "circle" ? "circle" : "nearby",
+    p_lat: viewerPt?.lat ?? null,
+    p_lng: viewerPt?.lng ?? null,
+    p_radius_mi: RADIUS_MI,
   });
   if (countErr) console.error("[feed] type counts failed", countErr.message);
   const typeCounts: Record<string, number> = { all: 0, match: 0, photo: 0, video: 0, ask: 0, milestone: 0 };

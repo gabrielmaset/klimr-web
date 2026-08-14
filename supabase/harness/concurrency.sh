@@ -73,6 +73,48 @@ run2 "select public.place_on_team('33330000-0000-0000-0000-000000000001','$A',nu
 check "KCDX-040 one placement per person per session" \
   "$(q "select count(*) from public.queue_team_members m join public.queue_teams t on t.id=m.team_id where m.user_id='$A' and t.status<>'done'")" "1"
 
+# ── KRA-037: a key stops binding when its placement is over ──────────────
+q "delete from public.queue_command_log; delete from public.queue_team_members; delete from public.queue_teams" >/dev/null
+# Full-team cases get their OWN court: on the shared court a placement-command
+# team can fill and turn 'queued', which made the first version of the
+# queues-once check count the wrong command's team. And the session must allow
+# full teams, or the command under test correctly refuses before doing anything.
+q "update public.court_sessions set allow_full_teams=true where id='22220000-0000-0000-0000-000000000001'" >/dev/null
+q "insert into public.queue_courts (id,session_id,label,team_size) values
+   ('33330000-0000-0000-0000-000000000003','22220000-0000-0000-0000-000000000001','C3',2)
+   on conflict (id) do nothing" >/dev/null
+T1=$(q "select public.place_on_team('33330000-0000-0000-0000-000000000001','$B',null,'k37-epoch')")
+q "update public.queue_teams set status='done' where id='$T1'" >/dev/null
+T2=$(q "select public.place_on_team('33330000-0000-0000-0000-000000000001','$B',null,'k37-epoch')")
+check "KRA-037 dead placement starts a new epoch" \
+  "$(q "select count(*) from public.queue_team_members m join public.queue_teams t on t.id=m.team_id where m.user_id='$B' and t.status<>'done'")" "1"
+check "KRA-037 replay after death is a NEW placement" \
+  "$(q "select ('$T1' <> '$T2')::text")" "true"
+check "KRA-037 refreshed key points at the live team" \
+  "$(q "select coalesce((result_team_id = '$T2')::text,'null') from public.queue_command_log where idempotency_key='k37-epoch'")" "true"
+
+G1=$(q "select public.place_on_team('33330000-0000-0000-0000-000000000002',null,'Alex','k37-guest')")
+q "update public.queue_teams set status='done' where id='$G1'" >/dev/null
+q "select public.place_on_team('33330000-0000-0000-0000-000000000002',null,'Alex','k37-guest')" >/dev/null
+check "KRA-037 a second Alex is not the first Alex's ghost" \
+  "$(q "select count(*) from public.queue_team_members m join public.queue_teams t on t.id=m.team_id where m.guest_name='Alex' and t.status<>'done'")" "1"
+
+run2 "select public.place_on_team('33330000-0000-0000-0000-000000000001','$C',null,'k37-race');" \
+     "select public.place_on_team('33330000-0000-0000-0000-000000000001','$C',null,'k37-race');" >/dev/null
+check "KRA-037 same key raced twice places once" \
+  "$(q "select count(*) from public.queue_team_members m join public.queue_teams t on t.id=m.team_id where m.user_id='$C' and t.status<>'done'")" "1"
+
+run2 "select public.queue_join_full_team('33330000-0000-0000-0000-000000000003', array['FT One','FT Two'], 'k37-team');" \
+     "select public.queue_join_full_team('33330000-0000-0000-0000-000000000003', array['FT One','FT Two'], 'k37-team');" >/dev/null
+check "KRA-037 full team raced on one key queues once" \
+  "$(q "select count(*) from public.queue_teams t where t.status='queued' and t.court_id='33330000-0000-0000-0000-000000000003'")" "1"
+check "KRA-037 full team members land atomically" \
+  "$(q "select count(*) from public.queue_team_members m where m.team_id = (select result_team_id from public.queue_command_log where idempotency_key='k37-team')")" "2"
+# Not through q(): its tail -1 keeps only the CONTEXT line of a two-line
+# Postgres error, so the grep never saw the ERROR line that names the refusal.
+check "KRA-037 wrong-size team refused in the command" \
+  "$($P -qtAc "select public.queue_join_full_team('33330000-0000-0000-0000-000000000003', array['Solo'], null)" 2>&1 | grep -c bad_team_names)" "1"
+
 # ── KCDX-043: two people, one remaining seat ─────────────────────────────
 q "delete from public.event_rsvps; delete from public.events where title='Race Event'" >/dev/null
 q "insert into public.events (id,title,sport_key,starts_at,status,capacity,join_policy)

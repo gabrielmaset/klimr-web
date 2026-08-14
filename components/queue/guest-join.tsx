@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Crown, Plus, MapPin, Check, Loader2, Radio, Clock, Users } from "lucide-react";
 import type { QSessionState, QTeam, QCourtState } from "@/lib/queue";
 import { formationLabel, levelLabel } from "@/lib/queue";
@@ -74,6 +74,13 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
   }, []);
   const [teamCourt, setTeamCourt] = useState<string | null>(null);
   const [teamNames, setTeamNames] = useState<string[]>([]);
+  // KRA-037 idempotency tokens. One join INTENT = one token: a double-tap or a
+  // retried request re-sends the same token and the server places once; a new
+  // intent gets a fresh token. Solo: filled lazily on first submit, cleared on
+  // success so the next person at the kiosk starts a new intent. Team: minted
+  // when the sheet opens. Refs, not state — a token change must never re-render.
+  const soloTokenRef = useRef<string>("");
+  const teamTokenRef = useRef<string>("");
 
   const join = (courtId: string) => {
     setErr(null);
@@ -84,9 +91,11 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
     setJoiningCourt(courtId);
     start(async () => {
       const coords = await getCoords();
+      if (!soloTokenRef.current) soloTokenRef.current = crypto.randomUUID();
       const f = new FormData();
       f.append("courtId", courtId);
       f.append("name", name.trim());
+      f.append("idemToken", soloTokenRef.current);
       if (coords) {
         f.append("lat", String(coords.lat));
         f.append("lng", String(coords.lng));
@@ -98,6 +107,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
         setConfirmName(name.trim());
         setConfirm(res.pending ? "pending" : "joined");
         setName(""); // ready for the next person to type
+        soloTokenRef.current = ""; // next person is a new intent
         setTimeout(() => setConfirm(""), 5000);
       }
       setJoiningCourt(null);
@@ -109,6 +119,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
     setErr(null);
     setTeamCourt(court.id);
     setTeamNames(Array.from({ length: court.teamSize }, (_, i) => (i === 0 ? name.trim() : "")));
+    teamTokenRef.current = crypto.randomUUID(); // one sheet-open = one intent
   };
   const closeTeam = () => {
     setTeamCourt(null);
@@ -129,6 +140,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
       const f = new FormData();
       f.append("courtId", court.id);
       cleaned.forEach((n) => f.append("names", n));
+      if (teamTokenRef.current) f.append("idemToken", teamTokenRef.current);
       if (coords) {
         f.append("lat", String(coords.lat));
         f.append("lng", String(coords.lng));

@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { createHash, randomInt } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { cleanIdemToken } from "@/lib/idem-token";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearSessionPlay, wipeSession, ensureQueueLive, sessionPatch } from "@/lib/queue-state";
 import { accountActive } from "@/lib/guards";
@@ -329,7 +330,7 @@ async function placeOnTeam(admin: Admin, court: CourtLite, member: Member, idemp
 }
 
 /** Validate, then either place on a team now or file a pending request (approval mode). */
-async function requestOrJoin(admin: Admin, courtId: string, member: Member, coords: { lat?: number; lng?: number }): Promise<Result & { sessionId?: string; pending?: boolean }> {
+async function requestOrJoin(admin: Admin, courtId: string, member: Member, coords: { lat?: number; lng?: number }, idemToken?: string | null): Promise<Result & { sessionId?: string; pending?: boolean }> {
   const { data: court } = await admin.from("queue_courts").select("id, session_id, team_size, closed_at").eq("id", courtId).maybeSingle();
   if (!court) return { error: "Court not found." };
   if (court.closed_at) return { error: "This court is closed.", sessionId: court.session_id };
@@ -345,11 +346,19 @@ async function requestOrJoin(admin: Admin, courtId: string, member: Member, coor
     return { ok: true, sessionId: court.session_id, pending: true };
   }
 
-  // KCDX-040: the idempotency key was optional and never supplied, so a
-  // double-tap or a retried request placed the member twice. Derived from the
-  // facts of the join, not generated per call — a RETRY of the same join must
-  // produce the same key, which a random uuid never would.
-  const p = await placeOnTeam(admin, court, member, `join:${court.id}:${member.user_id ?? `g:${member.guest_name ?? ""}`}`);
+  // KCDX-040: the key is derived, not generated per call — a RETRY of the same
+  // join must produce the same key. KRA-037 split the derivation: a signed-in
+  // member's key is their identity, because the lifecycle epoch now lives
+  // server-side (place_on_team replays a key only while its placement is still
+  // live). A guest's key is the form's one-shot token, because a display name
+  // is not an identity — two Alexes are two people. Without a token (an older
+  // client), the name-derived key remains as the double-tap guard it always was.
+  const key = member.user_id
+    ? `join:${court.id}:${member.user_id}`
+    : idemToken
+      ? `join:${court.id}:g:${idemToken}`
+      : `join:${court.id}:g:${member.guest_name ?? ""}`;
+  const p = await placeOnTeam(admin, court, member, key);
   return p.error ? { error: p.error, sessionId: court.session_id } : { ok: true, sessionId: court.session_id };
 }
 
@@ -377,7 +386,7 @@ export async function joinCourtGuest(formData: FormData): Promise<Result & { pen
   if (name.length < 2) return { error: "Enter your name." };
   const lat = parseFloat(String(formData.get("lat") || ""));
   const lng = parseFloat(String(formData.get("lng") || ""));
-  const res = await requestOrJoin(admin, courtId, { guest_name: name }, { lat, lng });
+  const res = await requestOrJoin(admin, courtId, { guest_name: name }, { lat, lng }, cleanIdemToken(formData.get("idemToken")));
   if (res.sessionId) revalidatePath(`/queue/${res.sessionId}`);
   return res.error ? { error: res.error } : { ok: true, pending: res.pending };
 }
@@ -406,15 +415,22 @@ export async function joinCourtFullTeam(formData: FormData): Promise<Result> {
   const v = await validateJoin(admin, { id: court.id, session_id: court.session_id, team_size: court.team_size }, s, { guest_name: names[0] }, { lat, lng });
   if (v.error) return { error: v.error };
 
-  const { data: team, error: tErr } = await admin
-    .from("queue_teams")
-    .insert({ session_id: court.session_id, court_id: court.id, status: "queued", queued_at: new Date().toISOString(), hold_court: false })
-    .select("id")
-    .single();
-  if (tErr || !team) return { error: "Couldn't add your team — try again." };
-  const { error: mErr } = await admin.from("queue_team_members").insert(names.map((n) => ({ team_id: team.id, guest_name: n, session_id: court.session_id })));
-  if (mErr) {
-    await admin.from("queue_teams").delete().eq("id", team.id); // roll back the empty team
+  // KRA-037: one command, not two writes. The team and its members land in the
+  // same database transaction, keyed on the form's one-shot token so a
+  // double-tap queues once. The split insert-then-insert this replaces used a
+  // hand-rolled delete as its "rollback" and had no idempotency at all.
+  const idemToken = cleanIdemToken(formData.get("idemToken"));
+  const { error: jErr } = await admin.rpc("queue_join_full_team", {
+    p_court_id: court.id,
+    p_names: names,
+    p_idempotency_key: idemToken ? `team:${court.id}:${idemToken}` : null,
+  });
+  if (jErr) {
+    if (jErr.message.includes("full_teams_disabled")) return { error: "Full-team sign-ups aren't enabled for this session." };
+    if (jErr.message.includes("court_closed")) return { error: "This court is closed." };
+    if (jErr.message.includes("session_ended")) return { error: "This session has ended." };
+    if (jErr.message.includes("bad_team_names")) return { error: `A full team needs exactly ${court.team_size} player name${court.team_size === 1 ? "" : "s"} (16 letters max).` };
+    console.error("[queue] queue_join_full_team failed", jErr.message);
     return { error: "Couldn't add your team — try again." };
   }
   revalidatePath(`/queue/${court.session_id}`);

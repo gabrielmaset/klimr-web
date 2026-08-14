@@ -2234,6 +2234,7 @@ export interface Database {
       generate_investor_codes: { Args: { p_count: number; p_note?: string | null }; Returns: string[] };
       check_rate_limit: { Args: { p_key: string; p_max: number; p_window_seconds: number }; Returns: boolean };
       place_on_team: { Args: { p_court_id: string; p_user_id: string | null; p_guest_name: string | null; p_idempotency_key: string | null }; Returns: string };
+      queue_join_full_team: { Args: { p_court_id: string; p_names: string[]; p_idempotency_key: string | null }; Returns: string };
       queue_version: { Args: { p_session_id: string }; Returns: number };
       queue_poll_head: { Args: { p_session_id: string }; Returns: { version: number; organizer_id: string | null }[] };
       enqueue_job: { Args: { p_kind: string; p_payload: Json; p_dedupe_key: string | null; p_run_after: string; p_max_attempts: number; p_correlation_id: string | null }; Returns: string };
@@ -2245,9 +2246,10 @@ export interface Database {
       courtside_register: { Args: { p_install_id: string; p_code: string; p_token_hash: string; p_platform: string | null; p_app_version: string | null }; Returns: boolean };
       courtside_issue_enrollment: { Args: { p_session_id: string; p_secret_hash: string; p_label: string | null; p_ttl_minutes: number }; Returns: string };
       can_i_act_on: { Args: { p_subject: string; p_action: string }; Returns: boolean };
-      feed_type_counts: { Args: { p_scope: string }; Returns: { post_type: string; n: number }[] };
+      feed_type_counts: { Args: { p_scope: string; p_lat: number | null; p_lng: number | null; p_radius_mi: number }; Returns: { post_type: string; n: number }[] };
       browse_kind: { Args: { p_kind: string; p_limit: number }; Returns: { kind: string; id: string; title: string; subtitle: string | null; sort_at: string | null }[] };
       posts_within: { Args: { p_lat: number | null; p_lng: number | null; p_radius_mi: number }; Returns: string[] };
+      posts_with_origin: { Args: { p_since: string }; Returns: string[] };
       record_health_snapshot: { Args: Record<string, never>; Returns: { subsystem: string; ok: boolean; detail: string | null; transitioned: boolean }[] };
       points_drift_count: { Args: Record<string, never>; Returns: number };
       team_remove_member: { Args: { p_team: string; p_target: string }; Returns: string };

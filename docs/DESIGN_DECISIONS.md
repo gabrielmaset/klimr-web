@@ -249,6 +249,136 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-08-13 (d) — storage-backup GREEN: B-01 closed
+
+Fresh run #4 (Reported, owner screenshot): storage_backup=PASS, 0 issues — every member bucket and encrypted document copied and checksum-verified on R2 and B2, config snapshot landed on BOTH providers, retention pruned. Root cause of the config→R2 failure confirmed by the fix working: rclone's bucket-existence/creation check on a write into the never-populated `_config/` prefix is an account-level call the deliberately bucket-scoped R2 token cannot make; `--s3-no-check-bucket` skips it (B2 never hit this because its app key was created with list-bucket permission). Two durable process lessons recorded: GitHub "Re-run jobs" replays the ORIGINAL commit — code changes need a fresh `workflow_dispatch` run (three attempts were burned replaying frozen code, my instruction error); and the config-copy error-visibility patch is now live on main via the owner's web commit — byte-identical to the container copy, so the next zip push carries it without conflict. Nightly schedule (02:40 America/Los_Angeles) owns the backup from here. Remaining honest gap, unchanged: the RESILIENCE drill log is still empty — backups exist and verify, but a full restore has never been rehearsed; stays on the go-live checklist. iPhone impact: none.
+
+
+### 2026-08-13 (c) — First verified off-provider backup; one silent-failure fix
+
+Run #3/attempt 4 (Reported, owner screenshot): every member bucket and every encrypted document bucket copied and CHECKSUM-VERIFIED on both R2 and B2 (avatars 5, feed-media 2, tournament-gallery 9, credential-docs 1 encrypted; retention pruning ran). Sole FAIL: the config-capture snapshot to R2 — identical file succeeded to B2 and 16 other R2 ops succeeded, so likely transient; the copy ran with all output discarded, so the actual R2 error was unknowable. Patched: the config-copy FAIL line now prints the first line of rclone's error (same class as the verifier dead-remote note; both queued items in the silent-failure sweep). Ships with the next push/rebuild. iPhone impact: none.
+
+
+### 2026-08-13 (b) — Backup bring-up: secret name fix, template, verifier note
+
+`SUPABASE_DB_URI` secret set by owner and PROVEN working in run #3 (manifest line printed: 17 objects, 12.6 MB). All 23 remaining FAILs were the empty `RCLONE_CONF`; `rclone.conf.template` added (five remotes) and the crypt passwords were generated with real `rclone obscure`, plaintext held only in the owner's password manager. Correction recorded: my first instruction named the secret `PGURI` (the script's env var) — the workflow actually maps it from `SUPABASE_DB_URI`; caught by grep before harm. Hardening noted for the verifier: with unreadable remotes, `rclone size` defaults make counts "agree" at 0=0=0 and the diagnostic prints "CONTENT differs" — aggregate verdict fails correctly, but a dead remote should read "remote unreadable"; queued for the next harness batch. iPhone impact: none.
+
+
+### 2026-08-13 — Production at 0269; owner decisions locked; three new items
+
+**Production state (Reported by owner):** 0266→0269 pasted successfully after the paste-transport investigation (dashboard scanner validates the token after any `into` — even inside string literals — as a relation; paste law recorded: no bare `into` in any pasted text, enforced by the derivation/scan step). Feed shows the author's pending photo post; match-create grant confirmed by has_function_privilege probe. Vercel runs the latest delivered zip; the compat-defaults cleanup migration is scheduled for after the NEXT deploy (which will carry this batch's app changes).
+
+**Decisions recorded** (see DECISIONS_REGISTER 2026-08-13): OpenAI classifier + Cloudflare CSAM + conservative thresholds; PhotoDNA/NCMEC at incorporation; 18+ platform posture (client gate verified at onboarding line 316; server-side re-check scheduled); rankings = personal Mountain + global filterable leaderboard (his bracket set, rank-range jump, court boards); per-team joinability at creation (revises June friends-only-add — owner's explicit revision); team challenges same-sport, manager-gated; open-match visibility + skill targeting mandated as flagship.
+
+**New items logged:** (1) storage-backup workflow failed on the `${PGURI:?set PGURI}` guard — the standing unset-secret reminder finally fired in the wild; fix is the GitHub Actions secret (Session-Pooler URI: GitHub runners are IPv4-only). (2) Video screening question answered in MEDIA_SCREENING_PLAN §Video — video stays off (KCDX-006) until the frame-sampling gate ships. (3) Match visibility/skill gap confirmed: matches have status='open' + join_requests plumbing but no owner-facing visibility choice, no skill-range fields, no skill-filtered discovery.
+
+**iPhone impact: none** (docs and decisions only this turn).
+
+
+### 2026-08-12 (b) — Five production reports: policy-fn grants (0268), own-pending feed (0269), queue form, verdicts
+
+**0268 — third sighting of the grant-gap class, fixed by enumeration.** RLS policies run with the querying role's rights; 0239's sweep removed PUBLIC-default EXECUTE and nobody enumerated policy-referenced functions. Observed at head (Executed-local): `feed_items` denied for authenticated via `is_muted_by` (feed page line 118 reads it — admin-updates lane silently dead), tournaments denied for anon via `tournament_is_visible`. Reported from production: `is_match_participant` denied on match create — granted at replayed head, so production has drifted; 0268 therefore RECONCILES from the live catalog (pg_depend) and RAISE NOTICEs each grant, making the paste output the production forensic. The 0237 deny-list is preserved: `feed_items` policy rewritten to caller-bound `feed_actor_visible` (SECURITY DEFINER) instead of re-granting a raw pair predicate; a guard raises if any policy ever references a deny-listed predicate. Permanent gate `supabase/harness/policy-fn-grants.sh` wired into replay.
+
+**Gate defect found and fixed (recorded per rule).** The gate's first version printed PASS against a DEAD database — psql failed, empty output read as zero violations: the silent-no-op pattern. It now fails on psql error and requires a SCANNED:<n> sentinel ≥ 1. Negative control observed genuinely red (planted anon revoke on tournament_is_visible → FAIL naming it → restore → PASS). Second session mistake: `${PIPESTATUS[0]}` under dash aborted a verification run mid-flight; portable `$?` capture since.
+
+**0269 — one visibility definition.** Feed visibility = approved OR the viewer's own pending post, in BOTH `get_ranked_feed` and `feed_type_counts` (KRA-029 counts-vs-list doctrine). Rejected stays out of the wire even for the author. Posts RLS already allowed author-any-status reads and the card already had the IN REVIEW · ONLY YOU chip; the fix is purely server-side. feed_visibility_suite +5 checks (fixture pinned-pending precondition, author-ranked, author counts↔ranker agreement, stranger exclusion, stranger agreement) — 15/15.
+
+**Queue creation form rebuilt** (`components/queue/new-session-form.tsx`): two-column SESSION/RULES grid at lg, venue search capped max-w-xl, FIRST COURT as name-beside-formation row, JOINING toggles in two columns, mono-caps kickers matching the Play-page grammar, trimmed helpers, auto-width submit. Also fixes a standing-rule violation found in place: formation/level chips were `rounded-full` pills → `rounded-xl`.
+
+**Verdicts from history + tree (no .git in zip; chat record is the archaeology):** rankings filters NEVER existed in product (June demo memory; Web 6 roadmap items 6–7 confirm Phase-3 rankings was future work) — schema supports gender/DOB/skill filters, but age+gender+location filtering is a minor-discovery surface; taxonomy + 18+-only-filterable rule await Gabriel. Team challenge / ask-to-join NEVER existed; ask-to-join conflicts with the June 19 friends-only-add decision — options presented, not built. All-photos-pending is the designed fail-safe awaiting provider config; plan written at `docs/engineering/MEDIA_SCREENING_PLAN.md` (classifier lane is env-only today; CSAM lane provider decision is Gabriel's).
+
+**Evidence (Executed-local):** from-zero replay 269/0; rls_negative 26; concurrency PASS; feed_visibility 15; rpc_grants 95/0; policy_fn_grants PASS (21 scanned) + observed-red control; baselines flipped pre/post 0268; tsc 0; vitest 321 passed; production build compiled clean.
+
+**iPhone impact: none.**
+
+
+### 2026-08-12 — Feed origin containment, an RPC grant doctrine, and queue idempotency epochs (0265–0267)
+
+#### The fix that reproduced the outage (0264 → 0266)
+
+0264's semantics were right — an unknown origin is not a distance claim — but it
+implemented the test as a direct read of `post_origins` inside two SECURITY
+INVOKER functions, and 0250 had deliberately revoked that table from members.
+Postgres checks privileges for every relation in a statement at executor
+startup, not per OR-branch, so after 0264 every member call to
+`get_ranked_feed` and `feed_type_counts` failed with a permission error — every
+scope, not just nearby. The member feed the migration was pasted to restore was
+still down, now by a different mechanism.
+
+It was caught only when the acceptance ran AS `authenticated`. Every prior
+suite ran these functions as postgres, to whom no table is revoked. The role is
+part of the fixture: a superuser cannot experience a member-permission failure.
+0266 restores 0250's containment — a second DEFINER id-set helper,
+`posts_with_origin(since)`, returns only the IDS of recent posts that have an
+origin row, and "excluded" means known-origin AND outside the radius. Unknown
+stays visible. The `feed_visibility_suite` now runs in every replay as a real
+member, with the far-post exclusion as its non-vacuous baseline.
+
+#### A claim falsified by its own test
+
+0264 dropped the one-argument `feed_type_counts` and stated a stale caller
+would now "fail loudly." The suite falsified that on its first run: the
+four-argument form's parameter defaults absorb the one-argument call shape (and
+the two-argument ranker shape), so a stale deployed build silently gets
+'all'-scope results instead of an error. That accident is what keeps an old
+build rendering during a rolling deploy, so the suite pins it as a
+compatibility guarantee. Removing those defaults is a deliberate contraction
+step, allowed only after the owner confirms the current app build is live.
+
+#### One function nobody could call (0265)
+
+0250 dropped the granted two-argument ranker and created the five-argument form
+with no grant at all — it rode on Supabase's platform default privileges, which
+the harness did not model (the shim covered tables and sequences only; fixed).
+An audit of all app-called RPC names found exactly one executable by neither
+`authenticated` nor `service_role`. 0265 makes the ACL explicit; the permanent
+`rpc-grants.sh` probe now fails the replay if any app-called RPC is missing
+from the schema or callable by neither role. The probe's own first version
+compared psql's `t` against `||`-cast `true` and "failed" all 94 names — a
+guardrail asserting the adjacent thing — and was fixed with explicit tokens
+before its negative control (revoke one grant → exactly one red) was observed.
+
+#### KRA-037: the epoch is state, not key format (0267)
+
+`place_on_team` now honors a key hit only while the logged placement is still
+LIVE for that identity — team not 'done' and the member row still present. A
+dead or vacated placement starts a new epoch and the log row is refreshed to
+the new result. No key-format change; the lifecycle fact lives in live state,
+where it belongs. Guests additionally send a one-shot form token as their key
+material, because a display name is not an identity — two Alexes are two
+people; without a token the name-derived key remains the double-tap guard it
+always was. Full-team join is one database command
+(`queue_join_full_team`) — key-locked, liveness-replayed, team and members in
+one transaction — replacing the split application writes whose failure path
+was a hand-rolled delete.
+
+Suite mistakes recorded on the way to green: the harness `q()` helper's
+`tail -1` kept only the CONTEXT line of a two-line Postgres error, so the
+wrong-size refusal check greped an error name that was never in view; the
+fixture session was created without `allow_full_teams`, so both full-team
+racers were correctly refused and a placement-command team that happened to
+fill on the shared court impersonated the "queues once" result (full-team
+cases now have their own court); and the log-pointer check was vacuous
+pre-fix until the explicit T1≠T2 discriminator was added. The feed suite's
+first fixture forgot that `posts_force_pending` pins every insert — approval
+now goes through `klimr.privileged_write` and the approved status is a named
+precondition. Finally, the KCDX-067 size ratchet flagged the module growth:
+the token sanitizer had landed in `actions.ts` against the sync-helpers-in-lib
+rule and was moved to `lib/idem-token.ts`; the remaining growth is the new
+command's wiring, and the budget was raised to the exact post-move measurement
+(972 → 985) with the reason recorded beside the number.
+
+#### Evidence
+
+From-zero sealing replay: 267 applied / 0 failed; rls_negative 26, concurrency
+13/13 (8 new KRA-037 checks, observed red pre-0267 exactly at the defect),
+feed_visibility 10/10 as `authenticated`, rpc_grants 95 names / 0 failing,
+readiness 42. tsc 0, eslint 0 (137 warnings, at the D-35 ceiling), vitest
+321 passed (KCDX-067 budget consciously moved 972 → 985). All Executed-local;
+nothing here verifies production.
+
+iPhone impact: none.
+
 ### 2026-08-04 (g) — Match waitlist offers: reserved spots, timed confirmations, automatic cascade
 - **What existed vs what's new:** a numbered FIFO waitlist already existed (join_requests, status 'waitlisted', waitlist_position, bare join/leave actions) — but no offer machinery of any kind. Built per Gabriel's spec on top of that table.
 - **The flow:** when a participant leaves (or a prior offer dies), the FIRST in line gets an OFFER whose confirmation window is keyed to time-until-match at the moment the spot opened: ≤4h → 20 minutes; ≤24h → 1 hour; further out or anytime matches → 4 hours. Offered spots are RESERVED — direct joins count active offers as taken (both the join gate and the match room's "N spots open" math). Unconfirmed/declined offers expire: the player leaves the line (may rejoin at the back via upsert — the unique(match_id, requester_id) row resets with a fresh created_at) and the next player is called with a fresh window. Confirming inserts a CONFIRMED participant and notifies the organizer.

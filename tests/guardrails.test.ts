@@ -827,7 +827,12 @@ describe("KCDX-066 dialog accessibility", () => {
 describe("KCDX-067 server-action module size", () => {
   const budgets: Record<string, number> = {
     "app/tournaments/actions.ts": 2525,
-    "app/queue/actions.ts": 972,
+    // 2026-08-12 KRA-037: 972 -> 985. The split full-team writes were replaced
+    // by wiring for the atomic queue_join_full_team command (its error mapping)
+    // plus guest idempotency-token key derivation — the growth is the new
+    // command's surface, not accretion. The token sanitizer moved to
+    // lib/idem-token.ts per the sync-helpers rule, so this is the post-move size.
+    "app/queue/actions.ts": 985,
     "app/events/actions.ts": 898,
     "app/feed/actions.ts": 515,
   };
