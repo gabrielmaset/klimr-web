@@ -140,9 +140,9 @@ echo "== configuration =="
 # The part a restore cannot reconstruct from the database or the objects.
 bash "$(dirname "$0")/config-capture.sh" > "/tmp/config-${STAMP}.json" 2>/dev/null \
   && for d in "$DST_A" "$DST_B"; do
-       rclone copy "/tmp/config-${STAMP}.json" "${d}/_config/" >/dev/null 2>&1 \
-         && echo "   ok    config-${STAMP}.json → ${d}" \
-         || { echo "   FAIL  config → ${d}"; fails=$((fails+1)); }
+        err=$(rclone copy "/tmp/config-${STAMP}.json" "${d}/_config/" --s3-no-check-bucket 2>&1 >/dev/null) \
+        && echo "   ok    config-${STAMP}.json → ${d}" \
+        || { echo "   FAIL  config → ${d}: $(printf '%s' "$err" | grep -m1 . | cut -c1-160)"; fails=$((fails+1)); }
      done
 rm -f "/tmp/config-${STAMP}.json"
 
