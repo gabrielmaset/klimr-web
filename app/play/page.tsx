@@ -195,6 +195,8 @@ export default async function PlayPage() {
       courtName: c?.name ?? m.location_text ?? null,
       distanceMi: c ? distTo(c.lat, c.lng) : null,
       totalSlots: m.total_slots ?? 2,
+      skillMin: m.skill_min ?? null,
+      skillMax: m.skill_max ?? null,
       joinedCount,
       waitlistCount: wlCountMap.get(m.id) ?? 0,
       wlStatus: (wlMine.get(m.id)?.status as "waitlisted" | "offered" | undefined) ?? null,

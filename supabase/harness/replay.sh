@@ -75,6 +75,13 @@ else
   echo "feed_visibility_suite=FAIL"; grep -E "FEED|COUNTS|STALE|FIXTURE|ERROR" "$W/feedvis.out" | head -4; fails=$((fails+1))
 fi
 
+# 0270/0271: the match discovery ladder and the adult gate, as real members.
+if $P -f "$REPO/supabase/tests/match_visibility_suite.sql" > "$W/matchvis.out" 2>&1; then
+  echo "match_visibility_suite=PASS ($(grep -c 'ok   ' "$W/matchvis.out") checks)"
+else
+  echo "match_visibility_suite=FAIL"; grep -E "MATCH|ADULT|FIXTURE|ERROR" "$W/matchvis.out" | head -4; fails=$((fails+1))
+fi
+
 # KCDX-052: the readiness gate, after the replay. A migration that opens a
 # boundary now fails CI rather than being discovered at boot in production.
 echo "-- readiness --"

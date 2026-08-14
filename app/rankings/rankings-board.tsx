@@ -14,6 +14,12 @@ import { SPORTS } from "@/lib/sports";
 
 type ScopeKey = "zip" | "city" | "state" | "national" | "world";
 
+const BRACKETS: readonly (readonly [string, number, number | null])[] = [
+  ["18-24", 18, 24], ["25-34", 25, 34], ["35-44", 35, 44],
+  ["45-54", 45, 54], ["55-64", 55, 64], ["65+", 65, null],
+] as const;
+const GENDER_OPTIONS = [["woman", "Women"], ["man", "Men"], ["nonbinary", "Nonbinary"]] as const;
+
 function agoShort(iso: string): string {
   const days = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86400000));
   if (days === 0) return "today";
@@ -262,6 +268,12 @@ export function RankingsBoard({
   const [scopeIdx, setScopeIdx] = useState(0);
   const [cache, setCache] = useState<Record<string, RankedRow[]>>({});
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [gender, setGender] = useState("");
+  const [bracket, setBracket] = useState("");
+  const filt = `${gender}|${bracket}`;
+  const br = BRACKETS.find(([k]) => k === bracket);
+  const ageMin = br ? br[1] : null;
+  const ageMax = br ? br[2] : null;
 
   const sport = SPORTS[sportIdx];
   const scope = scopes[scopeIdx];
@@ -274,12 +286,15 @@ export function RankingsBoard({
     const sportKey = sport.key;
     Promise.all(
       scopes.map(async (sc) => {
-        const k = `${sportKey}:${sc.key}`;
+        const k = `${sportKey}:${sc.key}:${filt}`;
         if (sc.key !== "world" && !sc.region) return [k, [] as RankedRow[]] as const;
         const { data } = await supabase.rpc("ranked_players", {
           p_sport: sportKey,
           p_scope: sc.key,
           p_region: sc.region,
+          p_gender: gender || null,
+          p_age_min: ageMin,
+          p_age_max: ageMax,
         });
         return [k, ((data as RankedRow[] | null) ?? [])] as const;
       }),
@@ -290,15 +305,15 @@ export function RankingsBoard({
         for (const [k, v] of entries) next[k] = v;
         return next;
       });
-      setLoadedKey(sportKey);
+      setLoadedKey(`${sportKey}:${filt}`);
     });
     return () => {
       active = false;
     };
-  }, [sport.key, scopes, supabase]);
+  }, [sport.key, scopes, supabase, gender, bracket, filt, ageMin, ageMax]);
 
-  const ready = loadedKey === sport.key;
-  const key = `${sport.key}:${scope.key}`;
+  const ready = loadedKey === `${sport.key}:${filt}`;
+  const key = `${sport.key}:${scope.key}:${filt}`;
   const rows = cache[key] ?? [];
   const field = rows.length;
   const meIdx = rows.findIndex((r) => r.user_id === userId);
@@ -309,8 +324,8 @@ export function RankingsBoard({
   const pct = me ? me.rank / field : 0;
   const markerTop = Math.min(94, Math.max(8, pct * 100));
   const pctLabel = me ? (me.rank === 1 ? "Summit" : `top ${Math.max(1, Math.round(pct * 100))}%`) : "—";
-  const countReady = (k: ScopeKey) => cache[`${sport.key}:${k}`] !== undefined;
-  const countFor = (k: ScopeKey) => cache[`${sport.key}:${k}`]?.length ?? 0;
+  const countReady = (k: ScopeKey) => cache[`${sport.key}:${k}:${filt}`] !== undefined;
+  const countFor = (k: ScopeKey) => cache[`${sport.key}:${k}:${filt}`]?.length ?? 0;
 
   return (
     <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
@@ -368,6 +383,30 @@ export function RankingsBoard({
           <p className={`font-mono text-floor font-bold uppercase tracking-[.18em] text-floor`} style={{ color: "var(--color-ink-4)" }}>The ascent</p>
           <p className="mt-0.5 font-display text-[21px] font-bold leading-none tracking-[-0.015em] text-ink">{scope.place}</p>
           <p className="mt-1 font-mono text-[10px] font-semibold" style={{ color: "var(--color-ink-4)" }}>{countReady(scope.key) ? `${compact(countFor(scope.key))} climbers` : "…"}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              aria-label="Filter by gender"
+              className="rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+            >
+              <option value="">All players</option>
+              {GENDER_OPTIONS.map(([k, l]) => (
+                <option key={k} value={k}>{l}</option>
+              ))}
+            </select>
+            <select
+              value={bracket}
+              onChange={(e) => setBracket(e.target.value)}
+              aria-label="Filter by age group"
+              className="rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+            >
+              <option value="">All ages</option>
+              {BRACKETS.map(([k]) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
+          </div>
         </div>
         {me ? (
           <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-floor font-bold uppercase tracking-[.14em]" style={{ background: "var(--color-tint-brand)", borderColor: "var(--color-tint-brand-bd)", color: "var(--color-flame-text)" }}>
@@ -523,6 +562,7 @@ export function RankingsBoard({
                 </p>
               </div>
             )}
+            <FullField rows={rows} userId={userId} boardKey={key} />
             <div className={CARD}>
               <div className="font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">How points work</div>
               <p className="mt-2 text-[12.5px] leading-relaxed text-mute">
@@ -557,6 +597,58 @@ function Tile({ label, value, mono, color, pop }: { label: string; value: string
       <div className="font-mono text-floor font-bold uppercase tracking-[.18em] text-floor text-faint">{label}</div>
       <div className={`mt-0.5 text-[14px] font-bold ${mono ? "font-mono" : ""}`} style={{ color: color ?? "var(--color-ink)" }}>
         {value}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- the full field: every ranked player, with a rank jump (D-39) ---------- */
+function FullField({ rows, userId, boardKey }: { rows: RankedRow[]; userId: string; boardKey: string }) {
+  const [jump, setJump] = useState("");
+  const go = () => {
+    const n = Math.max(1, Math.floor(Number(jump)));
+    if (!Number.isFinite(n) || rows.length === 0) return;
+    const target = rows.reduce((best, r) => (Math.abs(r.rank - n) < Math.abs(best.rank - n) ? r : best), rows[0]);
+    document.getElementById(`rk-${boardKey}-${target.rank}-${target.user_id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+  if (rows.length === 0) return null;
+  return (
+    <div className={CARD}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="font-mono text-floor font-bold uppercase tracking-[.18em] text-faint">The field · {rows.length.toLocaleString()} ranked</div>
+        <div className="flex items-center gap-2">
+          <input
+            value={jump}
+            onChange={(e) => setJump(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") go(); }}
+            inputMode="numeric"
+            placeholder="Rank #"
+            aria-label="Jump to rank"
+            className="w-24 rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+          />
+          <button type="button" onClick={go} className="rounded-[10px] border border-rule-2 bg-surface px-3 py-2 text-sm font-semibold text-ink hover:border-ink/30">
+            Jump
+          </button>
+        </div>
+      </div>
+      <div className="max-h-[560px] space-y-1.5 overflow-y-auto pr-1">
+        {rows.map((r) => {
+          const you = r.user_id === userId;
+          return (
+            <Link
+              key={r.user_id}
+              id={`rk-${boardKey}-${r.rank}-${r.user_id}`}
+              href={`/profile/${r.user_id}`}
+              className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
+              style={{ background: you ? "var(--color-tint-brand)" : "var(--color-bg)", borderColor: you ? "var(--color-brand)" : "var(--color-rule)" }}
+            >
+              <span className="w-14 shrink-0 font-mono text-sm font-bold tabular" style={{ color: you ? "var(--color-brand)" : "var(--color-faint)" }}>#{fmt(r.rank)}</span>
+              <Disc row={r} you={you} />
+              <span className="flex-1 truncate text-sm font-bold text-ink">{you ? "You" : r.display_name}</span>
+              <span className="font-mono text-xs text-mute">{fmt(r.points)} pts</span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

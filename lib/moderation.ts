@@ -39,7 +39,7 @@ const POLICY =
   "hate = hateful symbols, slurs, or targeted harassment; " +
   "drugs_weapons = sale of weapons or illegal drugs; " +
   "spam = spam, scams, phishing, or doxxing; " +
-  "other = anything else clearly inappropriate for an all-ages app.";
+  "other = anything else clearly inappropriate for an adults-only (18+) sports community.";
 
 type Block = { type: string; text?: string };
 type AnthropicResponse = { content?: Block[] };

@@ -10,6 +10,8 @@ import { joinMatch, joinWaitlist, leaveWaitlist, confirmWaitlistSpot, declineWai
 import type { PlayMatch, Viewer } from "./play-browser";
 import { OfferCountdown } from "./offer-countdown";
 
+const LEVEL_LABEL: Record<string, string> = { new: "New", casual: "Casual", competitive: "Competitive", advanced: "Advanced" };
+
 /** One match card — KLIMR-PLAY-HANDOFF §3e. Answers fast: sport, format,
  *  time, spots urgency, court + distance, players, host, one obvious action.
  *  Join is optimistic: the chip flips to YOU'RE IN and the roster updates
@@ -117,6 +119,18 @@ export function MatchCard({ m, viewer, now }: { m: PlayMatch; viewer: Viewer; no
             <p className="truncate text-[14.5px] font-bold leading-tight text-ink">
               {m.sportName} · {m.formatLabel}
             </p>
+            {m.skillMin || m.skillMax ? (
+              <p className="mt-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-brand-deep">
+                Seeking{" "}
+                {m.skillMin && m.skillMax
+                  ? m.skillMin === m.skillMax
+                    ? LEVEL_LABEL[m.skillMin]
+                    : `${LEVEL_LABEL[m.skillMin]}–${LEVEL_LABEL[m.skillMax]}`
+                  : m.skillMin
+                    ? `${LEVEL_LABEL[m.skillMin]}+`
+                    : `up to ${LEVEL_LABEL[m.skillMax as string]}`}
+              </p>
+            ) : null}
             <p className="mt-0.5 flex flex-wrap items-center gap-1.5">
               <span className="font-mono text-[10.5px] font-bold tracking-[.04em] text-flame-text">{now ? timeChip(m.effectiveAt, now) : "\u00A0"}</span>
               {m.recurrence ? (

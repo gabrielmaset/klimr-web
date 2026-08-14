@@ -437,6 +437,9 @@ export interface Database {
           court_id: string | null;
           total_slots: number;
           status: MatchStatus;
+          visibility: string;
+          skill_min: string | null;
+          skill_max: string | null;
           recurring: boolean;
           recurrence: string | null;
           result: Json | null;
@@ -453,6 +456,9 @@ export interface Database {
           court_id?: string | null;
           total_slots?: number;
           status?: MatchStatus;
+          visibility?: string;
+          skill_min?: string | null;
+          skill_max?: string | null;
           recurring?: boolean;
           recurrence?: string | null;
           result?: Json | null;
@@ -467,6 +473,9 @@ export interface Database {
           court_id?: string | null;
           total_slots?: number;
           status?: MatchStatus;
+          visibility?: string;
+          skill_min?: string | null;
+          skill_max?: string | null;
           recurring?: boolean;
           recurrence?: string | null;
           result?: Json | null;

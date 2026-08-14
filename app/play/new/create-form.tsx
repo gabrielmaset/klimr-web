@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import { createMatch } from "./actions";
 import { SPORTS, matchFormats, defaultMatchFormat, matchFormatMeta } from "@/lib/sports";
+
+const SKILL_LEVELS = [["new", "New"], ["casual", "Casual"], ["competitive", "Competitive"], ["advanced", "Advanced"]] as const;
 import { SportIcon } from "@/components/sport-icons";
 import { CourtPicker } from "./court-picker";
 import { DateTimePicker } from "./datetime-picker";
@@ -23,6 +25,9 @@ export function CreateMatchForm({
   const [format, setFormat] = useState<string>(defaultMatchFormat(initialCourt?.sport || defaultSport || "")?.key ?? "");
   const [court, setCourt] = useState<PickerCourt | null>(initialCourt);
   const [recurring, setRecurring] = useState(false);
+  const [visibility, setVisibility] = useState<"public" | "followers" | "friends">("public");
+  const [skillMin, setSkillMin] = useState("");
+  const [skillMax, setSkillMax] = useState("");
   const [recurrence, setRecurrence] = useState("weekly");
 
   // Everything about the match STRUCTURE derives from the canonical
@@ -194,6 +199,54 @@ export function CreateMatchForm({
               {court ? "Add a specific court number or meeting spot." : "If your court isn't listed above, just type where to meet."}
             </p>
           </div>
+
+          <div>
+            <p className="kicker text-faint">Who can join</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {([["public", "Anyone on Klimr"], ["followers", "Friends & followers"], ["friends", "Friends only"]] as const).map(([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setVisibility(k)}
+                  className={`rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors ${visibility === k ? "border-brand bg-tint-brand text-brand-deep" : "border-rule-2 bg-surface text-mute hover:border-ink/30"}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-faint">Who can discover this match and ask to join. You approve every request either way.</p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="skill_min" className="kicker text-faint">Level from</label>
+                <select
+                  id="skill_min"
+                  value={skillMin}
+                  onChange={(e) => setSkillMin(e.target.value)}
+                  className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                >
+                  <option value="">Any</option>
+                  {SKILL_LEVELS.map(([k, l]) => (
+                    <option key={k} value={k}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="skill_max" className="kicker text-faint">Level to</label>
+                <select
+                  id="skill_max"
+                  value={skillMax}
+                  onChange={(e) => setSkillMax(e.target.value)}
+                  className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                >
+                  <option value="">Any</option>
+                  {SKILL_LEVELS.map(([k, l]) => (
+                    <option key={k} value={k}>{l}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="mt-1.5 text-xs text-faint">Optional. Shown on the match card so the right players find you.</p>
+          </div>
         </div>
       </div>
 
@@ -203,6 +256,9 @@ export function CreateMatchForm({
       <input type="hidden" name="court_payload" value={courtPayload} />
       <input type="hidden" name="recurring" value={recurring ? "on" : ""} />
       <input type="hidden" name="recurrence" value={recurring ? recurrence : ""} />
+      <input type="hidden" name="visibility" value={visibility} />
+      <input type="hidden" name="skill_min" value={skillMin} />
+      <input type="hidden" name="skill_max" value={skillMax} />
 
       <JoinSuggest sport={sport} zip={defaultZip ?? ""} />
 

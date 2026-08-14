@@ -20,6 +20,8 @@ export type PlayMatch = {
   sportKey: string;
   sportName: string;
   formatLabel: string;
+  skillMin: string | null;
+  skillMax: string | null;
   effectiveAt: string | null;
   recurrence: string | null;
   courtId: string | null;

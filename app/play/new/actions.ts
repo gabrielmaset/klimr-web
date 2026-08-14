@@ -69,6 +69,18 @@ export async function createMatch(_prev: CreateState, formData: FormData): Promi
     }
   }
 
+  const LEVEL_ORDER = ["new", "casual", "competitive", "advanced"] as const;
+  type Level = (typeof LEVEL_ORDER)[number];
+  const visibilityRaw = String(formData.get("visibility") || "public");
+  const visibility = ["public", "followers", "friends"].includes(visibilityRaw) ? visibilityRaw : "public";
+  const skillMinRaw = String(formData.get("skill_min") || "");
+  const skillMaxRaw = String(formData.get("skill_max") || "");
+  const skillMin = (LEVEL_ORDER as readonly string[]).includes(skillMinRaw) ? (skillMinRaw as Level) : null;
+  const skillMax = (LEVEL_ORDER as readonly string[]).includes(skillMaxRaw) ? (skillMaxRaw as Level) : null;
+  if (skillMin && skillMax && LEVEL_ORDER.indexOf(skillMin) > LEVEL_ORDER.indexOf(skillMax)) {
+    return { error: "Skill range: the minimum level is above the maximum." };
+  }
+
   const { data: match, error } = await supabase
     .from("matches")
     .insert({
@@ -80,6 +92,9 @@ export async function createMatch(_prev: CreateState, formData: FormData): Promi
       court_id: courtId,
       total_slots: slots,
       status: "open",
+      visibility,
+      skill_min: skillMin,
+      skill_max: skillMax,
       recurring,
       recurrence,
     })
