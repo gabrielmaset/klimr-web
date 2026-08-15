@@ -8,6 +8,7 @@ type Event = { id: string; kind: string; actor_id: string | null; target_id: str
 
 const EVENT_ICON: Record<string, typeof UserPlus> = {
   team_created: Sparkles,
+  join_requested: UserPlus,
   member_joined: UserPlus,
   member_left: UserMinus,
   member_removed: UserMinus,
@@ -61,6 +62,8 @@ export default async function TeamChat({ params }: { params: Promise<{ teamId: s
     switch (e.kind) {
       case "team_created":
         return `${nameOf(e.actor_id)} created the team`;
+      case "join_requested":
+        return `${nameOf(e.actor_id)} asked to join the team`;
       case "member_joined":
         return `${nameOf(e.target_id ?? e.actor_id)} joined the team`;
       case "member_left":

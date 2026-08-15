@@ -4,6 +4,7 @@ import { createNotification } from "@/lib/notify";
 
 export type TeamEventKind =
   | "team_created"
+  | "join_requested"
   | "member_joined"
   | "member_left"
   | "member_removed"

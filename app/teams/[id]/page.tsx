@@ -14,6 +14,7 @@ import { Avatar } from "@/components/avatar";
 import { leaveTeam } from "../actions";
 import { EditTeamForm } from "./EditTeamForm";
 import { InviteSearch } from "./InviteSearch";
+import { askToJoinTeam, withdrawJoinRequest, resolveJoinRequest } from "@/app/teams/actions";
 import { MemberControls } from "./MemberControls";
 import { EntrySubstitutions } from "./EntrySubstitutions";
 
@@ -24,7 +25,7 @@ export const metadata: Metadata = { title: "Team" };
 
 type Prof = { id: string; display_name: string; avatar_hue: number; avatar_path: string | null };
 
-export default async function TeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TeamDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ notice?: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
   const {
@@ -34,10 +35,11 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
 
   const { data: team } = await supabase
     .from("teams")
-    .select("id, name, sport_key, city, state, zip, max_size, category, created_by, created_at")
+    .select("id, name, sport_key, city, state, zip, max_size, category, created_by, created_at, join_policy")
     .eq("id", id)
     .maybeSingle();
   if (!team) notFound();
+  const { notice } = await searchParams;
   const isPro = team.category === "pro";
 
   const meta = sportMeta(team.sport_key);
@@ -70,6 +72,44 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
     }
   }
   const myRole = members.find((m) => m.user_id === user.id)?.role ?? null;
+
+  // D-40: join-request state for this viewer and (for managers) the queue.
+  const { data: myReqRow } = await supabase
+    .from("team_join_requests")
+    .select("id, status")
+    .eq("team_id", team.id)
+    .eq("requester_id", user.id)
+    .eq("status", "pending")
+    .maybeSingle();
+  let ownerFriend = false;
+  if (!myRole && team.join_policy === "friends") {
+    const { data: fr } = await supabase
+      .from("friendships")
+      .select("requester_id")
+      .eq("status", "accepted")
+      .or(`and(requester_id.eq.${user.id},addressee_id.eq.${team.created_by}),and(requester_id.eq.${team.created_by},addressee_id.eq.${user.id})`)
+      .limit(1);
+    ownerFriend = (fr ?? []).length > 0;
+  }
+  type JoinReq = { id: string; requester_id: string; note: string | null; created_at: string };
+  let pendingRequests: (JoinReq & { name: string; hue: number })[] = [];
+  {
+    const isRosterManager = myRole === "owner" || myRole === "manager";
+    if (isRosterManager) {
+      const { data: reqs } = await supabase
+        .from("team_join_requests")
+        .select("id, requester_id, note, created_at")
+        .eq("team_id", team.id)
+        .eq("status", "pending")
+        .order("created_at");
+      const rr = (reqs ?? []) as JoinReq[];
+      if (rr.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, display_name, avatar_hue").in("id", rr.map((r) => r.requester_id));
+        const pm = new Map((profs ?? []).map((p) => [p.id, p]));
+        pendingRequests = rr.map((r) => ({ ...r, name: pm.get(r.requester_id)?.display_name ?? "A member", hue: pm.get(r.requester_id)?.avatar_hue ?? 200 }));
+      }
+    }
+  }
   const isOwner = myRole === "owner";
   const canManage = myRole === "owner" || myRole === "manager";
   const canInviteMembers = canManage || myRole === "staff";
@@ -348,6 +388,57 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ id:
           })}
         </div>
       </section>
+
+      {notice ? (
+        <p className="mt-6 rounded-xl border border-brand/30 bg-tint-brand px-4 py-3 text-sm text-brand-deep">{notice}</p>
+      ) : null}
+
+      {/* ===== ask to join (non-members) — D-40 ===== */}
+      {!myRole ? (
+        <section className="mt-8">
+          {myReqRow ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rule bg-surface px-4 py-4">
+              <p className="text-sm text-ink"><span className="font-semibold">Request pending.</span> The team&rsquo;s managers will decide.</p>
+              <form action={withdrawJoinRequest.bind(null, team.id, myReqRow.id)}>
+                <button type="submit" className="rounded-xl border border-rule-2 bg-surface px-3.5 py-2 text-sm font-semibold text-ink hover:border-ink/30">Withdraw</button>
+              </form>
+            </div>
+          ) : members.length >= cap ? (
+            <p className="rounded-2xl border border-rule bg-bg/40 px-4 py-4 text-sm text-mute">This team&rsquo;s roster is full.</p>
+          ) : team.join_policy === "open" || ownerFriend ? (
+            <form action={askToJoinTeam.bind(null, team.id)}>
+              <button type="submit" className="rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white shadow-e1 hover:bg-brand-deep">Ask to join</button>
+              <p className="mt-1.5 text-xs text-faint">{team.join_policy === "open" ? "Anyone can ask — a manager approves each request." : "You can ask because you're friends with the owner."}</p>
+            </form>
+          ) : (
+            <p className="rounded-2xl border border-rule bg-bg/40 px-4 py-4 text-sm text-mute">This is a friends-only team — only friends of the owner can ask to join.</p>
+          )}
+        </section>
+      ) : null}
+
+      {/* ===== join requests (owner and managers) — D-40 ===== */}
+      {(myRole === "owner" || myRole === "manager") && pendingRequests.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="font-athletic mb-3 text-xl font-bold uppercase tracking-wide text-ink">Join requests</h2>
+          <div className="space-y-2">
+            {pendingRequests.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-rule bg-surface px-4 py-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white" style={{ background: `hsl(${r.hue},72%,45%)` }}>{r.name.slice(0, 1)}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-ink">{r.name}</p>
+                  {r.note ? <p className="truncate text-xs text-mute">{r.note}</p> : null}
+                </div>
+                <form action={resolveJoinRequest.bind(null, team.id, r.id, true)}>
+                  <button type="submit" className="rounded-xl bg-brand px-3.5 py-2 text-sm font-bold text-white hover:bg-brand-deep">Approve</button>
+                </form>
+                <form action={resolveJoinRequest.bind(null, team.id, r.id, false)}>
+                  <button type="submit" className="rounded-xl border border-rule-2 bg-surface px-3.5 py-2 text-sm font-semibold text-ink hover:border-ink/30">Decline</button>
+                </form>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* ===== add players (captains) ===== */}
       {canInviteMembers ? (

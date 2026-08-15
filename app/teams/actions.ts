@@ -35,7 +35,7 @@ async function teamRole(
 const canManageRoster = (role: string | null) => role === "owner" || role === "manager";
 const canInvite = (role: string | null) => role === "owner" || role === "manager" || role === "staff";
 
-type TeamRow = { id: string; name: string; sport_key: string; city: string | null; state: string | null; max_size: number | null };
+type TeamRow = { id: string; name: string; sport_key: string; city: string | null; state: string | null; max_size: number | null; join_policy: string };
 
 /** Add member counts + whether the viewer is already on each team. */
 async function decorate(
@@ -52,7 +52,7 @@ async function decorate(
   const countMap = new Map<string, number>();
   for (const c of counts ?? []) countMap.set(c.team_id, (countMap.get(c.team_id) ?? 0) + 1);
   const joined = new Set((mine ?? []).map((m) => m.team_id));
-  return teams.map((t) => ({ ...t, memberCount: countMap.get(t.id) ?? 0, maxSize: t.max_size, joined: joined.has(t.id) }));
+  return teams.map((t) => ({ ...t, memberCount: countMap.get(t.id) ?? 0, maxSize: t.max_size, joined: joined.has(t.id), joinPolicy: t.join_policy }));
 }
 
 /**
@@ -68,7 +68,7 @@ export async function searchTeams(qRaw: string, opts?: { sport?: string | null }
   // Parity with the AI teams tool: deleted teams never appear in discovery,
   // and a sport filter (validated against the catalog) narrows in SQL so the
   // 24-row window is spent on the sport the user asked for.
-  let builder = supabase.from("teams").select("id, name, sport_key, city, state, max_size").is("deleted_at", null);
+  let builder = supabase.from("teams").select("id, name, sport_key, city, state, max_size, join_policy").is("deleted_at", null);
   const sportFilter = opts?.sport && SPORT_KEYS.includes(opts.sport) ? opts.sport : null;
   if (sportFilter) builder = builder.eq("sport_key", sportFilter);
   if (q.length >= 1) {
@@ -115,9 +115,15 @@ export async function createTeam(_prev: TeamFormState, formData: FormData): Prom
   const hit = lookupZip(String(formData.get("zip") ?? ""));
   if (!hit) return { error: "Enter a valid 5-digit US ZIP for your team's home area." };
 
+  const joinPolicyRaw = String(formData.get("join_policy") || "");
+  if (joinPolicyRaw !== "open" && joinPolicyRaw !== "friends") {
+    return { error: "Choose who can ask to join your team." };
+  }
+  const join_policy = joinPolicyRaw;
+
   const { data: team, error } = await supabase
     .from("teams")
-    .insert({ name, sport_key, zip: hit.zip, city: hit.city, state: hit.state, max_size, category, created_by: user.id })
+    .insert({ name, sport_key, zip: hit.zip, city: hit.city, state: hit.state, max_size, category, join_policy, created_by: user.id })
     .select("id")
     .single();
   if (error || !team) {
@@ -536,4 +542,73 @@ export async function restoreTeam(formData: FormData): Promise<void> {
   await supabase.from("teams").update({ deleted_at: null }).eq("id", teamId);
   revalidatePath(`/team/${teamId}`);
   revalidatePath("/teams");
+}
+
+/* ── D-40: ask-to-join commands. Form actions return void (house rule); any
+   refusal is surfaced through a redirect notice the team page renders. ── */
+
+async function jrRedirect(teamId: string, notice?: string): Promise<never> {
+  redirect(notice ? `/teams/${teamId}?notice=${encodeURIComponent(notice)}` : `/teams/${teamId}`);
+}
+
+export async function askToJoinTeam(teamId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect(`/login?next=/teams/${teamId}`);
+  const { error } = await supabase.rpc("team_ask_to_join", { p_team: teamId });
+  if (error) {
+    const msg =
+      error.message === "friends_only_team" ? "This team accepts requests from the owner's friends only." :
+      error.message === "already_member" ? "You're already on this team." :
+      error.message === "team_full" ? "This team's roster is full." :
+      "Couldn't send your request. Please try again.";
+    await jrRedirect(teamId, msg);
+  }
+  await logTeamEvent(teamId, { kind: "join_requested", actorId: user.id });
+  await notifyTeamMembers(teamId, user.id, { title: "New join request", body: "Someone asked to join your team.", linkUrl: `/teams/${teamId}` });
+  revalidatePath(`/teams/${teamId}`);
+}
+
+export async function withdrawJoinRequest(teamId: string, requestId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect(`/login?next=/teams/${teamId}`);
+  const { error } = await supabase.rpc("team_withdraw_join_request", { p_request: requestId });
+  if (error) await jrRedirect(teamId, "Couldn't withdraw the request.");
+  revalidatePath(`/teams/${teamId}`);
+}
+
+export async function resolveJoinRequest(teamId: string, requestId: string, approve: boolean): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect(`/login?next=/teams/${teamId}`);
+  const { data: req } = await supabase
+    .from("team_join_requests")
+    .select("requester_id")
+    .eq("id", requestId)
+    .maybeSingle();
+  const { error } = await supabase.rpc("team_resolve_join_request", { p_request: requestId, p_approve: approve });
+  if (error) {
+    const msg =
+      error.message === "not_a_manager" ? "Only the owner or a manager can decide requests." :
+      error.message === "team_full" ? "The roster filled up before this approval." :
+      error.message === "already_resolved" ? "This request was already decided." :
+      "Couldn't save the decision. Please try again.";
+    await jrRedirect(teamId, msg);
+  }
+  if (approve) await logTeamEvent(teamId, { kind: "member_joined", actorId: req?.requester_id ?? user.id });
+  if (req?.requester_id) {
+    try {
+      const admin = createAdminClient();
+      await admin.from("notifications").insert({
+        user_id: req.requester_id,
+        actor_id: user.id,
+        kind: "system",
+        title: approve ? "You're on the team" : "Join request declined",
+        body: approve ? "Your request was approved — welcome aboard." : "The team declined your request this time.",
+        link_url: `/teams/${teamId}`,
+      });
+    } catch {}
+  }
+  revalidatePath(`/teams/${teamId}`);
 }

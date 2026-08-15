@@ -82,6 +82,13 @@ else
   echo "match_visibility_suite=FAIL"; grep -E "MATCH|ADULT|FIXTURE|ERROR" "$W/matchvis.out" | head -4; fails=$((fails+1))
 fi
 
+# 0274/0275: team joinability and the challenge belts, as real members.
+if $P -f "$REPO/supabase/tests/teams_suite.sql" > "$W/teams.out" 2>&1; then
+  echo "teams_suite=PASS ($(grep -c 'ok   ' "$W/teams.out") checks)"
+else
+  echo "teams_suite=FAIL"; grep -E "TEAM|BELT|FIXTURE|ERROR" "$W/teams.out" | head -4; fails=$((fails+1))
+fi
+
 # KCDX-052: the readiness gate, after the replay. A migration that opens a
 # boundary now fails CI rather than being discovered at boot in production.
 echo "-- readiness --"

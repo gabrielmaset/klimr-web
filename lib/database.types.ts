@@ -1156,9 +1156,9 @@ export interface Database {
         Relationships: [];
       };
       teams: {
-        Row: { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null; zip: string | null; state: string | null; max_size: number | null; category: string; created_by: string; created_at: string; deleted_at: string | null };
-        Insert: { id?: string; name: string; sport_key: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by: string; created_at?: string; deleted_at?: string | null };
-        Update: { name?: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by?: string; deleted_at?: string | null };
+        Row: { id: string; name: string; sport_key: string; city: string | null; neighborhood: string | null; zip: string | null; state: string | null; max_size: number | null; category: string; created_by: string; created_at: string; deleted_at: string | null; join_policy: string };
+        Insert: { id?: string; name: string; sport_key: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by: string; created_at?: string; deleted_at?: string | null; join_policy?: string };
+        Update: { name?: string; city?: string | null; neighborhood?: string | null; zip?: string | null; state?: string | null; max_size?: number | null; category?: string; created_by?: string; deleted_at?: string | null; join_policy?: string };
         Relationships: [];
       };
       login_events: {
@@ -1177,6 +1177,12 @@ export interface Database {
         Row: { id: string; sport_key: string; home_team_id: string; away_team_id: string; proposed_by: string; scheduled_at: string | null; location_text: string | null; status: string; home_score: number | null; away_score: number | null; winner_team_id: string | null; note: string | null; decided_at: string | null; created_at: string; updated_at: string };
         Insert: { id?: string; sport_key: string; home_team_id: string; away_team_id: string; proposed_by: string; scheduled_at?: string | null; location_text?: string | null; status?: string; home_score?: number | null; away_score?: number | null; winner_team_id?: string | null; note?: string | null; decided_at?: string | null; created_at?: string; updated_at?: string };
         Update: { sport_key?: string; scheduled_at?: string | null; location_text?: string | null; status?: string; home_score?: number | null; away_score?: number | null; winner_team_id?: string | null; note?: string | null; decided_at?: string | null; updated_at?: string };
+        Relationships: [];
+      };
+      team_join_requests: {
+        Row: { id: string; team_id: string; requester_id: string; status: string; note: string | null; created_at: string; resolved_at: string | null; resolved_by: string | null };
+        Insert: { id?: string; team_id: string; requester_id: string; status?: string; note?: string | null; created_at?: string; resolved_at?: string | null; resolved_by?: string | null };
+        Update: { status?: string; resolved_at?: string | null; resolved_by?: string | null };
         Relationships: [];
       };
       team_invites: {
@@ -2321,6 +2327,9 @@ export interface Database {
       bracket_graph_intact: { Args: Record<string, never>; Returns: boolean };
       klimr_readiness: { Args: Record<string, never>; Returns: { check_name: string; passed: boolean; detail: string | null }[] };
       klimr_ready: { Args: { p_min_checks?: number }; Returns: boolean };
+      team_ask_to_join: { Args: { p_team: string; p_note?: string | null }; Returns: string };
+      team_resolve_join_request: { Args: { p_request: string; p_approve: boolean }; Returns: undefined };
+      team_withdraw_join_request: { Args: { p_request: string }; Returns: undefined };
       report_post: { Args: { p_post: string; p_reason: string; p_detail?: string | null }; Returns: Json };
       purge_orphan_feed_media: { Args: { p_grace_hours?: number }; Returns: number };
       resolve_feed_post: { Args: { p_post: string }; Returns: { post_id: string; visible: boolean; reason: string; author_id: string | null }[] };

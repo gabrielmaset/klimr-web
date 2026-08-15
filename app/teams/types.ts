@@ -7,4 +7,5 @@ export type TeamCard = {
   memberCount: number;
   maxSize: number | null;
   joined: boolean;
+  joinPolicy: string;
 };

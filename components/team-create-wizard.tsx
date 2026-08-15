@@ -32,6 +32,7 @@ const STEPS = ["Type", "Basics", "Location", "Review"];
 export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
   const [step, setStep] = useState(0);
   const [category, setCategory] = useState("recreational");
+  const [joinPolicy, setJoinPolicy] = useState("");
   const [name, setName] = useState("");
   const [sport, setSport] = useState("");
   const [size, setSize] = useState(2);
@@ -254,11 +255,29 @@ export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
               </p>
             ) : null}
 
+            <div className="mt-5">
+              <p className="kicker text-faint">Who can ask to join</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {([["open", "Anyone on Klimr"], ["friends", "Friends of the owner only"]] as const).map(([k, l]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setJoinPolicy(k)}
+                    className={`rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors ${joinPolicy === k ? "border-brand bg-tint-brand text-brand-deep" : "border-rule-2 bg-surface text-mute hover:border-ink/30"}`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-faint">Open teams take requests from anyone; you approve each one. Friends-only teams take requests from the owner&rsquo;s accepted friends.</p>
+            </div>
+
             <form action={action} className="mt-5 flex flex-wrap items-center gap-2">
               <input type="hidden" name="category" value={category} />
               <input type="hidden" name="name" value={name} />
               <input type="hidden" name="sport_key" value={sport} />
               <input type="hidden" name="max_size" value={size} />
+              <input type="hidden" name="join_policy" value={joinPolicy} />
               <input type="hidden" name="zip" value={zip} />
               <button
                 type="submit"

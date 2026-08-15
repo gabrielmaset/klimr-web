@@ -75,7 +75,7 @@ export function TeamDiscovery({
   const bySport = sport === "all" ? list : list.filter((t) => t.sport_key === sport);
   // Unknown-cap teams can't prove open spots — excluded only when the user
   // asked for openings (same rule as the AI teams tool).
-  const filtered = spots > 0 ? bySport.filter((t) => { const o = openingsOf(t); return o != null && o >= spots; }) : bySport;
+  const filtered = spots > 0 ? bySport.filter((t) => { const o = openingsOf(t); return t.joinPolicy === "open" && o != null && o >= spots; }) : bySport;
   // The full catalog, always: with server-side sport narrowing, deriving chips
   // from the visible list would hide every other sport after one click.
   const presentSports = SPORTS;
@@ -167,6 +167,7 @@ export function TeamDiscovery({
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate font-athletic text-[15px] text-ink">{t.name}</span>
+                  {t.joinPolicy === "open" ? <span className="ml-1.5 inline-block rounded-md border border-brand/40 bg-tint-brand px-1.5 py-0.5 align-middle font-mono text-floor font-bold uppercase tracking-wider text-brand-deep">Open</span> : null}
                     {t.joined ? (
                       <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-tint-success px-1.5 py-0.5 text-[10px] font-semibold text-success">
                         <Check size={10} /> Joined
