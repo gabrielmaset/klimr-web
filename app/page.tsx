@@ -120,7 +120,7 @@ function LadderCard() {
 /* Evergreen by design — marketing never enumerates the sport catalog, so
    adding a sport never requires a copy change (Gabriel's direction). */
 const MARQUEE = [
-  "Racquet & court sports",
+  "Every sport you play",
   "More sports coming",
   "ZIP → world",
   "Verified players",

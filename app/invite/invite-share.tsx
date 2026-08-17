@@ -16,7 +16,7 @@ export function InviteShare({ code }: { code: string }) {
   const canShare = client.canShare;
 
   const link = origin ? `${origin}/signup?code=${code}` : `/signup?code=${code}`;
-  const shareText = `Join me on Klimr — verified players and local rankings for racquet sports. Use my invite code ${code}:`;
+  const shareText = `Join me on Klimr — verified players and local rankings for every sport you play. Use my invite code ${code}:`;
 
   const copy = async (what: "link" | "code") => {
     try {

@@ -339,7 +339,7 @@ async function sendAccessCodeEmail(
   const subject = isInvestor ? "Your Klimr investor preview code" : "You're invited to Klimr";
   const lead = isInvestor
     ? "Here's your access code for the Klimr investor preview."
-    : "You've been invited to Klimr — the ranked ladder for racquet sports. Use the code below to claim your spot.";
+    : "You've been invited to Klimr — the ranked ladder for your sports. Use the code below to claim your spot.";
   const cta = isInvestor ? "Open the preview" : "Join Klimr";
 
   const text = [

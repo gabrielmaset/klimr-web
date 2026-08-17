@@ -50,4 +50,5 @@ are — including the mistakes, which are the entries most worth keeping.
 
 `docs/MIGRATIONS_LEDGER.md` records every migration, what it changes, and whether
 it has been applied to production.
-
+| AUDIT_STATUS_FOR_EXTERNAL_REVIEW.md | 119 | yes | Auditor-facing status baseline: 42 KRA findings' current dispositions, 15 owner-decided positions with reasons, tracked-open list, post-audit delta 0263→0275. Hand to the next external audit. |
+| Klimr_Market_Gap_Research_2026-08.docx | — | yes | Market gap research v1.2 (Word, 18 pp., 38 refs): eight ranked unmet needs in sports social networking; sports-network positioning reframe. |

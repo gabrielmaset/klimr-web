@@ -249,6 +249,11 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-08-17 — Category framing correction (owner, twice): Klimr is a SPORTS network
+
+Gabriel corrected the platform categorization twice in one session: not "racquet sports," and not "court sports" either — Klimr is a sports social network, launching with five sports, sport-agnostic by architecture (a sport = sports + sport_formats seed rows; a future soccer is data, not a rebuild). Recorded mistake and its principle: I categorized by current inventory instead of strategic trajectory, twice. Copy corrected in repo (admin invite email, invite share text, landing chip); market-gap research report reissued as v1.2 with the framing woven through. Memory edit #9 rewritten to encode the principle. Rides the next rebuild.
+
+
 ### 2026-08-14 (d) — Batch C: per-team joinability (D-40) + challenge belts (D-41)
 
 **0274** delivers the owner's revision of the June rule: joinability is chosen per team at creation — 'open' (anyone asks) or 'friends' (accepted friends of the owner) — with existing teams defaulted to 'friends', the posture they were created under. team_join_requests carries the raised hands with a partial-unique pending constraint; writes go only through three DEFINER commands (ask / resolve / withdraw), advisory-locked per (team, requester) and per team, idempotent on duplicate asks, capacity-checked at ask AND at approval. The roster rule (owner/manager) is deliberately stricter than the challenge rule (owner/manager/staff) and the suite pins that distinction. **0275** moves the challenge rules from app-layer-only to database belts: one guard trigger enforces same-sport + alive + distinct teams at insert and the status transition matrix on update — away managers alone accept or decline, completion requires both scores with a consistent winner, terminal states stay terminal. UI: wizard requires the choice; team page gains Ask / pending-with-Withdraw / friends-only notice / roster-full states plus the managers' request panel (approve/decline as void form actions with redirect notices per house rule); chat renders "asked to join"; discovery badges open teams and the spots filter surfaces only openly joinable ones (D-40's search rule).

@@ -106,3 +106,17 @@ set is **not** the source here, and its figures do not appear.
 *Document Index — Klimr, Inc. · Confidential · Updated August 10, 2026. Prepared for evaluation
 purposes; figures reflect current third-party research and the company's bottom-up model, and are
 not guarantees of future performance.*
+
+---
+
+## Addendum — August 17, 2026
+
+**New documents this refresh:**
+
+| Document | Location | What it is |
+|---|---|---|
+| **Klimr Market Gap Research (v1.2)** — *"What Recreational Players Cannot Find: Unmet Needs and White Space in Sports Social Networking"* | `docs/Klimr_Market_Gap_Research_2026-08.docx` (repo) + staged to outputs; 18 pp., 38 references | Rapid evidence review across market data (SFIA 2026, Playtomic/PwC), incumbent teardown, community-documented pain, and peer-reviewed literature (SDT, loneliness/connection, friendship formation). Eight ranked gaps, opportunity matrix, and the positioning reframe: **Klimr is a sports network, built as the trust and liquidity layer for recreational play** (category framing corrected twice by owner — final: sports network, launching in five sports, sport-agnostic architecture). Investor-conversation ready. |
+| **Audit Status Baseline for External Review** | `docs/AUDIT_STATUS_FOR_EXTERNAL_REVIEW.md` | Auditor-facing distillation of the KRA register: all 42 findings with current status, the 15 owner-decided positions we will not re-litigate (with reasons), the tracked-open list, and everything changed since the audited zip (0263→0275). Feed this to the next ChatGPT/Codex audit so settled items are answered from record — serious security issues excepted, per owner. |
+
+Also in this window: production advanced to migration **0275**; Batches A (match visibility + skill), B (rankings filters + full field), C (team joinability + challenge belts) shipped; CI readiness restored (0273); backup programme fully green dual-provider (B-01 closed); OpenAI moderation armed (D-36); category framing corrected platform-wide to **sports network**.
+
