@@ -1846,3 +1846,83 @@ this branch, deploy-status question to owner.
 
 ## 2026-08-13 — B-01 CLOSED
 storage-backup run #4 fully green: PASS (0 issues), checksums verified on both providers, config snapshot on both. Secrets live: SUPABASE_DB_URI, RCLONE_CONF (crypt plaintext in owner password manager). Root cause of final blocker: bucket-scoped R2 token vs rclone bucket check on virgin prefix; fixed with --s3-no-check-bucket (script, main) + no_check_bucket=true (template).
+
+## 2026-08-17 — FOLLOW-UP AUDIT INTAKE: four rows corrected against source
+
+The KFU follow-up audit (42→35-finding successor, `KLIMR_FOLLOW_UP_AUDIT_2026-08-17.md`) contradicted four rows of this register; source verification this date CONFIRMS the auditor:
+
+- **KRA-011 / KRA-040 → REOPENED (regression by 0232).** vercel.json schedules only tournament finalization; 0232 re-used the single `waitlist-sweep` pg_cron name for the SQL sweep, leaving `/api/cron/waitlist-sweep` — the sole orchestrator of storage-deletion draining, health-watch, venue jobs, perf pruning, and waitlist notifications — with no driver. The watcher that would have alerted was on the same dead route. Recorded process failure: replay-level proof is structurally blind to deployed-scheduler state; a driver-inventory guardrail joins the gates (WP-G). Hotfix 0276 queued.
+- **KRA-034 / KRA-035 → REOPENED pending executed verification (auditor's line-cited claims accepted provisionally):** person-mode capacity reserves v_taken+1 before the roster lands; roster inserts filter foreign/malformed rows via ON CONFLICT DO NOTHING instead of rejecting; app can notify from a stale precheck. WP-I closes as one locked exact-reject command.
+- **KRA-037 → PARTIAL confirmed** (approval and placement remain two commits; 0267 fixed placement idempotency only). WP-I.
+- **KRA-005/029 adjacency:** `containsCSAE` defined but never called — AI-classified CSAE deletes without preservation; safety-escalation/media-safety ignore resolved Supabase error objects. New rows KFU-007/KFU-029, WP-S. This is the named supabase-does-not-throw footgun, found in our own safety path.
+- **New live-breakage candidate KFU-005:** 0239 left `provider_application_hash` without an authenticated grant while 0245's INVOKER trigger calls it during member writes. Hotfix 0277 after executed reproduction.
+
+Full dispositions and the work-package plan: `docs/KFU_RESPONSE_AND_PLAN_2026-08-17.md`. The 2026-08-17 baseline (`AUDIT_STATUS_FOR_EXTERNAL_REVIEW.md`) is superseded for this cycle; its owner-decision section performed exactly as designed — none of the fifteen recorded positions was re-litigated by the follow-up audit.
+
+## 2026-08-17 (b) — RECONCILIATION ADOPTED: shared baseline established
+
+The auditor's reconciliation (`KFU_CONTESTED_ITEMS_RECONCILIATION_2026-08-17.md`, responding to our response doc SHA-256 30F1…) is **adopted in full** as the shared planning baseline. Outcomes:
+
+**Our four contests — all granted:** KFU-031 reframed (derivation preserved as necessary; hardening = four-class function taxonomy, exact-signature/audience gate, stale-grant removal, private schema for policy-only helpers — a better design than our blanket caller-binding proposal, adopted); KFU-033 shares KFU-028's eligibility machinery with separate closure (P1 while D-38 stands); KFU-017 text-field wording narrowed (selects + unproven-equivalence fields added to our fix scope — their two counter-examples verified fair); KFU-019 recorded-disabled P2 with a deployment guard requirement. CI accepted as E-CI evidence under retained-artifact conditions; new evidence vocabulary adopted (E-CI / E-AUDITOR / P-STAGING / P-PROD / R).
+
+**Their eight plan corrections — all accepted on merits, two of them catching OUR errors:**
+1. WP-0 freeze/manifest BEFORE any hotfix (our deferral to WP-G was wrong — later proof could reference a mutated candidate).
+2. C0 Courtside containment precedes everything (disable public-code registration + revoke existing device tokens; owner confirmation requested since displays go dark until the P0 package).
+3. **H1 corrected — our 0276 sketch was wrong:** re-driving `/api/cron/waitlist-sweep` would run BOTH waitlist engines (SQL requeue/30-min vs app expire/20-60-240 + emails) — conflicting semantics, double promotion. Revised H1: a dedicated heartbeat endpoint driving ONLY storage-deletion drain, health-watch, venue jobs, perf pruning + a promoted-without-notification reconciler; waitlist unification is full KFU-002, later. A restored driver is containment, not closure.
+4. H2 gains action-result checking + credential orphan cleanup + an invoker-trigger nested-privilege inventory test.
+5. **KFU-028 corrected — our signOut(userId) proposal was the wrong API** (GoTrue admin signOut takes a JWT). Design: database active-member gate is the authoritative immediate containment; admin ban/update for future sessions; reconcile the two writes.
+6. KFU-014: memory-only + POST/opaque token; no sessionStorage; kill/canonicalize the legacy ?ll parser.
+7. Checksums: recomputable external release manifest, never in-file self-reference.
+8. Packages split one-root-cause-each; planning range revised to **16–24 sessions to Gate A, 19–30 to Gate B** (our 10–13 excluded freeze, containment, staging setup, and review latency — their correction stands). Re-estimate after WP-0.
+
+**Auditor findings about our harness, verified this date:** `rls_and_invariants_checks.sql` and `social_graph_checks.sql` exist in supabase/tests/ and are NOT invoked by replay.sh (confirmed: zero references) — two shipped suites silently unhooked; CI runs PostgreSQL 17 vs local 16; no machine-readable proof artifact uploaded; Actions unpinned. All join the corrected package list (hooking the suites is a change and belongs to the first change packet, not WP-0 capture).
+
+**Corrected execution order adopted:** WP-0 → C0 → H1 → H2 → H3 → P0 (Courtside enrollment, default UX = signed-in organizer's single-use ~2-minute QR bound to session/court/installation/purpose, pending OD-1 copy/placement) → B1…B5 → D1/D2 → S1/S2 → I1…I5 → U1/U2 → R1/R2 → tail. Closure format: the brief's eleven sections, evidence-suffixed statuses only.
+
+**Open owner items:** (1) confirm C0 containment (Courtside displays paused until P0 lands); (2) OD-1 sign-off on the default enrollment UX; (3) staging Supabase project when B-packages begin; (4) identify the qualified non-author reviewer for security P0/P1 packets (interim: the auditing model per packet; a human security review remains a pre-GO gate).
+
+## 2026-08-17 (c) — WP-0 + first three packets EXECUTED (C0, H1, H2)
+
+Candidate frozen: SHA-256 4390ca77…f26411e. Migrations 0275 → 0278.
+
+- **C0 / KFU-001 → FIXED-EXECUTED (containment).** 0276 disables BOTH courtside_register overloads (uuid+text — the first apply caught a second overload the single-signature revoke missed) and revokes all live device tokens. Verified on head: authenticated cannot execute either overload; live tokens = 0. Owner-authorized; displays dark until the permanent organizer-issued enrollment package (next P0). Permanent KFU-001 remains OPEN.
+- **H1 / KFU-002 → FIXED-STATIC (containment); full KFU-002 OPEN.** Root cause confirmed: 0232 reused the waitlist-sweep pg_cron job name, orphaning /api/cron/waitlist-sweep and its four workers. Fix: dedicated /api/cron/worker-heartbeat + separately-named 0278 schedule, per-task failure boundaries, HTTP 207 on partial failure; old route reduced to waitlist-email-only. Corrected our own prior sketch (would have double-swept). New WP-G guardrail tests/cron-drivers.test.ts enforces unique-named drivers. Deployed-fire proof owed (P-STAGING). Waitlist unification deferred to full package.
+- **H2 / KFU-005 → FIXED-EXECUTED.** EXECUTED finding corrected the static read: authenticated INSERT SUCCEEDS on head (hash carries an authenticated grant from default-privilege creation order, in no migration source). 0277 makes the grant explicit + least-privilege so prod matches head by construction. App layer: insert/withdraw results now checked; orphaned credential removed on failure. invoker_trigger_grants_suite (2/2, negative control fires) hooked into replay.
+
+**Guardrail system worked as designed:** the new cron-driver test found three stale assertions in guardrails.test.ts that encoded the OLD (defective) "workers run on the waitlist tick" premise; repointed to the heartbeat route (intent preserved, not deleted — brief rule 18). Final: vitest 326/326, replay 278/0, klimr_ready=PASS(42), rpc_grants 98/0, all suites green, build clean, eslint 0/137.
+
+**Harness debt surfaced:** rls_and_invariants_checks.sql (IDOR CHECK fails on head) and social_graph_checks.sql (cooldown CHECK 4b fails) are unhooked AND red standalone — real assertion failures needing their own diagnostic packet; NOT hooked while red (hooking a red suite is worse than none). Added to the package list.
+
+Closure packets: docs/WP_H_CLOSURE_2026-08-17.md. NOT YET DELIVERED as pastes — awaiting the rebuild for this batch. iPhone impact: none (Courtside is a display surface, not the iOS player app; the bottom-nav app is unaffected).
+
+## 2026-08-17 (d) — H3 executed (KFU-028)
+
+0279 makes suspension a database fact: fail-closed `member_write_allowed` + `enforce_active_member` trigger across a 30-table member-write surface via catalog loop; service/definer paths pass through so moderation still functions. App half: `accountActive()` fails closed (was reading a swallowed error as active), admin suspend checks its result and redirects on failure, Auth ban switched to `updateUserById({ban_duration})` after the auditor correctly noted `admin.signOut()` takes a JWT not a user id. suspension_gate_suite 12/12 hooked into replay; replay 279/0; vitest 326/326.
+
+Suite found two of MY fixture bugs before I trusted it: 0008's guard_account_status silently reverts status changes for non-service_role callers (so the first run's suspension was a no-op and the gate correctly permitted the write), and a wrong moderation_status enum literal. The non-zero baseline check is what exposed (a) — without it the suite would have "passed" while measuring nothing.
+
+Next packet: the permanent KFU-001 Courtside enrollment (owner approved the auditor's QR design, OD-1).
+
+## 2026-08-17 (e) — P0 PACKET EXECUTED: permanent Courtside enrollment (KFU-001)
+
+0280 restores and extends 0235's design: organizer-issued one-time secrets bound to session + court + audience, server-side hashing (a leaked hash is not a credential), single-statement claim, organizer revocation, scope-checked courtside_authorize, both legacy register overloads dropped. courtside_enrollment_suite 16/16 — public join code, public display code, invented secret, replay, expiry, revoked challenge, revoked device, cross-session scope, copied install id, ended session ALL refused; fresh organizer challenge enrolls (non-zero baseline).
+
+App layer completed the contract that broke on 2026-08-11: route takes enrollmentCode, client no longer auto-enrolls, and court-display.tsx stopped passing the JOIN CODE into enrollment at two sites (that was the vulnerability in client form). The coupling guardrail written after that incident FIRED when route+RPC moved ahead of the client — proof the post-incident control works.
+
+Final: replay 280/0, all eight suites green, klimr_ready 42, rpc_grants 98/0, vitest 326/326, eslint 0 errors, build clean.
+
+Owed for P0 closure: P-STAGING HTTP exploit replay + non-author security sign-off (audit requires both before Courtside re-enables). Migrations to paste in order: 0276, 0277, 0278, 0279, 0280.
+
+## 2026-08-17 (f) — B1 executed (KFU-003, AAL2 at the database boundary)
+
+0281: fail-closed caller_aal()/require_aal2() plus enforcement on ownership-destructive team_members transitions; ordinary membership writes deliberately untouched (over-broad gates get disabled). aal2_boundary_suite 6/6 hooked; replay 281/0; nine suites green; vitest 326/326.
+
+Two method corrections recorded: the scratch head had been building from a migration cache missing 0274/0275 (now count-asserted before every build; from-zero replays read the repo directly and were never affected), and the first suite draft used direct DML that RLS matched at zero rows — team_members has no UPDATE policy, so the suite exercises the real DEFINER commands where the trigger still sees the caller.
+
+Owed: P-STAGING observation that hosted Auth issues the `aal` claim. Migrations to paste in order: 0276, 0277, 0278, 0279, 0280, 0281.
+
+## 2026-08-17 (g) — B2 executed (KFU-004, block-aware base profiles boundary)
+
+0282: the base profiles SELECT policy was `using (true)` beside a correct block-aware view — the audit's finding confirmed in the live catalog. Policy now permits own row or a non-blocked pair in both directions, reusing the same is_blocked_pair helper the view uses (one definition, no drift). profile_block_boundary_suite 9/9 first run, including count parity and view/table agreement; replay 282/0; ten suites green; vitest 326/326.
+
+Owed: P-STAGING cache/RSC-payload proof and query-cost measurement. Migrations to paste in order: 0276 → 0277 → 0278 → 0279 → 0280 → 0281 → 0282.

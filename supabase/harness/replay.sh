@@ -89,6 +89,41 @@ else
   echo "teams_suite=FAIL"; grep -E "TEAM|BELT|FIXTURE|ERROR" "$W/teams.out" | head -4; fails=$((fails+1))
 fi
 
+# KFU-005: invoker-trigger grant matrix (provider application freeze path).
+if $P -f "$REPO/supabase/tests/invoker_trigger_grants_suite.sql" > "$W/itg.out" 2>&1; then
+  echo "invoker_trigger_grants_suite=PASS ($(grep -c 'ok   ' "$W/itg.out") checks)"
+else
+  echo "invoker_trigger_grants_suite=FAIL"; grep -E "ITG|ERROR" "$W/itg.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-028: suspended/banned members cannot write through the data plane.
+if $P -f "$REPO/supabase/tests/suspension_gate_suite.sql" > "$W/susp.out" 2>&1; then
+  echo "suspension_gate_suite=PASS ($(grep -c 'ok   ' "$W/susp.out") checks)"
+else
+  echo "suspension_gate_suite=FAIL"; grep -E "SUSP|ERROR" "$W/susp.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-001: Courtside enrollment negative matrix (public codes mint nothing).
+if $P -f "$REPO/supabase/tests/courtside_enrollment_suite.sql" > "$W/cs.out" 2>&1; then
+  echo "courtside_enrollment_suite=PASS ($(grep -c 'ok   ' "$W/cs.out") checks)"
+else
+  echo "courtside_enrollment_suite=FAIL"; grep -E "CS-FAIL|ERROR" "$W/cs.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-003: AAL2 enforced at the database boundary, not only in middleware.
+if $P -f "$REPO/supabase/tests/aal2_boundary_suite.sql" > "$W/aal.out" 2>&1; then
+  echo "aal2_boundary_suite=PASS ($(grep -c 'ok   ' "$W/aal.out") checks)"
+else
+  echo "aal2_boundary_suite=FAIL"; grep -E "AAL-FAIL|ERROR" "$W/aal.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-004: the block holds at the base profiles table, not only in the view.
+if $P -f "$REPO/supabase/tests/profile_block_boundary_suite.sql" > "$W/blk.out" 2>&1; then
+  echo "profile_block_boundary_suite=PASS ($(grep -c 'ok   ' "$W/blk.out") checks)"
+else
+  echo "profile_block_boundary_suite=FAIL"; grep -E "BLK-FAIL|ERROR" "$W/blk.out" | head -4; fails=$((fails+1))
+fi
+
 # KCDX-052: the readiness gate, after the replay. A migration that opens a
 # boundary now fails CI rather than being discovered at boot in production.
 echo "-- readiness --"

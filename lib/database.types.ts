@@ -2258,7 +2258,8 @@ export interface Database {
       fail_job: { Args: { p_id: string; p_error: string }; Returns: string };
       replay_job: { Args: { p_id: string }; Returns: undefined };
       merge_format_config: { Args: { p_id: string; p_patch: Json; p_expected_updated_at?: string | null }; Returns: Json };
-      courtside_register: { Args: { p_install_id: string; p_code: string; p_token_hash: string; p_platform: string | null; p_app_version: string | null }; Returns: boolean };
+      courtside_revoke_enrollment: { Args: { p_id: string }; Returns: undefined };
+      courtside_register: { Args: { p_install_id: string; p_secret: string; p_token_hash: string; p_platform?: string | null; p_app_version?: string | null }; Returns: boolean };
       courtside_issue_enrollment: { Args: { p_session_id: string; p_secret_hash: string; p_label: string | null; p_ttl_minutes: number }; Returns: string };
       can_i_act_on: { Args: { p_subject: string; p_action: string }; Returns: boolean };
       feed_type_counts: { Args: { p_scope: string; p_lat: number | null; p_lng: number | null; p_radius_mi: number }; Returns: { post_type: string; n: number }[] };

@@ -93,20 +93,28 @@ function writeToken(t: string): void {
   }
 }
 
-/** Ensure this display holds a valid device token, registering against the
- *  session's join code if it does not (migration 0184). The token is minted by
- *  the server and returned exactly once; we never invent one client-side. */
-export async function ensureDeviceToken(code: string, isApp: boolean): Promise<string | null> {
+/** Ensure this display holds a valid device token, enrolling with a ONE-TIME
+ *  ORGANIZER-ISSUED SECRET if it does not (migration 0280, KFU-001).
+ *
+ *  The argument is the enrollment secret the organizer generates in their
+ *  signed-in session and types/scans into this display — NOT the session join
+ *  code, which is public and can no longer enroll anything. The token is minted
+ *  by the server and returned exactly once; we never invent one client-side.
+ *
+ *  This client, the register route and the courtside_register signature are one
+ *  contract: shipping any of them alone is what darkened every display on
+ *  2026-08-11, and tests/guardrails.test.ts asserts they move together. */
+export async function ensureDeviceToken(enrollmentCode: string, isApp: boolean): Promise<string | null> {
   const existing = readToken();
   if (existing) return existing;
-  if (!code) return null;
+  if (!enrollmentCode) return null;
   try {
     const r = await fetch("/api/courtside/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         installId: getInstallId(),
-        code,
+        enrollmentCode,
         platform: isApp ? "ios-app" : "web",
         appVersion: appVersion(),
       }),

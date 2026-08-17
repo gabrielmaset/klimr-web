@@ -122,8 +122,11 @@ describe("Phase 2 guardrails (K2-03)", () => {
     expect(src).toContain('kind: "verify_venue"');
     expect(src).toContain("dedupeKey:");
   });
-  it("DEP-005: the minute cron drains the jobs queue", () => {
-    expect(read("app/api/cron/waitlist-sweep/route.ts")).toContain("runJobs(");
+  it("DEP-005: the worker heartbeat drains the jobs queue (moved off the waitlist route, KFU-002)", () => {
+    // KFU-002: the workers moved to their own heartbeat so they no longer share a
+    // failure boundary with the waitlist sweep. The old route must NOT drive them.
+    expect(read("app/api/cron/worker-heartbeat/route.ts")).toContain("runJobs(");
+    expect(read("app/api/cron/waitlist-sweep/route.ts")).not.toContain("runJobs(");
   });
   it("DEP-005: claim uses SKIP LOCKED and reclaims expired leases", () => {
     const sql = read("supabase/migrations/0178_jobs.sql");
@@ -313,7 +316,9 @@ describe("Courtside heartbeat is actually SENT (bug: counter stuck at 0)", () =>
     const src = read("components/queue/court-display.tsx");
     const beat = src.slice(src.indexOf("Courtside fleet heartbeat"), src.indexOf("const exitToSetup"));
     expect(beat).not.toMatch(/if \(!isApp\) return/);
-    expect(beat).toContain("ensureDeviceToken");
+    // KFU-001: the display no longer ENROLLS on heartbeat (that was the join-code
+    // path); it presents the token it already holds. Both clients still report.
+    expect(beat).toContain("peekDeviceToken");
   });
 });
 
@@ -939,7 +944,9 @@ describe("KRA-001 courtside enrollment", () => {
 
     const clientSendsSecret = /enrollmentCode/.test(client);
     const routeWantsSecret = /body\.enrollmentCode/.test(route);
-    const rpcTakesSecret = /courtside_register: \{ Args: \{[^}]*p_secret_hash/.test(types);
+    // 0280 hashes the secret SERVER-side, so the RPC takes p_secret (not a
+    // caller-supplied hash — a leaked hash must not be a credential).
+    const rpcTakesSecret = /courtside_register: \{ Args: \{[^}]*p_secret\b/.test(types);
 
     expect(
       new Set([clientSendsSecret, routeWantsSecret, rpcTakesSecret]).size,
@@ -1173,9 +1180,10 @@ describe("KRA-011/004/006 worker and evidence binding", () => {
     // The original defect was treating "we asked" as "it happened". A drain that
     // marked done before calling remove would reproduce it exactly.
     expect(w.indexOf(".remove(")).toBeLessThan(w.lastIndexOf("mark_storage_deletion"));
-    // Drained on an existing tick — KCDX-039 found new machine routes silently
-    // never running for their whole lives.
-    const tick = readFileSync("app/api/cron/waitlist-sweep/route.ts", "utf8");
+    // KFU-002: drained on the dedicated worker heartbeat (0278 gives it a
+    // separately-named pg_cron driver), no longer sharing the waitlist route's
+    // failure boundary.
+    const tick = readFileSync("app/api/cron/worker-heartbeat/route.ts", "utf8");
     expect(tick).toContain("drainStorageDeletions");
   });
 
@@ -1515,10 +1523,12 @@ describe("health canaries", () => {
 
 /* KRA-040 — the canaries have a caller, and it alerts on change. */
 describe("health watcher", () => {
-  it("runs on the existing tick, not a new schedule", () => {
-    const tick = readFileSync("app/api/cron/waitlist-sweep/route.ts", "utf8");
-    // KCDX-039 found both cron routes had never executed for their whole lives.
-    // A new schedule is a new thing that can be silently broken.
+  it("runs on the worker heartbeat with its own declared driver (KFU-002)", () => {
+    // KFU-002 correction: sharing the waitlist route's tick was the defect —
+    // when that route was orphaned by a job-name collision (0232), the canaries
+    // went dark. The heartbeat has its own separately-named pg_cron driver (0278),
+    // enforced by tests/cron-drivers.test.ts.
+    const tick = readFileSync("app/api/cron/worker-heartbeat/route.ts", "utf8");
     expect(tick).toContain("runHealthWatch");
   });
 

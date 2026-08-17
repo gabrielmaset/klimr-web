@@ -249,6 +249,31 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-08-17 (f) — B2: the block holds at the profiles table (KFU-004)
+
+0282 replaces `using (true)` on the base profiles SELECT policy with the same two-way block predicate the profiles_public view uses. The view had been a front door with the back door open: 0191 grants members ~35 base columns. 9/9 suite first run (baseline, both directions, column-level, count parity, self-access, unrelated-member, view/table agreement, service path). Replay 282/0. Cache/RSC and cost proof owed at staging.
+
+
+### 2026-08-17 (e) — B1: AAL2 becomes a database fact (KFU-003)
+
+0281 adds fail-closed assurance predicates and gates ownership-destructive team transitions, so an AAL1 token calling PostgREST directly can no longer do what middleware used to guard. Scope deliberately narrow. 6/6 suite with a non-zero baseline. Also fixed a real process hazard: my scratch head was building from a stale migration cache (missing 0274/0275) — now count-asserted; authoritative replays were unaffected since they read the repo. Hosted `aal` claim behaviour owed at staging.
+
+
+### 2026-08-17 (d) — P0 packet: permanent Courtside enrollment (KFU-001)
+
+0280 + app contract. Organizer-issued one-time secret (session+court+audience bound, server-hashed, 2-min default TTL, single-use under a claim predicate), organizer revocation, scope-checked authorization, both legacy overloads dropped. 16/16 negative matrix including "revocation sticks" and "public codes mint nothing". Client half: court-display.tsx no longer auto-enrolls from the join code — the vulnerability's client-side twin. The 2026-08-11 coupling guardrail correctly fired mid-work when route+RPC moved ahead of the client. Five honest iterations recorded (paste-law in comments, CTE placement, pgcrypto search_path, fixture role errors, coupling). Replay 280/0, vitest 326/326. P-STAGING HTTP replay and non-author security review owed before Courtside re-enables.
+
+
+### 2026-08-17 (c) — Remediation WP-0/C0/H1/H2 executed
+
+First three packets of the KFU remediation, executed with evidence. C0 (0276) contains the Courtside P0 by disabling both register overloads + revoking device tokens (owner-authorized dark displays). H1 (0278 + new /api/cron/worker-heartbeat) re-drives the four workers 0232 orphaned via job-name collision — corrected my own double-sweep sketch after the auditor caught it; new cron-driver guardrail prevents the regression class. H2 (0277) makes the provider-hash grant explicit after an EXECUTED finding showed the static read was wrong (it works on head via default-privilege ordering, which may not match prod); app layer now checks results and cleans orphaned credentials. The new cron guardrail found three stale assertions asserting the old defective premise — repointed, not deleted. vitest 326/326, replay 278/0. Two shipped test suites found unhooked AND failing standalone — own diagnostic packet queued. iPhone impact: none.
+
+
+### 2026-08-17 (b) — Follow-up audit intake (KFU-001…035): concessions verified, plan set
+
+The 35-finding follow-up audit is substantially correct, including against this register: four FIXED rows reopened (see KRA register this date), two likely-live production issues identified (stranded worker heartbeat via 0232's job-name reuse; provider-application hash ACL under an INVOKER trigger), and my own 0275 comment turned out to document its own hole (non-status edits on completed rows). Verified in source before conceding: vercel.json, 0232, guards.ts fail-open, toFixed(5) coords in URLs, the zipcodes-to-client import chain, recordResult's completed re-entry. Contests are few and narrow (KFU-031 derivation defended with a caller-binding commitment; KFU-033 framing; KFU-017 text-field portion; KFU-019 disabled context). Every owner-decided position from the baseline survived un-relitigated — the baseline document worked. Plan: eight work packages, hotfixes first (0276 heartbeat, 0277 hash ACL), ~10–13 sessions to Gate A; full dispositions in docs/KFU_RESPONSE_AND_PLAN_2026-08-17.md. Gates gain the audit's P-class permanently: scheduler-driver guardrail, real route-bundle budgets, invoker-trigger role matrix, per-release SHA-256 manifest.
+
+
 ### 2026-08-17 — Category framing correction (owner, twice): Klimr is a SPORTS network
 
 Gabriel corrected the platform categorization twice in one session: not "racquet sports," and not "court sports" either — Klimr is a sports social network, launching with five sports, sport-agnostic by architecture (a sport = sports + sport_formats seed rows; a future soccer is data, not a rebuild). Recorded mistake and its principle: I categorized by current inventory instead of strategic trajectory, twice. Copy corrected in repo (admin invite email, invite share text, landing chip); market-gap research report reissued as v1.2 with the framing woven through. Memory edit #9 rewritten to encode the principle. Rides the next rebuild.

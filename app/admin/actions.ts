@@ -131,7 +131,36 @@ export async function setAccountStatus(formData: FormData) {
     .eq("id", target)
     .maybeSingle();
   const { data: acctAuth } = await admin.auth.admin.getUserById(target);
-  await admin.from("profiles").update({ account_status: status, suspended_until }).eq("id", target);
+  // KFU-028: check the result — supabase-js does not throw, and a silently
+  // failed suspension is a moderation action that looks done and is not.
+  const { error: statusErr } = await admin
+    .from("profiles")
+    .update({ account_status: status, suspended_until })
+    .eq("id", target);
+  if (statusErr) {
+    // <form action> must return void (house rule), so surface the failure the
+    // way the rest of admin does: redirect with a notice rather than silently
+    // reporting success for an action that did not happen.
+    console.error("[admin] account status update FAILED", statusErr.code, statusErr.message);
+    redirect(`/admin/users/${target}?error=status-update-failed`);
+  }
+  // Auth-side ban. The database gate (0279) is the authoritative containment for
+  // a token already issued; this stops NEW sessions and refresh. Note (per the
+  // follow-up audit's correction): admin.signOut() takes a user's JWT, not a user
+  // id, so it cannot be used here — ban_duration on updateUserById is the
+  // supported administrative mechanism. The two writes are NOT one transaction:
+  // if this half fails the database gate still denies every write, and we say so
+  // loudly rather than pretending they agree.
+  const banDuration =
+    status === "banned" ? "876000h" :
+    status === "suspended" ? (suspended_until
+      ? `${Math.max(1, Math.ceil((new Date(suspended_until).getTime() - Date.now()) / 3_600_000))}h`
+      : "876000h") :
+    "none";
+  const { error: banErr } = await admin.auth.admin.updateUserById(target, { ban_duration: banDuration });
+  if (banErr) {
+    console.error("[admin] auth ban update failed (db gate still enforcing)", banErr.message);
+  }
   await logAdminAction(userId, `account:${status}`, target, suspended_until ? `until ${suspended_until}` : undefined, undefined, {
     subject_name: beforeAcct?.display_name ?? null,
     subject_email: acctAuth?.user?.email ?? null,

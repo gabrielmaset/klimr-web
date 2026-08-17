@@ -54,7 +54,7 @@ export async function requestProfessionalStatus(formData: FormData) {
     documentPath = path;
   }
 
-  await supabase.from("provider_applications").insert({
+  const { error: insErr } = await supabase.from("provider_applications").insert({
     user_id: user.id,
     role,
     status: "pending",
@@ -72,6 +72,22 @@ export async function requestProfessionalStatus(formData: FormData) {
       ...(formData.get("venue_attestation") ? { venue_attestation_at: new Date().toISOString() } : {}),
     },
   });
+  // KFU-005 app half: the insert can fail (RLS, constraint, the freeze trigger).
+  // supabase-js does not throw on it, so we must check — and if a credential
+  // document was uploaded for THIS submission, remove the now-orphaned object
+  // rather than leaving unreferenced bytes in the private bucket.
+  if (insErr) {
+    console.error("[professional] application insert failed", insErr.code, insErr.message);
+    if (documentPath) {
+      try {
+        await getPrivilegedClient({ reason: "professional:credential-cleanup", actorId: user.id })
+          .storage.from("credential-docs").remove([documentPath]);
+      } catch (cleanupErr) {
+        console.error("[professional] orphan credential cleanup failed", cleanupErr);
+      }
+    }
+    redirect("/settings/professional?error=submit");
+  }
 
   revalidatePath("/settings/professional");
   redirect("/settings/professional?submitted=1");
@@ -85,11 +101,12 @@ export async function withdrawProfessionalApplication(formData: FormData) {
   if (!user) return;
   const id = String(formData.get("applicationId") ?? "");
   if (!id) return;
-  await supabase
+  const { error: wErr } = await supabase
     .from("provider_applications")
     .update({ status: "withdrawn", updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("user_id", user.id)
     .eq("status", "pending");
+  if (wErr) console.error("[professional] withdraw failed", wErr.code, wErr.message);
   revalidatePath("/settings/professional");
 }

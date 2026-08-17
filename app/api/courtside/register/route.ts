@@ -3,16 +3,22 @@ import { createHash, randomBytes } from "node:crypto";
 import { getPrivilegedClient } from "@/lib/privileged";
 import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
 
-/** One-time courtside device registration (migration 0184).
+/** Courtside device enrollment — KFU-001 permanent fix (migration 0280).
  *
- *  A display proves it belongs by presenting the session's JOIN CODE — the same
- *  credential players use, so possessing it is evidence of being at the venue.
- *  In exchange the server mints a 32-byte token, stores only its SHA-256, and
- *  returns the token once. Every later heartbeat presents that token.
+ *  A display enrolls by presenting a ONE-TIME ENROLLMENT SECRET that the
+ *  organizer issued from their signed-in session (see
+ *  app/queue/courtside-actions.ts → issueCourtsideEnrollment). The session's
+ *  join code and display code are PUBLIC by design — poster, walk-up QR, signage
+ *  URL, public queue projection — and can no longer enroll anything.
  *
- *  Registration is rare (once per device, or after a cache clear), so this
- *  endpoint carries the strict per-IP limit that the heartbeat path does NOT
- *  need — there, the token is the gate. */
+ *  In exchange the server mints a 32-byte device token, stores only its SHA-256,
+ *  and returns the token once. Every later operator command presents that token,
+ *  and courtside_authorize re-checks scope (session, not-revoked, live session).
+ *
+ *  The secret is sent as `enrollmentCode`; `code` is still accepted on the wire
+ *  so an older tablet build gets a clean 403 rather than a crash — it simply
+ *  cannot enroll, which is the intended post-KFU-001 behavior.
+ */
 export const dynamic = "force-dynamic";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -50,8 +56,10 @@ export async function POST(req: Request) {
   // The vulnerability (the public join code can mint an operator token) is
   // therefore OPEN again and stays open until 0235 + the app batch ship together.
   const installId = String(body.installId ?? "");
-  const code = String(body.code ?? "").trim().toUpperCase();
-  if (!UUID_RE.test(installId) || code.length < 4 || code.length > 12) {
+  // The enrollment secret is grouped for reading aloud (XXXX-XXXX-XXXX) but is
+  // accepted in whatever case the tablet sends.
+  const secret = String(body.enrollmentCode ?? body.secret ?? "").trim().toUpperCase();
+  if (!UUID_RE.test(installId) || secret.length < 8 || secret.length > 64) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
@@ -62,7 +70,8 @@ export async function POST(req: Request) {
   const admin = getPrivilegedClient({ reason: "courtside:register" });
   const { data, error } = await admin.rpc("courtside_register", {
     p_install_id: installId,
-    p_code: code,
+    // The SERVER hashes the secret (0280), so a leaked hash is not a credential.
+    p_secret: secret,
     p_token_hash: tokenHash,
     p_platform: String(body.platform ?? "").slice(0, 40) || null,
     p_app_version: String(body.appVersion ?? "").slice(0, 40) || null,

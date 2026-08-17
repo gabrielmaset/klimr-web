@@ -9,7 +9,7 @@ import { teamDisplayName } from "@/lib/queue";
 import { clock, formationLabel, levelLabel } from "@/lib/queue";
 import { useQueueState } from "@/components/queue/use-queue-state";
 import { gameOver, startNextMatch, gameOverByCode, startNextByCode, stepDownTeam, stepDownByCode } from "@/app/queue/actions";
-import { getInstallId, appVersion, networkState, batteryPct, ensureDeviceToken } from "@/lib/courtside-install";
+import { getInstallId, appVersion, networkState, batteryPct, peekDeviceToken } from "@/lib/courtside-install";
 
 type Side = { key: "A" | "B"; color: string; soft: string; ring: string };
 const SIDES: Side[] = [
@@ -308,9 +308,13 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
       const f = new FormData();
       for (const [k, v] of Object.entries(fields)) f.append(k, v);
       if (fields.code) {
-        const token = await ensureDeviceToken(fields.code, isApp);
+        // KFU-001: the join code no longer enrolls anything. Operate with the
+        // token this display already holds; if there is none, the organizer must
+        // issue a one-time enrollment code (Queue → Displays) and someone must
+        // enter it here deliberately.
+        const token = peekDeviceToken();
         if (!token) {
-          showNote("This display isn't registered yet — re-enter the code to set it up.");
+          showNote("This display isn't set up yet. Ask the organizer for a display code, then enter it in Setup.");
           return;
         }
         f.append("installId", getInstallId());
@@ -368,9 +372,9 @@ export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, 
     const beat = async () => {
       if (stopped || document.visibilityState === "hidden") return;
       try {
-        // Register once against the session join code, then present the
-        // server-minted token on every beat (migration 0184).
-        const token = await ensureDeviceToken(joinCode, isApp);
+        // KFU-001: heartbeats present the token this display was enrolled with;
+        // they never enroll. A display with no token simply shows the queue.
+        const token = peekDeviceToken();
         if (!token) return;
         await fetch("/api/courtside/heartbeat", {
           method: "POST",
