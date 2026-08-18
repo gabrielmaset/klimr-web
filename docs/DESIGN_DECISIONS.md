@@ -249,6 +249,15 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-08-18 — Two incidents, both mine, both from checking the wrong thing
+
+**(1) 0283 blocked 254 of 256 production accounts.** The admission gate required an attested adult birth date for every member write; only 2 profiles in production had one. The migration reported the count via RAISE NOTICE — which the Supabase SQL editor does not display — so the blast radius was invisible at paste time. **The measurement belonged BEFORE the gate, not inside it.** Fixed by 0288: a dated, per-row 30-day pre-admission window for accounts that predate the gate. Attestation was deliberately NOT backfilled — inventing the fact the gate exists to establish would have left a record claiming people attested when they did not. Verified 6/6 (writes restored, window expires, new accounts get none, attesting supersedes, suspension still wins). Production after 0288: 2 attested, 254 in window (deadline 2026-09-17), 0 blocked.
+
+**Rule added:** any migration that gates existing rows must be preceded by a COUNT QUERY the owner runs and reads, not a NOTICE the migration prints. NOTICEs are invisible in the SQL editor; state that where the paste instructions are written.
+
+**(2) CI failed on lint while my local gate passed.** CI runs `npm run lint` = `eslint --max-warnings 137`. I was running bare `eslint .`, which exits 0 on warnings, so 138 warnings read as green locally and red in CI. The 138th was an unused binding I left when rewriting a guardrail. **My gate was weaker than the pipeline's.** Corrected: the standing gate sequence is now `npm run lint` — the same command CI runs — never bare eslint. The warning ceiling stays 137; it was not raised to accommodate my mistake.
+
+
 ### 2026-08-17 (m) — I4/I1: finished results become records, meetups get a state machine
 
 0287. A completed result can no longer be edited — corrections go through a manager-gated command that records before/after and unlocks the freeze only transaction-locally. Meetups can no longer be arranged by a third party, have their counterparties swapped, or skip states. 16/16 suite, replay 287/0, fifteen suites. Execution corrected two assumptions of mine: the listings owner column is listed_by, and meetups have no 'completed' state.

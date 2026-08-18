@@ -1881,7 +1881,6 @@ describe("KFU-007/029 safety preservation is wired, not merely defined", () => {
 
 describe("KFU-008 the screening ledger is written and consulted", () => {
   const media = readFileSync("lib/media-safety.ts", "utf8");
-  const feed = readFileSync("app/feed/actions.ts", "utf8");
 
   it("every screening decision records evidence", () => {
     // clean, match, undecided and the AI-CSAE branch: four terminal decisions,

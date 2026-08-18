@@ -1989,3 +1989,11 @@ terminal_immutability_suite 16/16; replay 287/0; fifteen suites green; vitest 34
 Execution corrected two of my assumptions: marketplace_listings names the owner listed_by (not seller_id), and meetups have no 'completed' state — the guard would have encoded a status the schema forbids.
 
 Open in the I-series: KFU-011 (queue approval atomicity), KFU-012 (exact-reject roster/capacity), KCDX-046 residual. Paste order: 0283…0287.
+
+## 2026-08-18 — 0288 incident fix verified in production; gate command corrected
+
+0283's admission gate blocked 254 of 256 active production accounts (only 2 held a birth date). 0288 grants a dated per-row 30-day pre-admission window; production now reports 2 attested / 254 in window (deadline 2026-09-17) / 0 blocked. Attestation was not backfilled — the gate's own fact must not be invented.
+
+Process corrections recorded: (a) gating migrations must be preceded by an owner-run count query, because RAISE NOTICE is invisible in the Supabase SQL editor; (b) the local lint gate must be `npm run lint` (eslint --max-warnings 137), not bare eslint — a bare run exits 0 on warnings and let a 138th warning reach CI.
+
+Still open: klimr_ready() = false in production while local head at 288 is true. Diagnosis pending the owner's `select * from public.klimr_readiness() where not passed` output.
