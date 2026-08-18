@@ -97,7 +97,14 @@ describe("KCDX-058 documentation claims match the source", () => {
     }
     expect(route).toContain("coverage");
     expect(route).toContain("excluded");
-    expect(route).toContain("format_version: 3");
+    // KFU-030 (0285) took the archive to version 4: coverage_status is measured
+    // against the database's versioned data inventory, separately from
+    // query_integrity. The doc and the route must still agree — that is what this
+    // test is for; only the version they agree ON has moved.
+    expect(route).toContain("format_version: 4");
+    expect(readFileSync("docs/DATA-GOVERNANCE.md", "utf8")).toContain("format_version: 4");
+    expect(route).toContain("coverage_status");
+    expect(route).toContain("query_integrity");
   });
 
   it("0218's pickup points match lib/ranking.ts", () => {

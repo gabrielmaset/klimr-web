@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import { scanForKnownCSAM } from "@/lib/csam-scan";
 import { escalateCSAE } from "@/lib/safety-escalation";
 import { getPrivilegedClient } from "@/lib/privileged";
-import { moderateImage } from "@/lib/moderation";
+import { moderateImage, moderationScanner, MODERATION_POLICY_VERSION } from "@/lib/moderation";
+import { mayDestroyOriginal, preservationHoldReason, requiresCsaeEscalation } from "@/lib/safety-rules";
 
 /** KRA-005 — the one gate every stored byte passes through before it can publish.
  *
@@ -40,6 +41,100 @@ export type MediaVerdict =
   | { outcome: "undecided"; sha256: string | null; reason: string };
 
 const MAX_SCAN_BYTES = 12_000_000;
+
+/** The whole publish decision for a post: what the verdicts imply, and whether
+ *  current screening evidence exists for the stored bytes (KFU-008).
+ *
+ *  This lives here rather than in the Feed action because KCDX-067 budgets that
+ *  module's size precisely so safety concerns are not re-absorbed into it — and
+ *  when adding the evidence gate pushed the action over its budget, the budget
+ *  was the thing that was right. */
+export async function decidePostModeration(input: {
+  verdicts: Verdict[];
+  extraLabels: string[];
+  gateDownCategories: ReadonlySet<string>;
+  /** The stored object to check evidence for, or null for a text post. */
+  media: { bucket: string; path: string; sha256: string | null | undefined } | null;
+}): Promise<{ status: "approved" | "pending" | "rejected"; labels: string[] }> {
+  const labels = [...new Set([...input.verdicts.flatMap((v) => v.categories), ...input.extraLabels])];
+  const flagged = input.verdicts.some(
+    (v) => !v.allowed && v.categories.some((c) => !input.gateDownCategories.has(c)),
+  );
+  const gateDown = !flagged && input.verdicts.some((v) => !v.allowed);
+  let status: "approved" | "pending" | "rejected" = flagged ? "rejected" : gateDown ? "pending" : "approved";
+
+  // KFU-008: publication additionally requires CURRENT evidence for the exact
+  // bytes. Fail-closed — a check that cannot run holds the post for review.
+  if (status === "approved" && input.media) {
+    const gate = await evidenceAllowsPublish(input.media);
+    if (!gate.ok) {
+      console.error("[safety] publish held —", gate.reason);
+      labels.push("media_unscreened");
+      status = "pending";
+    }
+  }
+  return { status, labels };
+}
+
+/** KFU-008 publish gate. Asks the ledger whether CURRENT evidence exists for
+ *  exactly these bytes (migration 0286: clean verdict, real scanner, within the
+ *  freshness bound). Fail-closed — a check that cannot run holds the content.
+ *
+ *  Lives here rather than in the Feed action for the reason KCDX-067 records:
+ *  media safety is a concern with its own subject, and the action module has a
+ *  size budget that exists to keep it from re-absorbing concerns like this one. */
+export async function evidenceAllowsPublish(input: {
+  bucket: string;
+  path: string;
+  sha256: string | null | undefined;
+}): Promise<{ ok: boolean; reason?: string }> {
+  if (!input.sha256) return { ok: false, reason: "no digest for the stored object" };
+  try {
+    const admin = getPrivilegedClient({ reason: "media-safety:publish-gate" });
+    const { data, error } = await admin.rpc("media_evidence_current", {
+      p_bucket: input.bucket,
+      p_path: input.path,
+      p_sha256: input.sha256,
+    });
+    if (error) return { ok: false, reason: error.message };
+    return data === true ? { ok: true } : { ok: false, reason: "no current screening evidence for these bytes" };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** KFU-008: write the evidence. A verdict computed in memory and discarded
+ *  cannot be tied to the bytes it was made about, so a reviewed decision has
+ *  nothing to stand on and a replaced object inherits nothing to detect. The row
+ *  is keyed by digest in 0286, so this is idempotent per (object, bytes) — a
+ *  duplicate is a unique-violation we deliberately swallow rather than an error
+ *  worth failing an upload over. */
+async function recordScreening(input: {
+  bucket: string; path: string; sha256: string;
+  verdict: "clean" | "match" | "undecided" | "csae_escalated";
+  labels?: string[];
+}): Promise<void> {
+  try {
+    const scanner = moderationScanner();
+    const admin = getPrivilegedClient({ reason: "media-safety:record-evidence" });
+    const { error } = await admin.from("media_screenings").insert({
+      bucket_id: input.bucket,
+      object_path: input.path,
+      sha256: input.sha256,
+      scanner_provider: scanner.provider,
+      scanner_version: scanner.version,
+      policy_version: MODERATION_POLICY_VERSION,
+      verdict: input.verdict,
+      labels: input.labels?.length ? input.labels : null,
+    });
+    // 23505 = the same bytes screened twice for the same object: already recorded.
+    if (error && error.code !== "23505") {
+      console.error("[safety] screening evidence NOT recorded", error.code, error.message);
+    }
+  } catch (e) {
+    console.error("[safety] screening evidence threw", e instanceof Error ? e.message : String(e));
+  }
+}
 
 /** Magic-number sniffing. The declared content type arrives from the client and
  *  is worth exactly what the client is worth; a polyglot file that claims
@@ -96,7 +191,7 @@ export async function screenStoredObject(input: {
     // draft of this seam reimplemented the first two of those inline, which is
     // exactly the duplication that produced five inline copies of the block
     // predicate elsewhere in this schema. Call the thing that exists.
-    await escalateCSAE({
+    const escalation = await escalateCSAE({
       uploaderId: input.uploaderId,
       bytes: buf,
       sha256,
@@ -108,15 +203,30 @@ export async function screenStoredObject(input: {
 
     // The servable copy goes, now that the preserved copy exists. Order matters:
     // removing first would risk losing the evidence if escalation failed.
-    await admin.storage.from(input.bucket).remove([input.path]);
+    // KFU-007: the original is destroyed ONLY when a durable copy and a durable
+    // incident row both exist. Previously this removed the object regardless of
+    // whether the quarantine upload had succeeded — destroying the evidence the
+    // escalation exists to preserve.
+    if (mayDestroyOriginal(escalation)) {
+      const { error: rmErr } = await admin.storage.from(input.bucket).remove([input.path]);
+      if (rmErr) console.error("[safety] original removal failed after preservation:", rmErr.message);
+    } else {
+      console.error(
+        "[safety] ORIGINAL RETAINED —", preservationHoldReason(escalation),
+        "| path:", input.path, "| errors:", escalation.errors.join("; "),
+      );
+    }
+    await recordScreening({ bucket: input.bucket, path: input.path, sha256, verdict: "match" });
     return { outcome: "match", sha256, incidentRef: scan.matchId ?? sha256 };
   }
 
   if (scan.blocked) {
     // The scan could not reach a verdict. Hold, do not publish, do not destroy.
+    await recordScreening({ bucket: input.bucket, path: input.path, sha256, verdict: "undecided" });
     return { outcome: "undecided", sha256, reason: scan.reason ?? "Safety scan unavailable." };
   }
 
+  await recordScreening({ bucket: input.bucket, path: input.path, sha256, verdict: "clean" });
   return { outcome: "clean", sha256, bytes: buf.byteLength };
 }
 
@@ -134,7 +244,7 @@ export async function screenAndClassifyPhoto(input: {
   path: string | null;
   uploaderId: string;
   isPhoto: boolean;
-}): Promise<{ verdicts: Verdict[]; labels: string[]; mediaRemoved: boolean }> {
+}): Promise<{ verdicts: Verdict[]; labels: string[]; mediaRemoved: boolean; sha256?: string | null }> {
   // "Is there anything to screen" is this module's question, not the caller's.
   if (!input.isPhoto || !input.path) return { verdicts: [], labels: [], mediaRemoved: false };
 
@@ -177,5 +287,47 @@ export async function screenAndClassifyPhoto(input: {
       ? await moderateImage(buf.toString("base64"), file.type || "image/jpeg")
       : { allowed: false, categories: ["image_review"], reason: "Large image queued for review." };
 
-  return { verdicts: [verdict], labels: [], mediaRemoved: false };
+  // KFU-029: a classifier verdict naming a minors category is not an ordinary
+  // refusal. Refusing drops the bytes and records nothing; this path must
+  // PRESERVE and ESCALATE first — `containsCSAE` and the `ai_csae_flag`
+  // escalation kind both existed for this and were called from nowhere.
+  if (requiresCsaeEscalation(verdict.categories)) {
+    const sha256 = createHash("sha256").update(buf).digest("hex");
+    const escalation = await escalateCSAE({
+      uploaderId: input.uploaderId,
+      bytes: buf,
+      sha256,
+      mediaType: file.type || "image/jpeg",
+      kind: "ai_csae_flag",
+      provider: "ai",
+      aiLabels: verdict.categories ?? [],
+    });
+    let mediaRemoved = false;
+    if (mayDestroyOriginal(escalation)) {
+      const { error: rmErr } = await admin.storage.from(input.bucket).remove([input.path]);
+      if (rmErr) {
+        console.error("[safety] original removal failed after AI escalation:", rmErr.message);
+      } else {
+        mediaRemoved = true;
+      }
+    } else {
+      console.error(
+        "[safety] ORIGINAL RETAINED after AI CSAE flag —", preservationHoldReason(escalation),
+        "| path:", input.path, "| errors:", escalation.errors.join("; "),
+      );
+    }
+    // Never publishes either way: the verdict stays disallowed.
+    await recordScreening({
+      bucket: input.bucket, path: input.path, sha256,
+      verdict: "csae_escalated", labels: verdict.categories ?? [],
+    });
+    return {
+      verdicts: [{ allowed: false, categories: verdict.categories ?? ["csae"], reason: "Upload refused." }],
+      labels: ["csae_escalated"],
+      mediaRemoved,
+      sha256,
+    };
+  }
+
+  return { verdicts: [verdict], labels: [], mediaRemoved: false, sha256: screen.sha256 };
 }

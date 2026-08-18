@@ -54,12 +54,17 @@ export async function GET(request: Request) {
   // DID load, but the archive says plainly that it is incomplete and names what
   // is missing. A silent empty category is the thing being removed.
   const failures: { dataset: string; error: string }[] = [];
+  // Every dataset this route ATTEMPTS, recorded so coverage can be compared with
+  // the database's versioned declaration rather than with this same file.
+  const attempted: string[] = [];
   const one = async <T,>(dataset: string, p: PromiseLike<{ data: T | null; error: { message: string } | null }>): Promise<T | null> => {
+    attempted.push(dataset);
     const { data, error } = await p;
     if (error) failures.push({ dataset, error: error.message });
     return data ?? null;
   };
   const many = async <T,>(dataset: string, p: PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> => {
+    attempted.push(dataset);
     const { data, error } = await p;
     if (error) failures.push({ dataset, error: error.message });
     return data ?? [];
@@ -118,12 +123,33 @@ export async function GET(request: Request) {
     many("courtside_devices", priv.from("courtside_devices").select("install_id, label, venue_name, first_seen_at, last_seen_at, retired_at, session_id").in("session_id", organizedSessionIds)),
   ]);
 
+  // KFU-030: coverage and integrity are DIFFERENT questions and were previously
+  // collapsed into one word. `query_integrity` says whether every query we ran
+  // succeeded. `coverage_status` says whether we even attempted everything the
+  // versioned inventory (migration 0285) declares we hold about a member — an
+  // archive can have perfect query integrity and still be missing a category
+  // nobody remembered to add here.
+  const { data: declared, error: declaredErr } = await priv.rpc("export_declared_datasets");
+  const declaredNames = (declared ?? []).map((d: { dataset_name: string }) => d.dataset_name);
+  const attemptedNames = attempted;
+  const missingFromArchive = declaredNames.filter((d: string) => !attemptedNames.includes(d));
+  const coverageKnown = !declaredErr;
+
   const payload = {
-    format_version: 3,
+    format_version: 4,
+    coverage_status: !coverageKnown
+      ? "unknown"
+      : missingFromArchive.length === 0
+        ? "complete"
+        : "partial",
+    missing_datasets: missingFromArchive,
+    query_integrity: failures.length === 0 ? "ok" : "degraded",
     // KRA-016: the archive states its own completeness. `complete: false` with a
     // named list is a truthful partial export; a successful-looking archive with
     // a silently empty category is not.
-    status: failures.length === 0 ? "complete" : "incomplete",
+    status: failures.length === 0 && coverageKnown && missingFromArchive.length === 0
+      ? "complete"
+      : "incomplete",
     incomplete_datasets: failures,
     exported_at: new Date().toISOString(),
     account: { id: uid, email: user.email, created_at: user.created_at },

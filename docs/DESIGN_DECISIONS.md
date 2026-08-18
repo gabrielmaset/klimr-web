@@ -249,6 +249,41 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-08-17 (m) — I4/I1: finished results become records, meetups get a state machine
+
+0287. A completed result can no longer be edited — corrections go through a manager-gated command that records before/after and unlocks the freeze only transaction-locally. Meetups can no longer be arranged by a third party, have their counterparties swapped, or skip states. 16/16 suite, replay 287/0, fifteen suites. Execution corrected two assumptions of mine: the listings owner column is listed_by, and meetups have no 'completed' state.
+
+
+### 2026-08-17 (l) — S2b: evidence written, publication gated
+
+Screenings are recorded with the scanner and policy that produced them; the Feed publishes a photo only against current evidence for its exact bytes, failing closed otherwise. When the gate pushed the action past its size budget I extracted the concern rather than raising the budget — twice — leaving the action smaller than it started. 342/342.
+
+
+### 2026-08-17 (k) — S2: evidence bound to bytes, and a verifier finally called
+
+0286 adds the screening ledger keyed by digest (a replaced object has no evidence rather than inheriting a clean one) with a fail-closed publish predicate that rejects mock, stale and mismatched evidence; and wires 0245's payment-proof verifier into the submit command it was written for, recording a fingerprint. 12/12 suite first run, replay 286/0, fourteen suites. Our own paste-law scan caught a `select … into` carried over from 0193. Ledger writers and the publish-gate call are next and not claimed.
+
+
+### 2026-08-17 (j) — S1: the evidence stops being deleted on a failed preservation
+
+KFU-007/029. escalateCSAE now reports what actually happened (both resolved error objects checked) and neither removal site fires unless a durable quarantine copy and a durable incident row both exist; otherwise the original is retained with an operator-actionable reason. The AI classifier path finally reaches the CSAE escalation that was written for it and never called. Decision logic extracted to a pure module so it could be tested at all — 10 executed tests, 3 wiring guardrails, vitest 339/339. Adapter-live fault injection owed at staging.
+
+
+### 2026-08-17 (i) — D1/D2: erasure and export stop being opinions (KFU-006, KFU-030)
+
+0285 declares, per user-referencing table, what the export does with it and what erasure does to it — then checks those declarations against the catalog's real FK delete rules. First run caught my own wrong declaration: notifications is SET NULL, not CASCADE, so deletion would have orphaned notification content about the person. Export now separates coverage_status (measured against the versioned inventory) from query_integrity; format_version 4. 51 tables remain undeclared — reported, not defaulted, not gated. Replay 285/0, thirteen suites, 326/326.
+
+
+### 2026-08-17 (h) — B5: function contracts, and a control that caught me (KFU-031)
+
+0284 records what every exposed function IS (exact-signature, four classes), binds the callers of four verified-safe policy-only helpers, and adds two general controls proven with planted violations. The oracle predicate found 7 shapes where the audit named 2; the stale-grant control found an oracle I created in 0279 the same day — member_write_allowed(uuid) exposed to members, revoked. 34 actionable stale grants remain reported and deliberately un-gated (a tolerance in a gate is not a gate). Replay 284/0, twelve suites green. B-series complete.
+
+
+### 2026-08-17 (g) — B4: adult admission becomes a fact, not an absence (KFU-033)
+
+0283 adds a server-set, unforgeable adult_attested_at and folds it into the shared eligibility predicate, so a null-age profile can no longer make member writes anywhere the suspension gate already reaches. Honest naming: self-attestation, not verification. 12/12 suite including the exact-18 boundary both ways and the real onboarding path. Broke three suites' fixtures (un-onboarded members) — fixed the fixtures, not the rule; two were the auto-profile-trigger ON CONFLICT law again. Replay 283/0, eleven suites green.
+
+
 ### 2026-08-17 (f) — B2: the block holds at the profiles table (KFU-004)
 
 0282 replaces `using (true)` on the base profiles SELECT policy with the same two-way block predicate the profiles_public view uses. The view had been a front door with the back door open: 0191 grants members ~35 base columns. 9/9 suite first run (baseline, both directions, column-level, count parity, self-access, unrelated-member, view/table agreement, service path). Replay 282/0. Cache/RSC and cost proof owed at staging.

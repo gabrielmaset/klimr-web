@@ -1926,3 +1926,66 @@ Owed: P-STAGING observation that hosted Auth issues the `aal` claim. Migrations 
 0282: the base profiles SELECT policy was `using (true)` beside a correct block-aware view — the audit's finding confirmed in the live catalog. Policy now permits own row or a non-blocked pair in both directions, reusing the same is_blocked_pair helper the view uses (one definition, no drift). profile_block_boundary_suite 9/9 first run, including count parity and view/table agreement; replay 282/0; ten suites green; vitest 326/326.
 
 Owed: P-STAGING cache/RSC-payload proof and query-cost measurement. Migrations to paste in order: 0276 → 0277 → 0278 → 0279 → 0280 → 0281 → 0282.
+
+## 2026-08-17 (h) — B4 executed (KFU-033, adult admission)
+
+0283: server-set adult_attested_at granted by writing an adult DOB through any legitimate path, unforgeable from the data plane (outside the member column grant list + trigger revert), required by the shared member_write_allowed helper so admission rides H3's existing 30-table enforcement. enforce_active_member now distinguishes admission_required from account_not_active. attest_adult() is the explicit command; onboarding needed no change because it already writes the member's own DOB (suite proves that path). Backfill attests stored-adult profiles and NOTICEs the count of active-but-unattested profiles — in production that number identifies accounts that must finish onboarding.
+
+adult_admission_suite 12/12; replay 283/0; eleven suites green. The new rule broke three suites' fixtures (members who never onboarded, then wrote) — two via the recorded auto-profile-trigger law where ON CONFLICT dropped the DOB. Fixtures corrected; rule not weakened.
+
+Paste: 0283 (after 0282, which is already deployed).
+
+## 2026-08-17 (i) — B5 executed (KFU-031): the B-series is complete
+
+0284 adopts the auditor's four-class contract design: exact-signature registry (108 rows incl. the 98-name app RPC surface), caller binding on four verified-safe policy-only helpers, and two general controls with planted red/green proofs. Deliberately NOT bound: is_conversation_participant (0011 legitimately evaluates a second subject — the auditor's own "no blanket rewrite" case), is_business_manager (own packet).
+
+The controls found what the audit could not name: seven oracle-shaped functions instead of two, and — via stale_policy_grants — an oracle I had introduced myself in 0279, member_write_allowed(uuid) granted to authenticated, leaking account state about arbitrary users. Revoked with caller_aal/require_aal2; all five enforcement suites re-run green afterwards, proving the DEFINER paths never needed those member grants.
+
+34 actionable stale grants remain, reported and explicitly NOT gated at that number (no gate with a tolerance). function_contracts_suite 8/8; replay 284/0; twelve suites green; vitest 326/326.
+
+B-SERIES COMPLETE: B1 (KFU-003) · B2 (KFU-004) · B3 (KFU-028, as H3) · B4 (KFU-033) · B5 (KFU-031).
+Paste in order: 0283, 0284 (0276-0282 already deployed). Next: D1/D2 (erasure + DSAR), then S1/S2 (safety).
+
+## 2026-08-17 (j) — D1/D2 executed (KFU-006, KFU-030)
+
+0285 replaces hand-maintained coverage with a versioned data_inventory checked against the catalog. On its first run the contradiction control found that notifications.user_id is SET NULL, not CASCADE — account deletion would have left notification content about the person behind with a null user. Declaration corrected to 'delete' with the reason recorded. Export route now reports coverage_status (vs the declaration) separately from query_integrity, at format_version 4; DATA-GOVERNANCE and two guardrails updated to match (the doc-drift test fired correctly and was answered by fixing the doc, not the test).
+
+data_inventory_suite 9/9 with planted contradiction and planted undeclared-table controls; replay 285/0; thirteen suites green; vitest 326/326.
+
+Stated openly: 51 user-referencing tables remain undeclared (reported, not defaulted, not gated). The erasure execution command + per-account isolation + physical Storage verification are the next packet.
+
+Paste in order: 0283, 0284, 0285.
+
+## 2026-08-17 (k) — S1 executed (KFU-007, KFU-029)
+
+escalateCSAE returned void with every failure swallowed, and both callers deleted the original regardless — the irreversible case of the project's own "supabase-js does not throw" footgun. It now returns a checked EscalationResult; both removal sites are gated by mayDestroyOriginal() (durable copy AND durable incident), and a failed preservation retains the original with a logged reason instead of destroying evidence. containsCSAE had no caller: the AI path now routes a minors verdict through preservation + escalation with kind ai_csae_flag before any removal, and never publishes either way.
+
+The destroy decision moved into lib/safety-rules.ts — pure, no server-only import — precisely because that is why it had no executable test. 10 unit tests + 3 wiring guardrails; vitest 339/339.
+
+Owed: adapter-live fault injection (P-STAGING). Next: KFU-008 evidence binding + KFU-009 payment digest.
+
+## 2026-08-17 (l) — S2 executed (KFU-008 database half, KFU-009 complete)
+
+0286: media_screenings ledger keyed by (bucket, path, sha256) so replaced bytes cannot inherit a clean verdict, plus media_evidence_current() — fail-closed on missing, stale, mock/disabled-scanner or non-clean evidence, with the freshness bound supplied by the caller. tournament_submit_payment_proof now CALLS verify_payment_proof_object (built and proven in 0245, never called since) and records a proof_fingerprint so a byte swap under a reviewed decision is detectable.
+
+evidence_binding_suite 12/12 first run; replay 286/0; fourteen suites green; vitest 339/339.
+
+Paste-law caught my own carry-over of `select … into v_r` from 0193 — command rewritten in assignment form before delivery.
+
+OPEN and next: write screening rows from screenAndClassifyPhoto and consult media_evidence_current() on the publish path; remaining upload surfaces; video gate. Paste order now: 0283, 0284, 0285, 0286.
+
+## 2026-08-17 (m) — S2b: the ledger has a writer and the publish path a gate
+
+Every screening decision now records evidence (digest + scanner provider/version + policy version); the Feed publish path consults media_evidence_current() through decidePostModeration() and fails closed on missing, stale, mock or mismatched evidence. KCDX-067's module-size budget fired when the gate landed in the action — the concern was extracted (twice) rather than the budget raised; the action is now 514 lines against a 515 budget. vitest 342/342.
+
+Remaining for KFU-008: avatars, listings, credential documents, video gate. P-STAGING: live adapter proof.
+
+## 2026-08-17 (n) — I4/I1 executed (KFU-013, KFU-010)
+
+0287 freezes terminal team-match rows against every result and identity column, with team_match_correct_result as the only route — manager-gated, reason-required, append-only before/after audit written BEFORE mutation, transaction-local unlock (not a definer bypass, so direct writes still cannot). recordResult no longer re-enters on completed. listing_meetups gains an insert shape check (proposer must be the caller and a counterparty), frozen identities and a transition matrix taken from the table's own CHECK vocabulary.
+
+terminal_immutability_suite 16/16; replay 287/0; fifteen suites green; vitest 342/342.
+
+Execution corrected two of my assumptions: marketplace_listings names the owner listed_by (not seller_id), and meetups have no 'completed' state — the guard would have encoded a status the schema forbids.
+
+Open in the I-series: KFU-011 (queue approval atomicity), KFU-012 (exact-reject roster/capacity), KCDX-046 residual. Paste order: 0283…0287.

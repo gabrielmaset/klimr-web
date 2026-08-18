@@ -124,6 +124,41 @@ else
   echo "profile_block_boundary_suite=FAIL"; grep -E "BLK-FAIL|ERROR" "$W/blk.out" | head -4; fails=$((fails+1))
 fi
 
+# KFU-033: adult admission is a server-set fact, not an absence of evidence.
+if $P -f "$REPO/supabase/tests/adult_admission_suite.sql" > "$W/adm.out" 2>&1; then
+  echo "adult_admission_suite=PASS ($(grep -c 'ok   ' "$W/adm.out") checks)"
+else
+  echo "adult_admission_suite=FAIL"; grep -E "ADM-FAIL|ERROR" "$W/adm.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-031: function contracts — oracles closed, controls proven with plants.
+if $P -f "$REPO/supabase/tests/function_contracts_suite.sql" > "$W/fc.out" 2>&1; then
+  echo "function_contracts_suite=PASS ($(grep -c 'ok   ' "$W/fc.out") checks)"
+else
+  echo "function_contracts_suite=FAIL"; grep -E "FC-FAIL|ERROR" "$W/fc.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-006/030: erasure + export declarations checked against the catalog.
+if $P -f "$REPO/supabase/tests/data_inventory_suite.sql" > "$W/inv.out" 2>&1; then
+  echo "data_inventory_suite=PASS ($(grep -c 'ok   ' "$W/inv.out") checks)"
+else
+  echo "data_inventory_suite=FAIL"; grep -E "INV-FAIL|ERROR" "$W/inv.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-008/009: evidence bound to bytes; the payment verifier is actually called.
+if $P -f "$REPO/supabase/tests/evidence_binding_suite.sql" > "$W/evb.out" 2>&1; then
+  echo "evidence_binding_suite=PASS ($(grep -c 'ok   ' "$W/evb.out") checks)"
+else
+  echo "evidence_binding_suite=FAIL"; grep -E "EVB-FAIL|ERROR" "$W/evb.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-013/010: terminal results are final; meetups have a state machine.
+if $P -f "$REPO/supabase/tests/terminal_immutability_suite.sql" > "$W/ti.out" 2>&1; then
+  echo "terminal_immutability_suite=PASS ($(grep -c 'ok   ' "$W/ti.out") checks)"
+else
+  echo "terminal_immutability_suite=FAIL"; grep -E "TI-FAIL|ERROR" "$W/ti.out" | head -4; fails=$((fails+1))
+fi
+
 # KCDX-052: the readiness gate, after the replay. A migration that opens a
 # boundary now fails CI rather than being discovered at boot in production.
 echo "-- readiness --"

@@ -10,11 +10,12 @@ insert into auth.users (id, email) values
   ('ab000000-0000-0000-0000-0000000000a2','blk-b@test.local'),
   ('ab000000-0000-0000-0000-0000000000a3','blk-c@test.local')
 on conflict (id) do nothing;
-insert into public.profiles (id, display_name) values
-  ('ab000000-0000-0000-0000-0000000000a1','Blk A'),
-  ('ab000000-0000-0000-0000-0000000000a2','Blk B'),
-  ('ab000000-0000-0000-0000-0000000000a3','Blk C')
-on conflict (id) do update set display_name = excluded.display_name;
+insert into public.profiles (id, display_name, date_of_birth) values
+  ('ab000000-0000-0000-0000-0000000000a1','Blk A','1990-01-01'),
+  ('ab000000-0000-0000-0000-0000000000a2','Blk B','1990-01-01'),
+  ('ab000000-0000-0000-0000-0000000000a3','Blk C','1990-01-01')
+on conflict (id) do update set display_name = excluded.display_name,
+  date_of_birth = excluded.date_of_birth;
 
 -- ── BASELINE first: before any block, A can read B (suite measures something) ─
 select set_config('request.jwt.claim.sub','ab000000-0000-0000-0000-0000000000a1',true);

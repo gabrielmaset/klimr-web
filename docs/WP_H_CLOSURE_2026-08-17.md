@@ -211,3 +211,210 @@ Format per CLAUDE_REMEDIATION_BRIEF §"Closure report format". Statuses are evid
 **11. Independent reviewer:** non-author review owed before GO.
 
 **Status: FIXED-EXECUTED at the database layer (9/9 with baseline, both directions, count parity). Cache/RSC and cost evidence owed P-STAGING.**
+
+---
+
+## B4 — Adult admission (KFU-033)
+
+**1. Findings addressed:** KFU-033 (P1 under the current 18+ posture, D-38) — 0271 rejects a known minor but a profile with NO birth date passes, and the signup trigger creates a profile before onboarding runs, so a direct data-plane client can hold an active member profile that never met the age check.
+
+**2. Root cause:** the platform had a *rejection* rule and no *admission* rule. Absence of evidence was treated as evidence of adulthood.
+
+**3. Design and trust boundary (per the reconciliation — share KFU-028's machinery, keep separate closure):** a server-set `profiles.adult_attested_at` becomes the trusted fact. Writing an adult birth date through any legitimate path grants it (that IS what self-attestation means, and 0271's rule guarantees any stored date is adult); a null birth date earns nothing. Members cannot forge it — the column is outside the 0191 member grant list AND the trigger reverts a hand-set value, so two independent defenses stand. `member_write_allowed()` — H3's single eligibility predicate, already wired to the 30-table `enforce_active_member` trigger — now means **active AND admitted**, so admission is enforced everywhere suspension is with no second mechanism to drift. `enforce_active_member` distinguishes the two refusals (`admission_required` vs `account_not_active`) so an un-onboarded member gets an accurate message. `attest_adult(date)` is the explicit validated command.
+
+**HONEST NAMING:** this is self-attestation, recorded as such in the migration and the column comment. It is not identity verification; the stepped-up verified-identity programme remains separate and later.
+
+**4. Files and migrations changed:** `supabase/migrations/0283_adult_admission_state.sql` (new); `supabase/tests/adult_admission_suite.sql` (new, hooked); fixture corrections in `suspension_gate_suite.sql`, `aal2_boundary_suite.sql`, `feed_visibility_suite.sql`, `profile_block_boundary_suite.sql`, `supabase/harness/concurrency.sh`. **No app change was required** — onboarding already writes the member's own `date_of_birth`, which the trigger converts into admission; a suite check proves that exact production path.
+
+**5. Tests added:** 12 checks — BASELINE adult admitted; admitted adult can write; **null-age profile is NOT admitted**; null-age member write refused with `admission_required`; **member cannot forge the fact** (either defense passes; the assertion is on end state); minor refused by the command; refused attempt leaves nothing behind; **exactly 18 today is admitted** (inclusive boundary); the command stores the attested date; **one day short of 18 is refused**; **the real onboarding path (member writes own adult DOB) earns admission**; suspension still overrides admission; service path unaffected.
+
+**6. Commands actually executed:** applied 0283 on a faithful from-zero head; ran the new suite plus every dependent suite; tsc; eslint; vitest; two from-zero replays.
+
+**7. Results and retained evidence (Executed-local):** replay **283 applied / 0 failed**; adult_admission_suite **12/12**; all eleven suites green (rls 26, concurrency clean, feed 15, match 19, teams 16, invoker 2, suspension 12, courtside 16, aal2 6, block 9, admission 12); klimr_ready 42; rpc_grants 98/0; vitest 326/326; eslint 0 errors; build clean.
+**Blast radius, found by running rather than assuming:** the new rule initially broke three suites whose fixtures created members who never onboarded and then had them write — concurrency, feed_visibility and profile_block_boundary. Two failures were the SAME recorded law biting again: the `auth.users` trigger auto-creates profile rows, so `ON CONFLICT DO NOTHING`/partial `DO UPDATE` silently dropped the fixture's birth date. Fixtures corrected to represent onboarded members; the rule itself was not weakened to make tests pass.
+
+**8. Migration/deployment/rollback:** paste 0283. The migration backfills admission for every profile that already carries an adult birth date and **prints two NOTICEs**: how many it attested, and how many active profiles remain unattested and therefore cannot make member writes until they finish onboarding. On the local from-zero database both were 0; **in production the second number is the one to read** — those accounts must complete onboarding. Rollback: revert `member_write_allowed` to the H3 form.
+
+**9. Observability/operator:** `admission_required` carries a hint pointing at onboarding; the paste output states the unattested inventory rather than leaving it to be discovered.
+
+**10. Residual risks / non-goals:** self-attestation only — no identity proof. Storage-object writes are governed by Storage policies, not this trigger. Existing unattested accounts are intentionally write-blocked rather than silently grandfathered; that is the admission rule doing its job, and the count is surfaced at paste time.
+
+**11. Independent reviewer:** non-author review owed before GO.
+
+**Status: FIXED-EXECUTED (12/12 including both boundary directions, forgery, and the real onboarding path).**
+
+---
+
+## B5 — Function contracts (KFU-031)
+
+**1. Findings addressed:** KFU-031 (P2 security control) — policy dependency was being treated as proof that a function is safe as an arbitrary direct RPC, and nothing removed a grant when its policy dependency disappeared.
+
+**2. Root cause:** 0268's reconciler is right that a policy's role needs EXECUTE (proven by executed baseline). The unsound inference rode alongside it: a function safe when a POLICY supplies its arguments (row + `auth.uid()`) is not automatically safe when a CALLER supplies them. The auditor named `is_match_participant(match_id, user_id)` and `is_match_organizer(...)` as concrete relationship oracles.
+
+**3. Design and trust boundary (the auditor's design, adopted over my blanket-binding proposal):** four-class taxonomy recorded in `public.function_contracts` keyed by **exact signature** — `public_rpc` / `policy_only` / `trigger_service` / `anon_predicate` — so exposure is a recorded decision, not an inference. Caller binding applied only where verified safe. Two general controls replace instance-fixing: `identity_oracle_candidates()` (policy-referenced, takes a uuid, body never consults `auth.uid()`) and `stale_policy_grants()` (executable by anon/authenticated, no policy references it, no contract claims it).
+
+**4. Files and migrations changed:** `supabase/migrations/0284_function_contracts.sql` (new); `supabase/tests/function_contracts_suite.sql` (new, hooked into replay).
+
+**5. Tests added:** 8 checks — the two named oracles refuse an arbitrary subject; a member may still ask about themselves (binding is not a wall); **BASELINE the match policy still resolves for a real participant** (the binding did not break the thing the grant exists for); **planted grant observed red** by `stale_policy_grants()` and **clearing once revoked** (the control is neither blind nor stuck on); the registry covers the application RPC surface by exact signature; `member_write_allowed` is no longer member-executable.
+
+**6. Commands actually executed:** verified all seven call sites of each helper before binding anything; applied 0284; ran the new suite plus every enforcement suite that could have been broken by the revokes; tsc; eslint; vitest; from-zero replay.
+
+**7. Results and retained evidence (Executed-local):** replay **284 applied / 0 failed**; function_contracts_suite **8/8 first run**; twelve suites green; klimr_ready 42; rpc_grants 98/0; vitest 326/326; build clean.
+
+**What the general controls found that the audit did not name — the reason to write a predicate instead of fixing instances:**
+- The oracle predicate reported **seven** functions of the same shape, not two. Three more were verified safe to bind (`is_team_manager`, `is_team_member`, plus the two named); **`is_conversation_participant` was deliberately NOT bound** because 0011 legitimately evaluates a second subject `(conversation_id, recipient_id)` — precisely the "do not apply one blanket rewrite" case the auditor flagged. It stays declared and reported until its internal and public contracts are split.
+- The stale-grant control reported grants that outlived their reason, and among them **an oracle I introduced myself earlier the same day**: `member_write_allowed(uuid)` was granted to `authenticated` in 0279, so any member could ask whether *another* account was suspended or un-onboarded. Revoked, along with `caller_aal()` and `require_aal2()`. Every caller of these is a SECURITY DEFINER function, so enforcement is unaffected — proven by re-running all five enforcement suites after the revoke.
+
+**8. Migration/deployment/rollback:** paste 0284 after 0283. No app change. Rollback: re-grant the three helpers (not advised) and drop the registry.
+
+**9. Observability/operator:** `identity_oracle_candidates()` and `stale_policy_grants()` are service-role reports intended for the release checklist; the registry records why each exposed function is exposed.
+
+**10. Residual risks / non-goals (stated, not hidden):** `stale_policy_grants()` currently reports **34** actionable grants — genuine untidy exposure to be worked down in follow-on packets. **It is deliberately NOT gated at that number**: encoding 34 as an accepted baseline would be exactly the "gate with a tolerance" this project forbids. Trigger-returning functions are excluded on principle (PostgreSQL refuses direct invocation), not as a tolerance. `is_conversation_participant` and `is_business_manager` remain reported pending their own packets. The audit's real-PostgREST `/rpc` negatives as anon and unrelated members remain **P-STAGING**.
+
+**11. Independent reviewer:** non-author review owed before GO.
+
+**Status: FIXED-EXECUTED for the named oracles and the control design (8/8 with planted controls proven red). Residual exposure is reported, quantified and un-gated by design.**
+
+---
+
+## D1/D2 — Erasure semantics and DSAR coverage (KFU-006, KFU-030)
+
+**1. Findings addressed:** KFU-006 (P1) — account erasure had no declared semantics per artifact, failures were not isolated, physical deletion unverified. KFU-030 (P1) — DSAR coverage was built from a hardcoded list in the route, and a single `status` conflated "every query succeeded" with "we covered everything we hold".
+
+**2. Root cause (both):** coverage was an opinion held in application code. 69 public tables reference `profiles` with **different FK delete rules**, several of them NO ACTION or SET NULL, so what actually happens to a person's data on erasure varied per table and was written down nowhere. The export measured itself against the same list that produced it, which cannot detect an omission.
+
+**3. Design and trust boundary:** one versioned declaration, checked against the catalog rather than against itself. `public.data_inventory` records, per user-referencing table, what it holds, what the export does with it (`included` / `excluded_e2ee` / `excluded_shared` / `excluded_safety` / `not_personal`), and what erasure does (`cascade` / `delete` / `anonymize` / `retain_safety` / `retain_legal`). `erasure_semantics_gaps()` reports undeclared tables **and declarations that contradict the real FK delete rule**. `export_declared_datasets()` is read by the export route at runtime, so coverage is measured against the declaration.
+
+**4. Files and migrations changed:** `supabase/migrations/0285_data_inventory.sql` (new); `supabase/tests/data_inventory_suite.sql` (new, hooked); `app/settings/export/route.ts` (attempted-dataset recording; `coverage_status` + `missing_datasets` + `query_integrity` as separate facts; `format_version: 4`; `status` now the honest conjunction); `lib/database.types.ts`; `docs/DATA-GOVERNANCE.md`; two guardrail/doc-claims assertions repointed.
+
+**5. Tests added:** 9 checks — no declaration contradicts its FK rule; **planted false cascade detected, then clearing when corrected**; **a newly created user-referencing table is reported undeclared**, and declaring it clears the gap; the export's declared surface is plausible and every included artifact names its dataset; **exclusions carry a recorded reason** (not silent omission); the inventory is service-only.
+
+**6. Commands actually executed:** applied 0285 on a faithful from-zero head; ran the suite; tsc; eslint; vitest; from-zero replay.
+
+**7. Results and retained evidence (Executed-local):** replay **285 applied / 0 failed**; data_inventory_suite **9/9**; **thirteen suites green**; klimr_ready 42; rpc_grants **99**/0; vitest 326/326; eslint 0 errors; build clean.
+**What the control found on its first run — the reason this design was worth building:** `notifications.user_id` is declared in the inventory as part of a member's data, and the FK delete rule is **SET NULL, not CASCADE**. Deleting an account would have left notification rows — titles and bodies about that person — with a null user id. My own first declaration said "cascade"; the catalog said otherwise and the control caught it immediately. The declaration is now `delete`, with the reason recorded inline, meaning erasure must remove them explicitly.
+
+**8. Migration/deployment/rollback:** paste 0285 after 0284. The migration prints the current gap count as a NOTICE. Deploy the app change with the batch — the export gains fields; no field was removed. Rollback: drop the inventory and revert the route to `format_version: 3`.
+
+**9. Observability/operator:** a DSAR archive now states `coverage_status`, `missing_datasets` and `query_integrity` separately, so a partial export cannot present itself as complete; `erasure_semantics_gaps()` is a release-checklist control.
+
+**10. Residual risks / non-goals (stated plainly):** **51 user-referencing tables remain UNDECLARED** and are reported by the control. That is a real work list, deliberately not defaulted to a convenient value — a default here would be a guess about someone's personal data — and deliberately **not gated at 51** (no gate with a tolerance). The erasure COMMAND itself (executing the declared semantics per artifact, per-account failure isolation, and physical Storage-object verification) is the next packet; this one establishes the semantics it must implement. Physical byte-deletion proof remains **P-STAGING**.
+
+**11. Independent reviewer:** non-author review owed before GO.
+
+**Status: FIXED-EXECUTED for the declaration and controls (9/9, both plants proven). The erasure execution command and Storage-byte verification remain OPEN and scheduled.**
+
+---
+
+## S1 — Preservation outcomes and CSAE escalation (KFU-007, KFU-029)
+
+**1. Findings addressed:** KFU-007 (P1) — preservation outcomes were neither returned nor checked, and the original object was deleted regardless. KFU-029 (P1) — `containsCSAE` was defined and called from nowhere, so an AI-classified CSAE verdict was handled as an ordinary refusal: bytes dropped, nothing preserved, no incident.
+
+**2. Root cause:** `escalateCSAE` returned `void` with each step wrapped in a bare `catch { console.error }`, so quarantine-upload failure and incident-insert failure were both invisible to the caller — which then removed the original unconditionally. This is the project's own recorded footgun (Storage and PostgREST report failure in a **resolved** object, not by throwing) sitting in the one path where the mistake is irreversible: the object IS the evidence, and in the CSAE case its preservation is legally required. Separately, the AI classification path returned its verdict without ever asking whether the categories named a minor — the `ai_csae_flag` escalation kind existed for exactly that and had no caller.
+
+**3. Design and trust boundary:** the destroy decision becomes a pure, testable rule and moves out of the server-only modules. `lib/safety-rules.ts` holds `mayDestroyOriginal()` — the original may be destroyed only when a durable quarantine copy **and** a durable incident row both exist — plus `preservationHoldReason()` and `requiresCsaeEscalation()`. `escalateCSAE` now returns an observed `EscalationResult` with both resolved error objects explicitly checked, and treats a failed safety-contact alert as serious but **not** as preservation (conflating them would retain objects for the wrong reason). Both destruction sites are gated by the rule; when preservation is incomplete the original is RETAINED (it is already unpublishable) and the reason is logged for the operator. The AI path now routes a minors verdict through preservation and escalation before deciding anything, and never publishes either way.
+
+**4. Files changed:** `lib/safety-rules.ts` (new, pure); `lib/safety-rules.test.ts` (new, 10 executed tests); `lib/safety-escalation.ts` (typed result, checked errors); `lib/media-safety.ts` (rule-gated removal in both paths, AI CSAE wiring); `tests/guardrails.test.ts` (three wiring assertions).
+
+**5. Tests added:** **10 executed unit tests** — destruction allowed only with both durable artifacts; refused when the copy failed; refused when the incident failed; refused when both failed, with the reason naming it; a failed *alert* does not block destruction (the two are not the same fact); the OpenAI `sexual/minors` category routes to escalation; hash-match and generic CSAE labels route; case and padding from a vendor do not defeat it; ordinary refusals (`sexual`, `violence`) do **not** escalate; empty/missing categories are not treated as a match. Plus 3 wiring guardrails asserting every removal site is gated and both resolved errors are checked.
+
+**6. Commands actually executed:** tsc; eslint; full vitest; production build.
+
+**7. Results and retained evidence (Executed-local):** vitest **339/339** (up from 326 — 13 new); tsc 0; eslint 0 errors; build clean. The decision that protects the evidence is now proven by execution rather than by reading.
+
+**8. Migration/deployment/rollback:** no migration. App-only; deploy with the batch. Rollback: revert the two library files.
+
+**9. Observability/operator:** a failed preservation now logs `ORIGINAL RETAINED` with the specific reason and the path, so an operator can complete preservation by hand; previously the same failure was a silent `console.error` followed by deletion.
+
+**10. Residual risks / non-goals (stated):** these are unit and wiring proofs. **Fault injection against live Storage and a live classifier remains P-STAGING**, exactly as the audit requires — I am not claiming adapter-live evidence. KFU-008 (binding each screening result and attestation to an immutable object key/version plus digest, rejecting stale or mock scanners) and KFU-009 (payment-proof digest wired into the command) are the next packet; the remaining upload surfaces and the video gate stay open.
+
+**11. Independent reviewer:** non-author review owed before GO.
+
+**Status: FIXED-EXECUTED for the preservation rule and CSAE routing (13 executed tests). Adapter-live fault injection owed P-STAGING.**
+
+---
+
+## S2 — Evidence binding and the uncalled verifier (KFU-008, KFU-009)
+
+**1. Findings addressed:** KFU-008 (P1) — screening results and attestations were not bound to an immutable object identity plus digest, and nothing rejected stale, mock or dead scanners. KFU-009 (P1) — 0245 built `verify_payment_proof_object()`, proved it with an allow case and three denials, and then **nothing ever called it**; the submit command still only checked that the path string was non-empty.
+
+**2. Root cause:** verdicts were computed in memory and discarded, so no record tied "these bytes were screened by this scanner under this policy" to anything, and a reviewed decision could not be connected to the bytes it was made about. On the payment side, a verifier that is never called is a comment — the path string from the client remained the only input, so a guessed path, a path to nothing, another registration's prefix, or someone else's upload could all be recorded as a submitted payment.
+
+**3. Design and trust boundary:** `media_screenings` is the evidence ledger, keyed by **(bucket, path, sha256)** — by the BYTES, not the path. A replaced object produces a new digest, which has no evidence, so it cannot inherit an earlier clean verdict; a path-keyed ledger would have allowed exactly that swap. `media_evidence_current()` is the fail-closed publish predicate: clean verdict, for this digest, from a real scanner (never `none`/`mock`/`stub`/`disabled`), within the **caller's** freshness bound rather than a hard-coded constant. On the payment side the submit command now calls the 0245 verifier and records a `proof_fingerprint` (etag/size/mtime) so bytes replaced under a reviewed decision are detectable.
+
+**4. Files and migrations changed:** `supabase/migrations/0286_evidence_binding_wired.sql` (new); `supabase/tests/evidence_binding_suite.sql` (new, hooked). Registered in both governance surfaces built earlier today: the two new functions in `function_contracts`, and `media_screenings` in `data_inventory` as `excluded_safety` / `retain_safety`.
+
+**5. Tests added:** 12 checks — BASELINE clean evidence permits publication; **replaced bytes have no evidence**; unscreened object fails closed; **a mock/disabled scanner is not evidence**; **stale evidence fails the freshness bound** while a wider bound accepts the same row (the bound is the caller's); a `match` verdict never publishes; duplicate evidence for one object+digest is refused; the ledger is service-only; the payment command **calls** the verifier; it records a fingerprint; **a fabricated proof path is refused rather than recorded**.
+
+**6. Commands actually executed:** applied 0286 on a faithful from-zero head; ran the suite; tsc; eslint; vitest; from-zero replay.
+
+**7. Results and retained evidence (Executed-local):** replay **286 applied / 0 failed**; evidence_binding_suite **12/12 first run**; **fourteen suites green**; klimr_ready 42; rpc_grants 99/0; vitest 339/339; eslint 0 errors; build clean.
+**Caught in my own migration by our own law:** I carried `select … into v_r` across from 0193 when rewriting the command. That record form cannot survive the Supabase SQL editor's paste scanner, so the whole command was rewritten in scalar assignment form — same semantics, pasteable. The into-scan is why it was caught before delivery rather than in your editor.
+
+**8. Migration/deployment/rollback:** paste 0286 after 0285. The command keeps its signature, so no app change is required for KFU-009; the ledger has no writer yet (see residual). Rollback: restore the 0193 body.
+
+**9. Observability/operator:** a refused proof returns `proof_object_invalid` instead of silently recording an unverifiable payment; the fingerprint gives a reviewer something to compare against.
+
+**10. Residual risks / non-goals (stated plainly):** the **ledger is not yet written to** — `screenAndClassifyPhoto` must record its verdict, and the publish path must consult `media_evidence_current()`. That app wiring is the next step of this packet and is deliberately not claimed here; today's work is the durable, tested substrate it needs. Attestation binding for the remaining upload surfaces (avatars, listings, credential documents) and the video gate stay open. Live-adapter and real-Storage proof remains **P-STAGING**.
+
+**11. Independent reviewer:** non-author review owed before GO.
+
+**Status: FIXED-EXECUTED for the payment-proof wiring (KFU-009) and the evidence substrate + publish predicate (KFU-008 database half, 12/12). The screening-write and publish-gate wiring is OPEN and next.**
+
+---
+
+## S2b — Screening ledger written and consulted (KFU-008, app half)
+
+**1. Findings addressed:** KFU-008 remaining half — the evidence ledger built in 0286 had no writer, and no publish path consulted it.
+
+**2. Root cause:** verdicts were computed and discarded (S2 built the substrate; this wires it).
+
+**3. Design and trust boundary:** every terminal screening decision — `clean`, `match`, `undecided`, `csae_escalated` — now writes a row carrying the digest, the scanner **provider and version**, and the **policy version** (`moderationScanner()` / `MODERATION_POLICY_VERSION`, new exports, so evidence records what actually judged the bytes rather than an assumption). Duplicate evidence for the same object+digest is a unique violation deliberately swallowed: it means "already recorded", not "failure". The publish decision — verdict folding *and* the evidence gate — moved wholesale into `lib/media-safety.ts` as `decidePostModeration()`, which fails closed: a missing digest, an RPC error, or absent/stale/mock evidence all downgrade an otherwise-approved photo to `pending` with a `media_unscreened` label.
+
+**4. Files changed:** `lib/moderation.ts` (scanner + policy version exports); `lib/media-safety.ts` (`recordScreening`, `evidenceAllowsPublish`, `decidePostModeration`); `app/feed/actions.ts` (delegates the decision); `lib/database.types.ts`; `tests/guardrails.test.ts` (3 wiring assertions).
+
+**5. Tests added:** 3 wiring guardrails — all four verdict kinds are recorded; evidence carries scanner and policy version; the action delegates and the module enforces the fail-closed gate.
+
+**6. Commands actually executed:** tsc; eslint; full vitest; production build.
+
+**7. Results and retained evidence (Executed-local):** vitest **342/342**; tsc 0; eslint 0 errors; build clean.
+**The size budget did its job and I obeyed it.** Adding the gate pushed `app/feed/actions.ts` past its KCDX-067 line budget. I did not raise the budget — that would be encoding a tolerance in a guardrail. The concern was extracted instead, twice: first the gate, then the whole publish decision, until the action was smaller than before (514 lines vs a 515 budget) and media safety owned its own subject end to end. The budget was the thing that was right.
+
+**8. Migration/deployment/rollback:** no migration (0286 already carries the schema). App-only; deploy with the batch.
+
+**9. Observability/operator:** a held post logs `publish held —` with the specific reason; the ledger records what judged each object.
+
+**10. Residual risks / non-goals:** the gate currently guards the Feed photo path. Avatars, marketplace listings and credential documents still need the same treatment, as does the video gate. Live-Storage and live-classifier proof remains **P-STAGING**.
+
+**11. Independent reviewer:** non-author review owed before GO.
+
+**Status: FIXED-EXECUTED (ledger written at all four decisions; publish gated fail-closed; 342/342).**
+
+---
+
+## I4/I1 — Terminal immutability and the meetup state machine (KFU-013, KFU-010)
+
+**1. Findings addressed:** KFU-013 (P1) — a completed team-match result stayed editable indefinitely, and the app's `recordResult` explicitly re-entered on `status = 'completed'`. KFU-010 (P1) — `listing_meetups` had member DML with no transition matrix and no frozen identities, on the surface where two strangers arrange to meet in person.
+
+**2. Root cause:** 0275 froze status TRANSITIONS and said so in its own comment — non-status edits stayed under the flat manager policy. That comment is how the gap was found: the migration documented its own hole and nobody read it as a finding until the auditor did. For meetups, no guard existed at all.
+
+**3. Design and trust boundary:** terminal rows (`completed` / `declined` / `cancelled`) are frozen against every result-bearing and identity column. The only route to change one is `team_match_correct_result` — manager-gated, requires a stated reason, writes the before/after to an append-only audit table **before** mutating, and unlocks the trigger with a **transaction-local flag** (the 0256/0257 precedent, not a definer bypass) so a direct data-plane write still cannot do it. Corrections are legitimate; silent corrections are not. Meetups gain an insert shape check (must start `proposed`; the proposer must BE the caller and a counterparty — a third party cannot arrange a meeting between two other people), frozen identities, and a transition matrix drawn from the table's own CHECK vocabulary.
+
+**4. Files and migrations changed:** `supabase/migrations/0287_terminal_immutability.sql` (new); `supabase/tests/terminal_immutability_suite.sql` (new, hooked); `app/team/[teamId]/matches/actions.ts` (records a result only for `scheduled`; a finished result points at the correction path).
+
+**5. Tests added:** 16 checks — a completed score, winner and status each refuse direct edits; a non-manager cannot correct; a correction without a reason is refused; **BASELINE the correction command CAN change a finished result** (the freeze is not a wall); the correction recorded before, after and reason; **the transaction-local unlock does not leak to later writes**; a third party cannot arrange a meetup between two other people; a caller cannot propose in someone else's name; a meetup cannot be created already accepted; a counterparty can propose; **who is meeting whom is frozen**; a proposed meetup cannot skip states; the legitimate path works; an agreed meeting can still be cancelled; a cancelled meetup cannot be revived.
+
+**6. Commands actually executed:** applied 0287 on a faithful from-zero head; ran the suite through four honest iterations; tsc; eslint; vitest; from-zero replay.
+
+**7. Results and retained evidence (Executed-local):** replay **287 applied / 0 failed**; terminal_immutability_suite **16/16**; **fifteen suites green**; klimr_ready 42; rpc_grants 100/0; vitest 342/342; eslint 0 errors; build clean.
+**Two assumptions corrected by execution:** I wrote `seller_id` on `marketplace_listings` — the column is `listed_by`, caught immediately by the catalog. And I gave meetups a `completed` state; the table's own CHECK constraint permits only proposed/accepted/declined/cancelled, so a guard allowing `completed` would have encoded a status the schema forbids. Both were fixed by reading the catalog rather than trusting the domain word.
+
+**8. Migration/deployment/rollback:** paste 0287 after 0286; deploy the app change with the batch. The app change is strictly narrowing, so an older client simply gets the new refusal. Rollback: restore the 0275 guard body.
+
+**9. Observability/operator:** a refused edit returns `result_is_final` with a hint pointing at the correction path; every correction is queryable by the involved teams' members.
+
+**10. Residual risks / non-goals:** the remaining I-series items are open and scheduled — KFU-011 (queue approval as one locked transaction), KFU-012 (exact-reject roster and capacity units), and the KCDX-046 tournament reconfiguration residual. No UI exists yet for filing a correction; the command is callable and the audit table is readable by involved members.
+
+**11. Independent reviewer:** non-author review owed before GO.
+
+**Status: FIXED-EXECUTED (16/16 including the baseline that corrections still work and the unlock does not leak).**

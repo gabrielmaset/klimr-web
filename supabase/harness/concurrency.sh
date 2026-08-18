@@ -42,11 +42,15 @@ q "insert into auth.users (id,email) values
    ('11110000-0000-0000-0000-000000000002','cc2@t.test'),
    ('11110000-0000-0000-0000-000000000003','cc3@t.test')
    on conflict do nothing" >/dev/null
-q "insert into public.profiles (id,display_name) values
-   ('11110000-0000-0000-0000-000000000001','CA'),
-   ('11110000-0000-0000-0000-000000000002','CB'),
-   ('11110000-0000-0000-0000-000000000003','CC')
-   on conflict (id) do nothing" >/dev/null
+# date_of_birth present because 0283 admission requires an attested adult before
+# any member write; DO UPDATE (not DO NOTHING) because the auth.users trigger
+# auto-creates these profile rows first.
+q "insert into public.profiles (id,display_name,date_of_birth) values
+   ('11110000-0000-0000-0000-000000000001','CA','1990-01-01'),
+   ('11110000-0000-0000-0000-000000000002','CB','1990-01-01'),
+   ('11110000-0000-0000-0000-000000000003','CC','1990-01-01')
+   on conflict (id) do update set display_name=excluded.display_name,
+   date_of_birth=excluded.date_of_birth" >/dev/null
 q "insert into public.sports (key,name,skill_system) values ('tennis','Tennis','ntrp') on conflict do nothing" >/dev/null
 
 A=11110000-0000-0000-0000-000000000001

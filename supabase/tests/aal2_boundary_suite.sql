@@ -10,10 +10,11 @@ insert into auth.users (id, email) values
   ('ff000000-0000-0000-0000-0000000000a1','aal-owner@test.local'),
   ('ff000000-0000-0000-0000-0000000000a2','aal-member@test.local')
 on conflict (id) do nothing;
-insert into public.profiles (id, display_name) values
-  ('ff000000-0000-0000-0000-0000000000a1','AAL Owner'),
-  ('ff000000-0000-0000-0000-0000000000a2','AAL Member')
-on conflict (id) do update set display_name = excluded.display_name;
+insert into public.profiles (id, display_name, date_of_birth) values
+  ('ff000000-0000-0000-0000-0000000000a1','AAL Owner','1990-01-01'),
+  ('ff000000-0000-0000-0000-0000000000a2','AAL Member','1990-01-01')
+on conflict (id) do update set display_name = excluded.display_name,
+  date_of_birth = excluded.date_of_birth;
 insert into public.sports (key, name, skill_system) values ('aal-sport','AAL Sport','Level')
 on conflict (key) do nothing;
 insert into public.teams (id, name, sport_key, created_by, max_size, join_policy) values

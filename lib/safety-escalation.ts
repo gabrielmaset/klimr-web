@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { EscalationResult } from "@/lib/safety-rules";
 import { callExternal } from "@/lib/external";
 
 /**
@@ -104,26 +105,39 @@ async function reportToNCMEC(
   console.error("[safety] NCMEC auto-report failed; manual report REQUIRED for incident:", incidentId);
 }
 
-export async function escalateCSAE(input: EscalationInput): Promise<void> {
+/** KFU-007: returns what actually happened. This used to return void with every
+ *  failure swallowed by a bare catch, so the caller deleted the original whether
+ *  or not a copy survived — the one outcome that cannot be undone. Both Storage
+ *  and PostgREST report failure in a RESOLVED result object rather than by
+ *  throwing, so both are checked explicitly here. */
+export async function escalateCSAE(input: EscalationInput): Promise<EscalationResult> {
   const admin = createAdminClient();
+  const errors: string[] = [];
   const ext = (input.mediaType.split("/")[1] ?? "bin").replace("jpeg", "jpg");
   const storagePath = `incidents/${input.uploaderId}/${input.sha256}.${ext}`;
 
   // 1) Quarantine the bytes in the PRIVATE bucket for legally-required preservation.
+  let preserved = false;
   try {
-    await admin.storage.from("quarantine").upload(storagePath, input.bytes, {
+    const { error: upErr } = await admin.storage.from("quarantine").upload(storagePath, input.bytes, {
       contentType: input.mediaType,
       upsert: true,
     });
+    if (upErr) {
+      errors.push(`quarantine upload failed: ${upErr.message}`);
+    } else {
+      preserved = true;
+    }
   } catch (e) {
-    console.error("[safety] quarantine upload failed:", e);
+    errors.push(`quarantine upload threw: ${e instanceof Error ? e.message : String(e)}`);
   }
+  if (!preserved) console.error("[safety] PRESERVATION FAILED — original must be retained:", storagePath);
 
   // 2) Record a locked incident (service-role only table).
   let incidentId: string | null = null;
   try {
     const preservedUntil = new Date(Date.now() + PRESERVE_DAYS * 86_400_000).toISOString();
-    const { data } = await admin
+    const { data, error: insErr } = await admin
       .from("safety_incidents")
       .insert({
         kind: input.kind,
@@ -138,12 +152,23 @@ export async function escalateCSAE(input: EscalationInput): Promise<void> {
       })
       .select("id")
       .single();
+    if (insErr) errors.push(`incident insert failed: ${insErr.message}`);
     incidentId = data?.id ?? null;
   } catch (e) {
-    console.error("[safety] incident insert failed:", e);
+    errors.push(`incident insert threw: ${e instanceof Error ? e.message : String(e)}`);
   }
+  if (!incidentId) console.error("[safety] INCIDENT RECORD FAILED — original must be retained:", storagePath);
 
-  // 3) Alert the safety contact and fire the reporting hook.
-  await alertSafetyContact(incidentId, input);
+  // 3) Alert the safety contact and fire the reporting hook. A failed alert is
+  //    serious but it is NOT preservation, and must not be conflated with it.
+  let alerted = false;
+  try {
+    await alertSafetyContact(incidentId, input);
+    alerted = true;
+  } catch (e) {
+    errors.push(`safety alert failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
   await reportToNCMEC(admin, incidentId, input);
+
+  return { preserved, incidentId, alerted, errors };
 }

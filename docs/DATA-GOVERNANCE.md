@@ -194,7 +194,16 @@ portability.
 <!-- claim:export-coverage=partial-with-index -->
 **Implementation status: BUILT, PARTIAL, AND HONEST ABOUT IT (Aug 2026, KCDX-057).**
 `/settings/export` returns all nine categories above — identity, social, content,
-play, teams, commerce, communications, safety, devices — as `format_version: 3`.
+play, teams, commerce, communications, safety, devices — as `format_version: 4`.
+
+Since KFU-030 (migration 0285) the archive answers two separate questions instead
+of one. `query_integrity` reports whether every query the route ran succeeded.
+`coverage_status` reports whether the route even attempted everything the
+versioned data inventory declares Klimr holds about a member — measured against
+`public.data_inventory` in the database, not against the route's own list, so a
+category nobody remembered to add here shows up as `partial` with the missing
+dataset named. `status` stays as the honest conjunction of both, and is
+`complete` only when coverage is complete AND no query failed.
 
 **Version 3 (KRA-016, 2026-08-10)** changed two things that mattered. The archive now carries a
 `status` of `complete` or `incomplete` plus an `incomplete_datasets` list: previously every query

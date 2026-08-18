@@ -1179,6 +1179,12 @@ export interface Database {
         Update: { sport_key?: string; scheduled_at?: string | null; location_text?: string | null; status?: string; home_score?: number | null; away_score?: number | null; winner_team_id?: string | null; note?: string | null; decided_at?: string | null; updated_at?: string };
         Relationships: [];
       };
+      media_screenings: {
+        Row: { id: string; bucket_id: string; object_path: string; sha256: string; scanner_provider: string; scanner_version: string; policy_version: string; verdict: string; labels: string[] | null; screened_at: string };
+        Insert: { id?: string; bucket_id: string; object_path: string; sha256: string; scanner_provider: string; scanner_version: string; policy_version: string; verdict: string; labels?: string[] | null; screened_at?: string };
+        Update: { verdict?: string; labels?: string[] | null };
+        Relationships: [];
+      };
       team_join_requests: {
         Row: { id: string; team_id: string; requester_id: string; status: string; note: string | null; created_at: string; resolved_at: string | null; resolved_by: string | null };
         Insert: { id?: string; team_id: string; requester_id: string; status?: string; note?: string | null; created_at?: string; resolved_at?: string | null; resolved_by?: string | null };
@@ -2328,6 +2334,8 @@ export interface Database {
       bracket_graph_intact: { Args: Record<string, never>; Returns: boolean };
       klimr_readiness: { Args: Record<string, never>; Returns: { check_name: string; passed: boolean; detail: string | null }[] };
       klimr_ready: { Args: { p_min_checks?: number }; Returns: boolean };
+      export_declared_datasets: { Args: Record<string, never>; Returns: { dataset_name: string; table_name: string }[] };
+      media_evidence_current: { Args: { p_bucket: string; p_path: string; p_sha256: string; p_max_age?: string }; Returns: boolean };
       team_ask_to_join: { Args: { p_team: string; p_note?: string | null }; Returns: string };
       team_resolve_join_request: { Args: { p_request: string; p_approve: boolean }; Returns: undefined };
       team_withdraw_join_request: { Args: { p_request: string }; Returns: undefined };

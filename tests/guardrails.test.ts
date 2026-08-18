@@ -1267,7 +1267,10 @@ describe("KRA-016/017/018 export, audit and backup verification", () => {
     // The helpers discarded { error } entirely, so a grant or policy regression
     // produced a successful-looking archive with a silently missing dataset.
     expect(src).toMatch(/failures\.push\(/);
-    expect(src).toMatch(/status: failures\.length === 0 \? "complete" : "incomplete"/);
+    // KFU-030: the single status is now the conjunction of coverage and query
+    // integrity — a query error still cannot become a silently empty category,
+    // and a forgotten category can no longer look complete.
+    expect(src).toMatch(/query_integrity: failures\.length === 0 \? "ok" : "degraded"/);
     expect(src).toContain("incomplete_datasets");
     // The category was populated from safety_incidents about the member's OWN
     // uploads — the inverse of what it claimed.
@@ -1849,5 +1852,61 @@ describe("KRA-012 migration journal", () => {
     // file explains — a hand-edit in the SQL console — is the one nobody looks for.
     expect(m).toContain("in_repo_not_applied");
     expect(m).toContain("applied_not_in_repo");
+  });
+});
+
+describe("KFU-007/029 safety preservation is wired, not merely defined", () => {
+  const media = readFileSync("lib/media-safety.ts", "utf8");
+  const escalation = readFileSync("lib/safety-escalation.ts", "utf8");
+
+  it("KFU-007: the original is removed only behind the preservation rule", () => {
+    // Every removal of a screened original must be gated by mayDestroyOriginal.
+    const removals = media.match(/storage\.from\(input\.bucket\)\.remove\(/g) ?? [];
+    expect(removals.length).toBeGreaterThan(0);
+    expect((media.match(/mayDestroyOriginal\(escalation\)/g) ?? []).length).toBe(removals.length);
+  });
+
+  it("KFU-007: escalateCSAE reports an observed outcome instead of void", () => {
+    expect(escalation).toContain("Promise<EscalationResult>");
+    // supabase-js reports failure in a resolved object; both calls must check it.
+    expect(escalation).toContain("error: upErr");
+    expect(escalation).toContain("error: insErr");
+  });
+
+  it("KFU-029: an AI verdict naming a minors category reaches the escalation path", () => {
+    expect(media).toContain("requiresCsaeEscalation(verdict.categories)");
+    expect(media).toContain('kind: "ai_csae_flag"');
+  });
+});
+
+describe("KFU-008 the screening ledger is written and consulted", () => {
+  const media = readFileSync("lib/media-safety.ts", "utf8");
+  const feed = readFileSync("app/feed/actions.ts", "utf8");
+
+  it("every screening decision records evidence", () => {
+    // clean, match, undecided and the AI-CSAE branch: four terminal decisions,
+    // four evidence rows. A verdict that is computed and discarded is the defect.
+    expect((media.match(/recordScreening\(/g) ?? []).length).toBeGreaterThanOrEqual(5);
+    expect(media).toContain('verdict: "clean"');
+    expect(media).toContain('verdict: "match"');
+    expect(media).toContain('verdict: "undecided"');
+    expect(media).toContain('verdict: "csae_escalated"');
+  });
+
+  it("evidence carries the scanner and policy that produced it", () => {
+    expect(media).toContain("moderationScanner()");
+    expect(media).toContain("MODERATION_POLICY_VERSION");
+  });
+
+  it("the publish path consults the ledger and fails closed", () => {
+    // KCDX-067: the whole decision lives in lib/media-safety.ts, so the action
+    // delegates and the module enforces. Both halves are asserted.
+    const action = readFileSync("app/feed/actions.ts", "utf8");
+    const safety = readFileSync("lib/media-safety.ts", "utf8");
+    expect(action).toContain("decidePostModeration(");
+    expect(action).toContain('bucket: "feed-media"');
+    expect(safety).toContain('rpc("media_evidence_current"');
+    expect(safety).toMatch(/if \(!gate\.ok\)/);
+    expect(safety).toContain('status = "pending"');
   });
 });

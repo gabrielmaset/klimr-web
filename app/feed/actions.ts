@@ -1,7 +1,7 @@
 "use server";
 
 import { stampPostOrigin } from "@/lib/post-origin";
-import { screenAndClassifyPhoto } from "@/lib/media-safety";
+import { screenAndClassifyPhoto, decidePostModeration } from "@/lib/media-safety";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -444,10 +444,9 @@ export async function createTypedFeedPost(formData: FormData): Promise<CreatePos
   verdicts.push(...photo.verdicts);
   extraLabels.push(...photo.labels);
 
-  const labels = [...new Set([...verdicts.flatMap((v) => v.categories), ...extraLabels])];
-  const flagged = verdicts.some((v) => !v.allowed && v.categories.some((c) => !GATE_DOWN.has(c)));
-  const gateDown = !flagged && verdicts.some((v) => !v.allowed);
-  const status: "approved" | "pending" | "rejected" = flagged ? "rejected" : gateDown ? "pending" : "approved";
+  // Verdict folding AND the KFU-008 evidence gate live in lib/media-safety.ts (KCDX-067).
+  const gateMedia = postType === "photo" && mediaPath ? { bucket: "feed-media", path: mediaPath, sha256: photo.sha256 } : null;
+  const { status, labels } = await decidePostModeration({ verdicts, extraLabels, gateDownCategories: GATE_DOWN, media: gateMedia });
 
   // `mediaRemoved` guards the double-remove: on a hash match the seam has already
   // taken the object out of the servable bucket after preserving it.

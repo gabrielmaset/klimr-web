@@ -19,7 +19,11 @@ insert into public.profiles (id, display_name, date_of_birth, phone, home_zip, n
   ('f1000000-0000-0000-0000-0000000000f1','FVS NoOrigin','1990-01-01','+13105550291','90066','Mar Vista','Los Angeles','CA'),
   ('f1000000-0000-0000-0000-0000000000f2','FVS Near','1990-01-01','+13105550292','90066','Mar Vista','Los Angeles','CA'),
   ('f1000000-0000-0000-0000-0000000000f3','FVS Far','1990-01-01','+13105550293','10001','Chelsea','New York','NY')
-on conflict (id) do update set display_name = excluded.display_name;
+-- The auth.users trigger auto-creates profiles, so DO UPDATE must carry every
+-- column the suite depends on — including date_of_birth, which since 0283 is
+-- what admits a member to make writes.
+on conflict (id) do update set display_name = excluded.display_name,
+  date_of_birth = excluded.date_of_birth;
 insert into public.posts (id, author_id, body, moderation_status, audience) values
   ('f2000000-0000-0000-0000-0000000000e0','f1000000-0000-0000-0000-0000000000f0','fvs own','approved','public'),
   ('f2000000-0000-0000-0000-0000000000e1','f1000000-0000-0000-0000-0000000000f1','fvs no origin','approved','public'),

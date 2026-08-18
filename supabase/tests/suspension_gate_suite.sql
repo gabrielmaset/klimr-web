@@ -12,10 +12,13 @@ insert into auth.users (id, email) values
   ('dd000000-0000-0000-0000-0000000000e1','susp-active@test.local'),
   ('dd000000-0000-0000-0000-0000000000e2','susp-target@test.local')
 on conflict (id) do nothing;
-insert into public.profiles (id, display_name, account_status) values
-  ('dd000000-0000-0000-0000-0000000000e1','Susp Active','active'),
-  ('dd000000-0000-0000-0000-0000000000e2','Susp Target','active')
-on conflict (id) do update set display_name = excluded.display_name, account_status = excluded.account_status;
+-- date_of_birth present because KFU-033 admission (0283) requires an attested
+-- adult before ANY member write; these fixtures represent onboarded members.
+insert into public.profiles (id, display_name, account_status, date_of_birth) values
+  ('dd000000-0000-0000-0000-0000000000e1','Susp Active','active','1990-01-01'),
+  ('dd000000-0000-0000-0000-0000000000e2','Susp Target','active','1990-01-01')
+on conflict (id) do update set display_name = excluded.display_name,
+  account_status = excluded.account_status, date_of_birth = excluded.date_of_birth;
 
 -- ── baseline: an ACTIVE member can write (non-zero baseline; without this the
 --    suite could pass by measuring nothing) ─────────────────────────────────

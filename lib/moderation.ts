@@ -23,6 +23,16 @@ import { callExternal } from "@/lib/external";
 export type Verdict = { allowed: boolean; categories: string[]; reason?: string };
 
 const PROVIDER = (process.env.MODERATION_PROVIDER ?? "anthropic").toLowerCase();
+
+/** KFU-008: evidence records WHICH scanner and WHICH policy produced a verdict.
+ *  Without these the ledger cannot answer "was this screened under the rules we
+ *  have now", which is the question a stale-evidence check exists to ask. */
+export const MODERATION_POLICY_VERSION = "2026-08-adults-only";
+export function moderationScanner(): { provider: string; version: string } {
+  return PROVIDER === "openai"
+    ? { provider: "openai-omni", version: "omni-moderation-latest" }
+    : { provider: "anthropic", version: process.env.MODERATION_MODEL ?? "claude-sonnet-4-6" };
+}
 const KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.MODERATION_MODEL ?? "claude-sonnet-4-6";
 const OPENAI_KEY = process.env.OPENAI_API_KEY;

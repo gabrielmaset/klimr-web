@@ -109,7 +109,13 @@ export async function recordResult(matchId: string, homeScore: number, awayScore
 
   const { data: m } = await supabase.from("team_matches").select("home_team_id, away_team_id, status").eq("id", matchId).maybeSingle();
   if (!m) return { error: "That match could not be found." };
-  if (m.status !== "scheduled" && m.status !== "completed") return { error: "You can record a result once the match is accepted." };
+  // KFU-013: a completed result is a record. Re-entering here silently rewrote
+  // it; corrections now go through team_match_correct_result, which is
+  // manager-gated and writes an append-only before/after row.
+  if (m.status === "completed") {
+    return { error: "This result is final. Ask a manager to file a correction if it is wrong." };
+  }
+  if (m.status !== "scheduled") return { error: "You can record a result once the match is accepted." };
   if (!(await isManagerOf(supabase, [m.home_team_id, m.away_team_id], user.id))) {
     return { error: "Only a manager of one of the teams can record the result." };
   }
