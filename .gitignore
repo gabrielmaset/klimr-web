@@ -4,3 +4,4 @@
 # Secrets never enter the repo — env vars live in Vercel
 .env*
 !.env.example
+.DS_Store
