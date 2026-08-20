@@ -50,7 +50,7 @@ Reviewed against current known issues for this stack:
   host (Vercel strips the header) **and** defense-in-depth (authz also at the data layer).
 - **SQL / PostgREST filter injection.** → Parameterized queries + bound RPC params; the one
   `.or()` search filter is character-whitelisted.
-- **Account enumeration / phishing / account takeover.** → Uniform auth errors, TOTP MFA with an app-level lockout (5 wrong codes / 15 min — the Supabase hook is Team/Enterprise-gated, so the policy runs in `verifyTotpAction`), no open
+- **Account enumeration / phishing / account takeover.** → Passwordless sign-in (nothing to stuff or phish), uniform "sent" responses, TOTP MFA with a layered lockout — the DB-side MFA lockout hook (migration `0055`) plus the app-level policy in `verifyTotpAction` (5 wrong codes / 15 min) as defense-in-depth — no open
   redirects, identity verification at the gate.
 - **XSS.** → React auto-escaping everywhere, plus write-time and render-time sanitisation on the rich-text surfaces. <!-- claim:xss-sinks=10 --> There are **10** `dangerouslySetInnerHTML` call sites, not zero; every one renders content that passed `lib/rich-text.ts` sanitisation or is server-generated (JSON-LD, sanitised tournament copy). The claim is "no unsanitised sink", which is checkable; "no `dangerouslySetInnerHTML`" was not true.
 - **Re-enabling disabled features.** → Disabled server actions are not imported, so no
@@ -61,15 +61,17 @@ Reviewed against current known issues for this stack:
 ## 3. Controls in place (verified)
 
 ### Authentication
-- Email + password and (optional) passwordless magic link via Supabase Auth. Magic link is
-  **sign-in only** (`shouldCreateUser: false`) — new accounts require an invite at `/signup`.
+- **Passwordless only.** <!-- claim:password-auth=removed --> Sign-in is a magic link via
+  Supabase Auth, **sign-in only** (`shouldCreateUser: false`) — new accounts require an
+  invite at `/signup`. Password authentication is REMOVED: there is no password to phish,
+  stuff, reuse, or leak, and `tests/doc-claims.test.ts` fails the build if a
+  `signInWithPassword` call ever reappears.
 - **Two-factor (TOTP) enforced**: middleware requires AAL2 on every protected route; pages
   needed to *complete* 2FA are exempt so users aren't locked out.
-- **Anti-enumeration**: password login returns one generic message for wrong-password vs
-  unknown-account; magic link always reports "sent". Email existence is never revealed.
-- Passwords are never stored or processed by the app — Supabase handles hashing (bcrypt).
-  All traffic is HTTPS with HSTS (preload).
-- Email confirmation + password reset run through Supabase's token flows.
+- **Anti-enumeration**: the magic-link flow always reports "sent" whether or not the
+  address has an account. Email existence is never revealed.
+- All traffic is HTTPS with HSTS (preload).
+- Email confirmation runs through Supabase's token flows. (There is no password to reset.)
 
 ### Authorization
 - **Row-Level Security on every table** — all feature tables and all core tables
@@ -95,8 +97,8 @@ Reviewed against current known issues for this stack:
   hiding that key.
 
 ### Injection
-- Supabase/PostgREST queries are parameterized; the only RPC (`ranked_players`) uses bound
-  named params. No string-built SQL anywhere.
+- Supabase/PostgREST queries are parameterized; every RPC on the (now large) command
+  surface uses bound, named params. No string-built SQL anywhere.
 - The marketplace search builds a PostgREST `.or()` expression — its input is whitelisted to
   alphanumerics + spaces, so no filter metacharacters (`, ( ) %` or operators) can reach it.
 
@@ -130,15 +132,17 @@ Reviewed against current known issues for this stack:
   unreachable, not merely hidden.
 
 ### Platform
-- 18+ only. <!-- claim:video-disabled=true --> **Video** is disabled at the boundary (migration 0195): the `feed-media` MIME allowlist refuses video bytes and the `posts_reject_video` trigger refuses the row, for every role including `service_role`. **Photo upload is ENABLED** and gated by the CSAM hash-match seam plus the AI classifier, both fail-closed — the older blanket statement that user media is disabled has not been true since that pipeline shipped. Photo upload is intentionally disabled only until it is legally
-  supported, which removes a large content-risk surface.
+- 18+ only. <!-- claim:video-disabled=true --> **Video** is disabled at the boundary (migration 0195): the `feed-media` MIME allowlist refuses video bytes and the `posts_reject_video` trigger refuses the row, for every role including `service_role`. **Photo upload is ENABLED** and gated by the CSAM hash-match seam plus the AI classifier, both fail-closed — the older blanket statement that user media is disabled has not been true since that pipeline shipped.
 
 ---
 
 ## 4. Pre-launch security checklist (gating — do before any external user)
 
-- [ ] **Run migrations `0001`→`0020` in order** in the Supabase SQL editor. RLS, policies,
-      and the admin/role functions only exist once applied.
+- [ ] **Run ALL migrations in order** in the Supabase SQL editor — currently
+      `0001`→`0297` <!-- claim:migrations-head=0297 --> per `docs/MIGRATIONS_LEDGER.md`.
+      RLS, policies, and every command function only exist once applied;
+      `tests/doc-claims.test.ts` fails the build when this range falls behind the
+      `supabase/migrations/` directory.
 - [ ] **Supabase → Advisors → Security Advisor: confirm zero "RLS disabled in public"
       warnings.** This is the single most important check.
 - [ ] **Supabase → Auth → URL Configuration: set Site URL + Additional Redirect URLs to the
@@ -151,6 +155,10 @@ Reviewed against current known issues for this stack:
       protection / GitHub secret scanning.
 - [ ] **Verify Storage bucket object policies** (`avatars` is public-read by design;
       `post-media` and the safety/quarantine bucket should stay locked while unused).
+- [ ] **Supabase → Authentication → Hooks: enable "MFA Verification Attempt" →
+      `public.hook_mfa_verification_attempt`.** Migration `0055` installs the function
+      and grants, but the hook only RUNS once selected in the dashboard — its own header
+      says so. Until then only the app-level lockout applies.
 - [ ] Custom SMTP (Resend) configured — also a deliverability requirement.
 - [ ] Vercel Pro for commercial use at launch. Supabase Pro: ACTIVE since Aug 2026 (backups, no pausing).
 
@@ -161,7 +169,7 @@ Reviewed against current known issues for this stack:
 - Move to a **nonce-based CSP** so `script-src 'unsafe-inline'` can be dropped.
 - **Server-side AAL re-check** for sensitive admin operations (the middleware 2FA gate fails
   open on transient errors — see §6).
-- Tune **Supabase Auth rate limits** (sign-in / OTP / password-reset).
+- Tune **Supabase Auth rate limits** (magic-link sends / OTP verifies).
 - Adopt Supabase's **new API key model** (publishable + revocable secret keys) when migrating.
 - Establish a **dependency-patch cadence** (Dependabot / `npm audit`) — the Next.js
   middleware CVE is a reminder to keep the framework current.

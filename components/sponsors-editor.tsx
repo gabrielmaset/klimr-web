@@ -152,8 +152,8 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
               <div key={r.id} className="rounded-2xl border border-rule bg-surface shadow-e1 p-4 sm:p-5">
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
-                    <label className="mb-1 block text-xs font-semibold text-mute">Sponsor name</label>
-                    <input className={inputCls} value={r.name} onChange={(e) => patch(r.id, { name: e.target.value })} placeholder="e.g. Wilson, Local Sports Co." />
+                    <label htmlFor="f-sponsor-name" className="mb-1 block text-xs font-semibold text-mute">Sponsor name</label>
+                    <input id="f-sponsor-name" className={inputCls} value={r.name} onChange={(e) => patch(r.id, { name: e.target.value })} placeholder="e.g. Wilson, Local Sports Co." />
                   </div>
                   <button type="button" onClick={() => remove(r.id)} aria-label="Remove sponsor" className="mt-6 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rule bg-bg text-mute transition hover:text-ink">
                     <Trash2 size={15} />
@@ -162,11 +162,11 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-mute">Website link</label>
-                    <input className={inputCls} value={r.url} onChange={(e) => patch(r.id, { url: e.target.value })} placeholder="sponsor.com" />
+                    <label htmlFor="f-website-link" className="mb-1 block text-xs font-semibold text-mute">Website link</label>
+                    <input id="f-website-link" className={inputCls} value={r.url} onChange={(e) => patch(r.id, { url: e.target.value })} placeholder="sponsor.com" />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-mute">Tier</label>
+                    <span className="mb-1 block text-xs font-semibold text-mute">Tier</span>
                     <div className="inline-flex rounded-xl border border-rule bg-bg p-1">
                       <button
                         type="button"
@@ -188,7 +188,7 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
 
                 {/* logo */}
                 <div className="mt-3">
-                  <label className="mb-1 block text-xs font-semibold text-mute">Logo</label>
+                  <label htmlFor="f-logo" className="mb-1 block text-xs font-semibold text-mute">Logo</label>
                   <div className="flex items-center gap-3">
                     {r.logo ? (
                       <span className="relative">
@@ -201,7 +201,7 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
                     ) : null}
                     <label className="press inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-rule bg-bg px-3 py-2 text-sm font-semibold text-ink transition hover:border-brand">
                       {busy ? <Loader2 size={15} className="animate-spin" /> : <ImagePlus size={15} />} {r.logo ? "Replace logo" : "Add logo"}
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => pickFor(r.id, "logo", e)} />
+                      <input id="f-logo" type="file" accept="image/*" className="hidden" onChange={(e) => pickFor(r.id, "logo", e)} />
                     </label>
                   </div>
                   <p className="mt-1.5 text-[11px] text-faint">Square works best — PNG or JPG, around 400×400px, under 8&nbsp;MB. Transparent PNGs sit cleanly on the card. You can crop and reposition after picking.</p>
@@ -211,9 +211,9 @@ export function SponsorsEditor({ tournamentId, initial }: { tournamentId: string
                 {isPremium ? (
                   <div className="mt-4 rounded-xl border border-brand/30 bg-tint-brand/40 p-3.5">
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-brand-deep">Featured ad</p>
-                    <label className="mb-1 block text-xs font-semibold text-mute">Short blurb</label>
-                    <textarea className={`${inputCls} min-h-20 resize-y`} value={r.blurb} onChange={(e) => patch(r.id, { blurb: e.target.value })} placeholder="One or two lines about this sponsor…" />
-                    <label className="mb-1 mt-3 block text-xs font-semibold text-mute">Promo image</label>
+                    <label htmlFor="f-short-blurb" className="mb-1 block text-xs font-semibold text-mute">Short blurb</label>
+                    <textarea id="f-short-blurb" className={`${inputCls} min-h-20 resize-y`} value={r.blurb} onChange={(e) => patch(r.id, { blurb: e.target.value })} placeholder="One or two lines about this sponsor…" />
+                    <span className="mb-1 mt-3 block text-xs font-semibold text-mute">Promo image</span>
                     <div className="flex flex-wrap items-center gap-2.5">
                       {r.photos.map((p) => (
                         <span key={p} className="relative">

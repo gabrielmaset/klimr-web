@@ -1,11 +1,14 @@
 -- rls_and_invariants_checks.sql — database-level safety assertions (K1-07 · audit SEC-009/TEST-001).
 --
--- ⚠ READ THIS BEFORE TRUSTING A PASS (KCDX-018).
--- This file establishes identity by setting `request.jwt.claims` and then runs
--- its probes as whoever invoked it — in the SQL editor, the owner. RLS does not
--- apply to a table's owner and grants do not constrain a superuser, so the
--- "cross-user IDOR probe" in block 3 is not testing what its name says. It never
--- issues SET ROLE, so it never becomes a member.
+-- ⚠ HISTORY (KCDX-018, repaired 2026-08-18). This file once set
+-- `request.jwt.claims` without ever assuming a role, so every probe ran as the
+-- invoker (in the editor: the owner) and the "cross-user IDOR probe" tested
+-- nothing — it failed by detecting its own unfiltered superuser write.
+-- REPAIRED in the diagnostic packet: pg_temp.impersonate() now also assumes
+-- the `authenticated` role, pg_temp.elevate() returns via RESET ROLE, and the
+-- probes assert current doctrine (private profile columns: denial IS the
+-- pass). The warning stays as history because the failure class is easy to
+-- reintroduce.
 --
 -- Block 1 (the schema-wide RLS assertion) is a catalog query and remains valid —
 -- it is checking metadata, not behaviour, so the caller's identity is irrelevant.
@@ -14,13 +17,16 @@
 -- to the actual `anon` / `authenticated` / `service_role` roles before probing.
 -- It is wired into supabase/harness/replay.sh and runs on every replay in CI.
 --
--- Run in the Supabase SQL editor any time (safe on production: one transaction
--- that ends in ROLLBACK — nothing persists). Complements
--- social_graph_checks.sql. Three blocks:
+-- Run in the Supabase SQL editor any time (safe on production: the
+-- write-containing transaction ends in ROLLBACK — nothing persists; the
+-- trailing grant check is read-only). Complements social_graph_checks.sql.
+-- Four blocks:
 --   (1) schema-wide RLS assertion — fails if ANY table PostgREST can reach
 --       (public schema, accessible to anon/authenticated) lacks RLS enabled;
 --   (2) queue invariants — the wedge's integrity (no double-forming team);
---   (3) a cross-user IDOR probe — one member cannot read another's private row.
+--   (3) a cross-user IDOR probe — one member cannot read or write another's
+--       private profile columns (denied at the grant/policy layer);
+--   (4) a grant check — service_role can execute every server-only function.
 -- Each block RAISES on violation; a clean run prints the PASSED banner.
 --
 -- NOTE: rank_snapshots (0174) is the canonical "RLS on, zero policies, grants
@@ -55,7 +61,7 @@ begin
   if n > 0 then
     raise exception 'RLS CHECK failed: % reachable table(s) without RLS enabled: %', n, bad;
   end if;
-  raise notice 'RLS check: no exposed tables without RLS.';
+  raise notice 'ok   RLS check: no exposed tables without RLS.';
 end;
 $body$;
 
@@ -76,7 +82,7 @@ begin
   if dup > 1 then
     raise exception 'QUEUE INVARIANT failed: a court has % teams in forming state (max 1)', dup;
   end if;
-  raise notice 'Queue invariant: at most one forming team per court.';
+  raise notice 'ok   Queue invariant: at most one forming team per court.';
 end;
 $body$;
 
@@ -87,9 +93,22 @@ values
   ('bbbbbbbb-0000-0000-0000-000000000002', 'idor-b@klimr.test');
 
 create or replace function pg_temp.impersonate(u uuid) returns void language sql as $$
+  -- The claims alone do NOT engage RLS: without assuming the authenticated
+  -- role, every statement runs as the superuser and the policies are never
+  -- consulted. That was this suite's original defect — its IDOR probe
+  -- "failed" by detecting its own unfiltered superuser write (the failing
+  -- run doubles as proof the oracle fires on a real bypass).
   select set_config('request.jwt.claims', json_build_object('sub', u::text, 'role', 'authenticated')::text, true),
-         set_config('request.jwt.claim.sub', u::text, true);
+         set_config('request.jwt.claim.sub', u::text, true),
+         set_config('role', 'authenticated', true);
 $$;
+
+create or replace function pg_temp.elevate() returns void language plpgsql as $$
+begin
+  -- back to the session role for fixture work. RESET ROLE is unconditionally
+  -- allowed; set_config('role','none') proved to be a silent no-op here.
+  execute 'reset role';
+end $$;
 
 do $body$
 declare
@@ -97,31 +116,42 @@ declare
   b uuid := 'bbbbbbbb-0000-0000-0000-000000000002';
   seen int;
 begin
-  -- B sets a private notification preference (a row keyed to B only).
-  perform pg_temp.impersonate(b);
-  -- profiles rows exist via the auth trigger; update one B-owned field.
+  -- Fixture write runs ELEVATED: profile columns are not directly writable by
+  -- the authenticated role in the current era (edits travel through server
+  -- actions); RLS+grants together are the boundary this probe tests.
+  perform pg_temp.elevate();
   update public.profiles set home_zip = '90066' where id = b;
 
-  -- A, impersonated, must not be able to read B's profile row through RLS.
+  -- A, impersonated, must not see B's PRIVATE columns. In the current era
+  -- home_zip is column-guarded (0282): the read itself is DENIED for
+  -- authenticated, which is the strongest form of the boundary — the probe
+  -- treats denial as the pass, zero-visible as acceptable, and a visible
+  -- value as the failure.
   perform pg_temp.impersonate(a);
-  select count(*) into seen from public.profiles where id = b and home_zip = '90066';
-  -- Depending on profile visibility policy this may be 0 (private) — the point
-  -- is that A cannot mutate or see B's private-scoped columns. If profiles are
-  -- intentionally world-readable, this asserts at least that A cannot UPDATE B:
+  begin
+    select count(*) into seen from public.profiles where id = b and home_zip = '90066';
+  exception when insufficient_privilege then
+    seen := 0; -- the column boundary held at the grant layer
+  end;
+  if seen > 0 then
+    raise exception 'IDOR CHECK failed: user A can read user B''s private column';
+  end if;
+  -- And A cannot UPDATE B either:
   begin
     update public.profiles set home_zip = '00000' where id = b;
-    -- If the update silently affected B's row, that's an IDOR write hole.
-    if (select home_zip from public.profiles where id = b) = '00000' then
-      raise exception 'IDOR CHECK failed: user A modified user B''s profile row';
-    end if;
   exception when insufficient_privilege then
-    null; -- correct: RLS blocked the cross-user write
+    null; -- blocked at the grant/policy layer: correct
   end;
-  raise notice 'IDOR probe: cross-user profile write blocked.';
+  -- Whatever happened above, B's row must be untouched — verified elevated.
+  perform pg_temp.elevate();
+  if (select home_zip from public.profiles where id = b) = '00000' then
+    raise exception 'IDOR CHECK failed: user A modified user B''s profile row';
+  end if;
+  raise notice 'ok   IDOR probe: cross-user profile write blocked.';
 end;
 $body$;
 
-do $$ begin raise notice 'ALL RLS & INVARIANT CHECKS PASSED'; end $$;
+do $$ begin raise notice 'ok   ALL RLS & INVARIANT CHECKS PASSED'; end $$;
 
 rollback;
 
@@ -156,6 +186,6 @@ begin
   if array_length(missing, 1) > 0 then
     raise exception 'GRANT CHECK failed: service_role cannot EXECUTE: %', array_to_string(missing, ', ');
   end if;
-  raise notice 'Grant check: service_role can execute all % server-only functions.', array_length(fns, 1);
+  raise notice 'ok   Grant check: service_role can execute all % server-only functions.', array_length(fns, 1);
 end;
 $body$;

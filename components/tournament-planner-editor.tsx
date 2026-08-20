@@ -247,28 +247,28 @@ export function TournamentPlannerEditor({ tournamentId, initial, defaultDate }: 
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className={labelCls}>What</label>
-              <input className={inputCls} value={editingItem.title} onChange={(e) => patch(editingItem.key, { title: e.target.value })} placeholder="e.g. Games start" />
+              <label htmlFor="f-what" className={labelCls}>What</label>
+              <input id="f-what" className={inputCls} value={editingItem.title} onChange={(e) => patch(editingItem.key, { title: e.target.value })} placeholder="e.g. Games start" />
             </div>
             <div>
-              <label className={labelCls}>Type</label>
-              <select className={inputCls} value={editingItem.kind} onChange={(e) => patch(editingItem.key, { kind: e.target.value })}>
+              <label htmlFor="f-type" className={labelCls}>Type</label>
+              <select id="f-type" className={inputCls} value={editingItem.kind} onChange={(e) => patch(editingItem.key, { kind: e.target.value })}>
                 {PLAN_KINDS.map((k) => (
                   <option key={k} value={k}>{PLAN_KIND_LABEL[k]}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={labelCls}>Start</label>
+              <span className={labelCls}>Start</span>
               <DateTimeField value={editingItem.starts} onChange={(v) => patch(editingItem.key, { starts: v })} ariaLabel="Item start" />
             </div>
             <div>
-              <label className={labelCls}>End <span className="font-normal normal-case text-faint">(optional)</span></label>
+              <span className={labelCls}>End <span className="font-normal normal-case text-faint">(optional)</span></span>
               <DateTimeField value={editingItem.ends} onChange={(v) => patch(editingItem.key, { ends: v })} optional ariaLabel="Item end" />
             </div>
             <div className="sm:col-span-2">
-              <label className={labelCls}>Notes</label>
-              <input className={inputCls} value={editingItem.notes} onChange={(e) => patch(editingItem.key, { notes: e.target.value })} placeholder="Optional details" />
+              <label htmlFor="f-notes" className={labelCls}>Notes</label>
+              <input id="f-notes" className={inputCls} value={editingItem.notes} onChange={(e) => patch(editingItem.key, { notes: e.target.value })} placeholder="Optional details" />
             </div>
           </div>
           <button type="button" onClick={() => setEditing(null)} className="press mt-3 inline-flex items-center gap-1 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-surface">
@@ -282,28 +282,28 @@ export function TournamentPlannerEditor({ tournamentId, initial, defaultDate }: 
         <h3 className="text-sm font-bold text-ink">Add to the plan</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className={labelCls}>What&rsquo;s happening</label>
-            <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Food trucks arrive, DJ starts, Opening ceremony" />
+            <label htmlFor="f-what-rsquo-s-happening" className={labelCls}>What&rsquo;s happening</label>
+            <input id="f-what-rsquo-s-happening" className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Food trucks arrive, DJ starts, Opening ceremony" />
           </div>
           <div>
-            <label className={labelCls}>Type</label>
-            <select className={inputCls} value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
+            <label htmlFor="f-type-2" className={labelCls}>Type</label>
+            <select id="f-type-2" className={inputCls} value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
               {PLAN_KINDS.map((k) => (
                 <option key={k} value={k}>{PLAN_KIND_LABEL[k]}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className={labelCls}>Start</label>
+            <span className={labelCls}>Start</span>
             <DateTimeField value={draft.starts} onChange={(v) => setDraft({ ...draft, starts: v })} ariaLabel="New item start" />
           </div>
           <div className="sm:col-span-2 sm:col-start-2">
-            <label className={labelCls}>End <span className="font-normal normal-case text-faint">(optional)</span></label>
+            <span className={labelCls}>End <span className="font-normal normal-case text-faint">(optional)</span></span>
             <DateTimeField value={draft.ends} onChange={(v) => setDraft({ ...draft, ends: v })} optional ariaLabel="New item end" />
           </div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>Notes (optional)</label>
-            <input className={inputCls} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Anything useful — vendor name, contact, location…" />
+            <label htmlFor="f-notes-optional" className={labelCls}>Notes (optional)</label>
+            <input id="f-notes-optional" className={inputCls} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Anything useful — vendor name, contact, location…" />
           </div>
         </div>
         <button type="button" onClick={addDraft} disabled={!draft.title.trim() || !draft.starts} className="press mt-3 inline-flex items-center gap-1.5 rounded-xl border border-rule bg-bg px-4 py-2 text-sm font-semibold text-ink hover:border-brand disabled:opacity-50">

@@ -123,8 +123,8 @@ export function PaymentReviewRow({
 
       {showDeny && paymentStatus === "proof_submitted" ? (
         <div className="mt-3 border-t border-rule pt-3">
-          <label className="mb-1.5 block text-xs font-semibold text-ink">Reason for declining (shared with the entrant)</label>
-          <textarea
+          <label htmlFor="f-reason-for-declining-sha" className="mb-1.5 block text-xs font-semibold text-ink">Reason for declining (shared with the entrant)</label>
+          <textarea id="f-reason-for-declining-sha"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={2}

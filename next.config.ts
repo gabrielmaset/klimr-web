@@ -9,29 +9,10 @@ import type { NextConfig } from "next";
  *  - When Google / Apple sign-in lands, add their origins to connect-src and
  *    form-action (accounts.google.com, appleid.apple.com).
  */
-const csp = [
-  "default-src 'self'",
-  // Cloudflare Turnstile (bot/abuse protection on auth) loads a script + iframe.
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
-  // Mapbox GL decodes tiles in a worker created from a blob: URL.
-  "worker-src 'self' blob:",
-  "child-src blob:",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com",
-  "font-src 'self' data:",
-  // Supabase (auth/storage/realtime) + Mapbox (styles, tiles, glyphs, telemetry) + Turnstile verify.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com https://challenges.cloudflare.com",
-  // OpenStreetMap (legacy), Turnstile (auth), and Google Maps (venue map on public event pages).
-  "frame-src https://www.openstreetmap.org https://challenges.cloudflare.com https://www.google.com https://maps.google.com",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-  "upgrade-insecure-requests",
-].join("; ");
-
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
+  // KFU-025: CSP moved to middleware as the single enforced source (nonce
+  // policy from lib/csp.ts; loud fallback on nonce failure). Two enforced
+  // policies drift; one cannot.
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },

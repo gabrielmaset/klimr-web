@@ -11,8 +11,6 @@ import { clearSessionPlay, wipeSession, ensureQueueLive, sessionPatch } from "@/
 import { accountActive } from "@/lib/guards";
 import { SPORT_KEYS } from "@/lib/sports";
 import { LEVELS, metersBetween, formationsFor, formatDistance, prefersImperial } from "@/lib/queue";
-import { pickupMatchPoints } from "@/lib/ranking";
-import { recomputePlayerPoints } from "@/lib/points";
 import type { Database } from "@/lib/database.types";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -894,60 +892,46 @@ export async function reopenCourt(formData: FormData): Promise<Result> {
 // ---------- approval queue ----------
 
 export async function approveRequest(formData: FormData): Promise<Result> {
-  const userId = await currentUserId();
-  if (!userId) return { error: "Sign in first." };
-  const admin = createAdminClient();
-  const requestId = String(formData.get("requestId") || "");
-  const { data: req } = await admin.from("queue_join_requests").select("id, session_id, court_id, user_id, guest_name, status").eq("id", requestId).maybeSingle();
-  if (!req) return { error: "Request not found." };
-  const s = await sessionRow(admin, req.session_id);
-  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can approve players." };
-  if (req.status !== "pending") return { error: "That request was already handled." };
-
-  const { data: court } = await admin.from("queue_courts").select("id, session_id, team_size").eq("id", req.court_id).maybeSingle();
-  if (!court) {
-    await admin.from("queue_join_requests").update({ status: "denied", decided_at: new Date().toISOString() }).eq("id", requestId);
-    revalidatePath(`/queue/${req.session_id}`);
-    return { error: "That court was removed." };
-  }
-
-  // if the account already landed on a team meanwhile, just close the request
-  if (req.user_id) {
-    const { data: active } = await admin.from("queue_teams").select("id").eq("session_id", req.session_id).neq("status", "done");
-    const ids = (active ?? []).map((t) => t.id);
-    if (ids.length) {
-      const { data: ex } = await admin.from("queue_team_members").select("id").eq("user_id", req.user_id).in("team_id", ids).maybeSingle();
-      if (ex) {
-        await admin.from("queue_join_requests").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", requestId);
-        revalidatePath(`/queue/${req.session_id}`);
-        return { ok: true };
-      }
-    }
-  }
-
-  // Keyed on the REQUEST, so approving the same request twice — two staff, two
-  // taps — places once.
-  const p = await placeOnTeam(admin, court, { user_id: req.user_id ?? undefined, guest_name: req.guest_name ?? undefined }, `approve:${req.id}`);
-  if (p.error) return { error: p.error };
-  await admin.from("queue_join_requests").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", requestId);
-  revalidatePath(`/queue/${req.session_id}`);
-  return { ok: true };
+  return resolveJoinRequest(formData, true);
 }
 
 export async function denyRequest(formData: FormData): Promise<Result> {
+  return resolveJoinRequest(formData, false);
+}
+
+/** KFU-011: both paths go through the one locked command — CAS on pending
+ *  under FOR UPDATE, placement and status write in the same transaction. A
+ *  placement failure aborts whole (the request stays pending) and the reason
+ *  travels back as the error code mapped below. */
+async function resolveJoinRequest(formData: FormData, approve: boolean): Promise<Result> {
   const userId = await currentUserId();
   if (!userId) return { error: "Sign in first." };
   const admin = createAdminClient();
   const requestId = String(formData.get("requestId") || "");
-  const { data: req } = await admin.from("queue_join_requests").select("id, session_id, status").eq("id", requestId).maybeSingle();
+  const { data: req } = await admin.from("queue_join_requests").select("id, session_id").eq("id", requestId).maybeSingle();
   if (!req) return { error: "Request not found." };
   const s = await sessionRow(admin, req.session_id);
-  if (!s || s.organizer_id !== userId) return { error: "Only the organizer can decline players." };
-  if (req.status === "pending") {
-    await admin.from("queue_join_requests").update({ status: "denied", decided_at: new Date().toISOString() }).eq("id", requestId);
+  if (!s || s.organizer_id !== userId) {
+    return { error: approve ? "Only the organizer can approve players." : "Only the organizer can decline players." };
   }
+  const { data, error } = await admin.rpc("queue_resolve_join_request", { p_request: requestId, p_approve: approve });
   revalidatePath(`/queue/${req.session_id}`);
+  if (error) return { error: queueResolveMessage(error.message) };
+  const out = data as unknown as { ok?: boolean; error?: string } | null;
+  if (!out?.ok && out?.error !== undefined) return { error: queueResolveMessage(out.error) };
   return { ok: true };
+}
+
+function queueResolveMessage(code?: string | null): string {
+  if (!code) return "Couldn't update that request.";
+  if (code.includes("already_handled")) return "That request was already handled.";
+  if (code.includes("court_removed") || code.includes("queue_court_not_found")) return "That court was removed.";
+  if (code.includes("court_closed")) return "That court is closed.";
+  if (code.includes("session_ended")) return "This session has ended.";
+  if (code.includes("already_in_session")) return "They're already playing in this session.";
+  if (code.includes("full_teams_disabled")) return "Full teams can't be joined on this court.";
+  if (code.includes("not_organizer")) return "Only the organizer can manage requests.";
+  return "Couldn't update that request.";
 }
 
 export async function cancelRequest(formData: FormData): Promise<Result> {

@@ -56,7 +56,7 @@ export function CreateMatchForm({
         <div className="space-y-7">
           {/* sport */}
           <div>
-            <label className="kicker text-faint">Sport</label>
+            <span className="kicker text-faint">Sport</span>
             <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(104px,1fr))" }}>
               {SPORTS.map((s) => {
                 const on = sport === s.key;
@@ -85,7 +85,7 @@ export function CreateMatchForm({
               volleyball offers 2s/3s/4s and racquetball offers cutthroat;
               padel is doubles-only and simply shows its one locked card. */}
           <div>
-            <label className="kicker text-faint">Format</label>
+            <span className="kicker text-faint">Format</span>
             {!sport ? (
               <p className="mt-2 text-sm text-faint">Pick a sport first.</p>
             ) : (
@@ -118,16 +118,16 @@ export function CreateMatchForm({
           {/* when + slots */}
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label className="kicker text-faint">
+              <span className="kicker text-faint">
                 When <span className="font-sans normal-case tracking-normal text-faint">(optional)</span>
-              </label>
+              </span>
               <div className="mt-2">
                 <DateTimePicker />
               </div>
               <p className="mt-1.5 text-xs text-faint">Leave blank for open / anytime play. Times are in 15-minute steps.</p>
             </div>
             <div>
-              <label className="kicker text-faint">Who you&rsquo;re looking for</label>
+              <span className="kicker text-faint">Who you&rsquo;re looking for</span>
               {fmt ? (
                 <div className="mt-2 rounded-xl border border-rule bg-bg px-3.5 py-3">
                   <p className="text-sm font-semibold text-ink">

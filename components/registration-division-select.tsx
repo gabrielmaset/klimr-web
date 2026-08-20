@@ -14,8 +14,8 @@ export function RegistrationDivisionSelect({ regId, current, options }: { regId:
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label className="text-[11px] font-bold uppercase tracking-wider text-faint">Division</label>
-      <select
+      <label htmlFor="f-division" className="text-[11px] font-bold uppercase tracking-wider text-faint">Division</label>
+      <select id="f-division"
         value={current ?? ""}
         disabled={pending}
         aria-label="Move to division"

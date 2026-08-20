@@ -163,45 +163,60 @@ done
 
 echo
 echo "== verify =="
-# KRA-018: this checked object COUNTS, and only for the plain buckets — so the
-# encrypted document copies and the configuration copy were unverified entirely,
-# and even the plain ones passed on a count match with different bytes. Counting
-# is the weakest possible check: it cannot distinguish "the file came back" from
-# "a file with that name came back", which is the exact distinction 0226's
-# manifest exists to make.
-#
-# Every destination class is checked now, and the plain buckets are checked by
-# rclone's CHECKSUM comparison rather than a tally.
+# KRA-018 made this verify checksums instead of tallies. 2026-08-19 taught the
+# second lesson: the first mass DELETION (the production seed wipe) turned every
+# emptied bucket red, because the gate demanded source == destination — an
+# invariant that contradicts the ADDITIVE design written at the top of this very
+# file ("copy, never sync; deletions do not propagate"). Worse, the count gate
+# sat IN FRONT of the checksum check, so the moment counts diverged, the check
+# that matters was skipped entirely. The direction that matters is one-way:
+# EVERY SOURCE OBJECT exists at both destinations with matching bytes. Objects
+# that exist only at the destinations are deletions the backup is RETAINING —
+# that is the backup doing its job, reported as a note, never an error.
 for b in "${PLAIN[@]}"; do
   s=$(rclone size "${RCLONE_SRC}:${b}" --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
   a=$(rclone size "${DST_A}/${b}"      --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
   bb=$(rclone size "${DST_B}/${b}"     --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
-  if [ "${s:-0}" = "${a:-0}" ] && [ "${s:-0}" = "${bb:-0}" ]; then
-    # Counts agree; now prove the BYTES do. `check` compares hashes and exits
-    # non-zero on any difference or missing object.
-    if rclone check "${RCLONE_SRC}:${b}" "${DST_A}/${b}" --one-way >/dev/null 2>&1 \
-       && rclone check "${RCLONE_SRC}:${b}" "${DST_B}/${b}" --one-way >/dev/null 2>&1; then
-      echo "   ok    ${b}: ${s:-0} objects, checksums match on R2 and B2"
-    else
-      echo "   FAIL  ${b}: counts agree but CONTENT differs — a partial restore would look complete"
-      fails=$((fails+1))
-    fi
+  miss=""
+  rclone check "${RCLONE_SRC}:${b}" "${DST_A}/${b}" --one-way >/dev/null 2>&1 || miss="R2"
+  rclone check "${RCLONE_SRC}:${b}" "${DST_B}/${b}" --one-way >/dev/null 2>&1 || miss="${miss:+${miss}+}B2"
+  if [ -n "$miss" ]; then
+    echo "   FAIL  ${b}: source object missing or differing at ${miss} — a restore would be incomplete"
+    fails=$((fails+1))
   else
-    echo "   WARN  ${b}: source ${s:-0}, R2 ${a:-0}, B2 ${bb:-0}"; fails=$((fails+1))
+    extra=$(( ${a:-0} - ${s:-0} )); eb=$(( ${bb:-0} - ${s:-0} )); [ "$eb" -gt "$extra" ] && extra=$eb
+    if [ "$extra" -gt 0 ]; then
+      echo "   ok    ${b}: all ${s:-0} source object(s) checksum-verified on R2 and B2; ${extra} retained that no longer exist at source (deletions never propagate, by design)"
+    else
+      echo "   ok    ${b}: ${s:-0} objects, checksums match on R2 and B2"
+    fi
   fi
 done
 
-# Encrypted destinations: the ciphertext differs from the source by design, so a
-# checksum comparison against the source is meaningless. Object count is what can
-# be asserted here, and it is asserted rather than skipped — which is what it was.
+# Encrypted destinations: upgraded from count-assertion to `rclone cryptcheck`,
+# which verifies each SOURCE file's plaintext hash against the ciphertext at the
+# crypt remote — real verification where before only a tally was possible. Same
+# one-way direction as above. `tournament-payments` carries the retention
+# window's --max-age so the verify never flags what the 400d prune correctly
+# removed at the destinations while the source still holds it.
 for b in "${ENC[@]}"; do
+  ma=""; [ "$b" = "tournament-payments" ] && ma="--max-age 400d"
   s=$(rclone size "${RCLONE_SRC}:${b}" --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
   a=$(rclone size "${DST_A_ENC}/${b}"  --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
   bb=$(rclone size "${DST_B_ENC}/${b}" --json 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
-  if [ "${s:-0}" = "${a:-0}" ] && [ "${s:-0}" = "${bb:-0}" ]; then
-    echo "   ok    ${b} (encrypted): ${s:-0} objects on both"
+  miss=""
+  rclone cryptcheck "${RCLONE_SRC}:${b}" "${DST_A_ENC}/${b}" --one-way $ma >/dev/null 2>&1 || miss="R2"
+  rclone cryptcheck "${RCLONE_SRC}:${b}" "${DST_B_ENC}/${b}" --one-way $ma >/dev/null 2>&1 || miss="${miss:+${miss}+}B2"
+  if [ -n "$miss" ]; then
+    echo "   FAIL  ${b} (encrypted): source object missing or differing at ${miss} — a restore would be incomplete"
+    fails=$((fails+1))
   else
-    echo "   WARN  ${b} (encrypted): source ${s:-0}, R2 ${a:-0}, B2 ${bb:-0}"; fails=$((fails+1))
+    extra=$(( ${a:-0} - ${s:-0} )); eb=$(( ${bb:-0} - ${s:-0} )); [ "$eb" -gt "$extra" ] && extra=$eb
+    if [ "$extra" -gt 0 ]; then
+      echo "   ok    ${b} (encrypted): all ${s:-0} source object(s) cryptcheck-verified; ${extra} retained (deleted at source)"
+    else
+      echo "   ok    ${b} (encrypted): ${s:-0} objects cryptcheck-verified on both"
+    fi
   fi
 done
 

@@ -1,3 +1,7 @@
+import "server-only";
+// KFU-015: the zipcodes dataset is ~5MB. This import makes ANY client
+// bundle that reaches this module a build error instead of a 4.65MB chunk
+// shipped to phones — the exact regression the audit reproduced.
 import { codes, lookup, type ZipRecord } from "zipcodes";
 
 /* ------------------------------------------------------------------ *

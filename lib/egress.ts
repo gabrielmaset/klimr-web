@@ -68,9 +68,13 @@ export type SafeResponse = {
  *  hosts are legitimate. */
 export async function safeGet(
   url: string,
-  opts: { headers?: Record<string, string>; timeoutMs?: number; maxBytes?: number } = {},
+  opts: { headers?: Record<string, string>; timeoutMs?: number; maxBytes?: number; signal?: AbortSignal } = {},
 ): Promise<SafeResponse> {
-  const { headers = {}, timeoutMs = 6500, maxBytes = 300_000 } = opts;
+  const { headers = {}, timeoutMs = 6500, maxBytes = 300_000, signal } = opts;
+  // KFU-022: an external signal aborts the in-flight request. Without this,
+  // every caller-side AbortController governing a multi-hop walk was
+  // decorative — the hop it "cancelled" ran to its own timeout regardless.
+  if (signal?.aborted) throw new Error("egress: aborted before start");
   const u = new URL(url);
   if (u.protocol !== "https:") throw new Error("egress refused: only https is permitted");
 
@@ -112,6 +116,9 @@ export async function safeGet(
       },
     );
     req.on("timeout", () => req.destroy(new Error(`egress: timed out after ${timeoutMs}ms`)));
+    const onAbort = () => req.destroy(new Error("egress: aborted"));
+    signal?.addEventListener("abort", onAbort, { once: true });
+    req.on("close", () => signal?.removeEventListener("abort", onAbort));
     req.on("error", reject);
     req.end();
   });

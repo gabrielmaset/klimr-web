@@ -112,13 +112,13 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
       <div className="space-y-5">
       <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-faint">Session</p>
       <div>
-        <label className="mb-1 block text-sm font-semibold text-ink">Session name</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Saturday beach volley" className="w-full rounded-[10px] border border-rule-2 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
+        <label htmlFor="f-session-name" className="mb-1 block text-sm font-semibold text-ink">Session name</label>
+        <input id="f-session-name" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Saturday beach volley" className="w-full rounded-[10px] border border-rule-2 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-semibold text-ink">Sport</label>
-        <select value={sport} onChange={(e) => changeSport(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
+        <label htmlFor="f-sport" className="mb-1 block text-sm font-semibold text-ink">Sport</label>
+        <select id="f-sport" value={sport} onChange={(e) => changeSport(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
           {SPORT_KEYS.map((k) => {
             const m = sportMeta(k);
             return (
@@ -135,8 +135,8 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
       <div className="space-y-5">
       <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-faint">Rules</p>
       <div>
-        <label className="mb-1 block text-sm font-semibold text-ink">Win rule</label>
-        <select value={winCap} onChange={(e) => setWinCap(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
+        <label htmlFor="f-win-rule" className="mb-1 block text-sm font-semibold text-ink">Win rule</label>
+        <select id="f-win-rule" value={winCap} onChange={(e) => setWinCap(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
           {WIN_RULES.map((r) => (
             <option key={r.v} value={r.v}>
               {r.label}
@@ -147,8 +147,8 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-semibold text-ink">Team names</label>
-        <select value={teamNameMode} onChange={(e) => setTeamNameMode(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
+        <label htmlFor="f-team-names" className="mb-1 block text-sm font-semibold text-ink">Team names</label>
+        <select id="f-team-names" value={teamNameMode} onChange={(e) => setTeamNameMode(e.target.value)} className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm">
           <option value="letters">Team A / Team B</option>
           <option value="first_player">First joined player&rsquo;s name</option>
           <option value="initials">Each player&rsquo;s initials (M&middot;G&middot;K)</option>
@@ -158,7 +158,7 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
       </div>
       </div>
       <div>
-        <label className="mb-1 block text-sm font-semibold text-ink">Court / venue (optional)</label>
+        <span className="mb-1 block text-sm font-semibold text-ink">Court / venue (optional)</span>
         {venueCourt ? (
           <div className="flex max-w-xl items-center justify-between gap-2 rounded-[10px] border border-rule-2 bg-white px-3 py-2.5">
             <span className="min-w-0">
@@ -218,12 +218,12 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
         <p className="mb-3 text-xs text-faint">You can add more courts after you create the session.</p>
         <div className="lg:flex lg:items-start lg:gap-12">
         <div className="mb-3 lg:mb-0 lg:w-64 lg:shrink-0">
-          <label className="mb-1.5 block text-xs font-semibold text-mute">Court name</label>
-          <input value={courtLabel} onChange={(e) => setCourtLabel(e.target.value.slice(0, 40))} placeholder="Court 1" className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm" />
+          <label htmlFor="f-court-name" className="mb-1.5 block text-xs font-semibold text-mute">Court name</label>
+          <input id="f-court-name" value={courtLabel} onChange={(e) => setCourtLabel(e.target.value.slice(0, 40))} placeholder="Court 1" className="w-full rounded-xl border border-rule bg-white px-3 py-2.5 text-sm" />
           <p className="mt-1 text-xs text-faint">Name it your way &mdash; Court A, Green Court, North&hellip; Blank keeps &ldquo;Court 1&rdquo;.</p>
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-mute">Formation</label>
+          <span className="mb-1.5 block text-xs font-semibold text-mute">Formation</span>
           <div className="flex flex-wrap gap-2">
             {forms.map((n) => (
               <button
@@ -239,7 +239,7 @@ export function NewSessionForm({ eventId, defaultSport, defaultTitle }: { eventI
         </div>
         </div>
         <div className="mt-4">
-          <label className="mb-1.5 block text-xs font-semibold text-mute">Levels (optional)</label>
+          <span className="mb-1.5 block text-xs font-semibold text-mute">Levels (optional)</span>
           <div className="flex flex-wrap gap-2">
             {LEVELS.map((l) => (
               <button

@@ -313,12 +313,32 @@ export function isSignupFormReady(fc: { signup_form_ready?: boolean }, fieldCoun
  *  opens automatically once its registration-opens time arrives and stays open
  *  until the deadline. A manual "registration_open" status forces it open until
  *  the deadline; any other status (draft, closed, completed…) is closed. */
+/** KFU-032: THE deadline predicate. Every surface that asks "has the
+ *  registration deadline passed?" asks here — the DB commands are the
+ *  authority (0193/0258/0292 check `registration_deadline < now()`), and
+ *  these mirror that exact comparison so app prechecks and page copy can
+ *  never drift from the gate. */
+export function registrationDeadlinePassed(
+  t: { registration_deadline?: string | null },
+  now: number = Date.now(),
+): boolean {
+  return !!t.registration_deadline && new Date(t.registration_deadline).getTime() < now;
+}
+
+/** Milliseconds until the deadline; null when none is set. Negative once
+ *  passed — display code decides how to render that. */
+export function msToRegistrationDeadline(
+  t: { registration_deadline?: string | null },
+  now: number = Date.now(),
+): number | null {
+  return t.registration_deadline ? new Date(t.registration_deadline).getTime() - now : null;
+}
+
 export function isRegistrationOpen(
   t: { status: string; registration_opens_at?: string | null; registration_deadline?: string | null },
   now: number = Date.now(),
 ): boolean {
-  const deadline = t.registration_deadline ? new Date(t.registration_deadline).getTime() : null;
-  if (deadline !== null && now > deadline) return false;
+  if (registrationDeadlinePassed(t, now)) return false;
   if (t.status === "registration_open") return true;
   if (t.status === "published") {
     const opensAt = t.registration_opens_at ? new Date(t.registration_opens_at).getTime() : null;

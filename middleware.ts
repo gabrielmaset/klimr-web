@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { buildNonceCsp } from "@/lib/csp";
+import { buildFallbackCsp, buildNonceCsp } from "@/lib/csp";
 
 export async function middleware(request: NextRequest) {
   // K3-06: nonce-based CSP in REPORT-ONLY, next to the enforced policy from
@@ -23,22 +23,27 @@ export async function middleware(request: NextRequest) {
   //
   // Setting the nonce BEFORE updateSession means `forwarded()` copies it into
   // the downstream request, which is how Next learns it.
-  let csp: string | null = null;
+  // KFU-025 (2026-08-20): ENFORCED. The nonce policy ran Report-Only long
+  // enough for the stream to show only extension noise (register, 08-17); the
+  // plan written in lib/csp.ts is now executed. report-uri stays on the
+  // enforced policy, so violations still flow to /api/csp-report.
+  let csp: string;
   try {
     const nonce = btoa(crypto.randomUUID()).replace(/=+$/, "");
     csp = buildNonceCsp(nonce);
     request.headers.set("x-nonce", nonce);
-    request.headers.set("Content-Security-Policy", csp);
-  } catch {
-    // A CSP failure must never cost someone their session refresh.
+  } catch (e) {
+    // Never ship a document headerless: degrade to the pre-enforcement
+    // baseline, loudly. If this line ever appears in logs, that is the story.
+    console.error("[csp] nonce generation failed — serving fallback policy", e);
+    csp = buildFallbackCsp();
   }
+  request.headers.set("Content-Security-Policy", csp);
 
   const res = await updateSession(request);
 
-  if (csp) {
-    res.headers.set("Content-Security-Policy-Report-Only", csp);
-    res.headers.set("x-nonce", request.headers.get("x-nonce") ?? "");
-  }
+  res.headers.set("Content-Security-Policy", csp);
+  res.headers.set("x-nonce", request.headers.get("x-nonce") ?? "");
   return res;
 }
 

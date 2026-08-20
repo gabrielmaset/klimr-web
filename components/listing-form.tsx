@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useMemo, useRef, useState } from "react";
-import { Camera, GripVertical, X, ShieldCheck, MapPin, Check } from "lucide-react";
+import { Camera, GripVertical, X, ShieldCheck, MapPin, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { SPORTS, sportMeta } from "@/lib/sports";
-import { CATEGORIES, CONDITIONS } from "@/lib/marketplace";
+import { CATEGORIES, CONDITIONS } from "@/lib/marketplace-shared";
 import {
   createListing,
   updateListing,
@@ -59,6 +59,12 @@ export function ListingForm({ formMode, initial, defaultZip, defaultSport = null
     ]);
   };
   const removePhoto = (key: string) => setPhotos((cur) => cur.filter((p) => p.key !== key));
+  const move = (from: number, to: number) => {
+    // Keyboard reorder — same path as drag, zero duplication.
+    if (to < 0 || to >= photos.length) return;
+    dragFrom.current = from;
+    onDrop(to);
+  };
   const onDrop = (to: number) => {
     const from = dragFrom.current;
     dragFrom.current = null;
@@ -135,6 +141,7 @@ export function ListingForm({ formMode, initial, defaultZip, defaultSport = null
         <p className={monoKicker}>Photos · up to 5 · first is the cover</p>
         <div className="mt-3 flex flex-wrap gap-2.5">
           {photos.map((p, i) => (
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pointer-only drag enhancement; keyboard reorder is the Move buttons
             <div
               key={p.key}
               draggable
@@ -153,6 +160,24 @@ export function ListingForm({ formMode, initial, defaultZip, defaultSport = null
               <span className="absolute bottom-1 left-1 text-white/90 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>
                 <GripVertical size={14} />
               </span>
+              <button
+                type="button"
+                aria-label="Move photo left"
+                disabled={i === 0}
+                onClick={() => move(i, i - 1)}
+                className="press absolute bottom-1 right-8 grid h-6 w-6 place-items-center rounded-full border border-rule bg-white/95 text-ink opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-0 group-hover:disabled:opacity-30"
+              >
+                <ChevronLeft size={13} />
+              </button>
+              <button
+                type="button"
+                aria-label="Move photo right"
+                disabled={i === photos.length - 1}
+                onClick={() => move(i, i + 1)}
+                className="press absolute bottom-1 right-1 grid h-6 w-6 place-items-center rounded-full border border-rule bg-white/95 text-ink opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-0 group-hover:disabled:opacity-30"
+              >
+                <ChevronRight size={13} />
+              </button>
               <button
                 type="button"
                 aria-label="Remove photo"

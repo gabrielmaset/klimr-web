@@ -36,9 +36,15 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
   const [note, setNote] = useState<string | null>(null);
   const ActiveAudienceIcon = AUDIENCES.find((a) => a.key === audience)?.Icon ?? Globe;
 
+  const audienceRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!audienceOpen) return;
-    const close = () => setAudienceOpen(false);
+    // Close on outside click via a CONTAINS check — the old version closed on
+    // ANY window click and relied on a stopPropagation swallow inside the
+    // dropdown, which is the pattern the a11y rules exist to flag.
+    const close = (e: MouseEvent) => {
+      if (!audienceRef.current?.contains(e.target as Node)) setAudienceOpen(false);
+    };
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, [audienceOpen]);
@@ -252,7 +258,7 @@ export function FeedComposer({ initials, hue }: { initials: string; hue: number 
         </span>
 
         <span className="ml-auto flex items-center gap-2">
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <div ref={audienceRef} className="relative">
             <button
               type="button"
               onClick={() => setAudienceOpen((o) => !o)}

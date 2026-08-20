@@ -199,7 +199,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
             {/* name + status (sticky on mobile so Join is always reachable) */}
             <div className="sticky top-3 z-10 mt-5">
               <div className="rounded-2xl border-2 border-rule bg-surface p-4 shadow-md sm:p-5">
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-ink-soft">Your name</label>
+                <label htmlFor="f-your-name" className="mb-2 block text-xs font-bold uppercase tracking-wide text-ink-soft">Your name</label>
                 {/* ONE status slot with a reserved height, shared by the helper
                     text, the join confirmation, and errors (courtside QA, Aug
                     2026). Previously the confirmation was an extra block that
@@ -211,7 +211,7 @@ export function GuestJoin({ initial }: { initial: QSessionState }) {
                     The name field is capped at 16 characters, so it needs
                     nowhere near full width; on sm+ it sits beside the status. */}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
-                  <input
+                  <input id="f-your-name"
                     value={name}
                     maxLength={16}
                     onChange={(e) => setName(e.target.value.slice(0, 16))}

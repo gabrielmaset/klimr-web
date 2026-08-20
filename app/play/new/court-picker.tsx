@@ -103,7 +103,7 @@ export function CourtPicker({
 
   return (
     <div>
-      <label className="kicker text-faint">Court</label>
+      <span className="kicker text-faint">Court</span>
 
       {selected ? (
         <div className="mt-2 flex items-center gap-3 rounded-2xl border border-brand/40 bg-tint-brand px-4 py-3">

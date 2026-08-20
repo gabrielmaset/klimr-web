@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 
 export type StaffAction = {
@@ -65,6 +65,14 @@ function fmt(value: unknown): string {
 
 export function StaffActionsLog({ actions }: { actions: StaffAction[] }) {
   const [open, setOpen] = useState<StaffAction | null>(null);
+  useEffect(() => {
+    if (open === null) return;
+    // Escape closes regardless of where focus sits — document-level per APG.
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [open]);
+
 
   const handoffs = (open?.meta?.handoffs as Array<Record<string, unknown>> | undefined) ?? [];
   const scalarEntries = open?.meta
@@ -99,13 +107,13 @@ export function StaffActionsLog({ actions }: { actions: StaffAction[] }) {
       {open ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm"
-          onClick={() => setOpen(null)}
           role="dialog"
           aria-modal="true"
         >
+          {/* house backdrop (see rich-text-editor): mouse gets click-to-close; keyboard uses Escape; SR skips it */}
+          <button type="button" aria-hidden tabIndex={-1} onClick={() => setOpen(null)} className="absolute inset-0 cursor-default" />
           <div
-            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-rule bg-surface p-6 shadow-e3"
-            onClick={(e) => e.stopPropagation()}
+            className="relative max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-rule bg-surface p-6 shadow-e3"
           >
             <div className="flex items-start justify-between gap-4">
               <div>

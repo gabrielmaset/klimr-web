@@ -11,8 +11,6 @@ import { blockSetsFor } from "@/lib/social-server";
 import { interpretQuery } from "@/lib/search-query";
 import { publicLocationLabel } from "@/lib/location-privacy";
 
-const joinLoc = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(", ") || null;
-
 /**
  * One search across the things players look for: other players, courts, teams,
  * and events. Each entity is matched by its primary name/title and capped so a

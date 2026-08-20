@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useDialogA11y } from "@/components/use-dialog-a11y";
 import Link from "next/link";
 import { X, Check, Loader2, Mail, UserRound, Trophy, ArrowRight } from "lucide-react";
@@ -20,6 +20,14 @@ export function JoinWaitlistDialog({
   triggerStyle?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    // Escape closes regardless of where focus sits — document-level per APG.
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [open]);
+
   // KCDX-066: `aria-modal` tells a screen reader the page behind is inert; it
   // does not make it so. Without a trap, Tab walks out of the dialog into
   // controls the user cannot see while their screen reader insists they are in a
@@ -65,12 +73,14 @@ export function JoinWaitlistDialog({
           ref={dialogRef}
           tabIndex={-1}
           className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4"
-          onClick={close}
+
           role="dialog"
           aria-modal="true"
           aria-label="Join the waitlist"
         >
-          <div className="fade w-full max-w-md overflow-hidden rounded-t-3xl bg-surface shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+          {/* house backdrop (see rich-text-editor): mouse gets click-to-close; keyboard uses Escape; SR skips it */}
+          <button type="button" aria-hidden tabIndex={-1} onClick={close} className="absolute inset-0 cursor-default" />
+          <div className="relative fade w-full max-w-md overflow-hidden rounded-t-3xl bg-surface shadow-2xl sm:rounded-3xl">
             <div className="relative bg-gradient-to-br from-brand to-brand-deep px-5 py-5 text-white">
               <button type="button" onClick={close} aria-label="Close" className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-white/15 text-white hover:bg-white/25">
                 <X size={16} />

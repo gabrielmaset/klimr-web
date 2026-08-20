@@ -31,26 +31,31 @@ const eslintConfig = defineConfig([
       // clean (3 violations across the whole app, all fixed), so this is a
       // ratchet that keeps it that way rather than a backlog.
       ...a11y.flatConfigs.recommended.rules,
-      // label-has-associated-control is a WARNING, deliberately and
-      // temporarily. Enforcing it found 109 form fields whose visible <label>
-      // is a styled SIBLING of its input with no htmlFor/id pair — so screen
-      // readers do not announce the field name. That is a real defect, not
-      // lint noise, but each fix pairs a label with the right control and
-      // wants eyes on the rendered form; mass-generating ids risks collisions
-      // and mislabelled fields. Tracked as a scoped follow-up (K3-02 tail);
-      // raise to "error" once the backlog is cleared.
-      "jsx-a11y/label-has-associated-control": "warn",
-      // The keyboard-activation family is also WARN for now, same reasoning.
-      // Enforcing it surfaced 20 clickable non-button elements (divs/spans with
-      // onClick and no key handler) that a keyboard user cannot activate at
-      // all. Real defects — but each fix is a judgement call between promoting
-      // the element to a <button> (semantic + styling change) or adding
-      // role/tabIndex/onKeyDown, and the result has to be verified by actually
-      // tabbing the flow. That verification is the manual keyboard audit this
-      // task is blocked on, so the two land together. Raise to "error" then.
-      "jsx-a11y/click-events-have-key-events": "warn",
-      "jsx-a11y/no-static-element-interactions": "warn",
-      "jsx-a11y/no-noninteractive-element-interactions": "warn",
+      // K3-02 tail CLEARED (KFU-017/023, 2026-08-20): the 109-field backlog
+      // this comment tracked is fixed — 61 real htmlFor/id wirings (including
+      // three labels now pointing at hidden file inputs, so clicking them
+      // opens the picker), ~33 duplicate headings over self-labeling widgets
+      // (Segmented / DateTimeField carry their own accessible names) converted
+      // to <span>, RichTextEditor grew a labelledBy contract, and the rule is
+      // now an ERROR exactly as the original note promised. assert "either"
+      // because nesting IS programmatic association (HTML spec); PhoneField
+      // is declared as a control component (it renders a native <input>).
+      "jsx-a11y/label-has-associated-control": ["error", { assert: "either", depth: 3, controlComponents: ["PhoneField"] }],
+      // Keyboard-activation family CLEARED (KFU-017/022/023, 2026-08-20) and
+      // raised to ERROR as this comment always promised. The 24-site backlog:
+      // three hand-rolled dialogs rebuilt on the house backdrop-button pattern
+      // with document-level Escape (rich-text-editor precedent); the command
+      // palette likewise; two dropdown click-swallows removed (one vestigial,
+      // one replaced by a ref-contains outside-closer); courts result cards
+      // got a stretched real <button> with focus/blur hover-parity; and the
+      // two photo-reorder surfaces gained Move buttons — drag was the ONLY
+      // way to reorder before, which was the realest defect in the set. The
+      // three remaining drag/drop handlers carry inline justified disables
+      // naming their keyboard alternative. The companion manual keyboard
+      // audit is docs/DEVICE_CHECKLIST_WP-U.md, delivered the same batch.
+      "jsx-a11y/click-events-have-key-events": "error",
+      "jsx-a11y/no-static-element-interactions": "error",
+      "jsx-a11y/no-noninteractive-element-interactions": "error",
       // UX-002: an untyped <button> defaults to type="submit", so one inside a
       // form fires it by accident. Every button now declares intent.
       "react/button-has-type": "error",

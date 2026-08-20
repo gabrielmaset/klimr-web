@@ -33,7 +33,21 @@
  *  minutes long and instances stay warm across them — but it is not a global
  *  rate limiter. A shared breaker needs a store, which means a database round
  *  trip on every outbound call, and that trade is not obviously worth it before
- *  there is traffic to measure. Recorded rather than pretended. */
+ *  there is traffic to measure. Recorded rather than pretended.
+ *
+ *  · RESPONSE CLASSIFICATION (KFU-021). A vendor that ANSWERS with 429 or 5xx
+ *    is failing — but `fetch` resolves, so before this fix every control above
+ *    scored it a success: the breaker never learned, retries never spent, and
+ *    a rate-limited vendor was hammered at full speed with a clear conscience.
+ *    Now a resolved `Response` is classified at the boundary: 429/5xx count as
+ *    failures (feeding the breaker, consuming retries, honoring Retry-After up
+ *    to a 10s cap); other 4xx pass through untouched — the vendor is healthy
+ *    and OUR request is wrong, so the breaker must not learn from it and a
+ *    retry would just repeat the mistake. In every case the caller still
+ *    receives the final Response and its own `res.ok` handling keeps working:
+ *    the controls got smarter, the contract did not move. Non-Response results
+ *    (already-parsed JSON etc.) keep resolved-means-success semantics — this
+ *    module cannot see inside them. */
 
 type BreakerState = { failures: number; openedAt: number | null };
 
@@ -106,6 +120,23 @@ export async function callExternal<T>(
     const timer = setTimeout(() => controller.abort(new Error(`${vendor}: timed out after ${timeoutMs}ms`)), timeoutMs);
     try {
       const result = await work(controller.signal);
+      // KFU-021: a resolved Response is not automatically a success.
+      if (result instanceof Response && !result.ok) {
+        const status = result.status;
+        const vendorFailing = status === 429 || (status >= 500 && status <= 599);
+        if (vendorFailing) {
+          b.failures += 1;
+          if (b.failures >= FAILURE_THRESHOLD) b.openedAt = Date.now();
+          if (attempt < retries && b.openedAt === null) {
+            const ra = Number(result.headers.get("retry-after"));
+            const raMs = Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 10_000) : null;
+            await sleep(raMs ?? backoffMs * 2 ** attempt * (0.5 + Math.random()));
+            continue;
+          }
+          return result; // exhausted — the caller keeps its res.ok contract
+        }
+        return result; // 4xx: our fault, not the vendor's; the breaker must not learn
+      }
       b.failures = 0;
       b.openedAt = null;
       return result;

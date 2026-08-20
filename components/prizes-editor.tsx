@@ -134,8 +134,8 @@ export function PrizesEditor({ tournamentId, initial, divisions }: { tournamentI
                     <Trophy size={16} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <label className="mb-1 block text-xs font-semibold text-mute">Prize</label>
-                    <input className={inputCls} value={r.title} onChange={(e) => patch(r.id, { title: e.target.value })} placeholder="e.g. $500 cash, Trophy + medals" />
+                    <label htmlFor="f-prize" className="mb-1 block text-xs font-semibold text-mute">Prize</label>
+                    <input id="f-prize" className={inputCls} value={r.title} onChange={(e) => patch(r.id, { title: e.target.value })} placeholder="e.g. $500 cash, Trophy + medals" />
                   </div>
                   <button type="button" onClick={() => remove(r.id)} aria-label="Remove prize" className="mt-6 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rule bg-bg text-mute transition hover:text-ink">
                     <Trash2 size={15} />
@@ -144,8 +144,8 @@ export function PrizesEditor({ tournamentId, initial, divisions }: { tournamentI
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-mute">Division</label>
-                    <select className={inputCls} value={r.divisionId} onChange={(e) => patch(r.id, { divisionId: e.target.value })}>
+                    <label htmlFor="f-division" className="mb-1 block text-xs font-semibold text-mute">Division</label>
+                    <select id="f-division" className={inputCls} value={r.divisionId} onChange={(e) => patch(r.id, { divisionId: e.target.value })}>
                       <option value="">All divisions</option>
                       {divisions.map((d) => (
                         <option key={d.id} value={d.id}>
@@ -155,18 +155,18 @@ export function PrizesEditor({ tournamentId, initial, divisions }: { tournamentI
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-mute">Placement (optional)</label>
-                    <input className={inputCls} value={r.place} onChange={(e) => patch(r.id, { place: e.target.value })} placeholder="e.g. 1st, Champion, Finalist" />
+                    <label htmlFor="f-placement-optional" className="mb-1 block text-xs font-semibold text-mute">Placement (optional)</label>
+                    <input id="f-placement-optional" className={inputCls} value={r.place} onChange={(e) => patch(r.id, { place: e.target.value })} placeholder="e.g. 1st, Champion, Finalist" />
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <label className="mb-1 block text-xs font-semibold text-mute">Details (optional)</label>
-                  <textarea className={`${inputCls} min-h-16 resize-y`} value={r.description} onChange={(e) => patch(r.id, { description: e.target.value })} placeholder="Anything worth noting — gift card brand, sponsor, split between players…" />
+                  <label htmlFor="f-details-optional" className="mb-1 block text-xs font-semibold text-mute">Details (optional)</label>
+                  <textarea id="f-details-optional" className={`${inputCls} min-h-16 resize-y`} value={r.description} onChange={(e) => patch(r.id, { description: e.target.value })} placeholder="Anything worth noting — gift card brand, sponsor, split between players…" />
                 </div>
 
                 <div className="mt-3">
-                  <label className="mb-1 block text-xs font-semibold text-mute">Photo (optional)</label>
+                  <label htmlFor="f-photo-optional" className="mb-1 block text-xs font-semibold text-mute">Photo (optional)</label>
                   <div className="flex items-center gap-3">
                     {r.photo ? (
                       <span className="relative">
@@ -179,7 +179,7 @@ export function PrizesEditor({ tournamentId, initial, divisions }: { tournamentI
                     ) : null}
                     <label className="press inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-rule bg-bg px-3 py-2 text-sm font-semibold text-ink transition hover:border-brand">
                       {busy ? <Loader2 size={15} className="animate-spin" /> : <ImagePlus size={15} />} {r.photo ? "Replace photo" : "Add photo"}
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => pickFor(r.id, e)} />
+                      <input id="f-photo-optional" type="file" accept="image/*" className="hidden" onChange={(e) => pickFor(r.id, e)} />
                     </label>
                   </div>
                   <p className="mt-1.5 text-[11px] text-faint">Landscape (4:3) looks best — JPG or PNG, under 8&nbsp;MB. You can crop and reposition after picking.</p>

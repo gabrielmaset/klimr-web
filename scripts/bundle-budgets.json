@@ -1,0 +1,5 @@
+{
+  "comment": "KFU-015: per-route First Load JS ceilings, enforced by check-bundle-budgets.mjs in CI. Raise ONLY with a reviewed override and a reason, ratchet-style like the lint ceiling.",
+  "defaultFirstLoadKB": 700,
+  "overrides": {}
+}

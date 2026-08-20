@@ -23,7 +23,7 @@ else
   $PGBIN/pg_ctl -D "$D" -o "-k $SOCK -p $PORT -c listen_addresses=''" -l "$W/pg.log" start >/dev/null 2>&1; sleep 8
   P="$PGBIN/psql -h $SOCK -p $PORT -U postgres -d postgres -v ON_ERROR_STOP=1 -q"
 fi
-run(){ $P -f "$1" >"$W/last.out" 2>&1 || { echo "### FAIL $(basename "$1")"; grep -m2 ERROR "$W/last.out"; return 1; }; }
+run(){ $P -f "$1" >"$W/last.out" 2>&1 || { echo "### FAIL $(basename "$1")"; grep -m2 -iE "error" "$W/last.out"; return 1; }; }
 # Supabase-managed extensions do not exist off-platform; neutralize in COPIES only.
 cp "$REPO"/supabase/migrations/*.sql "$W/mig/"
 sed -i -E 's/^[[:space:]]*create extension[[:space:]]+(if not exists[[:space:]]+)?"?(pg_cron|pg_net)"?.*$/-- [harness] neutralized: &/I' "$W/mig"/*.sql
@@ -157,6 +157,35 @@ if $P -f "$REPO/supabase/tests/terminal_immutability_suite.sql" > "$W/ti.out" 2>
   echo "terminal_immutability_suite=PASS ($(grep -c 'ok   ' "$W/ti.out") checks)"
 else
   echo "terminal_immutability_suite=FAIL"; grep -E "TI-FAIL|ERROR" "$W/ti.out" | head -4; fails=$((fails+1))
+fi
+
+# KFU-011/012: party capacity, exact-reject rosters, atomic queue approval.
+if $P -f "$REPO/supabase/tests/wpi_admission_suite.sql" > "$W/wpi.out" 2>&1; then
+  echo "wpi_admission_suite=PASS ($(grep -c 'ok   ' "$W/wpi.out") checks)"
+else
+  echo "wpi_admission_suite=FAIL"; grep -E "FAIL|ERROR" "$W/wpi.out" | head -4; fails=$((fails+1))
+fi
+
+# KCDX-046: the graph is born whole; played matches refuse erasure.
+if $P -f "$REPO/supabase/tests/bracket_generation_suite.sql" > "$W/bgs.out" 2>&1; then
+  echo "bracket_generation_suite=PASS ($(grep -c 'ok   ' "$W/bgs.out") checks)"
+else
+  echo "bracket_generation_suite=FAIL"; grep -E "FAIL|ERROR" "$W/bgs.out" | head -4; fails=$((fails+1))
+fi
+
+# Diagnostic packet (2026-08-18): the two suites parked red since WP-0, now
+# honest against the live contracts — and the social one found the dead
+# decline cooldown (repaired by 0295).
+if $P -f "$REPO/supabase/tests/rls_and_invariants_checks.sql" > "$W/rls.out" 2>&1; then
+  echo "rls_and_invariants_checks=PASS ($(grep -c 'ok   ' "$W/rls.out") checks)"
+else
+  echo "rls_and_invariants_checks=FAIL"; grep -E "FAIL|ERROR" "$W/rls.out" | head -4; fails=$((fails+1))
+fi
+
+if $P -f "$REPO/supabase/tests/social_graph_checks.sql" > "$W/sgc.out" 2>&1; then
+  echo "social_graph_checks=PASS ($(grep -c 'ok   ' "$W/sgc.out") checks)"
+else
+  echo "social_graph_checks=FAIL"; grep -E "FAIL|ERROR" "$W/sgc.out" | head -4; fails=$((fails+1))
 fi
 
 # KCDX-052: the readiness gate, after the replay. A migration that opens a

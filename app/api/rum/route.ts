@@ -24,6 +24,11 @@ import { clientIp, rateLimitStrict } from "@/lib/ratelimit";
  *  system nobody is talking to. */
 export const dynamic = "force-dynamic";
 
+// Per-metric ceilings in the stored unit (ms / milli-CLS). 10_000 milli-CLS
+// = CLS 10 — already catastrophic; a uniform 120s ceiling was meaningless for
+// a unitless ratio (KFU-024).
+const CLAMP_MS: Record<string, number> = { lcp: 120_000, ttfb: 120_000, inp: 60_000, cls: 10_000 };
+
 const METRICS = new Set([
   "lcp", "inp", "cls", "ttfb",
   "queue_snapshot", "queue_action",
@@ -69,8 +74,12 @@ export async function POST(req: Request) {
   const admin = getPrivilegedClient({ reason: "rum:beacon" });
   const { data, error } = await admin.rpc("rum_ingest", {
     p_metric: metric,
-    // Clamp: a bogus or backgrounded-tab value must not distort a percentile.
-    p_value_ms: Math.min(Math.round(value), 120_000),
+    // Clamp per metric: a bogus or backgrounded-tab value must not distort a
+    // percentile. UNIT CONTRACT (KFU-024): `value_ms` stores MILLISECONDS for
+    // lcp/inp/ttfb and MILLI-CLS for cls (the client sends CLS ×1000, so a
+    // stored 100 = CLS 0.1). Every reader converts via rum_p75_daily (0296),
+    // which divides cls back — never read value_ms raw for cls.
+    p_value_ms: Math.min(Math.round(value), CLAMP_MS[metric] ?? 120_000),
     p_route: routePattern(body.route),
     p_is_mobile: body.isMobile === true,
     p_daily_cap: 200_000,

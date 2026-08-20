@@ -167,7 +167,7 @@ function VisibilityRow({ init }: { init: SettingsInit }) {
   }
   return (
     <div>
-      <label className={labelCls}>Discovery</label>
+      <span className={labelCls}>Discovery</span>
       <Segmented
         ariaLabel="Visibility"
         value={visibility}
@@ -292,17 +292,17 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
         onSave={() => save({ title: title.trim(), summary: summary.trim() || null, description: description.trim() || null, sport_key: sport, entry_type: entry, format_config: { legal: { waiver_text: waiver.trim(), rules_text: rules.trim(), require_waiver: reqWaiver, require_rules: reqRules } } })}
       >
         <div>
-          <label className={labelCls}>Tournament name</label>
-          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Summer Beach Classic" />
+          <label htmlFor="f-tournament-name" className={labelCls}>Tournament name</label>
+          <input id="f-tournament-name" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Summer Beach Classic" />
         </div>
         <div>
-          <label className={labelCls}>Tagline</label>
-          <input className={inputCls} value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={160} placeholder="One line shown on the public page" />
+          <label htmlFor="f-tagline" className={labelCls}>Tagline</label>
+          <input id="f-tagline" className={inputCls} value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={160} placeholder="One line shown on the public page" />
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Sport</label>
-            <select className={inputCls} value={sport} onChange={(e) => setSport(e.target.value)}>
+            <label htmlFor="f-sport" className={labelCls}>Sport</label>
+            <select id="f-sport" className={inputCls} value={sport} onChange={(e) => setSport(e.target.value)}>
               {SPORTS.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.emoji} {s.name}
@@ -311,7 +311,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
             </select>
           </div>
           <div>
-            <label className={labelCls}>Entry type</label>
+            <span className={labelCls}>Entry type</span>
             <Segmented
               ariaLabel="Entry type"
               value={entry}
@@ -324,12 +324,12 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
           </div>
         </div>
         <div>
-          <label className={labelCls}>About</label>
-          <RichTextEditor value={description} onChange={setDescription} placeholder="Format, what to bring, prizes, schedule overview…" />
+          <span id="f-about" className={labelCls}>About</span>
+          <RichTextEditor labelledBy="f-about" value={description} onChange={setDescription} placeholder="Format, what to bring, prizes, schedule overview…" />
         </div>
         <div>
-          <label className={labelCls}>Rules &amp; format</label>
-          <RichTextEditor value={rules} onChange={setRules} placeholder="Event rules, format details, conduct…" />
+          <span id="f-rules-amp-format" className={labelCls}>Rules &amp; format</span>
+          <RichTextEditor labelledBy="f-rules-amp-format" value={rules} onChange={setRules} placeholder="Event rules, format details, conduct…" />
           <p className="mt-1 text-xs text-faint">Shown with About on the public page; players acknowledge these at sign-up when required below.</p>
         </div>
         <Toggle checked={reqRules} onChange={setReqRules} label="Require rules acknowledgement" description="Each participant must acknowledge the rules before they're confirmed." />
@@ -358,33 +358,33 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Starts</label>
+            <span className={labelCls}>Starts</span>
             <DateTimeField value={startsAt} onChange={setStartsAt} ariaLabel="Start" />
           </div>
           <div>
-            <label className={labelCls}>Ends <span className="font-normal normal-case text-faint">(optional)</span></label>
+            <span className={labelCls}>Ends <span className="font-normal normal-case text-faint">(optional)</span></span>
             <DateTimeField value={endsAt} onChange={setEndsAt} optional ariaLabel="End" />
           </div>
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Venue name</label>
-            <input className={inputCls} value={locName} onChange={(e) => setLocName(e.target.value)} placeholder="Will Rogers State Beach" />
+            <label htmlFor="f-venue-name" className={labelCls}>Venue name</label>
+            <input id="f-venue-name" className={inputCls} value={locName} onChange={(e) => setLocName(e.target.value)} placeholder="Will Rogers State Beach" />
           </div>
           <div>
-            <label className={labelCls}>Address</label>
-            <input className={inputCls} value={locAddr} onChange={(e) => setLocAddr(e.target.value)} placeholder="Street, city, state" />
+            <label htmlFor="f-address" className={labelCls}>Address</label>
+            <input id="f-address" className={inputCls} value={locAddr} onChange={(e) => setLocAddr(e.target.value)} placeholder="Street, city, state" />
           </div>
         </div>
         <div>
-          <label className={labelCls}>Google Maps link <span className="font-normal normal-case text-faint">(optional)</span></label>
-          <input className={inputCls} value={locUrl} onChange={(e) => setLocUrl(e.target.value)} placeholder="https://maps.app.goo.gl/…" inputMode="url" />
+          <label htmlFor="f-google-maps-link-optiona" className={labelCls}>Google Maps link <span className="font-normal normal-case text-faint">(optional)</span></label>
+          <input id="f-google-maps-link-optiona" className={inputCls} value={locUrl} onChange={(e) => setLocUrl(e.target.value)} placeholder="https://maps.app.goo.gl/…" inputMode="url" />
           <p className={`${hintCls} mt-1`}>Paste a Google Maps share link to control exactly where the map on your public page points. Leave blank to use the venue name and address.</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-[10rem_1fr]">
           <div>
-            <label className={labelCls}>ZIP code</label>
-            <input className={`${inputCls} font-mono tracking-wider`} value={locZip} onChange={(e) => onLocZip(e.target.value)} inputMode="numeric" placeholder="90066" />
+            <label htmlFor="f-zip-code" className={labelCls}>ZIP code</label>
+            <input id="f-zip-code" className={`${inputCls} font-mono tracking-wider`} value={locZip} onChange={(e) => onLocZip(e.target.value)} inputMode="numeric" placeholder="90066" />
           </div>
           <div className="flex items-end">
             <p className={`${hintCls} flex items-center gap-1.5`}>
@@ -414,8 +414,8 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
           onSave={() => save({ roster_lock_policy: rosterPolicy, roster_lock_custom: rosterPolicy === "custom" ? localInputToIso(rosterCustom) : null })}
         >
           <div>
-            <label className={labelCls}>Substitutions allowed until</label>
-            <select className={inputCls} value={rosterPolicy} onChange={(ev) => setRosterPolicy(ev.target.value)}>
+            <label htmlFor="f-substitutions-allowed-un" className={labelCls}>Substitutions allowed until</label>
+            <select id="f-substitutions-allowed-un" className={inputCls} value={rosterPolicy} onChange={(ev) => setRosterPolicy(ev.target.value)}>
               <option value="14d">14 days before the event</option>
               <option value="7d">7 days before the event</option>
               <option value="3d">3 days before the event</option>
@@ -426,8 +426,8 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
           </div>
           {rosterPolicy === "custom" ? (
             <div>
-              <label className={labelCls}>Custom cutoff</label>
-              <input type="datetime-local" className={inputCls} value={rosterCustom} onChange={(ev) => setRosterCustom(ev.target.value)} />
+              <label htmlFor="f-custom-cutoff" className={labelCls}>Custom cutoff</label>
+              <input id="f-custom-cutoff" type="datetime-local" className={inputCls} value={rosterCustom} onChange={(ev) => setRosterCustom(ev.target.value)} />
             </div>
           ) : null}
           <p className="text-xs text-faint">Each registration keeps its own roster snapshot — changes to a team elsewhere never touch a locked entry here.</p>
@@ -446,11 +446,11 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Registration opens</label>
+            <span className={labelCls}>Registration opens</span>
             <DateTimeField value={regOpens} onChange={setRegOpens} optional ariaLabel="Registration opens" />
           </div>
           <div>
-            <label className={labelCls}>Registration deadline</label>
+            <span className={labelCls}>Registration deadline</span>
             <DateTimeField value={regDeadline} onChange={setRegDeadline} optional ariaLabel="Registration deadline" />
           </div>
         </div>
@@ -487,7 +487,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
         }
       >
         <div>
-          <label className={labelCls}>Competition format</label>
+          <span className={labelCls}>Competition format</span>
           <OptionCards
             ariaLabel="Competition format"
             value={formatType}
@@ -501,21 +501,21 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
         </div>
         {formatType === "pools_knockout" ? (
           <div className="sm:max-w-xs">
-            <label className={labelCls}>Number of pools</label>
-            <input type="number" min={1} className={inputCls} value={poolCount} onChange={(e) => setPoolCount(e.target.value)} />
+            <label htmlFor="f-number-of-pools" className={labelCls}>Number of pools</label>
+            <input id="f-number-of-pools" type="number" min={1} className={inputCls} value={poolCount} onChange={(e) => setPoolCount(e.target.value)} />
           </div>
         ) : null}
         {entry === "team" ? (
           <div className="sm:max-w-xs">
-            <label className={labelCls}>Players per team (on court)</label>
-            <input type="number" min={1} className={inputCls} value={rosterSize} onChange={(e) => setRosterSize(e.target.value)} />
+            <label htmlFor="f-players-per-team-on-cour" className={labelCls}>Players per team (on court)</label>
+            <input id="f-players-per-team-on-cour" type="number" min={1} className={inputCls} value={rosterSize} onChange={(e) => setRosterSize(e.target.value)} />
             <p className={hintCls}>Each team&rsquo;s main roster must match this exactly to enter.</p>
           </div>
         ) : null}
         <div className="rounded-2xl border border-rule bg-bg/40 p-4">
           <div className="sm:max-w-xs">
-            <label className={labelCls}>Number of courts</label>
-            <input type="number" min={1} max={50} className={inputCls} value={courtList.length} onChange={(e) => setCourtCount(e.target.value)} />
+            <label htmlFor="f-number-of-courts" className={labelCls}>Number of courts</label>
+            <input id="f-number-of-courts" type="number" min={1} max={50} className={inputCls} value={courtList.length} onChange={(e) => setCourtCount(e.target.value)} />
           </div>
           <p className={hintCls}>Name or number each court — these label the matches when you build the schedule.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -532,7 +532,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
           </div>
         </div>
         <div className="rounded-2xl border border-rule bg-bg/40 p-4">
-          <label className={labelCls}>Capacity</label>
+          <span className={labelCls}>Capacity</span>
           {liveContext && (liveContext.entries > 0 || liveContext.scheduled) ? (
             <p className="mb-2 mt-1 rounded-xl border border-[#F1E0B6] bg-[#FDF3DD] px-3 py-2 text-xs font-semibold text-[#B45309]">
               {liveContext.entries > 0 ? `${liveContext.entries} live ${liveContext.entries === 1 ? "entry" : "entries"} — lowering caps moves the newest over-cap entries to the waitlist.` : ""}
@@ -589,7 +589,7 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
           </div>
         </div>
         <div>
-          <label className={labelCls}>Gender eligibility</label>
+          <span className={labelCls}>Gender eligibility</span>
           <Segmented
             ariaLabel="Gender eligibility"
             value={genderRule}
@@ -622,8 +622,8 @@ export function TournamentSettingsEditor({ init, divisionsSlot, gallerySlot, dan
         onSave={() => save({ format_config: { legal: { waiver_text: waiver.trim(), rules_text: rules.trim(), require_waiver: reqWaiver, require_rules: reqRules } } })}
       >
         <div>
-          <label className={labelCls}>Waiver</label>
-          <textarea className={`${inputCls} min-h-32 resize-y`} value={waiver} onChange={(e) => setWaiver(e.target.value)} placeholder="Liability waiver text…" />
+          <label htmlFor="f-waiver" className={labelCls}>Waiver</label>
+          <textarea id="f-waiver" className={`${inputCls} min-h-32 resize-y`} value={waiver} onChange={(e) => setWaiver(e.target.value)} placeholder="Liability waiver text…" />
         </div>
         <Toggle checked={reqWaiver} onChange={setReqWaiver} label="Require waiver acceptance" description="Each participant must accept the waiver before they're confirmed." />
       </SectionCard>

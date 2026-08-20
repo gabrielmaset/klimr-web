@@ -26,6 +26,14 @@ export function AvatarLightbox({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    // Escape closes regardless of where focus sits — document-level per APG.
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [open]);
+
 
   useEffect(() => {
     if (!open) return;
@@ -63,10 +71,12 @@ export function AvatarLightbox({
           role="dialog"
           aria-modal="true"
           aria-label={`${name || "Player"}'s photo`}
-          onClick={() => setOpen(false)}
+
           className="fade fixed inset-0 z-50 grid place-items-center bg-ink/70 p-6 backdrop-blur-md"
         >
-          <div className="rise relative" onClick={(e) => e.stopPropagation()}>
+          {/* house backdrop (see rich-text-editor): mouse gets click-to-close; keyboard uses Escape; SR skips it */}
+          <button type="button" aria-hidden tabIndex={-1} onClick={() => setOpen(false)} className="absolute inset-0 cursor-default" />
+          <div className="rise relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt={name || "Player"} className="max-h-[80vh] max-w-[86vw] rounded-3xl object-contain shadow-[0_30px_90px_-20px_rgba(0,0,0,0.65)]" />
             <button type="button"

@@ -174,7 +174,7 @@ export function ScheduleBuilder({
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div>
-          <label className={labelCls}>Time mode</label>
+          <span className={labelCls}>Time mode</span>
           <Segmented
             ariaLabel="Time mode"
             value={mode}
@@ -190,7 +190,7 @@ export function ScheduleBuilder({
         </div>
 
         <div>
-          <label className={labelCls}>Courts</label>
+          <label htmlFor="f-courts" className={labelCls}>Courts</label>
           {courtNames.length ? (
             <>
               <div className="flex flex-wrap gap-1.5">
@@ -202,7 +202,7 @@ export function ScheduleBuilder({
             </>
           ) : (
             <>
-              <input inputMode="numeric" value={courts} onChange={(e) => setCourts(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))} className={inputCls} placeholder="e.g. 4" />
+              <input id="f-courts" inputMode="numeric" value={courts} onChange={(e) => setCourts(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))} className={inputCls} placeholder="e.g. 4" />
               <p className="mt-1.5 text-xs text-faint">Matches run in parallel across Court 1…{Math.max(1, Number(courts) || 1)}.</p>
             </>
           )}
@@ -211,14 +211,14 @@ export function ScheduleBuilder({
         {mode === "timed" ? (
           <>
             <div>
-              <label className={labelCls}>Matches start time</label>
+              <span className={labelCls}>Matches start time</span>
               <DateTimeField value={startAt} onChange={setStartAt} ariaLabel="Matches start" />
               <p className="mt-1.5 text-xs text-faint">When the first matches begin (separate from the event start).</p>
             </div>
             <div>
-              <label className={labelCls}>Match length</label>
+              <label htmlFor="f-match-length" className={labelCls}>Match length</label>
               <div className="flex items-center gap-2">
-                <input inputMode="numeric" value={length} onChange={(e) => setLength(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))} className={inputCls} placeholder="30" />
+                <input id="f-match-length" inputMode="numeric" value={length} onChange={(e) => setLength(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))} className={inputCls} placeholder="30" />
                 <span className="text-sm text-mute">min</span>
               </div>
               <p className="mt-1.5 text-xs text-faint">Slot length used to space matches on each court.</p>

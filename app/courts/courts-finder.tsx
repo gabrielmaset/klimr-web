@@ -94,7 +94,7 @@ export function CourtsFinder({
     const radius = Number(g("radius"));
     return {
       zip: g("zip") || initial.zip,
-      ll: /^-?\d+\.\d+,-?\d+\.\d+$/.test(g("ll")) ? g("ll") : "",
+      ll: "", // KFU-014: the URL is never a source of precise coordinates
       radius: [3, 5, 10, 25].includes(radius) ? radius : initial.radius,
       sport: g("sport") || initial.sport,
       venue: g("venue") === "indoor" || g("venue") === "outdoor" ? (g("venue") as "indoor" | "outdoor") : initial.venue,
@@ -119,7 +119,9 @@ export function CourtsFinder({
     setSelectedId(null); // spec: any filter/sort change clears the selection
     const q = new URLSearchParams();
     if (next.zip) q.set("zip", next.zip);
-    if (next.ll) q.set("ll", next.ll);
+    // KFU-014: precise coordinates NEVER enter the URL — no history, no logs,
+    // no referrers. They live in component memory and travel only in the POST
+    // body of the search itself. The ZIP is the coarse, shareable token.
     if (next.radius !== 10) q.set("radius", String(next.radius));
     if (next.sport !== "all") q.set("sport", next.sport);
     if (next.venue !== "any") q.set("venue", next.venue);
@@ -207,9 +209,10 @@ export function CourtsFinder({
   const useMyLocation = () => {
     if (!navigator.geolocation || locating) return;
     setLocating(true);
-    // High-accuracy fix, and the EXACT coordinates become the origin — the
-    // old flow snapped to the nearest ZIP's centroid, which in a big ZIP put
-    // "your location" a mile away. The ZIP is now display + cache only.
+    // High-accuracy fix; the EXACT coordinates drive the live search via the
+    // POST body only (KFU-014). They are memory-only by decision — a reload
+    // deliberately falls back to the ZIP centroid rather than persisting a
+    // precise fix anywhere (no URL, no sessionStorage).
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const ll = `${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`;
@@ -384,7 +387,7 @@ export function CourtsFinder({
 
         <div className="mt-3 flex flex-wrap items-center gap-2.5 border-t border-rule-soft pt-3">
           {/* Sport dropdown — searchable, scales to any roster */}
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <div className="relative">
             <span className="mr-1.5 font-mono text-floor font-semibold uppercase tracking-[0.16em] text-faint">Sport</span>
             <button
               type="button"
@@ -642,10 +645,8 @@ function CourtCard({
   return (
     <article
       data-court={c.id}
-      onMouseEnter={() => onHover(c.id)}
-      onMouseLeave={() => onHover(null)}
-      onClick={onSelect}
-      className={`cursor-pointer rounded-[15px] border bg-surface p-4 shadow-[0_1px_2px_rgba(80,60,30,.04)] transition-all ${
+
+      className={`relative cursor-pointer rounded-[15px] border bg-surface p-4 shadow-[0_1px_2px_rgba(80,60,30,.04)] transition-all ${
         selected ? "border-brand ring-4 ring-brand/10" : hovered ? "-translate-y-px border-rule-2 shadow-e2" : "border-rule"
       }`}
     >
@@ -653,7 +654,7 @@ function CourtCard({
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[9px] bg-brand-deep font-mono text-[11.5px] font-bold text-white">{index}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[14.5px] font-bold tracking-[-0.01em] text-ink">{c.name}</h3>
+            <h3 className="text-[14.5px] font-bold tracking-[-0.01em] text-ink"><button type="button" onClick={onSelect} onMouseEnter={() => onHover(c.id)} onMouseLeave={() => onHover(null)} onFocus={() => onHover(c.id)} onBlur={() => onHover(null)} className="rounded-sm text-left after:absolute after:inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">{c.name}</button></h3>
             {c.verified ? (
               <span className="inline-flex items-center gap-1 rounded-md bg-[#EAF6EC] px-1.5 py-0.5 font-mono text-floor font-bold tracking-[0.1em] text-[#217A34]">VERIFIED ✓</span>
             ) : c.listedUnverified ? (

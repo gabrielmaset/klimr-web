@@ -45,11 +45,17 @@ describe("KCDX-058 documentation claims match the source", () => {
     ).toBe(stated);
   });
 
-  it("RESILIENCE.md does not claim Storage is backed up, because it is not", () => {
-    expect(claim("docs/RESILIENCE.md", "storage-backup")).toBe("none");
+  it("RESILIENCE.md's storage-backup claim matches the workflow that exists", () => {
+    expect(claim("docs/RESILIENCE.md", "storage-backup")).toBe("nightly-r2-b2");
+    expect(existsSync(".github/workflows/storage-backup.yml")).toBe(true);
+    expect(existsSync("supabase/harness/storage-backup.sh")).toBe(true);
     const src = readFileSync("docs/RESILIENCE.md", "utf8");
-    // The specific false sentence, and any revival of it.
+    // The original false sentence stays dead in either direction.
     expect(src).not.toMatch(/Storage[^|\n]*covered by the project backup/i);
+    // And the verify runs the one-way direction the additive design requires.
+    const sh = readFileSync("supabase/harness/storage-backup.sh", "utf8");
+    expect(sh).toContain("--one-way");
+    expect(sh).toContain("cryptcheck");
   });
 
   it("README does not claim pages render without Supabase keys", () => {
@@ -159,13 +165,31 @@ describe("KCDX-058 documentation claims match the source", () => {
     expect(ci, "CI node-version").toContain(`node-version: ${stated}`);
   });
 
+  it("SECURITY.md's passwordless claim is true: no signInWithPassword anywhere", () => {
+    expect(claim("SECURITY.md", "password-auth")).toBe("removed");
+    const hits = listFiles("app").concat(listFiles("lib"), listFiles("components"))
+      .filter((f) => readFileSync(f, "utf8").includes("signInWithPassword"));
+    expect(hits).toEqual([]);
+  });
+
+  it("SECURITY.md's migration range tracks the migrations directory", () => {
+    const head = readdirSync("supabase/migrations")
+      .filter((f) => /^\d{4}_/.test(f))
+      .map((f) => f.slice(0, 4))
+      .sort()
+      .at(-1);
+    expect(claim("SECURITY.md", "migrations-head")).toBe(head);
+  });
+
   it("RESILIENCE does not claim a drill has been run until one has", () => {
     // The targets are inferences from the backup schedule, not measurements. If
     // someone marks them validated, they must also record a drill — this is what
     // stops "≤ 4 hours" quietly becoming a commitment nobody tested.
-    expect(claim("docs/RESILIENCE.md", "drill-run")).toBe("never");
+    expect(claim("docs/RESILIENCE.md", "drill-run")).toBe("2026-08-20");
     const src = readFileSync("docs/RESILIENCE.md", "utf8");
-    expect(src).toContain("UNVALIDATED");
+    // The first drill's row is in the §6 log; the placeholder is gone.
+    expect(src).toContain("2026-08-20 12:14:28Z");
+    expect(src).not.toContain("(pending — no drill has ever been run)");
     expect(src).toContain("storage_manifest_take");
   });
 

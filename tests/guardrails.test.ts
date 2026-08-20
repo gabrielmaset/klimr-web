@@ -478,11 +478,15 @@ describe("CSP nonce migration (K3-06, report-only first)", () => {
     expect(scriptLine).toContain("'strict-dynamic'");
     expect(scriptLine).not.toContain("'unsafe-inline'");
   });
-  it("ships REPORT-ONLY so nothing can break during the learning phase", () => {
+  it("CSP is ENFORCED — the report-only learning phase completed 2026-08-20 (KFU-025)", () => {
     const mw = read("middleware.ts");
-    expect(mw).toContain("Content-Security-Policy-Report-Only");
-    // The enforced policy in next.config is untouched until reports are quiet.
-    expect(read("next.config.ts")).toContain('key: "Content-Security-Policy"');
+    // The nonce policy is the enforced response header; the Report-Only header
+    // is gone (the WORD may appear in comments telling this history).
+    expect(mw).toContain('res.headers.set("Content-Security-Policy", csp)');
+    expect(mw).not.toContain("Content-Security-Policy-Report-Only");
+    // Never headerless: nonce failure degrades to the loud fallback policy.
+    expect(mw).toContain("buildFallbackCsp");
+    expect(read("lib/csp.ts")).toContain("export function buildFallbackCsp");
   });
   it("violation reports are deduped and store no page content", () => {
     const src = read("app/api/csp-report/route.ts");
@@ -1907,5 +1911,76 @@ describe("KFU-008 the screening ledger is written and consulted", () => {
     expect(safety).toContain('rpc("media_evidence_current"');
     expect(safety).toMatch(/if \(!gate\.ok\)/);
     expect(safety).toContain('status = "pending"');
+  });
+  it("WPI-011: queue approval writes only through the resolve command", () => {
+    const src = read("app/queue/actions.ts");
+    expect(src).toContain("queue_resolve_join_request");
+    expect(src).not.toContain('status: "approved"');
+    expect(src).not.toContain('status: "denied"');
+  });
+  it("KFU-032: the deadline is computed in exactly one place", () => {
+    // Every "has the registration deadline passed?" comparison lives in
+    // lib/tournament.ts; app surfaces consume the helpers. Inline Date-math
+    // against registration_deadline outside that file is the drift this
+    // guards against (display FORMATTING of the raw value is fine).
+    const offenders = walk("app")
+      .split("\n")
+      .filter((l) => l.includes("registration_deadline") && (l.includes("getTime()") || l.includes("Date.now()")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("KFU-024/025/035: enforced CSP, honest RUM units, checked audit writes", () => {
+    const mw = read("middleware.ts");
+    expect(mw).toContain('res.headers.set("Content-Security-Policy", csp)');
+    expect(mw).not.toContain("Content-Security-Policy-Report-Only"); // header form — comments may name the history
+    expect(read("next.config.ts")).not.toContain('key: "Content-Security-Policy"');
+    const rum = read("app/api/rum/route.ts");
+    expect(rum).toContain("MILLI-CLS");
+    expect(rum).toContain("CLAMP_MS[metric]");
+    expect(read("lib/admin.ts")).toContain("AUDIT WRITE FAILED");
+    const priv = read("lib/privileged/index.ts");
+    expect(priv).toContain("return work();");
+    expect(priv).not.toMatch(/^\s*void work\(\);/m); // statement form only — the comment may name the old defect
+    for (const wf of [".github/workflows/ci.yml", ".github/workflows/storage-backup.yml"]) {
+      expect(read(wf)).not.toMatch(/uses:\s+\S+@v\d+\s*$/m); // every action digest-pinned
+    }
+  });
+
+  it("KFU-014: precise coordinates never enter a URL", () => {
+    const finder = read("app/courts/courts-finder.tsx");
+    expect(finder).not.toContain('q.set("ll"');
+    expect(finder).not.toContain('g("ll")');
+    expect(finder).toContain("lat: Number(m[1])"); // POST body is the precise path
+    const page = read("app/courts/page.tsx");
+    expect(page).toContain("canonicalized"); // the legacy ?ll strip-redirect
+    expect(page).not.toContain("origin = ll");
+  });
+
+  it("KFU-015: the 5MB zip dataset can never reach a client bundle", () => {
+    expect(read("lib/us-places.ts")).toContain('import "server-only"');
+    // scan the IMPORT form, not the bare name — the header comment naming the
+    // module must not trip its own wire (the spelled-literal class, again)
+    expect(read("lib/marketplace-shared.ts")).not.toContain('from "@/lib/us-places');
+    expect(read("lib/marketplace-shared.ts")).not.toContain('from "./us-places');
+    for (const f of ["components/listing-form.tsx", "components/second-serve-browser.tsx"]) {
+      const src = read(f);
+      expect(src).toContain('from "@/lib/marketplace-shared"');
+      expect(src).not.toContain('from "@/lib/marketplace"');
+    }
+  });
+
+  it("KCDX-046: bracket and pool graphs are written only by the commands", () => {
+    const src = read("app/tournaments/actions.ts");
+    expect(src).toContain("tournament_generate_bracket");
+    expect(src).toContain("tournament_generate_pools");
+    expect(src).toContain("tournament_clear_pools");
+    expect(src).not.toContain('from("tournament_matches").insert');
+    expect(src).not.toContain('from("tournament_matches").delete');
+    expect(src).not.toContain('from("tournament_groups").delete');
+  });
+  it("WPI-012: the waitlist verdict comes from the command, not a precheck", () => {
+    const src = read("app/tournaments/actions.ts");
+    expect(src).not.toContain("!!full");
+    expect(src).toContain('teamOut.status ?? "pending"');
   });
 });

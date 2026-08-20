@@ -52,7 +52,11 @@ export async function logAdminAction(
   meta?: Record<string, unknown>,
 ): Promise<void> {
   const admin = createAdminClient();
-  await admin.from("admin_actions").insert({
+  // KFU-035: supabase-js does not throw — an unread { error } here silently
+  // drops audit rows, in the append-only trail of all places. Checked and
+  // loud, mirroring lib/privileged's writeAudit; auditing must not take the
+  // operation down, and must not fail quietly either.
+  const { error } = await admin.from("admin_actions").insert({
     actor_id: actorId,
     action,
     target_user_id: targetUserId,
@@ -60,4 +64,9 @@ export async function logAdminAction(
     detail: detail ?? null,
     meta: (meta ?? null) as never,
   });
+  if (error) {
+    console.error(
+      `[admin] AUDIT WRITE FAILED action=${action} actor=${actorId} target=${targetUserId ?? "-"}: ${error.message}`,
+    );
+  }
 }

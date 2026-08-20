@@ -69,8 +69,8 @@ export function ChallengePanel({ homeTeamId, opponents }: { homeTeamId: string; 
       {open ? (
         <div className="space-y-3 border-t border-rule p-5">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-ink">Opponent</label>
-            <select value={awayTeamId} onChange={(e) => setAwayTeamId(e.target.value)} className={field}>
+            <label htmlFor="f-opponent" className="mb-1 block text-xs font-semibold text-ink">Opponent</label>
+            <select id="f-opponent" value={awayTeamId} onChange={(e) => setAwayTeamId(e.target.value)} className={field}>
               <option value="">Select a team…</option>
               {opponents.map((o) => (
                 <option key={o.id} value={o.id}>{o.name}</option>
@@ -79,17 +79,17 @@ export function ChallengePanel({ homeTeamId, opponents }: { homeTeamId: string; 
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink">Date &amp; time <span className="font-normal text-faint">(optional)</span></label>
-              <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={field} />
+              <label htmlFor="f-date-amp-time-optional" className="mb-1 block text-xs font-semibold text-ink">Date &amp; time <span className="font-normal text-faint">(optional)</span></label>
+              <input id="f-date-amp-time-optional" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={field} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink">Location <span className="font-normal text-faint">(optional)</span></label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Court or venue" className={field} />
+              <label htmlFor="f-location-optional" className="mb-1 block text-xs font-semibold text-ink">Location <span className="font-normal text-faint">(optional)</span></label>
+              <input id="f-location-optional" type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Court or venue" className={field} />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-ink">Note <span className="font-normal text-faint">(optional)</span></label>
-            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="Anything the other team should know" className={field} />
+            <label htmlFor="f-note-optional" className="mb-1 block text-xs font-semibold text-ink">Note <span className="font-normal text-faint">(optional)</span></label>
+            <input id="f-note-optional" type="text" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="Anything the other team should know" className={field} />
           </div>
           {err ? <p className="text-xs font-semibold text-[#dc2626]">{err}</p> : null}
           <div className="flex items-center gap-2">

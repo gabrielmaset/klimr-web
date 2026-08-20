@@ -131,10 +131,10 @@ export function EventLivenessPanel({
           {!paused ? (
             <form action={pauseSeries} className="mt-3 flex items-center gap-2">
               <input type="hidden" name="eventId" value={eventId} />
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-mute">
+              <label htmlFor="f-pause-until" className="flex items-center gap-1.5 text-xs font-semibold text-mute">
                 <PauseCircle size={13} /> Pause until
               </label>
-              <input
+              <input id="f-pause-until"
                 type="date"
                 name="until"
                 required

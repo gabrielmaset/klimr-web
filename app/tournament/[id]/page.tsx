@@ -11,7 +11,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
-import { STATUS_LABEL, isRegistrationOpen, isSignupFormReady, type TournamentFormatConfig } from "@/lib/tournament";
+import { STATUS_LABEL, isRegistrationOpen, isSignupFormReady, type TournamentFormatConfig, registrationDeadlinePassed } from "@/lib/tournament";
 import { openRegistration, closeRegistration } from "@/app/tournaments/actions";
 import { WeatherForecastCard } from "@/components/weather-card";
 import { getEventForecast } from "@/lib/weather";
@@ -109,8 +109,7 @@ export default async function TournamentDashboard({ params }: { params: Promise<
   const beforeRegOpen = !regOpen && t.status === "published" && regOpensAtMs !== null && nowMs < regOpensAtMs;
   const regOpensText = t.registration_opens_at ? new Date(t.registration_opens_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null;
   const regDeadlineText = t.registration_deadline ? new Date(t.registration_deadline).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : null;
-  const regDeadlineMs = t.registration_deadline ? new Date(t.registration_deadline).getTime() : null;
-  const regDeadlinePassed = regDeadlineMs !== null && nowMs > regDeadlineMs;
+  const regDeadlinePassed = registrationDeadlinePassed(t, nowMs);
   // Organizer can flip the open/closed switch only once the event is published.
   const canControlReg = t.status === "published" || t.status === "registration_open" || t.status === "registration_closed";
   // Situation-aware status + the exact reason registration is in that state, so

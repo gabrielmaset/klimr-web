@@ -386,9 +386,9 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                 {showSettings ? (
                   <div className="space-y-3 border-t border-rule px-4 py-4">
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-mute">Session name</label>
+                      <label htmlFor="f-session-name" className="mb-1 block text-xs font-semibold text-mute">Session name</label>
                       <div className="flex gap-2">
-                        <input
+                        <input id="f-session-name"
                           value={titleDraft}
                           onChange={(e) => setTitleDraft(e.target.value)}
                           maxLength={80}
@@ -405,8 +405,8 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-mute">Win rule</label>
-                      <select
+                      <label htmlFor="f-win-rule" className="mb-1 block text-xs font-semibold text-mute">Win rule</label>
+                      <select id="f-win-rule"
                         value={String(session.winCap)}
                         disabled={pending}
                         onChange={(e) => settingsPatch("winCap", e.target.value)}
@@ -419,8 +419,8 @@ export function QueueClient({ initial, isOrganizer }: { initial: QSessionState; 
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-mute">Team names</label>
-                      <select
+                      <label htmlFor="f-team-names" className="mb-1 block text-xs font-semibold text-mute">Team names</label>
+                      <select id="f-team-names"
                         value={session.teamNameMode}
                         disabled={pending}
                         onChange={(e) => settingsPatch("teamNameMode", e.target.value)}
@@ -793,19 +793,19 @@ function CourtEditor({ court, sizeOptions, pending, run, onDone }: { court: { id
     <div className="mt-3 rounded-2xl border border-rule bg-bg/60 p-3">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-xs font-semibold text-mute">Court name</label>
-          <input value={label} onChange={(e) => setLabel(e.target.value.slice(0, 40))} className="w-44 rounded-xl border border-rule bg-white px-3 py-2 text-sm" />
+          <label htmlFor="f-court-name" className="mb-1 block text-xs font-semibold text-mute">Court name</label>
+          <input id="f-court-name" value={label} onChange={(e) => setLabel(e.target.value.slice(0, 40))} className="w-44 rounded-xl border border-rule bg-white px-3 py-2 text-sm" />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-mute">Formation</label>
-          <select value={size} onChange={(e) => setSize(parseInt(e.target.value, 10))} className="rounded-xl border border-rule bg-white px-3 py-2 text-sm">
+          <label htmlFor="f-formation" className="mb-1 block text-xs font-semibold text-mute">Formation</label>
+          <select id="f-formation" value={size} onChange={(e) => setSize(parseInt(e.target.value, 10))} className="rounded-xl border border-rule bg-white px-3 py-2 text-sm">
             {sizeOptions.map((n) => (
               <option key={n} value={n}>{formationLabel(n)}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-mute">Levels (optional)</label>
+          <span className="mb-1 block text-xs font-semibold text-mute">Levels (optional)</span>
           <div className="flex flex-wrap gap-1.5">
             {LEVELS.map((l) => {
               const on = levels.includes(l.key);
@@ -840,10 +840,10 @@ function AddCourt({ sid, sportKey, nextN, pending, run }: { sid: string; sportKe
       </p>
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="mb-1 block text-xs font-semibold text-mute">Court name</label>
-          <input value={label} onChange={(e) => setLabel(e.target.value.slice(0, 40))} placeholder={`Court ${nextN}`} className="mb-3 block w-44 rounded-xl border border-rule bg-white px-3 py-2 text-sm" />
-          <label className="mb-1 block text-xs font-semibold text-mute">Formation</label>
-          <select value={sizeOptions.includes(size) ? size : sizeOptions[0]} onChange={(e) => setSize(parseInt(e.target.value, 10))} className="rounded-xl border border-rule bg-white px-3 py-2 text-sm">
+          <label htmlFor="f-court-name-2" className="mb-1 block text-xs font-semibold text-mute">Court name</label>
+          <input id="f-court-name-2" value={label} onChange={(e) => setLabel(e.target.value.slice(0, 40))} placeholder={`Court ${nextN}`} className="mb-3 block w-44 rounded-xl border border-rule bg-white px-3 py-2 text-sm" />
+          <label htmlFor="f-formation-2" className="mb-1 block text-xs font-semibold text-mute">Formation</label>
+          <select id="f-formation-2" value={sizeOptions.includes(size) ? size : sizeOptions[0]} onChange={(e) => setSize(parseInt(e.target.value, 10))} className="rounded-xl border border-rule bg-white px-3 py-2 text-sm">
             {sizeOptions.map((n) => (
               <option key={n} value={n}>
                 {formationLabel(n)}
@@ -852,7 +852,7 @@ function AddCourt({ sid, sportKey, nextN, pending, run }: { sid: string; sportKe
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-mute">Levels (optional)</label>
+          <span className="mb-1 block text-xs font-semibold text-mute">Levels (optional)</span>
           <div className="flex gap-1.5">
             {LEVELS.map((l) => {
               const on = levels.includes(l.key);

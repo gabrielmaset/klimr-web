@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { IndividualSignupForm } from "@/components/tournament-signup-individual";
 import { TeamSignupForm } from "@/components/tournament-signup-team";
-import { isRegistrationOpen, type TournamentFormatConfig, type CustomFieldRow, type DivisionRow } from "@/lib/tournament";
+import { isRegistrationOpen, type TournamentFormatConfig, type CustomFieldRow, type DivisionRow, registrationDeadlinePassed } from "@/lib/tournament";
 import { capacityState } from "@/lib/waitlist";
 import { genderLabel, type SharedInfo } from "@/components/registrant-shared-info";
 
@@ -49,8 +49,8 @@ export default async function SignupPage({ params }: { params: Promise<{ code: s
   const fullName = [prof?.first_name, prof?.last_name].filter(Boolean).join(" ").trim() || prof?.display_name || "—";
   const sharedInfo: SharedInfo = { name: fullName, email: user.email ?? "—", gender: genderLabel(prof?.gender ?? null) };
 
-  // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
-  const deadlinePassed = !!t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now();
+   
+  const deadlinePassed = registrationDeadlinePassed(t);
   const open = isRegistrationOpen(t);
 
   const { data: existing } = await supabase

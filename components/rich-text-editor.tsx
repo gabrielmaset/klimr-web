@@ -121,7 +121,7 @@ function ColorMenu({ kind, palette, apply, saveSel }: { kind: "text" | "hilite";
   );
 }
 
-export function RichTextEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
+export function RichTextEditor({ value, onChange, placeholder, labelledBy }: { value: string; onChange: (html: string) => void; placeholder?: string; labelledBy?: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const savedRange = useRef<Range | null>(null);
 
@@ -198,6 +198,9 @@ export function RichTextEditor({ value, onChange, placeholder }: { value: string
       </div>
       <div
         ref={ref}
+        role="textbox"
+        aria-multiline="true"
+        aria-labelledby={labelledBy}
         contentEditable
         suppressContentEditableWarning
         onInput={emit}

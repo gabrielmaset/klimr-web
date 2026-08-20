@@ -89,3 +89,58 @@ describe("KCDX-056 external call discipline", () => {
     await expect(callExternal({ vendor: "t-retry", timeoutMs: 200 }, async () => "fine")).resolves.toBe("fine");
   });
 });
+
+describe("KFU-021: resolved-Response classification", () => {
+  beforeEach(() => resetBreaker("kfu021"));
+
+  it("a resolved 500 consumes retries and feeds the breaker", async () => {
+    let calls = 0;
+    const res = await callExternal({ vendor: "kfu021", timeoutMs: 1000, retries: 2, backoffMs: 1 }, async () => {
+      calls++;
+      return new Response("boom", { status: 500 });
+    });
+    expect(calls).toBe(3); // 1 + 2 retries — before the fix this was 1
+    expect((res as Response).status).toBe(500); // caller contract unchanged
+    expect(breakerStatus("kfu021").failures).toBe(3);
+  });
+
+  it("a resolved 429 honors Retry-After and still returns the response", async () => {
+    let calls = 0;
+    const started = Date.now();
+    const res = await callExternal({ vendor: "kfu021", timeoutMs: 1000, retries: 1, backoffMs: 1 }, async () => {
+      calls++;
+      return new Response("slow down", { status: 429, headers: { "retry-after": "1" } });
+    });
+    expect(calls).toBe(2);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(950); // waited ~1s, not ~1ms backoff
+    expect((res as Response).status).toBe(429);
+  });
+
+  it("a 400 is OUR fault: no retry, and the breaker must not learn", async () => {
+    let calls = 0;
+    const res = await callExternal({ vendor: "kfu021", timeoutMs: 1000, retries: 3, backoffMs: 1 }, async () => {
+      calls++;
+      return new Response("bad request", { status: 400 });
+    });
+    expect(calls).toBe(1);
+    expect((res as Response).status).toBe(400);
+    expect(breakerStatus("kfu021").failures).toBe(0);
+  });
+
+  it("enough resolved 5xx opens the circuit for the NEXT call", async () => {
+    for (let i = 0; i < 5; i++) {
+      await callExternal({ vendor: "kfu021", timeoutMs: 1000 }, async () => new Response("x", { status: 503 }));
+    }
+    expect(breakerStatus("kfu021").open).toBe(true);
+    await expect(callExternal({ vendor: "kfu021", timeoutMs: 1000 }, async () => new Response("ok"))).rejects.toThrow(
+      /circuit open/,
+    );
+  });
+
+  it("a 2xx Response still resets the breaker", async () => {
+    await callExternal({ vendor: "kfu021", timeoutMs: 1000 }, async () => new Response("x", { status: 500 }));
+    expect(breakerStatus("kfu021").failures).toBe(1);
+    await callExternal({ vendor: "kfu021", timeoutMs: 1000 }, async () => new Response("fine", { status: 200 }));
+    expect(breakerStatus("kfu021").failures).toBe(0);
+  });
+});

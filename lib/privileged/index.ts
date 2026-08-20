@@ -47,11 +47,17 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 /** Run `work` after the response without racing the shutdown. `after()` throws
  *  outside a request scope, so cron ticks and scripts await inline instead. */
-function durably(work: () => Promise<void>): void {
+function durably(work: () => Promise<void>): Promise<void> {
   try {
     after(work);
+    return Promise.resolve();
   } catch {
-    void work();
+    // KFU-035: outside a request scope `after()` throws — and the old
+    // `void work()` fallback was fire-and-forget in exactly the short-lived
+    // contexts (scripts, teardown) where an unawaited write gets killed
+    // mid-flight. The fallback is now RETURNED so the caller awaits it; the
+    // streaming path still uses after() and needs no await.
+    return work();
   }
 }
 
@@ -98,7 +104,11 @@ export function getPrivilegedClient(ctx: PrivilegedContext): AdminClient {
   // deliberately NOT "started", because "started with no partner" is the incident
   // query 0197 exists to answer, and filling it with routine handouts would bury
   // the real signal.
-  durably(() => writeAudit(client, ctx, commandId, "issued"));
+  // Sync factory — cannot await. This call is request-scoped by nature (the
+  // client is created inside a handler), so after() is available and the
+  // awaited-fallback guarantee (KFU-035) matters for the OUTCOME writes below,
+  // which run in async paths where scripts/teardown can kill an unawaited write.
+  void durably(() => writeAudit(client, ctx, commandId, "issued"));
   return client;
 }
 
@@ -119,11 +129,11 @@ export async function withPrivileged<T>(
   await writeAudit(client, ctx, commandId, "started");
   try {
     const result = await work(client, commandId);
-    durably(() => writeAudit(client, ctx, commandId, "ok"));
+    await durably(() => writeAudit(client, ctx, commandId, "ok"));
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    durably(() => writeAudit(client, ctx, commandId, "error", message));
+    await durably(() => writeAudit(client, ctx, commandId, "error", message));
     throw err;
   }
 }

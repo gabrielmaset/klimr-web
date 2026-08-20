@@ -17,10 +17,21 @@ const BROWSER_UA =
 // venue text).
 const short = (u: string) => (u.length > 96 ? u.slice(0, 93) + "…" : u);
 
-export async function resolveMapsShortLink(raw: string | null | undefined, trace?: string[]): Promise<LatLng | null> {
+export async function resolveMapsShortLink(
+  raw: string | null | undefined,
+  trace?: string[],
+  signal?: AbortSignal,
+): Promise<LatLng | null> {
   if (!raw || !isMapsShortLink(raw)) return null;
+  // KFU-022: the OVERALL controller now actually governs the walk — its
+  // signal is passed into every hop below (it previously reached nothing, so
+  // the 6.5 s "overall" ceiling was decorative and worst case was 6 hops ×
+  // 6.5 s each). An external signal, when provided, aborts the same
+  // controller, so a caller that loses interest stops the walk mid-hop.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6500);
+  if (signal?.aborted) { clearTimeout(timer); return null; }
+  signal?.addEventListener("abort", () => controller.abort(), { once: true });
   try {
     let current = raw;
     let finalRes: SafeResponse | null = null;
@@ -41,6 +52,7 @@ export async function resolveMapsShortLink(raw: string | null | undefined, trace
       const res = await safeGet(current, {
         headers: { "user-agent": BROWSER_UA, "accept": "text/html,application/xhtml+xml", "accept-language": "en-US,en;q=0.9" },
         timeoutMs: 6500,
+        signal: controller.signal,
       });
       const loc = res.headers.get("location");
       trace?.push(`walk ${hop + 1}: ${short(current)} → ${res.status}${loc ? " → " + short(loc) : ""}`);
@@ -193,10 +205,10 @@ export function placeTextFromMapsUrl(raw: string | null | undefined): string | n
 
 // Convenience for server components: parse first (cheap), then resolve a short
 // link if needed. Returns the best precise point we can get, or null.
-export async function mapsPointFromUrl(raw: string | null | undefined, trace?: string[]): Promise<LatLng | null> {
+export async function mapsPointFromUrl(raw: string | null | undefined, trace?: string[], signal?: AbortSignal): Promise<LatLng | null> {
   const direct = parseLatLngFromMapsUrl(raw);
   if (direct) return direct;
-  if (isMapsShortLink(raw)) return resolveMapsShortLink(raw, trace);
+  if (isMapsShortLink(raw)) return resolveMapsShortLink(raw, trace, signal);
   return null;
 }
 

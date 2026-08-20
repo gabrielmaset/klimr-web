@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AvatarLightbox } from "@/components/avatar-lightbox";
 import { sportMeta } from "@/lib/sports";
-import { displayAge } from "@/lib/age";
+import { } from "@/lib/age";
 import { lookupZip } from "@/lib/us-places";
 import { RelationshipButtons, type FriendStatus } from "@/components/relationship-buttons";
 import { publicLocationLabel } from "@/lib/location-privacy";

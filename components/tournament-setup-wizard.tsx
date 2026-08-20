@@ -222,17 +222,17 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
               <p className="mt-1 text-sm text-mute">Name your event and tell players what it is.</p>
               <div className="mt-6 grid gap-5">
                 <div>
-                  <label className={labelCls}>Tournament name</label>
-                  <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Summer Beach Classic" />
+                  <label htmlFor="f-tournament-name" className={labelCls}>Tournament name</label>
+                  <input id="f-tournament-name" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Summer Beach Classic" />
                 </div>
                 <div>
-                  <label className={labelCls}>Tagline</label>
-                  <input className={inputCls} value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={160} placeholder="One line shown on the public page" />
+                  <label htmlFor="f-tagline" className={labelCls}>Tagline</label>
+                  <input id="f-tagline" className={inputCls} value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={160} placeholder="One line shown on the public page" />
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelCls}>Sport</label>
-                    <select className={inputCls} value={sport} onChange={(e) => setSport(e.target.value)}>
+                    <label htmlFor="f-sport" className={labelCls}>Sport</label>
+                    <select id="f-sport" className={inputCls} value={sport} onChange={(e) => setSport(e.target.value)}>
                       {SPORTS.map((s) => (
                         <option key={s.key} value={s.key}>
                           {s.emoji} {s.name}
@@ -241,7 +241,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Entry type</label>
+                    <span className={labelCls}>Entry type</span>
                     <Segmented
                       ariaLabel="Entry type"
                       value={entry}
@@ -254,7 +254,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                   </div>
                 </div>
                 <div>
-                  <label className={labelCls}>Visibility</label>
+                  <span className={labelCls}>Visibility</span>
                   <Segmented
                     ariaLabel="Visibility"
                     value={visibility}
@@ -267,8 +267,8 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                   <p className={hintCls}>Public events appear in Explore. Unlisted events are reachable only by their link.</p>
                 </div>
                 <div>
-                  <label className={labelCls}>About</label>
-                  <textarea className={`${inputCls} min-h-32 resize-y`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Format, what to bring, prizes, schedule overview…" />
+                  <label htmlFor="f-about" className={labelCls}>About</label>
+                  <textarea id="f-about" className={`${inputCls} min-h-32 resize-y`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Format, what to bring, prizes, schedule overview…" />
                 </div>
               </div>
             </div>
@@ -281,28 +281,28 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
               <div className="mt-6 grid gap-5">
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelCls}>Starts</label>
+                    <span className={labelCls}>Starts</span>
                     <DateTimeField value={startsAt} onChange={setStartsAt} ariaLabel="Start" />
                   </div>
                   <div>
-                    <label className={labelCls}>Ends <span className="font-normal normal-case text-faint">(optional)</span></label>
+                    <span className={labelCls}>Ends <span className="font-normal normal-case text-faint">(optional)</span></span>
                     <DateTimeField value={endsAt} onChange={setEndsAt} optional ariaLabel="End" />
                   </div>
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelCls}>Venue name</label>
-                    <input className={inputCls} value={locName} onChange={(e) => setLocName(e.target.value)} placeholder="Will Rogers State Beach" />
+                    <label htmlFor="f-venue-name" className={labelCls}>Venue name</label>
+                    <input id="f-venue-name" className={inputCls} value={locName} onChange={(e) => setLocName(e.target.value)} placeholder="Will Rogers State Beach" />
                   </div>
                   <div>
-                    <label className={labelCls}>Address</label>
-                    <input className={inputCls} value={locAddr} onChange={(e) => setLocAddr(e.target.value)} placeholder="Street, city, state" />
+                    <label htmlFor="f-address" className={labelCls}>Address</label>
+                    <input id="f-address" className={inputCls} value={locAddr} onChange={(e) => setLocAddr(e.target.value)} placeholder="Street, city, state" />
                   </div>
                 </div>
                 <div className="grid gap-5 sm:grid-cols-[10rem_1fr]">
                   <div>
-                    <label className={labelCls}>ZIP code</label>
-                    <input className={`${inputCls} font-mono tracking-wider`} value={locZip} onChange={(e) => onLocZip(e.target.value)} inputMode="numeric" placeholder="90066" />
+                    <label htmlFor="f-zip-code" className={labelCls}>ZIP code</label>
+                    <input id="f-zip-code" className={`${inputCls} font-mono tracking-wider`} value={locZip} onChange={(e) => onLocZip(e.target.value)} inputMode="numeric" placeholder="90066" />
                   </div>
                   <div className="flex items-end">
                     <p className={`${hintCls} flex items-center gap-1.5`}>
@@ -328,7 +328,7 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
               <p className="mt-1 text-sm text-mute">How the competition runs and who can enter.</p>
               <div className="mt-6 grid gap-5">
                 <div>
-                  <label className={labelCls}>Competition format</label>
+                  <span className={labelCls}>Competition format</span>
                   <OptionCards
                     ariaLabel="Competition format"
                     value={formatType}
@@ -342,21 +342,21 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                 </div>
                 {formatType === "pools_knockout" ? (
                   <div className="sm:max-w-xs">
-                    <label className={labelCls}>Number of pools</label>
-                    <input type="number" min={1} className={inputCls} value={poolCount} onChange={(e) => setPoolCount(e.target.value)} />
+                    <label htmlFor="f-number-of-pools" className={labelCls}>Number of pools</label>
+                    <input id="f-number-of-pools" type="number" min={1} className={inputCls} value={poolCount} onChange={(e) => setPoolCount(e.target.value)} />
                   </div>
                 ) : null}
                 {entry === "team" ? (
                   <div className="sm:max-w-xs">
-                    <label className={labelCls}>Players per team (on court)</label>
-                    <input type="number" min={1} className={inputCls} value={rosterSize} onChange={(e) => setRosterSize(e.target.value)} />
+                    <label htmlFor="f-players-per-team-on-cour" className={labelCls}>Players per team (on court)</label>
+                    <input id="f-players-per-team-on-cour" type="number" min={1} className={inputCls} value={rosterSize} onChange={(e) => setRosterSize(e.target.value)} />
                     <p className={hintCls}>Each team&rsquo;s main roster must match this exactly to enter.</p>
                   </div>
                 ) : null}
                 <div className="rounded-2xl border border-rule bg-bg/40 p-4">
                   <div className="sm:max-w-xs">
-                    <label className={labelCls}>Number of courts</label>
-                    <input type="number" min={1} max={50} className={inputCls} value={courtList.length} onChange={(e) => setCourtCount(e.target.value)} />
+                    <label htmlFor="f-number-of-courts" className={labelCls}>Number of courts</label>
+                    <input id="f-number-of-courts" type="number" min={1} max={50} className={inputCls} value={courtList.length} onChange={(e) => setCourtCount(e.target.value)} />
                   </div>
                   <p className={hintCls}>Name or number each court — these label the matches when you build the schedule. Custom names are fine.</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -374,20 +374,20 @@ export function TournamentSetupWizard({ init }: { init: Init }) {
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelCls}>Capacity</label>
-                    <input type="number" min={0} className={inputCls} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="Leave blank for unlimited" />
+                    <label htmlFor="f-capacity" className={labelCls}>Capacity</label>
+                    <input id="f-capacity" type="number" min={0} className={inputCls} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="Leave blank for unlimited" />
                     <p className={hintCls}>Max {entry === "team" ? "teams" : "players"} that can register.</p>
                   </div>
                   {entry === "team" ? (
                     <div>
-                      <label className={labelCls}>Reserves per team</label>
-                      <input type="number" min={0} max={reserveMax} className={inputCls} value={reserves} onChange={(e) => setReserves(e.target.value)} />
+                      <label htmlFor="f-reserves-per-team" className={labelCls}>Reserves per team</label>
+                      <input id="f-reserves-per-team" type="number" min={0} max={reserveMax} className={inputCls} value={reserves} onChange={(e) => setReserves(e.target.value)} />
                       <p className={hintCls}>Up to {reserveMax} for {sportMeta(sport).name}.</p>
                     </div>
                   ) : null}
                 </div>
                 <div>
-                  <label className={labelCls}>Gender eligibility</label>
+                  <span className={labelCls}>Gender eligibility</span>
                   <Segmented
                     ariaLabel="Gender eligibility"
                     value={genderRule}

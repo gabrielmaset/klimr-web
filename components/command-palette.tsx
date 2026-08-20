@@ -172,12 +172,10 @@ export function CommandPalette() {
       role="dialog"
       aria-modal="true"
       aria-label="Search Klimr"
-      onMouseDown={close}
     >
-      <div className="absolute inset-0 animate-[fade_0.18s_ease-out] bg-ink/30 backdrop-blur-sm" aria-hidden />
+      <button type="button" aria-hidden tabIndex={-1} onMouseDown={close} className="absolute inset-0 animate-[fade_0.18s_ease-out] cursor-default bg-ink/30 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-xl animate-[rise_0.18s_cubic-bezier(0.22,1,0.36,1)] overflow-hidden rounded-2xl border border-rule bg-surface shadow-[0_30px_80px_-20px_rgba(10,10,11,0.5)]"
-        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-rule px-4">
           <Search size={18} className="shrink-0 text-faint" />

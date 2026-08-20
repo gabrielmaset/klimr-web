@@ -119,6 +119,7 @@ export function CustomFieldsEditor({ tournamentId, entryType, initial }: { tourn
             </p>
           ) : null}
           {rows.map((r, i) => (
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- drop-target for the drag HANDLE; keyboard reorder is the arrow buttons the hint text names
             <div
               key={r.uid}
               data-card
@@ -184,8 +185,8 @@ export function CustomFieldsEditor({ tournamentId, entryType, initial }: { tourn
                   <input className={inputCls} placeholder="Help text (optional)" value={r.description} onChange={(e) => update(i, { description: e.target.value })} maxLength={160} />
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className={labelCls}>Answer type</label>
-                      <select className={inputCls} value={r.type} onChange={(e) => update(i, { type: e.target.value as CustomFieldType })}>
+                      <label htmlFor="f-answer-type" className={labelCls}>Answer type</label>
+                      <select id="f-answer-type" className={inputCls} value={r.type} onChange={(e) => update(i, { type: e.target.value as CustomFieldType })}>
                         {TYPES.map((t) => (
                           <option key={t} value={t}>
                             {FIELD_TYPE_LABEL[t]}
@@ -195,7 +196,7 @@ export function CustomFieldsEditor({ tournamentId, entryType, initial }: { tourn
                     </div>
                     {entryType === "team" ? (
                       <div>
-                        <label className={labelCls}>Asked</label>
+                        <span className={labelCls}>Asked</span>
                         <Segmented
                           ariaLabel="Question scope"
                           value={r.scope}
@@ -211,11 +212,11 @@ export function CustomFieldsEditor({ tournamentId, entryType, initial }: { tourn
 
                   {fieldTypeHasOptions(r.type) ? (
                     <div className="rounded-xl border border-rule bg-bg/40 p-3">
-                      <label className={labelCls}>Choices</label>
+                      <label htmlFor="f-choices" className={labelCls}>Choices</label>
                       <div className="grid gap-2">
                         {r.options.map((o, oi) => (
                           <div key={oi} className="flex items-center gap-2">
-                            <input className={inputCls} placeholder={`Choice ${oi + 1}`} value={o} onChange={(e) => setOption(i, oi, e.target.value)} maxLength={80} />
+                            <input id="f-choices" className={inputCls} placeholder={`Choice ${oi + 1}`} value={o} onChange={(e) => setOption(i, oi, e.target.value)} maxLength={80} />
                             <button type="button" onClick={() => removeOption(i, oi)} aria-label="Remove choice" className="press grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-rule text-mute hover:border-brand hover:text-brand-deep">
                               <X size={14} />
                             </button>

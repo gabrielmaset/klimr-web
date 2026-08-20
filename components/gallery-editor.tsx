@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Loader2, Trash2, CircleAlert, Crop, GripVertical } from "lucide-react";
+import { ImagePlus, Loader2, Trash2, CircleAlert, Crop, GripVertical, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { createGalleryUploadUrl, commitGalleryPhoto, removeGalleryPhoto, setGalleryLayout } from "@/app/tournaments/actions";
 import type { GalleryItem } from "@/lib/tournament";
@@ -94,6 +94,12 @@ export function GalleryEditor({ tournamentId, initial }: { tournamentId: string;
     router.refresh();
   }
 
+  const move = (from: number, to: number) => {
+    // Keyboard reorder — same path as drag, zero duplication.
+    if (to < 0 || to >= items.length) return;
+    dragFrom.current = from;
+    onDrop(to);
+  };
   const onDrop = (to: number) => {
     const from = dragFrom.current;
     dragFrom.current = null;
@@ -127,6 +133,7 @@ export function GalleryEditor({ tournamentId, initial }: { tournamentId: string;
     <div>
       <div className="flex flex-wrap gap-2.5">
         {items.map((g, i) => (
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pointer-only drag enhancement; keyboard reorder is the Move buttons
           <div
             key={g.url}
             draggable
@@ -151,6 +158,24 @@ export function GalleryEditor({ tournamentId, initial }: { tournamentId: string;
               <GripVertical size={13} />
             </span>
             <div className="absolute right-1 top-1 flex gap-1">
+              <button
+                type="button"
+                aria-label="Move photo left"
+                disabled={i === 0}
+                onClick={() => move(i, i - 1)}
+                className="press grid h-6 w-6 place-items-center rounded-full border border-rule bg-white/95 text-ink disabled:opacity-40"
+              >
+                <ChevronLeft size={13} />
+              </button>
+              <button
+                type="button"
+                aria-label="Move photo right"
+                disabled={i === items.length - 1}
+                onClick={() => move(i, i + 1)}
+                className="press grid h-6 w-6 place-items-center rounded-full border border-rule bg-white/95 text-ink disabled:opacity-40"
+              >
+                <ChevronRight size={13} />
+              </button>
               <button
                 type="button"
                 aria-label="Crop photo"
@@ -191,9 +216,27 @@ export function GalleryEditor({ tournamentId, initial }: { tournamentId: string;
 
       {cropping ? (
         <div className="mt-4 rounded-2xl border border-rule bg-bg p-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-faint">Crop — drag to frame, slide to zoom</p>
-          <div
-            className="mt-2 h-[190px] cursor-move touch-none overflow-hidden rounded-xl border border-rule"
+          <p className="text-[10px] font-bold uppercase tracking-wider text-faint">Crop — drag or arrow keys to frame, slide to zoom</p>
+          {/* KFU-016: the pan stage is keyboard-operable — arrows nudge the frame
+              (Shift for larger steps); zoom is already the slider below. No
+              ARIA pattern exists for 2-D panning, so the stage stays a div
+              with a label and a justified disable, mirroring the drag rows. */}
+          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-tabindex -- pointer pan + the arrow-key path added right here */}
+          <div tabIndex={0}
+            aria-label="Crop position — arrow keys nudge the frame, Shift for larger steps"
+            onKeyDown={(e) => {
+              const step = (e.shiftKey ? 8 : 2) / cropping.zoom;
+              const d: Record<string, [number, number]> = {
+                ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step],
+              };
+              const m = d[e.key];
+              if (!m) return;
+              e.preventDefault();
+              touch(items.map((it, j) => (j === cropIdx
+                ? { ...it, x: Math.round(clamp(it.x + m[0], 0, 100)), y: Math.round(clamp(it.y + m[1], 0, 100)) }
+                : it)));
+            }}
+            className="mt-2 h-[190px] cursor-move touch-none overflow-hidden rounded-xl border border-rule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
             onPointerDown={(e) => {
               const el = e.currentTarget;
               el.setPointerCapture(e.pointerId);

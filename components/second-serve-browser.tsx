@@ -8,7 +8,7 @@ import { sportSlug, SPORTS } from "@/lib/sports";
 import { SportIcon } from "@/components/sport-icons";
 import { SPORT_TONES } from "@/components/sport-chip";
 import { PageHeader } from "@/components/page-header";
-import { CATEGORIES, RADII_MI, TRADE_TONE, FREE_TONE, PENDING_TONE, MULTI_TONE, priceLabel } from "@/lib/marketplace";
+import { CATEGORIES, RADII_MI, TRADE_TONE, FREE_TONE, PENDING_TONE, MULTI_TONE, priceLabel } from "@/lib/marketplace-shared";
 import { toggleSave } from "@/app/marketplace/actions";
 
 export type BrowseListing = {

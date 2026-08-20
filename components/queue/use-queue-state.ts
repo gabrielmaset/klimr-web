@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import type { QSessionState } from "@/lib/queue";
 import { getInstallId, peekDeviceToken } from "@/lib/courtside-install";
 
-const DYNAMIC_TABLES = ["queue_teams", "queue_matches", "queue_team_members", "queue_courts", "queue_join_requests"];
 
 /**
  * Live session state. Primary path is Supabase realtime (postgres_changes on the

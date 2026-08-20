@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sportMeta } from "@/lib/sports";
 import { isRegistrationOpen, type TournamentFormatConfig,
-  normalizeGallery, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
+  normalizeGallery, registrationDeadlinePassed, msToRegistrationDeadline, type PublishedScheduleRow, type PublishedPool, type PublishedBracketRound, type Sponsor, type Prize, type Announcement } from "@/lib/tournament";
 import { PaymentProofUpload } from "@/components/payment-proof-upload";
 import { EventLocationMap } from "@/components/event-location-map";
 import { resolveEventPin } from "@/lib/maps-url";
@@ -218,11 +218,9 @@ export default async function PublicTournament({ params }: { params: Promise<{ c
   const capUnit = fc.capacity_unit === "person" ? "players" : t.entry_type === "team" ? "teams" : "players";
   const capacityText =
     fc.capacity_mode === "per_division" ? "By division" : t.capacity ? `${t.capacity} ${capUnit}` : "Open";
-  // eslint-disable-next-line react-hooks/purity -- server component; comparing against the current time is intentional
-  const deadlinePassed = !!t.registration_deadline && new Date(t.registration_deadline).getTime() < Date.now();
+  const deadlinePassed = registrationDeadlinePassed(t);
   const canSignUp = isRegistrationOpen(t);
-  // eslint-disable-next-line react-hooks/purity -- server component; current-time comparison is intentional
-  const msToDeadline = t.registration_deadline ? new Date(t.registration_deadline).getTime() - Date.now() : null;
+  const msToDeadline = msToRegistrationDeadline(t);
   const closingSoon = canSignUp && msToDeadline != null && msToDeadline > 0 && msToDeadline <= 86_400_000;
   const hoursToClose = msToDeadline != null && msToDeadline > 0 ? Math.max(1, Math.ceil(msToDeadline / 3_600_000)) : null;
   const regClosed = !canSignUp && (deadlinePassed || t.status === "registration_closed");

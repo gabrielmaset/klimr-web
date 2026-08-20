@@ -249,6 +249,756 @@ surface-by-surface in later phases; **new code should use these from the start.*
 
 ## Change Log
 
+### 2026-08-20 (m) — WP-T executed: one deadline predicate, one less table, one solved mystery
+
+**KFU-032 — the registration deadline is now computed in exactly one place.**
+The DB commands were always the authority (`registration_deadline < now()`
+in 0193/0258/0292, alongside the cancelled/suspended and opens-at gates);
+the app had SIX hand-rolled copies of the same comparison across four files
+— while `lib/tournament.ts` sat there with the richer `isRegistrationOpen`
+that none of them used. Two narrow helpers now exist
+(`registrationDeadlinePassed`, `msToRegistrationDeadline`), all six sites
+consume them, `isRegistrationOpen` consumes the first internally, and a
+guardrails tripwire scans every `app/` line for inline Date-math against
+`registration_deadline` (display formatting of the raw value stays legal).
+App prechecks remain a deliberate deadline-only SUBSET of the DB gate —
+unification did not silently change gate semantics. The refactor's shrapnel
+taught its own lesson three times: deleting or refitting a line orphans any
+eslint-disable directive pointing at it, and one of my removals took a
+directive that was guarding the NEIGHBORING line — lint went red in three
+successive shapes (unused directive ×2 files, then a real purity error where
+the guard had been) before settling at zero. Directives are part of the
+line's blast radius.
+
+**connection_declines is retired (0297).** The 0295 finding's tail: the memo
+table was written and never read, and after 0295 moved the cooldown onto
+`user_connections` rows it was pure dead weight — but two live functions
+still purged it in passing. The live-ref probe itself had a trap worth
+recording: `pg_get_functiondef` ERRORS on aggregates, which voids the whole
+scan — the first run returned EMPTY (read: "no references") with the error
+on stderr; filtered to `prokind='f'` it returned the truth
+(accept_connection, block_player). Both were recreated from their LIVE
+definitions minus only the purge line (verbatim-carry, mechanized:
+functiondef → strip asserted-single line → reassemble), ACLs restated to
+match live proacl, table dropped, journal self-checksummed
+(405a86c1…, canonical-zeros convention, verifier MATCHES). Applied clean;
+social suite has zero references; SECURITY.md's living migrations-head
+claim fired for the SECOND time in one program (0296→0297) and was bumped —
+the gate is earning its keep at a rate of once per migration.
+
+**The replay14 anomaly — and the week-long mystery it solved.** The first
+0297-era replay produced a cascade of bare `### FAIL` markers from 0072
+onward with no error text. Forensics: (1) the markers were textless because
+the failures were connection-level — `psql: error:` is lowercase and the
+FAIL grep matched only `ERROR`; (2) the replay's own pg.log showed a CLEAN
+shutdown at 18:09:35, mid-file-0072 — exactly a message boundary; (3) the
+container reaps `postgres` processes between messages (bash survives,
+postmasters don't) — which is ALSO why the interactive harness "dies
+between turns" and has all week. Every prior replay went green because the
+launch-and-sleep lived inside one message; this one was split across two.
+Bonus discovery: `replay.sh` rm-rf's and re-initdbs the PERSISTENT cluster
+each run — the replay owns the datadir, and the interactive harness is
+whatever the last replay left behind. Rules appended
+(database-supabase.md): replays run synchronously inside a single call;
+never concurrently with the interactive server; error greps are
+case-insensitive both directions. The grep in replay.sh is fixed. Clean
+rerun: **MODE=empty APPLIED_OK=297 FAILED=0**, both repaired suites PASS,
+klimr_ready 43/43.
+
+**KFU-027 — register hygiene.** KRA-018 upgraded to Production-verified
+(the drill row is the evidence); KRA-027's "SQL replay NOT run" clause
+replaced with the standing replay verdict. A reconciliation section now
+heads the register: no unsigned DISPUTED/DEFER rows exist, and the
+honestly-open ledger is four items in one place — KRA-001 (reopened after
+the 2026-08-11 incident revert), KRA-005 (media-safety breadth),
+KRA-006 (payment-proof digest wiring), KRA-017 (privileged-audit breadth).
+Those four are the audit's true remainder on the app side.
+
+Evidence: tsc 0 · lint 0 at max-warnings 0 · vitest 27 files / 357 tests
+(tripwire included) · replay 297/0 from zero with all suites green ·
+0297 applied to the harness (table_gone=true, fns=2, checksum MATCHES).
+0297 is DELIVERED for production; Gabriel's paste + post-check pending.
+
+**Addendum (0297 post-check, same day):** the delivered post-check FAILED in
+production — composed from post-compaction memory, it guessed three
+identifiers wrong (`schema_journal`/`version`/a record-shaped
+`klimr_ready`), and the UNION's atomicity meant zero verdicts came back,
+including on whether 0297 itself applied. All three names re-derived from
+source on the harness (`migration_journal` keyed by `id`;
+`klimr_ready() → boolean` with the checks count from `klimr_readiness()`),
+corrected query delivered, and the never-retype rule formally extended to
+owner-run queries (database-supabase.md).
+
+**Addendum 2 (same day): 0297 PRODUCTION-CONFIRMED.** Owner post-check all
+green: `declines_table_gone: true · fns_recreated: 2 · journal_0297:
+405a86c1 (checksum prefix matches the self-sha) · klimr_ready: true
+(43 checks)`. The connection_declines retirement is closed end-to-end and
+WP-T is fully sealed.
+
+**Release stamp (2026-08-20, owner-requested rebuild):** first production
+build across the WP-R/U/T span — and the KFU-015 server-only guard scored
+its FIRST REAL CATCH: the marketplace split had left one client component
+importing three styling constants through the server module's door
+(`marketplace-room.tsx` → `lib/marketplace.ts` → `us-places.ts`), which
+would have shipped the 4.65MB zip-code dataset to phones. The guard turned
+it into a build error; the fix was a one-line repoint to
+`lib/marketplace-shared.ts`, exactly the boundary the split defined.
+Turbopack's first error text ("Pages Router") was a red herring — error two
+("server-only cannot be imported from a Client Component") carried the real
+chain. Also surfaced: Next deprecation, `middleware` file convention →
+`proxy` (warning only; queued as housekeeping). Build: 81s compile, clean
+route table. Release manifest regenerated pre-zip.
+
+**Addendum 3 (same day): 0295 PRODUCTION-CONFIRMED — the chain is complete.**
+Owner post-check 5/5 green (constraint permits the status; decline marks not
+deletes with `p_as_decline` live; `social_invariants_intact` true in
+production; journal `934a4385`; ready 43/43). The query was composed fresh
+from 0295's file post-0297 (the original predated the memo-table drop) and
+executed on the harness before delivery — the byte-identical text produced
+byte-identical verdicts in production. **Every migration 0001–0297 is now
+production-confirmed; nothing in the program awaits a paste.**
+
+iPhone impact: none.
+
+### 2026-08-20 (l) — WP-U executed: 137 → 0, and the zero is now enforced
+
+The lint ceiling this program inherited was 137 warnings — the whole
+accessibility backlog wearing a number. It is now **--max-warnings 0** with
+every jsx-a11y rule involved promoted to ERROR, each promotion fulfilling a
+promise its own config comment had recorded. Three sub-batches:
+
+**A — KFU-022 + dead code (137→129).** The maps redirect walker's "overall"
+AbortController was passed to NOTHING — its 6.5 s ceiling was decorative and
+the true worst case was six hops × 6.5 s = 39 s. The signal now reaches every
+hop (support added one layer down, inside safeGet in lib/egress.ts: abort →
+req.destroy, listener cleaned on close), an external signal threads through
+resolveMapsShortLink → mapsPointFromUrl, and a mocked-egress test proves an
+external abort ends the walk within two hops. Eight dead symbols deleted,
+including capacityBlock — a 48-line orphan of my own WP-I batch. The
+migrations-head living claim fired on schedule (0295 vs 0296 in the
+directory) and was bumped: the gate built two days ago caught its first
+real drift within one batch of the drift existing.
+
+**B — the 105 label warnings → 0 (→23).** Taxonomy over census: 61 real
+htmlFor/id wirings (three of them pointing labels at hidden file inputs, so
+clicking "Logo"/"Photo" now opens the picker — better than compliance);
+~33 duplicate headings over SELF-LABELING widgets (Segmented and
+DateTimeField carry their own accessible names) converted to spans;
+RichTextEditor grew a labelledBy contract with role=textbox; PhoneField
+declared a control component (verified: renders a native input); and the
+rule's config corrected to assert "either" — nesting IS programmatic
+association per the HTML spec, and the rule had been rejecting two valid
+nestings. Rule raised to ERROR exactly as its comment promised.
+
+**C — the 24 interaction warnings → 0.** Three hand-rolled dialogs
+(avatar-lightbox, join-waitlist, staff-actions-log) rebuilt on the house
+backdrop-button pattern (rich-text-editor precedent: aria-hidden,
+tab-skipped, mouse click-to-close) with panels as positioned siblings — the
+stopPropagation swallows became structurally unnecessary — and
+document-level Escape per APG. The command palette got the same backdrop.
+Feed-composer's window-click closer was LOAD-BEARING and became a
+ref-contains guard so its swallow could go honestly; courts-finder's was
+vestigial (no closer exists) and just went. Courts result cards became real
+keyboard citizens: a stretched <button> in the heading owns the card
+surface, hover semantics moved onto it, and focus/blur now drive the map-pin
+highlight — keyboard users gained a parity mouse users always had. The
+realest finds: gallery-editor and listing-form had drag-to-reorder with NO
+keyboard alternative at all; both gained Move ‹ › buttons reusing the drag
+path verbatim (dragFrom.current = from; onDrop(to) — zero duplication), and
+only then did the drag handlers get justified inline disables naming their
+alternative. KFU-016: the crop stage's pan was pointer-only (onPointerDown
+is a blind spot in the rules' default handler set — noted); arrow-key
+nudging with Shift-steps and a focus ring added, zoom was already a slider.
+KFU-018 verified ALREADY SATISFIED: the rail/top-bar coupling is pure CSS
+custom properties ("can never drift apart"), no JS measuring — recorded, not
+reinvented. KFU-023 assessed satisfied: aria-live across the six key async
+surfaces, real <table> elements where data is tabular, nine loading.tsx
+boundaries.
+
+**The batch's instrument-failure ledger, because they teach:** my first
+Escape handlers were SILENT NO-OPS — `if (key === "Escape") () => close;`
+builds a function and discards it, type-valid and lint-clean while doing
+nothing (the silent-failure class in a11y clothing; caught only by reading
+my own mangled output). A JSX {/* */} disable-comment inside a map's
+return-parens is a second child (TS2657) — the // form is legal there and
+eslint honors it. Guessed lucide imports, a guessed state type, and a
+disable directive that reached one line short each stopped a pass at an
+assertion before any write — the count-assert discipline paying rent five
+more times.
+
+Evidence: tsc 0 · eslint 0 at **--max-warnings 0** with
+label-has-associated-control, click-events-have-key-events,
+no-static-element-interactions, no-noninteractive-element-interactions all
+at ERROR · vitest 27 files / 356 tests (incl. the KFU-022 abort proof) ·
+docs/DEVICE_CHECKLIST_WP-U.md delivered as the manual-audit companion the
+config comments always named. WP-U's engineering leg is COMPLETE; the
+manual leg is the owner's checklist run.
+
+iPhone impact: none.
+
+### 2026-08-20 (k) — WP-R executed: KFU-025 / 024 / 035 / 034 — release engineering grows teeth
+
+Four items, one batch; the audit source's per-item prose is gone with the Web-10
+transcript, so every finding was re-established empirically against the tree
+before fixing — which is stronger evidence anyway.
+
+**KFU-025.** (a) CSP ENFORCED: lib/csp.ts's own written plan ("when the report
+stream is quiet, the same string moves to enforced") executed — the nonce
+policy is now the enforced response header, Report-Only is gone, report-uri
+rides the enforced policy so violations still flow. next.config's parallel CSP
+REMOVED: two enforced policies drift, one cannot; middleware is the single
+source, and nonce failure degrades to a loud buildFallbackCsp() rather than a
+headerless document. The K3-06 guardrail asserting the learning phase flipped
+to assert the stronger contract. (b) Dev-dep highs: npm audit fix — 2 high
+(js-yaml CVE-2026-59870) → **0 vulnerabilities**; lockfile rides the zip.
+(c) Every workflow `uses:` digest-pinned — SHAs resolved LIVE via
+`git ls-remote` (api.github.com rate-limited the anonymous path; ls-remote has
+no such limit), plus checkout@v4's digest observed in run #10's own log. Never
+recalled from memory. (d) CycloneDX SBOM per CI build, uploaded as artifact.
+
+**KFU-024.** The unit trap defused at every layer: perf_samples.value_ms
+carries MILLI-CLS for cls (client ×1000) through a column named ms with a
+uniform 120s clamp — the first p75 query against the raw column would have
+compared milli-CLS to 0.1 and called the site perfect. Now: per-metric clamps
+at the route AND inside rum_ingest (cls ceiling 10000 = CLS 10), the contract
+written on the column itself, and rum_p75_daily as THE reader converting cls
+back. Proven live: cls 999999 → stored 10000; view p75 = 10.000 raw CLS.
+
+**KFU-035.** logAdminAction awaited its insert and discarded { error } —
+supabase-js never throws, so the append-only audit trail could silently drop
+rows; mirrored on lib/privileged's checked-and-loud writeAudit. And durably()'s
+catch was literally `void work()` — the unawaited audit fallback, fire-and-
+forget in exactly the contexts that kill unawaited writes; the fallback is now
+RETURNED and awaited at the async call sites (the sync factory site keeps
+void, reasoned in place: request-scoped, after() path). Rules hardened in
+silent-failure-canaries.md.
+
+**KFU-034.** Journal rows 0262–0295 had NULL checksums — the ledger recorded
+WHAT ran but couldn't prove WHICH BYTES. 0296 backfills all 34 from the
+delivered files (nulls_left=0 proven), and establishes the CANONICAL-ZEROS
+convention for self-referential checksums (a file cannot contain its own
+hash): sha256 with the checksum literal zeroed, computed/verified by
+scripts/migration-checksum.mjs — 0296's own recorded hash verified MATCHES by
+the tool. scripts/release-manifest.mjs binds file digests to each artifact:
+this tree = 1044 files, top-hash c1a47a41076dfe6a0e87ebb54e88b583a32a47c3e9a6cebc1b1ff86d888aaeff.
+
+**The spelled-literal class fired TWICE more** — my own comments naming
+"Report-Only" and "void work()" tripped my own wires; both wires sharpened to
+header/statement form, and the rule is now fully internalized: wires match
+executable shapes, comments narrate history freely.
+
+Evidence: from-zero replay 296/0, klimr_ready=PASS (43); tsc 0; eslint 0 at
+ceiling; vitest 26 files / 355 tests; npm audit 0; clamp/view/backfill probes
+executed-local as above. WP-R remaining: staging-class proofs only.
+
+iPhone impact: none.
+
+**PRODUCTION CONFIRMED (owner-run, 2026-08-20):** `journal_nulls_0262_0295: 0
+— rum_p75_daily: present — klimr_ready: true (43 checks)`. 0296 live; the
+ledger proves its bytes and the metrics know their units in production.
+
+
+### 2026-08-19 (j) — WP-R / KFU-020: restore drill prepared for a non-engineer to run
+
+The drill's centerpiece is new: `supabase/ops/drill_check_2026-08.sql`, a
+single read-only paste whose star witness is `klimr_ready()` itself — all 43
+production sentinels executed against the restored copy. A backup that
+restores into a database where the readiness gate goes green has demonstrably
+brought back the schema, the commands, the triggers, the grants and the
+invariants, not just the rows. Around it: journal head and count, failing
+sentinels named, auth/profiles/data-freshness rows, the latest storage
+manifest, the schema-wide RLS-off scan, and a pg_cron presence note. One
+statement, one result table (the editor shows only the last statement).
+Executed on the 295 head: 11 rows, all green except manifest — correctly `f`
+locally, because the harness has never run a storage backup; a real restored
+production copy carries one manifest per nightly.
+
+RESILIENCE §3 rewritten around Gabriel's actual reality: the scratch project
+goes inside the already-created `klimr-drill` org (which stays alive for the
+staging proofs); step 2 is honestly TWO-PATHED because I cannot see the
+Backups page — a Download path with the exact Terminal one-liner (including
+the one-time `brew install libpq`), and a stop-and-tell-me path for anything
+else, rather than steps that pretend to know a dashboard I've never seen;
+step 4 is the verdict paste with expected values; step 6 is two-tiered — a
+required dashboard-only tier, and an optional local-Node tier explicitly
+scoped to "pages render" (full sign-in needs SMTP the scratch lacks) and
+explicitly skippable, because the old step assumed a dev setup that has never
+existed here.
+
+Also refreshed the rls suite's header, which still described its own
+pre-repair defect as current ("never issues SET ROLE") — now recorded as
+history with the 2026-08-18 repair noted, block list corrected to four, and
+the rollback-safety sentence made precise (the trailing grant check is
+read-only, outside the transaction).
+
+Evidence: drill_check executed-local on the 295 head (output in transcript);
+vitest 26 files / 354 tests green; docs only otherwise — no gates disturbed.
+The drill itself is Gabriel-run; its results land in RESILIENCE §6 and flip
+the `drill-run` claim when the first row is written.
+
+iPhone impact: none.
+
+**Addendum 2026-08-20 — the dashboard answered.** Gabriel's screenshot of
+Database → Backups resolved step 2's two-path uncertainty: the backups are
+PHYSICAL (hence no Download — Path A is dead), and a third tab exists:
+**Restore to new project (BETA)** — a Supabase-native cross-project restore
+that replaces the entire Terminal fallback. §3 rewritten accordingly, with a
+prominent warning that the per-row "Restore" buttons on the Scheduled list
+restore IN-PLACE over production and must never be used for a drill. The
+page's own banner ("Storage objects are not included… restoring an old backup
+does not restore objects deleted since then") independently confirms
+KCDX-053's premise and the reason the nightly R2/B2 workflow exists. The
+confirm dialog (second screenshot) settled the rest: same org, same
+region, **$0 total**, data-and-indexes transfer (manifest rows included),
+manual-reconfiguration list matching RESILIENCE §4 line for line — extensions
+excluded, which is exactly the case drill_check row 11's informational branch
+was written for. The klimr-drill org is no longer needed for this drill (the flow creates the
+project itself, likely in the Pro org — cents for an hour, deleted in step
+7) and stays parked for the staging proofs.
+
+**DRILL EXECUTED AND PASSED — 2026-08-20 (owner-run). KFU-020 CLOSED.**
+Restore-to-new-project (BETA), $0, backup 2026-08-20 12:14:28Z: restored
+project in **5 m 10 s**, drill_check **11/11 green** — klimr_ready TRUE with
+all 43 sentinels on the restored copy, journal head 0295 (35 rows),
+auth.users 2 = profiles 2, manifest id=4d887544… present, zero RLS-exposed
+tables. Observed RPO gap ~3 h (≤ 24 h ceiling). §2 flipped from UNVALIDATED
+to measured; §6 holds its first row; the drill-run claim and its test now
+assert the date. ONE FINDING, the kind drills exist to produce: the physical
+restore carried pg_cron LIVE — all 12 jobs, including the 0289 heartbeat
+whose command has production's URL and cron secret baked in, so a restored
+project actively pokes production until deleted (exposure here: a few
+idempotent duplicate heartbeats; project deleted promptly). Recorded in §3 as
+a standing warning: deletion is also the off-switch. My row-11 prediction
+(cron absent) was wrong — "extensions need manual reconfiguration" means
+dashboard settings, not schemas; the check's informational design absorbed
+the surprise either way.
+
+### 2026-08-19 (i) — Nightly storage backup red: the verify had the direction backwards
+
+The first nightly after the production seed wipe failed with 4 issues —
+`avatars: source 4, R2 5, B2 5` and three wiped-empty buckets where the
+destinations still held objects. Every copy leg was green; the failures were
+all in verify. Root cause: the verify demanded source == destination, an
+invariant that contradicts the ADDITIVE design written at the top of the same
+script ("copy, never sync; deletions do not propagate") — and it gated the
+checksum comparison BEHIND the count match, so the check that matters was
+skipped exactly when counts diverged. The wipe was simply the first mass
+deletion this system ever saw; the backups retaining what production deleted
+is the backup doing its job. (The zip push the same day was a timeline
+coincidence — nothing in it touched the backup path.)
+
+Rewritten one-way: every SOURCE object must exist at both destinations with
+matching bytes — `rclone check --one-way` for the plain buckets and
+`rclone cryptcheck --one-way` for the encrypted ones, which upgrades the
+encrypted verification from a count tally to real plaintext-hash-vs-ciphertext
+proof. Destination-only objects are reported as retained deletions, never
+errors. `tournament-payments` carries `--max-age 400d` so the verify never
+flags what the retention prune correctly removed.
+
+Proven offline with a full shim (fake rclone/psql, real script end-to-end),
+three scenarios: the wipe shape (src 0, dest 9, checks green) exits 0 with the
+retained note; a plain-bucket miss exits 5 with FAIL; an encrypted miss exits
+3 with FAIL. The oracle fires on what matters and only on what matters.
+
+Documents reconciled to the workflow that exists: RESILIENCE §1's Storage row
+still said "no backup exists" (guarded by a doc-claims test enforcing the
+STALE claim) while the section below it documented the running nightly — the
+row now states the real coverage, KCDX-053 noted closed by the workflow with
+the drill still open; §5's "every copy lives with one vendor" corrected to the
+database-only SPOF it actually is; §5's "nothing would tell you" corrected —
+the Actions failure email is precisely how this red run was caught within
+hours. doc-claims test 48 flipped to assert the workflow, the script, and its
+one-way verify all exist.
+
+Evidence: bash -n clean; shim scenarios A/B/C as above (executed-local);
+vitest 26 files / 354 tests green incl. the flipped claim; tsc 0; lint 0 at
+ceiling. The fix reaches GitHub — and the nightly — on the next rebuild+push.
+
+iPhone impact: none.
+
+### 2026-08-19 (h) — WP-H tail executed: KFU-015 / 014 / 021 / 026
+
+Four accepted findings closed, all application- and document-side; nothing for
+the SQL editor in this batch.
+
+**KFU-015 (P1 perf).** The 5MB `zipcodes` dataset reached client bundles
+through `lib/marketplace.ts` → `lib/us-places.ts` (two "use client" components
+imported marketplace constants; the auditor measured four ~5.57MB routes).
+Split: `lib/marketplace-shared.ts` carries every client-safe constant and pure
+helper; `marketplace.ts` star-re-exports it and keeps only `zipDistanceMi`, so
+every server import is unchanged; `import "server-only"` on `us-places.ts`
+makes any future client-side reach for the dataset a BUILD ERROR, not a chunk.
+The inert CI bundle table became a gate: `scripts/check-bundle-budgets.mjs`
+parses the same route table Next prints, writes `route-bundle-stats.json`, and
+fails the build over a 700 kB First Load ceiling (overrides are explicit and
+reviewed, ratchet-style). Parser proven three ways: fires on the auditor's own
+5.57MB figure, passes a clean table, and a zero-row parse FAILS — a gate that
+measures nothing must never be green. Byte-level before/after lands with the
+next instructed rebuild; the mechanism proof is executed-local.
+
+**KFU-014 (P1 privacy).** "Use my location" put the device's 5-decimal GPS fix
+(~1.1m) into a GET URL — history, server logs, referrers. Per the register's
+decision (memory-only + POST, NO sessionStorage): the `pushUrl` write and the
+URL hydrate are gone; precise coordinates live in component memory and travel
+only in the existing search POST body; the server-side `?ll` parser is dead,
+replaced by a canonicalizing redirect that strips the parameter off legacy
+bookmarks so old links stop propagating coordinates. The ZIP remains the
+coarse, shareable token. A reload after Use-my-location deliberately falls
+back to the ZIP centroid — that is the recorded trade, not an oversight.
+
+**KFU-021.** `callExternal` scored a resolved 429/500 as success — breaker
+never learned, retries never spent, a rate-limited vendor got hammered with a
+clear conscience. Resolved Responses are now classified at the boundary:
+429/5xx count as failures (feed the breaker, consume retries, honor
+Retry-After capped at 10s); other 4xx pass through WITHOUT teaching the
+breaker (the vendor is healthy; our request is wrong). Every caller still
+receives the final Response, so all ten call sites' `res.ok` handling is
+untouched — the controls got smarter, the contract did not move. Five new
+behavior tests including the storm case: enough resolved 503s opens the
+circuit for the next call.
+
+**KFU-026.** SECURITY.md corrected against source, six stale claims: password
+authentication described in four places (removed — passwordless only, now a
+LIVING claim: doc-claims greps the tree for `signInWithPassword`); "run
+migrations 0001→0020" (now `0001`→`0295` with a claim tag the test computes
+from the migrations directory, so the range can never silently fall behind
+again); "the only RPC (`ranked_players`)"; a leftover photo-upload-disabled
+sentence sitting beside its own correction; and the MFA sentence claiming the
+Supabase hook is Team/Enterprise-gated — migration `0055` shipped it, and its
+own header demands dashboard enablement, which the §4 checklist never
+mentioned: a checklist line now does. `.env.example` verified against
+`lib/env.ts` (six REQUIRED vars match exactly — no edit). RESILIENCE.md read
+in full: already honest post its 08-07 correction; no stale sentence found.
+
+**Instrumentation lied twice more building this.** A python heredoc died on a
+SyntaxError while the gates ran green on the UNTOUCHED tree — "tests passing
+because nothing ran", caught only in stderr; patches now print sentinels that
+get checked. And `ls 0055*` "proved" the MFA hook migration didn't exist —
+the failing sed before it short-circuited an `&&` chain and the probe never
+ran. Standing habit: independent probes are joined with `;`, never `&&`, and
+absence of output is not absence of the thing until the probe's own exit code
+is seen. Plus one self-tripped wire (the spelled-literal class, again): the
+KFU-015 tripwire scanned for a name my own header comment spelled; the wire
+now scans the import form.
+
+Evidence: tsc 0; eslint 0 at ceiling 137 (one orphaned import of my own making
+found and removed by the ratchet); vitest 26 files / 354 tests including 5 new
+external-classification behaviors, 2 new living doc-claims, and 2 new
+guardrail tripwires (KFU-014, KFU-015). No migration; no replay needed (DB
+untouched). All rides the next rebuild.
+
+iPhone impact: none.
+
+### 2026-08-18 (g) — Diagnostic packet: two parked suites made honest, and the dead cooldown they were guarding (0295)
+
+**PRODUCTION CONFIRMED (owner-run, 2026-08-18):** `social_invariants_intact:
+true — klimr_ready: true (43 checks)`. 0295 live; the decline cooldown works in
+production for the first time since 0238.
+
+
+The two suites parked red since WP-0 are green, hooked into the replay gate, and
+one of them found a production regression on the way.
+
+**The fixtures were the first layer.** Both suites impersonated by setting JWT
+claims WITHOUT assuming the role — every "cross-user" probe ran as superuser,
+RLS never engaged, and the rls suite's IDOR check was failing by detecting its
+own unfiltered write (the 0284 planted-oracle class; that failing run doubles as
+proof the oracle fires on a real bypass). The social suite's sandbox users
+predated the 0283 admission gate, which correctly refused them. Fixed: real
+role assumption, an elevate() helper (EXECUTE 'reset role' — set_config
+role/none proved a silent no-op), attested fixtures, and probes rewritten to
+current doctrine: profile columns are not directly writable by authenticated
+(denial IS the pass), either-layer refusals accepted where RLS now meets a
+write before an index does.
+
+**Then CHECK 4 would not go green, and it was right.** The decline cooldown has
+been dead in production since 0238, broken at THREE layers at once:
+friendships_status_check forbade the very status the live reader consults
+('declined' was not in the constraint); nothing anywhere wrote it; and the
+app's only decline path — remove_connection, still 0099's — hard-deleted the
+row and wrote the orphaned connection_declines memo, a book no reader opens.
+Proven by execution: a decline landed a perfect memo (right decliner, fresh
+timestamp) and the very next request from the declined person returned
+'requested'. 0295 repairs all three: the constraint admits 'declined', decline
+MARKS the incoming pending row (status + responded_at) instead of deleting it,
+the memo write is gone, and social_invariants_intact gains a mark-not-delete
+drift clause (amendment; count stays 43). The memo table's retirement is
+recorded as WP-T hygiene. CHECK 4 and CHECK 6c now assert the LIVE contract
+(declined_recently, 30 days; 'blocked' as the directionally opaque verdict).
+
+**My own instruments lied to me three times finding this.** A NOTICE-only grep
+hid the error that mattered, twice; a probe counted a table it had no SELECT
+right on and reported rows=0 for a row that existed; and max(uuid) — the exact
+0294 mistake — killed a bisect mid-flight hours after I'd fixed it elsewhere.
+Standing habits recorded: error greps always include ERROR; probes that count
+run ELEVATED; uuid aggregates are (array_agg(x))[1], everywhere, forever.
+
+Evidence: from-zero replay 295/0; rls_and_invariants_checks=PASS (5);
+social_graph_checks=PASS (1 marker over seven raising blocks); klimr_ready=PASS
+(43); tsc 0; eslint 0 at ceiling; vitest 26/26. No app code changed.
+
+iPhone impact: none.
+
+### 2026-08-18 (f) — KCDX-046 residual executed: the graph is born whole (0294) — I-series CLOSED
+
+**PRODUCTION CONFIRMED (owner-run, 2026-08-18):** `bracket_graph_intact: true —
+klimr_ready: true (43 checks)`. 0294 live; the I-series is closed in production.
+
+
+Repro-first, per the standing order. Three defects executed against the unfixed
+head: regeneration's OPENING statement erased a completed match with its score
+(buildBracketFromSeeds line 78, unconditional); tournament_score_match on a
+null-linked match — the state the one-UPDATE-per-match wiring loop leaves —
+returned ok:true while the semi read NULL/NULL, the winner advanced nowhere
+through the command's own front door; and tournament_draws accepted two rows
+numbered 1 for one division (no uniqueness, count-then-insert race live).
+
+0294: generation becomes FOUR commands under the tournament lock, 0222's
+adjudication doctrine composed in — tournament_generate_bracket (rows, byes,
+bye advancement and every next-link set-based in one transaction, self-asserted
+size-1/zero-unlinked before commit), tournament_generate_pools,
+tournament_clear_pools, tournament_clear_bracket — all refusing over played
+matches with the reason. Unique index on tournament_draws(division_id,
+draw_number). App: three loops and two count-then-insert draw logs replaced by
+thin callers; the command owns the draw history.
+
+**The gates caught four things building this.** (1) The count-floor fired
+(ready=false, 43<44) on my own sentinel: bracket_graph_intact EXISTED since
+0222 and my "new" definition would have silently swallowed its body via
+create-or-replace — archaeology found the first-definer, and the merge then
+surfaced a real finding: 0222's clause as written flags every legitimate bye
+(completed, one null side, winner set — the generator's own output) and had
+passed only vacuously; PROVEN by execution, old predicate = 1 row over a
+correct bracket. The merged sentinel carries 0222's intent bye-corrected
+(winner in NEITHER slot is the incoherence signature). Rule: before defining
+any *_intact, grep for prior definers — the 0290 verbatim-carry rule applies to
+new-seeming names too. (2) max(uuid) does not exist — first execution, not a
+suite, caught it; array_agg[1] is the exact tool. (3) My own new tripwire
+fired on a FOURTH surface the line-grep missed: clearBracket, same
+unconditional erasure — and three lines above it, a second count-then-insert
+draw log that would have DOUBLE-logged against the command. Sweep found no
+fifth. (4) A patch script's count-assertion aborted before writing when a
+replaced span had already consumed a later anchor — nothing corrupted.
+
+Evidence: from-zero replay 294/0; klimr_ready=PASS (43 — count unchanged, the
+sentinel was amended not added); bracket_generation_suite=PASS (21 checks);
+wpi_admission_suite=PASS (13); tsc 0; eslint 0 at ceiling; vitest 26/26 incl.
+the KCDX-046 tripwire. App half rides the next rebuild.
+
+iPhone impact: none.
+
+### 2026-08-18 (e) — WP-I executed: the party admits honestly (0292), approval is one transaction (0293)
+
+**PRODUCTION CONFIRMED (owner-run, 2026-08-18):** `tournament_capacity_intact: true —
+queue_approval_intact: true — klimr_ready: true (43 checks)`. 0292/0293 live; the
+readiness floor tracked to 43 and the gate stays fully green at the higher count.
+
+
+KFU-011 and KFU-012, closed repro-first: every scenario was executed FAILING on the
+unfixed head before either file existed. The evidence table — cap 4 seating five
+(ok:true); five sent, three seated, silently; placed-but-pending constructed, then
+denied-while-seated with one plain update; and 0267's epoch re-placing a stale
+pending request into a SECOND team. All four now unreachable: 13/13 suite checks,
+each pinned in wpi_admission_suite and hooked into the replay gate.
+
+0292: tournament_register admits the PARTY under its existing lock (p_party_size,
+old signature dropped per the 0214 overload rule); tournament_register_team
+validates exactly — duplicates raise, non-members raise WITH the offending id —
+passes the party into the one capacity decision, inserts with the captain excluded
+and no conflict-skip clause, and asserts the seated count. The app's stale
+capacityBlock verdict is gone; notification and the waitlisted flag now come from
+the command's returned status. Found en route: the app's precheck counted the party
+correctly while the command counted +1 — KRA-034's drift pattern, third sighting.
+
+0293: queue_resolve_join_request(request, approve) — CAS on pending under FOR
+UPDATE, authorization inside, placement and status write in one transaction;
+place_on_team's raises give exact-reject for free (abort whole, request stays
+pending, reason surfaces). approveRequest/denyRequest are thin callers now.
+queue_approval_intact is the 43rd sentinel and 0293 raises the klimr_ready floor
+to 43 in the same paste — the count-floor doctrine, exercised by the doc-claims
+test failing at 42 mid-batch, exactly as designed.
+
+Mistakes recorded: my sentinel comment spelled the scanned literal and tripped its
+own check (reworded; the rule from 0286 restated — comments must not spell scanned
+literals adjacently); a patch script asserted n=1 on a cast line that exists twice
+and correctly aborted everything after it (the count-assertion discipline catching
+me, not the codebase); I wrote Promise<r> from my own stale read of the file where
+Result is the alias; and the module-size budget was honored by shrinking my comment,
+not by raising the budget. The replay hook then failed twice more: my block
+slice omitted the closing terminator (EOF crash mid-suites), and the repair
+nested the new suite inside the previous block's else — a suite that only runs
+when its neighbor FAILS, 0278's silent-skip disease in shell form, caught by
+the line's absence from a green log. Worst of the day: I sealed this entry's
+first draft citing a readiness line the crashed run never printed — the second
+sealed-before-verdict near-miss in one session. Rules restated: shell hook
+insertions slice complete blocks including terminators, and no entry cites a
+gate line until it exists in a COMPLETED log.
+
+Evidence: from-zero replay 293/0; klimr_ready=PASS (43 checks);
+wpi_admission_suite=PASS (13 checks); tsc exit 0; eslint exit 0 at the 137 ceiling
+(one dead middleware import removed); vitest 26/26 files including two new WPI
+tripwires. App-code half rides the next rebuild.
+
+iPhone impact: none.
+
+### 2026-08-18 (d) — 0291: the last red, and a falsified prediction
+
+**PRODUCTION CONFIRMED (owner-run, 2026-08-18):** `function_acl_intact: true —
+klimr_ready: true`. All 42 sentinels green in production at once — the first fully
+green readiness gate in this database's existence. State at the milestone: schema at
+0291, two attested owner accounts, zero content, storage drained and reconciled,
+heartbeat driving all four workers at minute cadence. Scope note for the record:
+this is the boundary/readiness gate, not Gate A — the KFU work-package queue
+(WP-I remainder, WP-U, WP-R, WP-T, staging-class proofs) resumes from here.
+
+
+Query A finally landed and my standing hypothesis was wrong: not ad-hoc functions
+from a debugging session, but thirty pg_trgm extension internals — gin/gist trigram
+support, the similarity family — every grant made BY supabase_admin. The platform
+installed pg_trgm into public before 0153's `create extension if not exists` ran
+(no-op there), so the members are supabase_admin-owned and 0196's postgres-run
+revoke sweep structurally could not strip them: PostgreSQL permits only the grantor
+to revoke. The harness diverged for the mirror-image reason — 0153 really created
+the extension there as postgres, the sweep worked, sentinel green. The check was
+red over grants this role has no authority to change, on internal-typed index
+machinery and pure text-similarity functions with no data access.
+
+0291 amends the SENTINEL, not the grants: extension members (pg_depend deptype 'e',
+derived not name-listed, the 0273 philosophy) fall outside function_acl_intact's
+enforcement scope on both branches. Proven on harness: production's condition
+reproduced (anon grant on similarity → 0273 sentinel FALSE), 0291 applied → TRUE
+with the grant still present; negative control — anon grant on our own
+reconcile_social_counts → FALSE, so Klimr-defined functions remain fully gated;
+revoked → TRUE, klimr_ready TRUE. Prediction-vs-reality recorded on purpose: I bet
+on unrecorded drift twice in writing; the truth was an ownership boundary the
+sentinel's model never encoded.
+
+iPhone impact: none.
+
+### 2026-08-18 (c) — Heartbeat rescheduled loudly (0289) + social counters stop lying (0290)
+
+**PRODUCTION CONFIRMED (owner-run, 2026-08-18 ~21:06 UTC):** worker-heartbeat live at
+`* * * * *` with the correct URL baked in; net._http_response shows 200s at minute
+cadence — the first HTTP requests this database has made since 2026-08-10 18:24.
+Seed-wipe drain: done=13 / pending=0, so the wipe is now complete end-to-end
+(database and storage bytes). social_invariants_intact true in production with the
+drift clause. H1's owed "deployed-schedule proof after next deploy" is hereby
+collected — it failed on first collection, which is what produced 0289. The four
+0232-orphaned workers (storage drain, jobs, perf pruning, health canaries) are being
+driven again for the first time in eight days. Remaining production red:
+function_acl_intact only (0291 pending query A).
+
+
+The seed wipe's aftermath surfaced two latent defects, both diagnosed from production's
+own records and both closed with proven artifacts.
+
+**0289.** The 13 enqueued storage deletions never drained because worker-heartbeat was
+never scheduled: the journal shows 0278 applied 08-17 21:47, but production's cron.job
+list carries eleven jobs and no heartbeat — 0278 hit an unset `app.settings.site_url`
+GUC, printed a NOTICE (invisible in the SQL editor), returned, and journaled itself as
+applied. A silent no-op with a receipt, authored one day before the 0283 incident named
+that exact pattern. pg_net's request log corroborates independently: the last HTTP call
+ever made was 2026-08-10 18:24 — 0232's paste, to the minute. 0289 re-schedules with
+hard-fail semantics: missing config RAISES with set-these-GUCs instructions; harness
+capability guards unchanged. Proven on a stubbed scratch engine: unset GUCs → exception,
+jobs=0; set via `alter database` (the exact production procedure) → job row with correct
+URL, x-cron-secret header, and secret; idempotent re-paste.
+
+**0290.** The /network tab badges showed Friends 43 over an empty list: the badges read
+denormalized profile counters maintained by 0099's edge triggers, and the wipe deleted
+every edge with user triggers deliberately disabled — so the two surviving profiles kept
+pre-wipe totals and NO control noticed (the old sentinel blessed 43/25/27 over zero
+edges; demonstrated on harness). The points-ledger doctrine applied to the graph:
+`reconcile_social_counts()` (one set-based pass, returns rows corrected), a fifth
+projection-drift clause on `social_invariants_intact()`, and a run-once repair in the
+same paste. Proven: blind-spot demo → apply corrects 1 → corrupt → sentinel RED →
+reconcile → green; edge-exactness verified in all three count directions on real rows.
+Standing rule recorded: any bulk operation that disables user triggers must end by
+running the reconcilers for every projection those triggers maintain.
+
+**A control caught my own artifact.** 0289's first negative run raised correctly and
+STILL journaled: without single-transaction execution, psql marched past the aborted DO
+to the journal call — a failed paste that records success, the precise disease 0289
+exists to cure. Both migrations are now wrapped `begin;`/`commit;` so a failure can
+never leave a receipt, under either editor transaction mode. Re-proven: failed run →
+jobs=0, journal=0.
+
+**The gate then caught it a second way.** The first from-zero replay FAILED on 0289:
+the harness shim supplies capability stubs (that is how CI registers the other eleven
+jobs) but no deployment config, so the capability guards passed, the GUCs were absent,
+and the hard-fail fired in the one environment where skipping is correct. Resolved on
+the correct side of the boundary: the shim now provisions both GUCs via ALTER DATABASE
+with inert harness literals — the harness models production's obligation, and every
+future replay exercises 0289's full success path instead of its skip path. Near-miss
+recorded with it: that failing replay printed fifteen green suites BELOW the FAIL
+header, and only reading the verdict line first (the 0273 poll rule) prevented sealing
+the batch on top of a red line.
+
+**Production procedure discovery (owner-run, same date):** Supabase's postgres role
+cannot `ALTER DATABASE ... SET` (42501) — which retroactively explains how the
+0173-era job was ever configured: the GUCs were only ever session-scoped at paste
+time, with the values baked into the job command. 0289's exception text was amended
+BEFORE its first production run (legitimate — never pasted there) to instruct the
+real procedure: prepend two session-level `set` lines to the same paste. Re-proven
+under exactly that procedure: no sets → exception, jobs=0, journal=0; session sets →
+job created, command carries URL and secret; replay 290/0 again.
+
+Also recorded: a pkill -f pattern in my own tooling matched the invoking command line
+and killed the running shell mid-batch — match patterns must never appear in the
+invoker's own cmdline.
+
+Evidence: from-zero replay 290/0 and klimr_ready=PASS (42 checks) AFTER the shim
+change, no FAIL lines, rpc_grants 100/0, policy_fn_grants PASS. Scratch engine for
+0289 is stubbed (real pg_cron/pg_net are Supabase-side; labeled). No application code
+changed; npm gates n/a this batch.
+
+iPhone impact: none.
+
+### 2026-08-18 (b) — Production seed wipe: built, proven, delivered for paste
+
+`supabase/ops/klimr_seed_wipe_2026-08-18.sql` (SHA-256 bad328eb…b18271) — a ONE-TIME
+operational script, deliberately not a migration. Deletes all synthetic data (256→2
+accounts); keeps the two owner accounts, platform config, court intel, infra journals.
+Owner decisions recorded: keepers are gduran@klimr.com + gabrielmaset@hotmail.com;
+admin_actions wiped in full (5,909 of 6,443 rows were KRA-017-era handout-'ok' orphans,
+which is also why privileged_audit_intact has been red in production since 0246);
+player_sports wiped in FULL — keepers re-pick sports at next login.
+
+Design: 110 wholesale deletes in FK-topological order generated from pg_constraint
+(no cycles found); per-table `disable trigger user` around teardown deletes (FK/system
+triggers stay on — guard_last_team_owner correctly refused mid-run and forced this
+decision); invite_codes special-cased (owner_id FK is NO ACTION — seed-owned codes
+would have blocked the auth delete); storage bytes never touched by SQL — every
+non-keeper object enqueued to storage_deletions for the heartbeat drain. Two abort
+gates precede any delete: keeper emails must match exactly 2 accounts, profiles must
+equal the previewed 256; RAISE EXCEPTION, never NOTICE (the 0283 lesson).
+
+Evidence (Executed-local, harness at head 288): fixture reproducing production's
+signature (256 profiles, drift=249, ok-orphans) → wipe → profiles=2, drift=0,
+points_ledger_intact/privileged_audit_intact true, klimr_ready true, 25/25 content
+tables zero, storage_enqueued=2 with keeper avatar excluded. Negative controls on the
+FINAL artifact: bad keeper email → abort, 0 rows; 257th profile → abort, 0 rows.
+Production expectation stated to owner: function_acl_intact stays FALSE post-wipe
+(grant drift, not data) and therefore klimr_ready stays FALSE until 0289.
+
+Mistakes recorded: f-string %% written where RAISE needed % (abort path caught it);
+'sports' silently dropped by a whitespace split (count assertion caught it); first
+draft assumed live-operation guards wouldn't fire on teardown. Caveat: harness auth
+schema is a shim — production auth-side cascade is platform-documented, not
+locally executed.
+
+iPhone impact: none.
+
+
+**PRODUCTION CONFIRMED (owner-run, 2026-08-18):** report matched expectations line
+for line — profiles 2/2 attested, all content tables 0, drift 0, points_ledger_intact
+and privileged_audit_intact TRUE in production for the first time since their
+sentinels shipped; function_acl_intact false and klimr_ready false exactly as
+predicted (0289 pending). storage_enqueued=13 — my "~180s" pre-estimate misread
+manifest ENTRIES (187 = 11 snapshots × ~17 objects) as the object count; 13 enqueued
++ 2 keeper avatars ≈ the true object population. Estimate error recorded; reading
+the full report caught it.
+
 ### 2026-08-18 — Two incidents, both mine, both from checking the wrong thing
 
 **(1) 0283 blocked 254 of 256 production accounts.** The admission gate required an attested adult birth date for every member write; only 2 profiles in production had one. The migration reported the count via RAISE NOTICE — which the Supabase SQL editor does not display — so the blast radius was invisible at paste time. **The measurement belonged BEFORE the gate, not inside it.** Fixed by 0288: a dated, per-row 30-day pre-admission window for accounts that predate the gate. Attestation was deliberately NOT backfilled — inventing the fact the gate exists to establish would have left a record claiming people attested when they did not. Verified 6/6 (writes restored, window expires, new accounts get none, attesting supersedes, suspension still wins). Production after 0288: 2 attested, 254 in window (deadline 2026-09-17), 0 blocked.

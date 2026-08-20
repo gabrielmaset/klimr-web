@@ -2323,6 +2323,7 @@ export interface Database {
       is_discoverable_tournament: { Args: { p_id: string }; Returns: boolean };
       discoverable_players: { Args: { p_ids: string[] }; Returns: { player_id: string }[] };
       queue_finish_match: { Args: { p_match: string; p_winner: string }; Returns: Json };
+      queue_resolve_join_request: { Args: { p_request: string; p_approve: boolean }; Returns: Json };
       event_admit: { Args: { p_event: string; p_user: string; p_cycle_start: string | null; p_force_going?: boolean }; Returns: Json };
       queue_placement_intact: { Args: Record<string, never>; Returns: boolean };
       event_capacity_intact: { Args: Record<string, never>; Returns: boolean };
@@ -2366,6 +2367,10 @@ export interface Database {
       marketplace_offer_create: { Args: { p_listing: string; p_amount?: number | null; p_note?: string | null; p_parent?: string | null }; Returns: Json };
       marketplace_offer_respond: { Args: { p_offer: string; p_accept: boolean }; Returns: Json };
       provider_review_decide: { Args: { p_app: string; p_decision: string; p_expected_hash: string; p_reviewer: string; p_note?: string | null }; Returns: Json };
+      tournament_clear_bracket: { Args: { p_tournament: string; p_division: string }; Returns: Json };
+      tournament_clear_pools: { Args: { p_tournament: string; p_division: string }; Returns: Json };
+      tournament_generate_bracket: { Args: { p_tournament: string; p_division: string; p_seats: string[] }; Returns: Json };
+      tournament_generate_pools: { Args: { p_tournament: string; p_division: string; p_groups: Json }; Returns: Json };
       tournament_register: { Args: { p_tournament: string; p_division?: string | null; p_team?: string | null; p_answers?: Json; p_accept_waiver?: boolean; p_accept_rules?: boolean }; Returns: Json };
       tournament_withdraw: { Args: { p_registration: string }; Returns: Json };
       tournament_submit_payment_proof: { Args: { p_registration: string; p_proof_path: string }; Returns: Json };

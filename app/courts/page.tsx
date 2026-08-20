@@ -62,15 +62,22 @@ const rawQuery = (one("zip") ?? "").trim();
   // through geocoding. No origin → the finder renders its search-first state.
   let origin: { lat: number; lng: number } | null = null;
   let originLabel = rawQuery;
-  // "Use my location" carries the browser's precise fix as ?ll= — it wins
-  // over the ZIP centroid (which can sit a mile from the actual person).
-  const llMatch = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec((one("ll") ?? "").trim());
-  const ll = llMatch ? { lat: Number(llMatch[1]), lng: Number(llMatch[2]) } : null;
+  // KFU-014: the legacy ?ll= parameter is DEAD as a data source. Precise
+  // coordinates travel only in the search POST body; any old bookmark or
+  // shared link still carrying one is canonicalized — redirected to the same
+  // URL with the coordinates stripped — so it stops propagating through
+  // history and logs from here on.
+  if (one("ll")) {
+    const strip = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (k === "ll") continue;
+      for (const x of Array.isArray(v) ? v : v == null ? [] : [v]) strip.append(k, x);
+    }
+    const qs = strip.toString();
+    redirect(qs ? `/courts?${qs}` : "/courts");
+  }
   const zipHit = /^\d{5}$/.test(rawQuery) ? lookupZip(rawQuery) : null;
-  if (ll) {
-    origin = ll;
-    originLabel = "Your location";
-  } else if (zipHit) {
+  if (zipHit) {
     origin = { lat: zipHit.lat, lng: zipHit.lng };
     originLabel = rawQuery;
   } else if (!origin && rawQuery.length >= 3) {
@@ -163,7 +170,7 @@ const rawQuery = (one("zip") ?? "").trim();
     <CourtsFinder
       initial={{
         zip: rawQuery,
-        ll: ll ? `${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}` : "",
+        ll: "", // KFU-014: never echoed; memory-only on the client
         radius,
         sport: sportParam,
         venue: one("venue") === "indoor" || one("venue") === "outdoor" ? (one("venue") as "indoor" | "outdoor") : "any",

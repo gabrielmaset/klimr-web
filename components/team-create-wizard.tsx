@@ -161,7 +161,7 @@ export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
             </div>
             {sport ? (
               <div>
-                <label className={labelCls}>Squad size</label>
+                <span className={labelCls}>Squad size</span>
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="inline-flex items-center rounded-xl border border-rule bg-surface shadow-e1">
                     <button
@@ -212,7 +212,7 @@ export function TeamCreateWizard({ homeZip }: { homeZip: string }) {
                 />
               </div>
               <div>
-                <label className={labelCls}>City &amp; state</label>
+                <span className={labelCls}>City &amp; state</span>
                 <div className="flex h-[46px] items-center gap-2 rounded-xl border border-rule bg-bg px-3.5 text-sm">
                   <MapPin size={15} className="shrink-0 text-faint" />
                   {resolving ? (

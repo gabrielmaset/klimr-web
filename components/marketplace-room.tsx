@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Send, ShieldCheck, BadgeCheck, Tag, CalendarPlus, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { reportClientError } from "@/lib/client-diagnostics";
-import { TRADE_TONE, FREE_TONE, PENDING_TONE } from "@/lib/marketplace";
+import { TRADE_TONE, FREE_TONE, PENDING_TONE } from "@/lib/marketplace-shared";
 import { makeOffer, respondOffer, withdrawOffer, proposeMeetup, respondMeetup } from "@/app/marketplace/offer-actions";
 import { notifyThreadMessage } from "@/app/marketplace/chat-actions";
 import {

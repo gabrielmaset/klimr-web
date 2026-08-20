@@ -94,3 +94,13 @@ alter default privileges in schema public grant all on tables to anon, authentic
 -- 0239's event trigger then strips public/anon here exactly as it does hosted.
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
+
+-- 0289+ HTTP-scheduling migrations require deployment config, hard-failing without
+-- it (production semantics). The harness provisions it exactly as production must —
+-- via ALTER DATABASE — with inert harness literals; the stub engines never call out.
+do $$ begin
+  execute format('alter database %I set app.settings.site_url = %L',
+                 current_database(), 'https://harness.invalid');
+  execute format('alter database %I set app.settings.waitlist_cron_secret = %L',
+                 current_database(), 'harness-cron-secret');
+end $$;

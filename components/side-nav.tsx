@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Settings, ShieldCheck, LogOut, Gift, ChevronsUpDown, IdCard, ChevronDown, ChevronLeft, ChevronRight, MessageSquare, HelpCircle, Briefcase } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
-import { NAV_GROUPS, type NavItem } from "@/lib/nav";
+import { type NavItem } from "@/lib/nav";
 import { KlimrLogo } from "@/components/logo";
 import { Avatar } from "@/components/avatar";
 import type { PresenceMode } from "@/app/account/presence";

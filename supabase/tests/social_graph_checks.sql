@@ -13,10 +13,21 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000002', 'graphtest-b@klimr.test'),
   ('aaaaaaaa-0000-0000-0000-000000000003', 'graphtest-c@klimr.test');
 
+-- 0283-era admission: the trigger-created profiles carry no date of birth, and
+-- the active-member gate (correctly) refuses unattested accounts. Attest the
+-- sandbox members the same way every post-admission suite does.
+update public.profiles set date_of_birth = '1990-01-01'
+ where id in ('aaaaaaaa-0000-0000-0000-000000000001',
+              'aaaaaaaa-0000-0000-0000-000000000002',
+              'aaaaaaaa-0000-0000-0000-000000000003');
+
 -- Impersonation helper: makes auth.uid() return the given user for this txn.
 create or replace function pg_temp.impersonate(u uuid) returns void language sql as $$
+  -- Claims alone never engage RLS; the role must actually be assumed (the
+  -- same defect the sibling suite carried).
   select set_config('request.jwt.claims', json_build_object('sub', u::text, 'role', 'authenticated')::text, true),
-         set_config('request.jwt.claim.sub', u::text, true);
+         set_config('request.jwt.claim.sub', u::text, true),
+         set_config('role', 'authenticated', true);
 $$;
 
 do $body$
@@ -49,10 +60,18 @@ begin
   begin
     insert into public.friendships (requester_id, addressee_id, status) values (b, a, 'pending');
     raise exception 'CHECK 3 failed: reverse duplicate insert was allowed';
-  exception when unique_violation then null; -- exactly what we want
+  exception
+    when unique_violation then null;        -- blocked by the canonical index
+    when insufficient_privilege then null;  -- or earlier, by the RLS policy —
+                                            -- with the role actually assumed,
+                                            -- either layer refusing proves it
   end;
 
-  -- (4) decline records a cooldown ------------------------------------------
+  -- (4) decline records a cooldown — the LIVE contract (0238/0295): decline
+  -- MARKS the row status='declined'; the reader answers 'declined_recently'
+  -- for 30 days; the decliner reaching out clears it. This block found the
+  -- production regression (reader/writer/constraint half-migration) on
+  -- 2026-08-18 — it asserted the old memo-table contract, both were broken.
   perform pg_temp.impersonate(c);
   r := public.request_connection(a);
   if r <> 'requested' then raise exception 'CHECK 4a failed: got %', r; end if;
@@ -60,7 +79,7 @@ begin
   perform public.remove_connection(c, true);  -- A declines C
   perform pg_temp.impersonate(c);
   r := public.request_connection(a);
-  if r <> 'cooldown' then raise exception 'CHECK 4b failed: expected cooldown, got %', r; end if;
+  if r <> 'declined_recently' then raise exception 'CHECK 4b failed: expected declined_recently, got %', r; end if;
   -- ...but the decliner reaching out clears it
   perform pg_temp.impersonate(a);
   r := public.request_connection(c);
@@ -88,12 +107,19 @@ begin
   -- the blocked person can't reach back (and isn't told why)
   perform pg_temp.impersonate(b);
   r := public.request_connection(a);
-  if r <> 'unavailable' then raise exception 'CHECK 6c failed: expected unavailable, got %', r; end if;
+  -- live contract (0238/KCDX-062): may_act_on answers 'blocked' for BOTH
+  -- directions — the verdict is directionally opaque and the app maps it to
+  -- generic copy. The 0099-era word was 'unavailable'.
+  if r <> 'blocked' then raise exception 'CHECK 6c failed: expected blocked, got %', r; end if;
   if public.follow_player(a) then raise exception 'CHECK 6d failed: blocked follow returned true'; end if;
-  -- even a raw insert is cancelled by the DB trigger
-  insert into public.follows (follower_id, followee_id) values (b, a);
+  -- even a raw insert is stopped — by the RLS policy or the DB trigger,
+  -- whichever meets it first now that the role is actually assumed
+  begin
+    insert into public.follows (follower_id, followee_id) values (b, a);
+  exception when insufficient_privilege then null;
+  end;
   select count(*) into n from public.follows where follower_id = b and followee_id = a;
-  if n <> 0 then raise exception 'CHECK 6e failed: block-guard trigger let a follow through'; end if;
+  if n <> 0 then raise exception 'CHECK 6e failed: a blocked follow landed'; end if;
 
   -- (7) follow counters ------------------------------------------------------
   perform pg_temp.impersonate(c);
@@ -104,7 +130,7 @@ begin
   select followers_count into n from public.profiles where id = a;
   if n <> 0 then raise exception 'CHECK 7c failed: followers_count=% after unfollow (want 0)', n; end if;
 
-  raise notice 'ALL SOCIAL GRAPH CHECKS PASSED';
+  raise notice 'ok   ALL SOCIAL GRAPH CHECKS PASSED';
 end;
 $body$;
 
