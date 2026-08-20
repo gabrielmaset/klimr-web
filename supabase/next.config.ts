@@ -1,0 +1,41 @@
+import type { NextConfig } from "next";
+
+/**
+ * Security headers. Klimr treats security as priority one, so every response
+ * carries a defensive baseline. Notes:
+ *  - CSP allows Supabase (auth, storage, realtime) and self-hosted assets only.
+ *    'unsafe-inline' on script/style is the pragmatic Next baseline; the next
+ *    hardening step is nonce-based CSP (see Klimr_Avatar_Storage.md → security).
+ *  - When Google / Apple sign-in lands, add their origins to connect-src and
+ *    form-action (accounts.google.com, appleid.apple.com).
+ */
+const securityHeaders = [
+  // KFU-025: CSP moved to middleware as the single enforced source (nonce
+  // policy from lib/csp.ts; loud fallback on nonce failure). Two enforced
+  // policies drift; one cannot.
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // geolocation=(self): the Events proximity filter uses browser location on our
+  // own origin. Camera/mic stay disabled until identity verification ships.
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self), browsing-topics=()" },
+  { key: "X-DNS-Prefetch-Control", value: "off" },
+];
+
+const nextConfig: NextConfig = {
+  poweredByHeader: false, // don't advertise the framework
+  experimental: {
+    // Feed image uploads post through a Server Action; default cap is 1MB.
+    serverActions: { bodySizeLimit: "6mb" },
+  },
+  images: {
+    // Avatars and any future hero art served from Supabase Storage.
+    remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }],
+  },
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
+};
+
+export default nextConfig;

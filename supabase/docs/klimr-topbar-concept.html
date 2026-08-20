@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Klimr — Top bar (refined)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#fafafa; --surface:#ffffff; --ink:#0a0a0b; --ink-soft:#18181b;
+    --mute:#71717a; --faint:#a1a1aa; --rule:#e4e4e7;
+    --brand:#ff4e1b; --brand-deep:#d63a0f; --pop:#ffe249;
+    --green:#16a34a; --amber:#f59e0b; --gray:#a1a1aa; --tint:#fff1ed;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
+  .page{max-width:1180px;margin:0 auto;padding:28px 22px 60px}
+  .intro .mk{font-weight:800;font-size:20px;letter-spacing:-0.02em}
+  .intro .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);display:inline-block;margin-left:6px;transform:translateY(-2px)}
+  .intro h1{font-weight:800;font-size:25px;letter-spacing:-0.02em;margin:10px 0 6px}
+  .intro p{color:var(--mute);font-size:14px;max-width:730px}
+  .hint{display:inline-flex;align-items:center;gap:7px;margin-top:12px;font-size:12.5px;color:var(--brand-deep);background:var(--tint);border:1px solid #ffd9cb;padding:6px 12px;border-radius:999px}
+
+  /* app frame — both panels float, inset equally so their tops align */
+  .frame{display:flex;gap:24px;margin-top:22px;background:linear-gradient(180deg,#eef0f2,#fafafa);border-radius:24px;padding:12px;min-height:520px;border:1px solid var(--rule)}
+
+  /* sidebar (unchanged; shown for context) */
+  .side{width:230px;flex:none;border-radius:20px;border:1px solid rgba(228,228,231,.7);background:rgba(255,255,255,.72);backdrop-filter:blur(20px) saturate(1.5);box-shadow:0 10px 40px -15px rgba(10,10,11,.2);display:flex;flex-direction:column;padding:16px 11px}
+  .side .logo{font-weight:800;font-size:19px;letter-spacing:-0.02em;padding:0 10px}
+  .side .logo .dot{width:7px;height:7px;border-radius:50%;background:var(--brand);display:inline-block;margin-left:5px;transform:translateY(-2px)}
+  .kick{text-transform:uppercase;letter-spacing:.14em;font-size:10px;font-weight:700;color:var(--faint);padding:0 12px;margin:20px 0 8px}
+  .nav{display:flex;flex-direction:column;gap:3px}
+  .nav a{display:flex;align-items:center;gap:11px;height:38px;border-radius:14px;padding:0 12px;font-size:14px;font-weight:600;color:var(--ink);text-decoration:none}
+  .nav a.active{background:var(--tint);color:var(--brand-deep)}
+  .nav a .dot7{width:17px;text-align:center;color:var(--mute);font-size:13px}
+  .nav a.active .dot7{color:var(--brand)}
+  .nav a .moved{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);background:#f4f4f5;border-radius:999px;padding:2px 7px}
+  .grow{flex:1}
+  .acct{margin-top:14px;border-top:1px solid rgba(228,228,231,.7);padding-top:12px}
+  .acct .row{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.04);border-radius:16px;padding:8px}
+  .acct .av{position:relative;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#60a5fa,#3730a3);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;box-shadow:0 0 0 2px #fff}
+  .acct .av .pdot{position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:var(--green)}
+  .acct .nm{font-size:13.5px;font-weight:700}
+  .acct .ch{margin-left:auto;color:var(--faint)}
+
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+  /* THE TOP BAR — floating glass card, matched to the sidebar */
+  .topbar{display:flex;align-items:center;gap:12px;padding:10px 14px;
+          border-radius:16px;border:1px solid rgba(228,228,231,.7);background:rgba(255,255,255,.8);
+          backdrop-filter:blur(20px) saturate(1.5);box-shadow:0 10px 40px -15px rgba(10,10,11,.22)}
+
+  .search{display:flex;align-items:center;gap:9px;height:36px;width:300px;max-width:36%;border-radius:12px;border:1px solid var(--rule);background:var(--bg);color:var(--mute);font-size:13.5px;padding:0 12px;cursor:text;transition:background .15s}
+  .search:hover{background:#fff}
+  .search .mag{color:var(--faint);font-size:15px}
+  .search .kbd{margin-left:auto;display:flex;gap:4px}
+  .search .kbd span{font-size:10px;font-weight:600;color:var(--faint);background:#fff;border:1px solid var(--rule);border-radius:6px;padding:1px 6px}
+
+  .nextmatch{display:inline-flex;align-items:center;gap:8px;height:34px;max-width:20rem;border-radius:999px;background:var(--tint);border:1px solid #ffd9cb;padding:0 6px 0 12px;color:var(--ink-soft);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:transform .18s,box-shadow .18s}
+  .nextmatch:hover{transform:translateY(-2px);box-shadow:0 8px 24px -16px rgba(10,10,11,.25)}
+  .nextmatch .cal{color:var(--brand);font-size:15px;flex:none}
+  .nextmatch .t{overflow:hidden;text-overflow:ellipsis}
+  .nextmatch .t .lab{color:var(--mute)} .nextmatch .t b{color:var(--brand-deep)}
+  .nextmatch .go{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#fff;color:var(--brand-deep);flex:none}
+
+  .right{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .cta{display:inline-flex;align-items:center;gap:6px;height:36px;border-radius:999px;background:var(--brand);color:#fff;border:none;font-family:inherit;font-size:13px;font-weight:600;padding:0 14px 0 11px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:background .15s}
+  .cta:hover{background:var(--brand-deep)}
+  .cta .pl{font-size:17px;line-height:1}
+  .sep{width:1px;height:20px;background:var(--rule);margin:0 3px}
+  .ghost{position:relative;width:36px;height:36px;border-radius:12px;border:none;background:none;color:var(--mute);display:grid;place-items:center;cursor:pointer;transition:background .15s,color .15s}
+  .ghost:hover{background:rgba(0,0,0,.05);color:var(--ink)}
+  .ghost svg{width:18px;height:18px}
+  .badge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;border-radius:999px;background:var(--brand);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 4px;box-shadow:0 0 0 2px #fff}
+
+  .presence{position:relative;margin-left:2px}
+  .pbtn{display:inline-flex;align-items:center;gap:8px;height:36px;border-radius:999px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;padding:0 8px 0 10px;cursor:pointer;transition:background .15s}
+  .pbtn:hover{background:#fff}
+  .pbtn .pd{width:10px;height:10px;border-radius:50%;background:var(--green)}
+  .pbtn .cv{color:var(--faint);font-size:14px;transition:transform .2s}
+  .pbtn.open .cv{transform:rotate(180deg)}
+  .pmenu{position:absolute;right:0;top:44px;width:240px;background:#fff;border:1px solid var(--rule);border-radius:16px;box-shadow:0 18px 50px -12px rgba(10,10,11,.4);overflow:hidden;display:none;transform-origin:top right;z-index:20}
+  .pmenu.open{display:block;animation:pop .12s ease-out}
+  @keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+  .pmenu .ph{padding:11px 14px 4px;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .pwrap{padding:4px}
+  .popt{display:flex;align-items:flex-start;gap:11px;width:100%;border:none;background:none;font-family:inherit;text-align:left;padding:8px 10px;border-radius:12px;cursor:pointer;transition:background .12s}
+  .popt:hover{background:var(--bg)}
+  .popt.sel{background:var(--bg)}
+  .popt .pd{width:10px;height:10px;border-radius:50%;flex:none;margin-top:5px}
+  .popt .lbl{display:block;font-size:14px;font-weight:600;color:var(--ink)}
+  .popt.sel .lbl{color:var(--brand-deep)}
+  .popt .sub{display:block;font-size:11.5px;color:var(--faint);font-weight:500}
+  .popt .ck{margin-left:auto;color:var(--brand-deep);opacity:0;margin-top:3px}
+  .popt.sel .ck{opacity:1}
+  .pmenu .foot{border-top:1px solid var(--rule)}
+  .pmenu .foot a{display:flex;align-items:center;gap:9px;padding:10px 14px;font-size:13px;color:var(--mute);text-decoration:none}
+  .pmenu .foot a:hover{background:var(--bg)}
+
+  .content{margin-top:18px;padding:6px 6px 0}
+  .content .ek{text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:700;color:var(--faint)}
+  .content h2{font-weight:800;font-size:27px;letter-spacing:-0.02em;margin-top:2px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  .card{background:#fff;border:1px solid var(--rule);border-radius:16px;padding:14px 16px;min-height:92px}
+  .card .ln{height:9px;border-radius:6px;background:#f1f1f3}
+  .card .ln.s{width:38%;margin-bottom:10px;background:#ececed}
+  .card .ln.m{width:80%;margin-bottom:8px}
+  .card .ln.l{width:58%}
+
+  svg{stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  @media(max-width:880px){
+    .side{display:none}.search{width:200px}.nextmatch .t{display:none}.cards{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="intro">
+    <span class="mk">klimr</span><span class="dot"></span>
+    <h1>Top bar — refined</h1>
+    <p>A floating glass strip aligned to the sidebar so the two read as one surface. Outlined search + status, ghost icon buttons, a single brand action, and a glanceable next-match chip. Click the status pill, the chip, or the bell.</p>
+    <span class="hint">Interactive preview</span>
+  </div>
+
+  <div class="frame">
+
+    <aside class="side">
+      <div class="logo">klimr<span class="dot"></span></div>
+      <div class="kick">Main</div>
+      <nav class="nav">
+        <a href="#"><span class="dot7">◔</span> My profile</a>
+        <a href="#" class="active"><span class="dot7">▤</span> Feed</a>
+        <a href="#" style="opacity:.5"><span class="dot7">◇</span> Chats <span class="moved">moved up</span></a>
+        <a href="#" style="opacity:.5"><span class="dot7">◌</span> Notifications <span class="moved">moved up</span></a>
+        <a href="#"><span class="dot7">◍</span> Network</a>
+        <a href="#"><span class="dot7">▢</span> Invites</a>
+        <a href="#"><span class="dot7">⚔</span> Play</a>
+      </nav>
+      <div class="grow"></div>
+      <div class="acct">
+        <div class="row">
+          <div class="av">G<span class="pdot" id="sideDot"></span></div>
+          <div class="nm">Gabriel</div>
+          <div class="ch">⇅</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+
+      <div class="topbar">
+        <div class="search" onclick="alert('Opens the ⌘K command palette — search players, courts, teams, events, with quick actions and full keyboard nav.')">
+          <span class="mag">⌕</span> Search players, courts, teams…
+          <span class="kbd"><span id="modk">⌘</span><span>K</span></span>
+        </div>
+
+        <a class="nextmatch" href="javascript:void(0)" onclick="alert('Opens the match — directions, opponent chat, court info.')" title="Next match">
+          <span class="cal">▦</span>
+          <span class="t"><span class="lab">Next</span> · <b>Tennis</b> · in 25m · Penmar Rec Center</span>
+          <span class="go">›</span>
+        </a>
+
+        <div class="right">
+          <button class="cta"><span class="pl">+</span> Match</button>
+          <div class="sep"></div>
+          <button class="ghost" aria-label="Chats" onclick="alert('Chats')"><svg viewBox='0 0 24 24'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/></svg><span class="badge">2</span></button>
+          <button class="ghost" aria-label="Notifications" onclick="alert('Notifications')"><svg viewBox='0 0 24 24'><path d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/><path d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/></svg><span class="badge">5</span></button>
+
+          <div class="presence">
+            <button class="pbtn" id="pbtn" onclick="togglePresence(event)"><span class="pd" id="pdot"></span><span id="plabel">Online</span><span class="cv">▾</span></button>
+            <div class="pmenu" id="pmenu">
+              <div class="ph">Set yourself as</div>
+              <div class="pwrap">
+                <button class="popt sel" data-s="online"  data-c="var(--green)" onclick="pick(this)"><span class="pd" style="background:var(--green)"></span><span><span class="lbl">Online</span><span class="sub">Others see you're active</span></span><span class="ck">✓</span></button>
+                <button class="popt"     data-s="away"    data-c="var(--amber)" onclick="pick(this)"><span class="pd" style="background:var(--amber)"></span><span><span class="lbl">Away</span><span class="sub">Around, but not at the app</span></span><span class="ck">✓</span></button>
+                <button class="popt"     data-s="offline" data-c="var(--gray)"  onclick="pick(this)"><span class="pd" style="background:var(--gray)"></span><span><span class="lbl">Appear offline</span><span class="sub">Browse privately — hidden dot</span></span><span class="ck">✓</span></button>
+                <button class="popt"     data-s="auto"    data-c="var(--green)" onclick="pick(this)"><span class="pd" style="background:var(--green)"></span><span><span class="lbl">Automatic</span><span class="sub">Online when you're active</span></span><span class="ck">✓</span></button>
+              </div>
+              <div class="foot"><a href="#" onclick="alert('Presence defaults & privacy live on Settings → Profile.');return false;">⚙ Status &amp; privacy settings</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="ek">Feed</div>
+        <h2>Your feed</h2>
+        <div class="cards">
+          <div class="card"><div class="ln s"></div><div class="ln m"></div><div class="ln l"></div></div>
+          <div class="card"><div class="ln s"></div><div class="ln m"></div><div class="ln l"></div></div>
+          <div class="card"><div class="ln s"></div><div class="ln m"></div><div class="ln l"></div></div>
+          <div class="card"><div class="ln s"></div><div class="ln m"></div><div class="ln l"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // platform-aware modifier hint
+  document.getElementById('modk').textContent = /Mac|iPhone|iPad/i.test(navigator.userAgent||navigator.platform||'') ? '⌘' : 'Ctrl';
+
+  function togglePresence(e){ e.stopPropagation(); document.getElementById('pmenu').classList.toggle('open'); document.getElementById('pbtn').classList.toggle('open'); }
+  document.addEventListener('click',function(e){
+    var m=document.getElementById('pmenu'), b=document.getElementById('pbtn');
+    if(m.classList.contains('open') && !m.contains(e.target) && !b.contains(e.target)){ m.classList.remove('open'); b.classList.remove('open'); }
+  });
+  function pick(el){
+    var label={online:'Online',away:'Away',offline:'Offline',auto:'Online'}[el.dataset.s];
+    var color=el.dataset.c;
+    document.getElementById('plabel').textContent=label;
+    document.getElementById('pdot').style.background=color;
+    document.getElementById('sideDot').style.background = el.dataset.s==='offline' ? 'var(--gray)' : color;
+    document.querySelectorAll('.popt').forEach(function(o){o.classList.remove('sel');});
+    el.classList.add('sel');
+    document.getElementById('pmenu').classList.remove('open');
+    document.getElementById('pbtn').classList.remove('open');
+  }
+</script>
+</body>
+</html>

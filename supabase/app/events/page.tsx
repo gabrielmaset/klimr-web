@@ -1,0 +1,159 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Plus } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { getUserSportKeys } from "@/lib/user-sports";
+import { EventsBrowser, type CardEvent } from "@/components/events-browser";
+import { readSportsParam } from "@/lib/filter-params";
+import { parseLatLngFromMapsUrl } from "@/lib/maps-url";
+import { suggestCities, lookupZip } from "@/lib/us-places";
+
+export const metadata: Metadata = { title: "Events" };
+
+type Ev = {
+  id: string;
+  title: string;
+  sport_key: string;
+  kind: string;
+  court_id: string | null;
+  location_text: string | null;
+  location_url: string | null;
+  location_reveal: string;
+  starts_at: string;
+  capacity: number | null;
+  cost_text: string | null;
+  cover_path: string | null;
+  thumb_path: string | null;
+  created_by: string | null;
+  status: string;
+};
+
+const COVER_BUCKET = "tournament-gallery";
+const CARD_COLS = "id, title, sport_key, kind, court_id, location_text, location_url, starts_at, capacity, cost_text, cover_path, thumb_path, created_by, status, location_reveal";
+
+function nowIso() {
+  return new Date().toISOString();
+}
+function nowMs() {
+  return Date.now();
+}
+
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sport?: string }>;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/events");
+  const mySportKeys = await getUserSportKeys(supabase, user.id);
+
+  const [{ data: eData }, { data: mgr }] = await Promise.all([
+    supabase.from("events").select(CARD_COLS).eq("status", "active").gte("starts_at", nowIso()).order("starts_at").limit(60),
+    supabase.from("event_managers").select("event_id").eq("user_id", user.id),
+  ]);
+  const events = (eData as Ev[] | null) ?? [];
+  const adminSet = new Set<string>((mgr ?? []).map((m) => m.event_id));
+
+  // events the viewer owns or co-admins — any status, most recent first
+  let myRows: Ev[] = [];
+  {
+    const adminIds = [...adminSet];
+    let qb = supabase.from("events").select(CARD_COLS);
+    qb = adminIds.length ? qb.or(`created_by.eq.${user.id},id.in.(${adminIds.join(",")})`) : qb.eq("created_by", user.id);
+    const { data } = await qb.order("starts_at", { ascending: false }).limit(60);
+    myRows = (data as Ev[] | null) ?? [];
+  }
+
+  const allIds = [...new Set([...events.map((e) => e.id), ...myRows.map((e) => e.id)])];
+  const going = new Set<string>();
+  const counts = new Map<string, number>();
+  const courtName = new Map<string, string>();
+  const courtGeo = new Map<string, { lat: number | null; lng: number | null }>();
+  if (allIds.length) {
+    const courtIds = [...new Set([...events, ...myRows].map((e) => e.court_id).filter(Boolean))] as string[];
+    const [{ data: rsvps }, courtsRes] = await Promise.all([
+      supabase.from("event_rsvps").select("event_id, user_id, status").in("event_id", allIds).eq("status", "going"),
+      courtIds.length ? supabase.from("courts").select("id, name, lat, lng").in("id", courtIds) : Promise.resolve({ data: [] }),
+    ]);
+    for (const r of rsvps ?? []) {
+      counts.set(r.event_id, (counts.get(r.event_id) ?? 0) + 1);
+      if (r.user_id === user.id) going.add(r.event_id);
+    }
+    for (const c of (courtsRes.data as { id: string; name: string; lat: number | null; lng: number | null }[] | null) ?? []) {
+      courtName.set(c.id, c.name);
+      courtGeo.set(c.id, { lat: c.lat, lng: c.lng });
+    }
+  }
+
+  const coverUrl = (e: Ev) => {
+    const path = e.thumb_path || e.cover_path;
+    return path ? supabase.storage.from(COVER_BUCKET).getPublicUrl(path).data.publicUrl : null;
+  };
+  const toCard = (e: Ev): CardEvent => ({
+    id: e.id,
+    title: e.title,
+    sportKey: e.sport_key,
+    kind: e.kind,
+    whenIso: e.starts_at,
+    venue: e.location_reveal === "rsvp" ? "Location after RSVP" : e.court_id ? courtName.get(e.court_id) ?? null : e.location_text,
+    goingCount: counts.get(e.id) ?? 0,
+    capacity: e.capacity,
+    amGoing: going.has(e.id),
+    coverUrl: coverUrl(e),
+    costText: e.cost_text,
+    ...eventPoint(e),
+    mine: e.created_by === user.id || adminSet.has(e.id),
+    status: e.status,
+  });
+
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null;
+
+  /** Coordinate chain for the map + Near-me: linked court → the organizer's
+   *  pasted Google Maps link → the venue text geocoded against the local US
+   *  dataset ("Santa Monica, CA" pins at the city centroid). */
+  function eventPoint(e: { court_id: string | null; location_url: string | null; location_text: string | null; location_reveal?: string }): { lat: number | null; lng: number | null } {
+  if (e.location_reveal === "rsvp") return { lat: null, lng: null };
+    if (e.court_id) {
+      const g = courtGeo.get(e.court_id);
+      if (g?.lat != null && g?.lng != null) return { lat: g.lat, lng: g.lng };
+    }
+    const fromUrl = parseLatLngFromMapsUrl(e.location_url);
+    if (fromUrl) return fromUrl;
+    const txt = (e.location_text ?? "").trim();
+    if (txt) {
+      const zipMatch = txt.match(/\b(\d{5})\b/);
+      if (zipMatch) {
+        const z = lookupZip(zipMatch[1]);
+        if (z) return { lat: z.lat, lng: z.lng };
+      }
+      const hit = suggestCities(txt, 1)[0] ?? suggestCities(txt.split(",")[0], 1)[0];
+      if (hit) return { lat: hit.lat, lng: hit.lng };
+    }
+    return { lat: null, lng: null };
+  }
+
+  const cards = events.map(toCard);
+  const myCards = myRows.map(toCard);
+
+  return (
+    <div className="mx-auto max-w-page px-5 py-8 sm:py-10">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-flame-text">Compete — Events</p>
+        <h1 className="mt-1.5 font-display text-[40px] font-bold leading-none tracking-[-0.025em] text-ink">Events</h1>
+          <p className="mt-1 text-sm text-mute">Open play, ladder nights, clinics, and tournaments near you. Times shown in PT.</p>
+          <Link href="/events/past" className="mt-1.5 inline-block text-xs font-semibold text-brand-deep hover:underline">View past events →</Link>
+        </div>
+        <Link href="/events/new" className="press inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B52D0B]-deep">
+          <Plus size={16} /> Host an event
+        </Link>
+      </div>
+
+      <EventsBrowser events={cards} myEvents={myCards} nowMs={nowMs()} mapboxToken={mapboxToken} availableSports={mySportKeys} initialSports={readSportsParam((await searchParams).sport)} />
+    </div>
+  );
+}

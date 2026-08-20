@@ -1,0 +1,41 @@
+# RCLONE_CONF template (KCDX-053 / RESILIENCE runbook).
+# Fill every <PLACEHOLDER>, then paste the WHOLE file as the value of the
+# GitHub Actions secret RCLONE_CONF. One secret on purpose: rotation is one step.
+# The crypt passwords are stored rclone-obscured; the PLAINTEXT lives only in
+# the owner's password manager. Losing the plaintext = losing the encrypted
+# copies; there is no reset.
+
+[supa]
+type = s3
+provider = Other
+access_key_id = <SUPABASE_S3_ACCESS_KEY_ID>
+secret_access_key = <SUPABASE_S3_SECRET_ACCESS_KEY>
+endpoint = https://<PROJECT_REF>.storage.supabase.co/storage/v1/s3
+region = <PROJECT_REGION>
+force_path_style = true
+
+[r2]
+type = s3
+provider = Cloudflare
+access_key_id = <R2_ACCESS_KEY_ID>
+secret_access_key = <R2_SECRET_ACCESS_KEY>
+endpoint = https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com
+acl = private
+no_check_bucket = true
+
+[b2]
+type = b2
+account = <B2_KEY_ID>
+key = <B2_APPLICATION_KEY>
+
+[r2enc]
+type = crypt
+remote = r2:klimr-backup/encrypted
+password = <OBSCURED_PASSWORD_1>
+password2 = <OBSCURED_PASSWORD_2>
+
+[b2enc]
+type = crypt
+remote = b2:klimr-backup/encrypted
+password = <OBSCURED_PASSWORD_1>
+password2 = <OBSCURED_PASSWORD_2>

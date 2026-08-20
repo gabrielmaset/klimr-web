@@ -1,0 +1,143 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, Check } from "lucide-react";
+import { OptionCards } from "@/components/form-kit";
+import { CustomFieldsRenderer, type AnswerMap } from "@/components/custom-fields-renderer";
+import { signUpIndividual } from "@/app/tournaments/actions";
+import { formatFee, type CustomFieldRow, type DivisionRow } from "@/lib/tournament";
+import { RegistrantSharedInfo, type SharedInfo } from "@/components/registrant-shared-info";
+
+export function IndividualSignupForm({
+  tournamentId,
+  code,
+  divisions,
+  fields,
+  waiverText,
+  rulesText,
+  rulesHtml,
+  requireWaiver,
+  requireRules,
+  sharedInfo,
+}: {
+  tournamentId: string;
+  code: string;
+  divisions: DivisionRow[];
+  fields: CustomFieldRow[];
+  waiverText: string;
+  rulesText: string;
+  rulesHtml?: string | null;
+  requireWaiver: boolean;
+  requireRules: boolean;
+  sharedInfo: SharedInfo;
+}) {
+  const router = useRouter();
+  const [divisionId, setDivisionId] = useState(divisions.length === 1 ? divisions[0].id : "");
+  const [answers, setAnswers] = useState<AnswerMap>({});
+  const [acceptWaiver, setAcceptWaiver] = useState(false);
+  const [acceptRules, setAcceptRules] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const setAnswer = (id: string, value: string | string[]) => setAnswers((a) => ({ ...a, [id]: value }));
+
+  function validate(): string | null {
+    if (divisions.length > 0 && !divisionId) return "Pick a division.";
+    for (const f of fields) {
+      if (!f.required) continue;
+      const v = answers[f.id];
+      const empty = v == null || (typeof v === "string" && v.trim() === "") || (Array.isArray(v) && v.length === 0);
+      if (empty) return `Please answer: ${f.label}`;
+    }
+    if (waiverText && requireWaiver && !acceptWaiver) return "Please accept the waiver to continue.";
+    if (rulesText && requireRules && !acceptRules) return "Please acknowledge the rules to continue.";
+    return null;
+  }
+
+  async function submit() {
+    const v = validate();
+    if (v) {
+      setErr(v);
+      return;
+    }
+    setSubmitting(true);
+    setErr(null);
+    try {
+      const res = await signUpIndividual(tournamentId, { divisionId: divisionId || null, answers, acceptWaiver, acceptRules });
+      if (res.ok) {
+        router.push(`/e/${code}`);
+        router.refresh();
+      } else {
+        setErr(res.error ?? "Couldn't register.");
+        setSubmitting(false);
+      }
+    } catch {
+      setErr("Something went wrong. Try again.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-6">
+      <RegistrantSharedInfo info={sharedInfo} />
+
+      {divisions.length > 0 ? (
+        <section>
+          <h2 className="mb-3 text-sm font-bold text-ink">Choose a division</h2>
+          <OptionCards
+            ariaLabel="Division"
+            value={divisionId}
+            onChange={setDivisionId}
+            options={divisions.map((d) => ({ value: d.id, label: d.name, hint: `${formatFee(d.fee_cents, d.fee_basis)}${d.description ? ` · ${d.description}` : ""}` }))}
+          />
+        </section>
+      ) : null}
+
+      {fields.length > 0 ? (
+        <section>
+          <h2 className="mb-3 text-sm font-bold text-ink">Your details</h2>
+          <CustomFieldsRenderer fields={fields} answers={answers} onChange={setAnswer} />
+        </section>
+      ) : null}
+
+      {waiverText ? (
+        <section>
+          <h2 className="mb-2 text-sm font-bold text-ink">Waiver</h2>
+          <div className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-xl border border-rule bg-bg/40 p-3.5 text-xs leading-relaxed text-ink-soft">{waiverText}</div>
+          <button type="button" onClick={() => setAcceptWaiver((v) => !v)} className="mt-3 flex items-center gap-2.5 text-left text-sm font-medium text-ink-soft">
+            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded border ${acceptWaiver ? "border-brand bg-brand text-white" : "border-faint"}`}>{acceptWaiver ? <Check size={13} /> : null}</span>
+            I accept the waiver{requireWaiver ? <span className="text-brand"> *</span> : null}
+          </button>
+        </section>
+      ) : null}
+
+      {rulesText ? (
+        <section>
+          <h2 className="mb-2 text-sm font-bold text-ink">Rules</h2>
+          {rulesHtml ? (
+            <div className={"max-h-44 overflow-y-auto rounded-xl border border-rule bg-bg/40 p-3.5 text-xs leading-relaxed text-ink-soft [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2"} dangerouslySetInnerHTML={{ __html: rulesHtml }} />
+          ) : (
+            <div className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-xl border border-rule bg-bg/40 p-3.5 text-xs leading-relaxed text-ink-soft">{rulesText}</div>
+          )}
+          <button type="button" onClick={() => setAcceptRules((v) => !v)} className="mt-3 flex items-center gap-2.5 text-left text-sm font-medium text-ink-soft">
+            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded border ${acceptRules ? "border-brand bg-brand text-white" : "border-faint"}`}>{acceptRules ? <Check size={13} /> : null}</span>
+            I acknowledge the rules{requireRules ? <span className="text-brand"> *</span> : null}
+          </button>
+        </section>
+      ) : null}
+
+      <div className="flex items-center gap-3 border-t border-rule pt-5">
+      <p className="rounded-xl border border-rule-soft bg-bg px-3.5 py-2.5 text-[10.5px] leading-relaxed text-faint">
+        This tournament is organized by a Klimr member — not by Klimr. By registering you also agree to the{" "}
+        <a href="/legal#terms" target="_blank" className="font-semibold text-ink underline decoration-rule-2 underline-offset-2">Klimr Terms</a>, including assumption of risk &amp; release and the
+        limitation of liability; Klimr is not a party to arrangements between you and the host.
+      </p>
+        <button type="button" onClick={submit} disabled={submitting} className="press inline-flex items-center gap-1.5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#B52D0B]-deep disabled:opacity-50">
+          {submitting ? <Loader2 size={16} className="animate-spin" /> : null} Complete sign-up
+        </button>
+        {err ? <span className="text-xs font-semibold text-brand-deep">{err}</span> : null}
+      </div>
+    </div>
+  );
+}

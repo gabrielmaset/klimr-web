@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/finalize-tournaments", "schedule": "0 6 * * *" }
+  ]
+}

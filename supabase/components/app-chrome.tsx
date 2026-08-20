@@ -1,0 +1,82 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { AutoBreadcrumbs } from "@/components/auto-breadcrumbs";
+import { SideNav } from "@/components/side-nav";
+import { MobileTopBar } from "@/components/mobile-top-bar";
+import { BottomNav } from "@/components/bottom-nav";
+import { SiteFooter } from "@/components/site-footer";
+import { TopBar, type NextMatch } from "@/components/top-bar";
+import { CommandPalette } from "@/components/command-palette";
+import type { PresenceMode } from "@/app/account/presence";
+import { isStandalonePath } from "@/lib/nav-chrome";
+
+type Team = { id: string; name: string; sport_key: string; category: string };
+
+/**
+ * The signed-in chrome (sidebar, top bar, footer). Standalone surfaces — the
+ * public event page (/e/...) and the /team/[id] and /tournament/[id] workspaces,
+ * which supply their own chrome — step aside via the shared isStandalonePath
+ * rule. The check runs client-side from usePathname so it is re-evaluated on
+ * every in-app navigation; doing it server-side in the shared root layout left
+ * the shell stale after a soft navigation (e.g. arriving at /teams from a public
+ * event page showed no sidebar).
+ */
+export function AppChrome({
+  children,
+  avatarUrl,
+  avatarHue,
+  avatarName,
+  email,
+  adminRole,
+  isOrganizer = false,
+  businesses = [],
+  presenceMode,
+  teams,
+  chatUnread,
+  unread,
+  nextMatch,
+}: {
+  children: React.ReactNode;
+  avatarUrl: string | null;
+  avatarHue: number;
+  avatarName: string;
+  email: string | null;
+  adminRole: boolean;
+  /** Approved to run tournaments — orders the nav, never gates it (K3-03). */
+  isOrganizer?: boolean;
+  businesses?: { id: string; name: string }[];
+  presenceMode: PresenceMode;
+  teams: Team[];
+  chatUnread: number;
+  unread: number;
+  nextMatch: NextMatch;
+}) {
+  const pathname = usePathname();
+  if (isStandalonePath(pathname)) return <>{children}</>;
+
+  return (
+    <div className="flex min-h-dvh">
+      <SideNav
+        avatarUrl={avatarUrl}
+        avatarHue={avatarHue}
+        avatarName={avatarName}
+        email={email}
+        adminRole={adminRole}
+        businesses={businesses}
+        presenceMode={presenceMode}
+        hasTeams={(teams?.length ?? 0) > 0}
+        isOrganizer={isOrganizer}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <MobileTopBar unreadCount={unread} avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} adminRole={adminRole} />
+        <TopBar chatUnread={chatUnread} unreadCount={unread} presenceMode={presenceMode} nextMatch={nextMatch} teams={teams} />
+        <nav aria-label="Skip links"><a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">Skip to content</a></nav>
+        <main id="main" className="flex-1"><AutoBreadcrumbs />{children}</main>
+        <SiteFooter authed />
+        <BottomNav avatarUrl={avatarUrl} avatarHue={avatarHue} avatarName={avatarName} chatUnread={chatUnread} />
+      </div>
+      <CommandPalette />
+    </div>
+  );
+}

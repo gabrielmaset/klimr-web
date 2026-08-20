@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-08-19T16:24:25.092Z",
+  "defaultFirstLoadKB": 700,
+  "routes": [
+    {
+      "route": "/feed",
+      "sizeKB": 8,
+      "firstLoadKB": 240
+    }
+  ]
+}

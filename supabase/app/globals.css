@@ -1,0 +1,468 @@
+@import "tailwindcss";
+
+@theme {
+  /* ---- Page width: the single knob for how wide pages are. ----
+     `max-w-page` is the standard content width used by nearly every page;
+     `max-w-page-narrow` is for focused reading/forms. Change these two values
+     to re-flow the whole site — no need to touch individual pages. */
+  --container-page: 80rem;        /* standard content pages (was a mix of 4xl–7xl) */
+  --container-page-narrow: 48rem; /* legal text, settings forms, registration */
+
+  /* Mobile bottom-nav height — the single source of truth for how much space the
+     fixed bottom nav occupies. The nav's spacer reserves exactly this (plus the
+     home-indicator inset); the floating support widget sits 0.5rem above it. Keep
+     both expressed in terms of this token so changing the bar height never leaves
+     the widget overlapping it. */
+  --bottom-nav-h: 5.25rem;
+
+  /* Desktop top-bar height — the full-width chrome strip. The rail offsets
+     itself by this so bar + rail can never drift apart. */
+  --top-bar-h: 4rem;
+
+  /* Klimr palette — canonical with the investor demo */
+  --color-bg: #FAF7F1;
+  --color-surface: #ffffff;
+  --color-ink: #201B12;
+  --color-ink-soft: #4A4335;
+  --color-mute: #6E6555;
+  /* Raised from #A69C88 (Aug 2026, axe audit over 18 pages). The old value
+     measured 2.72:1 on white and 2.64:1 on surface — the single largest source
+     of WCAG failures in the whole app, since `text-faint` carries timestamps,
+     kickers, counts, and metadata everywhere. #726A59 measures 5.36:1 on white,
+     5.21:1 on surface, and 4.59:1 on the darkest panel (#F0EDE9), so it clears
+     4.5:1 on every background it actually sits on. */
+  --color-faint: #726A59;
+  --color-rule: #E9E1D1;
+  --color-brand: #ff4e1b;
+  --color-brand-deep: #d63a0f;
+
+  /* ── Brand ramp (K3-04 token consolidation, audit UX-005) ─────────────────
+     These three values appear ~184 times as raw hex across app/ and
+     components/ — the flame gradient and the pressed state of every primary
+     button. Naming them does not change a single pixel today; it gives new
+     code somewhere to point, and it is the prerequisite for the scoped theming
+     below. Existing raw hex is swept opportunistically as files are touched,
+     not in one blind pass: 343 distinct hard-coded colours remain and a mass
+     rewrite with no visual verification is how a design gets silently altered.
+     WCAG note: --brand-ramp-hi carries WHITE TEXT nowhere — it is a gradient
+     stop only. Anything with white text on it must use --color-brand-deep or
+     darker (4.7:1), per the August 2026 axe audit. */
+  --brand-ramp-hi: #FF6A35;   /* gradient start, decorative only */
+  --brand-ramp-mid: #E23E0D;  /* gradient end */
+  --brand-ramp-lo: #B52D0B;   /* pressed / hover-deep, 6.28:1 with white */
+
+  /* Status colours, likewise named rather than repeated. */
+  --color-success-deep: #217A34;
+  --color-danger-deep: #b91c1c;
+  --color-pop: #ffe249;
+  --color-success: #2F9E44;
+  --color-tint-brand: #FFF0E8;
+  --color-tint-success: #EAF5EC;
+
+  /* Tideline — deep-ocean left navigation rail */
+  --color-rail-fg: #dce9ee;
+  --color-rail-muted: #7e9aa6;
+  --color-rail-border: #143a48;
+  --color-rail-active: #ff8557;
+  --color-rail-activebg: rgba(255, 78, 27, 0.16);
+  --color-rail-hover: rgba(255, 255, 255, 0.06);
+
+  /* Type roles — see docs/FONTS.md for the full inventory & rationale.
+     Mono is Spline Sans Mono: a humanist grotesque mono (Space Grotesk's
+     natural companion) whose SLASHED zero stays unambiguous even at 9.5px
+     kickers — the reason it replaced JetBrains Mono (dotted zero vanishes
+     small) and the legacy Space Mono (plain zero, reads like an O). */
+  --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-kicker: "Spline Sans Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Spline Sans Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-athletic: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Semantic status ───────────────────────────────────────────────
+     Destructive / warning / info. These were ad-hoc raw hex scattered across
+     pages (#dc2626 ×21, #b91c1c ×10, …); tokenizing makes danger consistent
+     everywhere and lets the whole status layer be retuned in one place. */
+  --color-danger: #D92D20;
+  --color-danger-deep: #B42318;
+  --color-tint-danger: #FDECEA;
+  --color-warning: #d97706;
+  --color-tint-warning: #FBF3DE;
+  --color-info: #2E90FA;
+  --color-tint-info: #EAF1FE;
+
+  /* ── Per-sport identity accents ────────────────────────────────────
+     One fixed accent per sport — evolved from the investor demo's per-sport
+     hues, now fixed, mutually distinct across the wheel, and extended to beach
+     volleyball. Consumed as solid dots and color-mix tinted chips
+     (components/sport-chip.tsx). NOTE: this is sport identity — distinct from
+     the per-team generated kit colors in lib/team-kit.ts. `beach` is the slug
+     for the `beach_volleyball` sport key. */
+  --color-sport-tennis: #4D7C0F;       /* lime — the app's established tennis accent */
+  --color-sport-pickleball: #BE185D;   /* ball gold (established; distinct from brand + pop) */
+  --color-sport-padel: #B45309;        /* court blue (established) */
+  --color-sport-racquetball: #1D4ED8;  /* violet (established) */
+  --color-sport-beach: #C2410C;
+  /* ── Daylight additions (spec §1.1) ─────────────────────────────── */
+  --color-ink-4: #78705E; /* was #8A8069 — 3.91:1 on white, now 4.91:1 */
+  --color-rule-2: #E4DCCB;
+  --color-rule-soft: #F1EBDF;
+  --color-rule-hover: #D8CDB8;
+  --color-flame-hot: #FF7A4D;
+  --color-flame-deep: #E23E0D;
+  --color-flame-text: #C2410C;
+  --color-tint-brand-bd: #FFD4BC;
+  --color-tint-brand-bd2: #FFD9C2;
+  --color-tint-success: #EAF5EC;
+  --color-sun: #E8A50C;
+  --color-sun-text: #A16207;
+  --color-tint-sun-bd: #EFE0B4;
+  --color-band-low: #7A8699;
+  --color-gold: #E8A50C;
+  --color-silver: #9AA3AD;
+  --color-bronze: #C4763B;
+  --shadow-bar: 0 12px 34px -22px rgba(90, 68, 35, 0.4);
+  --shadow-flame: 0 6px 18px -8px rgba(214, 58, 15, 0.6);
+  /* Radius scale retune: cards 18 · shells 20 · tiles/controls 11 */
+  --radius-xl: 0.6875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.25rem;
+  --font-sans: "Instrument Sans Variable", system-ui, sans-serif;
+        /* ocean teal — beach's established orange (#f97316) collided with the brand */
+
+  /* ── Elevation ─────────────────────────────────────────────────────
+     A small, consistent shadow scale so surfaces read layered, not flat.
+     e1 = resting card · e2 = raised / hover · e3 = popover / modal. */
+  --shadow-e1: 0 1px 2px rgba(80, 60, 30, 0.04);
+  --shadow-e2: 0 10px 28px -18px rgba(90, 68, 35, 0.35);
+  --shadow-e3: 0 1px 2px rgba(80, 60, 30, 0.04), 0 18px 40px -26px rgba(90, 68, 35, 0.3);
+
+  /* ── Radius roles ──────────────────────────────────────────────────
+     Semantic aliases over the raw scale so control / card / pill radii stay
+     consistent as the system evolves (existing rounded-xl/2xl/3xl/full remain
+     valid; these map onto the same values). */
+  --radius-control: 0.625rem;  /* inputs, non-pill small buttons (≡ rounded-xl) */
+  --radius-card: 1.125rem;        /* the standard card corner (≡ rounded-2xl) */
+  --radius-pill: 9999px;      /* pill buttons, chips */
+}
+
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+  /* Sitewide fix: sticky bars overlay the viewport top, so in-page anchor
+     jumps (#section links, scrollIntoView) must land below them with
+     breathing room. <md: mobile top bar; md+: the floating toolbar zone. */
+  scroll-padding-top: 4.5rem;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (min-width: 768px) {
+  html {
+    scroll-padding-top: 6rem;
+  }
+}
+
+/* Root font floor: 100% (decision D4, Aug 2026 — audit UX-001).
+   This USED to be `clamp(0.8rem, 0.833vw, 1rem)`, a fluid downscale that settled
+   at ~80% on laptop widths — so a typical desktop rendered the entire interface,
+   including body copy, at 12.8px root instead of 16px. That is below the
+   accessible floor, it silently overrode the user's own browser font-size
+   preference, and it made the many hard-coded 8–11px labels effectively
+   unreadable. The scale is removed rather than re-tuned: the interface now
+   renders at the browser default and honours whatever the user has chosen.
+   Consequence, accepted deliberately: every rem-based size on desktop is ~25%
+   larger than before. Dense surfaces are re-tuned per component rather than by
+   shrinking the root again. */
+
+/* Minimum text sizes (audit UX-003). Nothing that conveys meaning may render
+   below --text-floor. Decorative-only marks may use --text-micro. Both are rem,
+   so they scale with the user's preference instead of pinning to px. */
+:root {
+  --text-floor: 0.6875rem;  /* 11px at default root — hard minimum for real text */
+  --text-micro: 0.75rem;    /* 12px — the intended size for kickers and badges */
+}
+
+.text-floor { font-size: var(--text-floor); }
+.text-micro { font-size: var(--text-micro); }
+
+/* Safe-area helpers — padding that automatically matches each device's notch,
+   Dynamic Island, home indicator, or curved corners (iPhone 17e through 17 Pro
+   Max, Galaxy, and others). Values are non-zero only where the hardware has an
+   inset and the viewport opts into viewport-fit=cover (set in layout.tsx); on
+   every other screen they resolve to 0, so they're safe to apply anywhere. */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* ── Tournament public page ("Ales Cup" editorial theme) ──────────────────────
+   Scoped to .tp so it never touches the rest of the app. A warm "kraft/beach"
+   palette on paper, with Hanken Grotesk for display/body and Space Mono for
+   small technical accents. Colors are exposed as CSS variables and also used
+   directly as Tailwind arbitrary values within the page. */
+.tp {
+  font-family: "Hanken Grotesk Variable", system-ui, -apple-system, sans-serif;
+  color: #17190f;
+  --tp-bg: #f6f6f2;
+  --tp-paper: #fcfcfa;
+  --tp-panel: #ffffff;
+  --tp-ink: #17190f;
+  --tp-ink-2: #14170e;
+  --tp-text: #3f423a;
+  --tp-mute: #6b6e60;
+  --tp-faint: #6F7266; /* was #8a8d80 — 3.39:1 on white, now ~5.1:1 */
+  --tp-line: #e7e7e1;
+  --tp-line-2: #ededc6;
+  --tp-accent: #e4713a;
+  --tp-accent-deep: #8e4720;
+  --tp-gold: #c99a12;
+  --tp-olive: #3f6314;
+}
+.tp-mono {
+  font-family: "Spline Sans Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+body {
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(1100px 480px at 74% -8%, rgba(232, 165, 12, 0.12), transparent 60%),
+    radial-gradient(900px 420px at -6% 10%, rgba(46, 144, 250, 0.07), transparent 55%),
+    var(--color-bg);
+}
+
+::selection {
+  background: var(--color-brand);
+  color: var(--color-surface);
+}
+
+/* Keyboard focus — visible, branded, never removed */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Text fields show focus through their own border/background change (and a
+   focus-within ring on their wrapper). The offset outline above would double up
+   and overflow those styled containers — e.g. the top search box appearing larger
+   than its pill — so suppress it on the field itself. Buttons, links, and other
+   controls keep the branded outline. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* ---------- motion ---------- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  /* The track holds 5 identical copies; advancing exactly one copy (-20%)
+     loops seamlessly and keeps the strip full edge-to-edge on wide screens.
+     If you change the copy count in page.tsx, change this to -(100/n)%. */
+  to { transform: translateX(-20%); }
+}
+@keyframes livedot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
+}
+
+.rise { animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade { animation: fade 0.8s ease both; }
+.marquee { animation: marquee 40s linear infinite; will-change: transform; }
+.live-dot { animation: livedot 2s ease-in-out infinite; }
+
+/* Interactive cards lift one hair; buttons press */
+.lift { transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease; }
+.lift:hover { transform: translateY(-2px); border-color: var(--color-rule-hover); box-shadow: var(--shadow-e2); }
+.press { transition: transform 0.12s ease, background-color 0.15s ease; }
+.press:active { transform: scale(0.98); }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Display headlines + stat numbers: Inter with headline weight, tight tracking,
+   and aligned (tabular) figures so numbers read cleanly. */
+.font-display {
+  font-weight: 600;
+  letter-spacing: -0.021em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Condensed athletic voice — jersey lettering, scoreboard labels, squad numbers. */
+.font-athletic {
+  font-family: var(--font-athletic);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Logotype — the wordmark's own face (Fraunces, display optical size).
+   Inter is the UI + headline voice; the logo carries more ink so it holds at
+   header and favicon-adjacent sizes. */
+.logotype {
+  font-family: "Fraunces Variable", Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 0;
+  letter-spacing: -0.01em;
+}
+
+.kicker {
+  /* Daylight §1.2: kickers are mono. Redefining the legacy utility converts
+     every remaining kicker in the app to the new grammar in one place. */
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-floor);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+/* Skewed brand highlight — the wordmark gesture from the demo */
+.skew-mark {
+  background: var(--color-brand);
+  color: var(--color-surface);
+  padding: 0 0.16em;
+  border-radius: 0.08em;
+  display: inline-block;
+  transform: skew(-3deg);
+}
+
+/* Respect reduced motion everywhere */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .rise, .fade, .marquee, .live-dot { animation: none; }
+  .lift, .press { transition: none; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Hidden scrollbar — used by the sidebar nav so a short viewport scrolls
+   cleanly without an ugly scrollbar, while the logo and account stay pinned. */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ---------- Tournament bracket tree (preview template + printed bracket) ----------
+   Flex columns with flush flex:1 cells, so each round's cell centers exactly on the
+   midpoint of its feeder pair. Connectors are pseudo-elements: a right stub out of
+   every match, a vertical line joining each pair, and a left stub leading into the
+   next round. Half-gap stubs meet the pair connector at the column midpoint. */
+.bkt { display: flex; gap: 2.25rem; align-items: stretch; }
+.bkt-col { display: flex; flex-direction: column; min-width: 11.5rem; }
+.bkt-col-label {
+  margin-bottom: 0.7rem; text-align: center;
+  font-size: var(--text-micro); font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--color-mute);
+}
+.bkt-cell { position: relative; flex: 1 1 0; display: flex; align-items: center; padding: 0.4rem 0; }
+.bkt-card { position: relative; width: 100%; }
+/* right stub — every match except the champion column */
+.bkt-col:not(:last-child) .bkt-cell::after {
+  content: ""; position: absolute; left: 100%; top: 50%;
+  width: 1.125rem; height: 2px; background: #d4d4d8;
+}
+/* vertical pair connector — drawn on the first cell of each pair down to its
+   sibling. Uses nth-of-type (NOT nth-child) so the column-label <p>, which is
+   the first child, doesn't shift the count and misalign every connector.
+   Skipped for a lone last cell (e.g. a single Final match). */
+.bkt-col:not(:last-child) .bkt-cell:nth-of-type(odd):not(:last-child)::before {
+  content: ""; position: absolute; left: calc(100% + 1.125rem); top: 50%;
+  width: 2px; height: 100%; background: #d4d4d8;
+}
+/* left stub — leads into every match from round 2 onward (on the card so it
+   doesn't collide with the cell's vertical connector) */
+.bkt-col:not(:first-child) .bkt-card::before {
+  content: ""; position: absolute; right: 100%; top: 50%;
+  width: 1.125rem; height: 2px; background: #d4d4d8;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bkt-card { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+}
+
+/* Rich-text editor + rendered event descriptions */
+.rte-editable:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-faint);
+  pointer-events: none;
+}
+.rte-editable a { color: var(--color-brand-deep); text-decoration: underline; }
+.rte-editable ul { list-style: disc; padding-left: 1.25rem; }
+.rte-editable ol { list-style: decimal; padding-left: 1.25rem; }
+.rte-editable p { margin: 0 0 0.5rem; }
+
+.rich-text { color: var(--color-ink-soft); line-height: 1.7; word-break: break-word; }
+.rich-text a { color: var(--color-brand-deep); text-decoration: underline; font-weight: 600; }
+.rich-text a:hover { color: var(--color-brand); }
+.rich-text p { margin: 0 0 0.65rem; }
+.rich-text ul { list-style: disc; padding-left: 1.4rem; margin: 0 0 0.65rem; }
+.rich-text ol { list-style: decimal; padding-left: 1.4rem; margin: 0 0 0.65rem; }
+.rich-text li { margin: 0.15rem 0; }
+.rich-text h3 { font-weight: 700; color: var(--color-ink); margin: 0.4rem 0; }
+.rich-text blockquote { border-left: 3px solid var(--color-rule); padding-left: 0.85rem; color: var(--color-mute); margin: 0 0 0.65rem; }
+
+/* ── Daylight chrome details (spec §1.3–1.4) ───────────────────────── */
+::selection { background: var(--color-brand); color: #fff; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: #D8CFBE; border: 3px solid var(--color-bg); border-radius: 8px; }
+
+@keyframes tickerScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes nodePulse {
+  0%, 100% { box-shadow: 0 0 0 6px rgba(255, 78, 27, 0.16), 0 6px 20px rgba(214, 58, 15, 0.38); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 78, 27, 0.08), 0 10px 26px rgba(214, 58, 15, 0.26); }
+}
+
+/* ── onboarding wizard motion ─────────────────────────────────────────── */
+@keyframes wiz-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes sum-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.995); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.wiz-card { animation: wiz-in 0.26s ease both; }
+.wiz-sum { animation: sum-in 0.3s ease both; }
+
+/* Breadcrumb tiers: when a page renders its own (richer) breadcrumb nav, hide
+   the shell's automatic one — pure CSS, correct across soft navigation. */
+main:has(nav[aria-label="Breadcrumb"]) [data-auto-breadcrumbs]:has(nav[aria-label="Breadcrumb"]) {
+  display: none;
+}
+main:has(:not([data-auto-breadcrumbs]) > nav[aria-label="Breadcrumb"]) [data-auto-breadcrumbs] {
+  display: none;
+}
+
+/* ── Scoped theming (K3-04) ────────────────────────────────────────────────
+   A tournament's public page at /e/[code] can carry its own branding. Rather
+   than a parallel set of hard-coded colours, a themed surface sets these
+   variables on a wrapper and every descendant token resolves against them.
+   Unset, the wrapper inherits the product defaults, so an unbranded tournament
+   looks exactly as it does today.
+
+   Usage:  <div className="klimr-theme" style={{ "--theme-accent": brandHex }}>
+   Only ACCENT is themeable by design — text and surface colours stay on the
+   product tokens so a badly chosen brand colour can never push a tournament
+   page below the contrast floor the audit just fixed. */
+.klimr-theme {
+  --theme-accent: var(--color-brand-deep);
+  --theme-accent-soft: color-mix(in srgb, var(--theme-accent) 12%, transparent);
+  --theme-accent-ring: color-mix(in srgb, var(--theme-accent) 45%, transparent);
+}
+.klimr-theme .theme-accent-bg { background: var(--theme-accent); color: #fff; }
+.klimr-theme .theme-accent-text { color: var(--theme-accent); }
+.klimr-theme .theme-accent-ring { border-color: var(--theme-accent-ring); }

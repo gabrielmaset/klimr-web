@@ -1,0 +1,94 @@
+# Klimr CI — the standing build gates, automated.
+# Runs on every push and pull request (including Dependabot's):
+# lint -> typecheck -> vitest (incl. the K1-04 golden corpus & K1-07 safety
+# suite) -> build. The SQL RLS/invariant suite runs manually in the Supabase
+# SQL editor (no pgTAP install); see supabase/tests/.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # KCDX-004: the migration history must rebuild the production schema. Both
+  # gates run against PostgreSQL 17 (production is 17.x) — `empty` proves a
+  # clean rebuild, `upgrade` proves 0189 reconstructs a database where 0188
+  # aborted. The manifest probe must come back empty. A red job here means a
+  # deploy would reach objects the database does not have.
+  schema-replay:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Install psql 17 client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Replay gates
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          CI_MODE: '1'
+        run: |
+          bash supabase/harness/replay.sh empty
+          bash supabase/harness/replay.sh upgrade
+
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # ADAPTATION 3: the ratchet, not a bare lint run. Fails on warning 138.
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      # K2-06: build once, capture the output, and publish the per-route
+      # bundle table as a job summary so a size regression is visible in the PR
+      # instead of discovered on a venue's Wi-Fi.
+      - name: Build
+        run: npm run build 2>&1 | tee /tmp/build.log
+      - name: Bundle report
+        if: always()
+        run: |
+          {
+            echo "### Route bundle sizes"
+            echo ""
+            echo '```'
+            sed -n '/Route (app)/,/^$/p' /tmp/build.log || echo "route table not found"
+            echo '```'
+            echo ""
+            echo "First Load JS shared by all:"
+            grep -E "First Load JS shared by all" /tmp/build.log || true
+          } >> "$GITHUB_STEP_SUMMARY"
+      # KFU-015: the table above is a report; THIS is the gate. Parses the same
+      # route table and fails on any First Load JS over its budget.
+      # KFU-025: SBOM per build — CycloneDX of production dependencies, kept as
+      # an artifact so any release can answer "what exactly shipped".
+      - name: SBOM (CycloneDX)
+        run: npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+      - name: Bundle budgets
+        run: node scripts/check-bundle-budgets.mjs /tmp/build.log
+      - name: Upload route-bundle-stats
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: route-bundle-stats
+          path: route-bundle-stats.json
+          if-no-files-found: ignore

@@ -1,0 +1,170 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { Check } from "lucide-react";
+import { savePreferences } from "./actions";
+
+export type Prefs = {
+  notif_match_invites: boolean;
+  notif_ranking_changes: boolean;
+  notif_region_challenges: boolean;
+  notif_marketplace_events: boolean;
+  email_digest: string;
+  profile_visibility: string;
+  location_precision: string;
+  who_can_invite: string;
+};
+
+function Toggle({ label, hint, on, onChange }: { label: string; hint?: string; on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!on)}
+      aria-pressed={on}
+      className="press flex w-full items-center justify-between gap-4 py-3 text-left"
+    >
+      <span>
+        <span className="block text-sm font-semibold text-ink">{label}</span>
+        {hint ? <span className="mt-0.5 block text-xs text-mute">{hint}</span> : null}
+      </span>
+      <span
+        className="relative h-6 w-10 shrink-0 rounded-full transition-colors"
+        style={{ background: on ? "var(--color-brand)" : "var(--color-rule)" }}
+      >
+        <span
+          className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all"
+          style={{ left: on ? "1.25rem" : "0.125rem" }}
+        />
+      </span>
+    </button>
+  );
+}
+
+function Segmented({
+  label,
+  hint,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="py-3">
+      <div className="mb-2">
+        <span className="block text-sm font-semibold text-ink">{label}</span>
+        {hint ? <span className="mt-0.5 block text-xs text-mute">{hint}</span> : null}
+      </div>
+      <div className="inline-flex flex-wrap gap-1 rounded-xl border border-rule bg-bg p-1">
+        {options.map((o) => {
+          const on = value === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onChange(o.value)}
+              aria-pressed={on}
+              className="press rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+              style={{ background: on ? "var(--color-surface)" : "transparent", color: on ? "var(--color-ink)" : "var(--color-mute)", boxShadow: on ? "0 1px 2px rgba(10,10,11,0.12)" : "none" }}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function SettingsForm({ initial }: { initial: Prefs }) {
+  const [state, action, pending] = useActionState(savePreferences, undefined);
+  const [p, setP] = useState<Prefs>(initial);
+  const set = <K extends keyof Prefs>(k: K, v: Prefs[K]) => setP((prev) => ({ ...prev, [k]: v }));
+
+  return (
+    <form action={action}>
+      {/* ONE card: notifications + privacy read top-to-bottom, and the Save
+          button sits at the BOTTOM of the form (Gabriel’s spec) — a finished
+          pass ends exactly where the button is. */}
+      <div className="rounded-2xl border border-rule bg-surface shadow-e1">
+        {/* Notifications */}
+        <section className="p-4 sm:p-5">
+          <h2 className="kicker text-faint">Notifications</h2>
+          <p className="mt-1 text-xs text-mute">Choose what you hear about. Delivery turns on as each feature ships.</p>
+          <div className="mt-2 divide-y divide-rule">
+            <Toggle label="Match invites" hint="When someone invites you to play" on={p.notif_match_invites} onChange={(v) => set("notif_match_invites", v)} />
+            <Toggle label="Ranking changes" hint="When your rank moves in any area" on={p.notif_ranking_changes} onChange={(v) => set("notif_ranking_changes", v)} />
+            <Toggle label="Region challenges" hint="Neighborhood-vs-neighborhood events" on={p.notif_region_challenges} onChange={(v) => set("notif_region_challenges", v)} />
+            <Toggle label="Marketplace & events" hint="Local coaching, gear, and tournaments" on={p.notif_marketplace_events} onChange={(v) => set("notif_marketplace_events", v)} />
+            <Segmented
+              label="Email digest"
+              hint="A periodic summary by email"
+              value={p.email_digest}
+              onChange={(v) => set("email_digest", v)}
+              options={[
+                { value: "none", label: "Off" },
+                { value: "daily", label: "Daily" },
+                { value: "weekly", label: "Weekly" },
+              ]}
+            />
+          </div>
+        </section>
+
+        {/* Privacy */}
+        <section className="border-t border-rule p-4 sm:p-5">
+          <h2 className="kicker text-faint">Privacy</h2>
+          <p className="mt-1 text-xs text-mute">
+            Every Klimr member is identity-verified, so your profile and rank are always visible to other members.
+          </p>
+          <div className="mt-2 divide-y divide-rule">
+            <Segmented
+              label="Who can invite me"
+              hint="Who can send you match invites"
+              value={p.who_can_invite === "nobody" ? "nobody" : "anyone"}
+              onChange={(v) => set("who_can_invite", v)}
+              options={[
+                { value: "anyone", label: "Any member" },
+                { value: "nobody", label: "No one" },
+              ]}
+            />
+          </div>
+          <p className="mt-3 text-xs text-faint">
+            Need to stop a specific player? Block them from their profile — they&rsquo;ll appear under Blocked players in your settings.
+          </p>
+        </section>
+
+        {/* Save — the last row of the form. */}
+        <div className="flex items-center gap-3 border-t border-rule p-4 sm:p-5">
+          <button
+            type="submit"
+            disabled={pending}
+            className="press rounded-[10px] bg-ink px-5 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-ink-soft disabled:opacity-50"
+          >
+            {pending ? "Saving…" : "Save changes"}
+          </button>
+          {state?.ok ? (
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-success">
+              <Check size={15} /> Saved
+            </span>
+          ) : null}
+          {state?.error ? <span className="text-sm text-brand-deep">{state.error}</span> : null}
+        </div>
+      </div>
+
+      {/* hidden inputs carry the controlled state into the action */}
+      <input type="hidden" name="notif_match_invites" value={String(p.notif_match_invites)} />
+      <input type="hidden" name="notif_ranking_changes" value={String(p.notif_ranking_changes)} />
+      <input type="hidden" name="notif_region_challenges" value={String(p.notif_region_challenges)} />
+      <input type="hidden" name="notif_marketplace_events" value={String(p.notif_marketplace_events)} />
+      <input type="hidden" name="email_digest" value={p.email_digest} />
+      <input type="hidden" name="profile_visibility" value={p.profile_visibility} />
+      <input type="hidden" name="location_precision" value={p.location_precision} />
+      <input type="hidden" name="who_can_invite" value={p.who_can_invite} />
+
+    </form>
+  );
+}

@@ -1,0 +1,734 @@
+"use client";
+
+import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
+import { KlimrMark } from "@/components/logo";
+import QRCode from "qrcode";
+import { Crown, Play, Clock, Maximize, Minimize, ChevronRight } from "lucide-react";
+import type { QSessionState, QTeam } from "@/lib/queue";
+import { teamDisplayName } from "@/lib/queue";
+import { clock, formationLabel, levelLabel } from "@/lib/queue";
+import { useQueueState } from "@/components/queue/use-queue-state";
+import { gameOver, startNextMatch, gameOverByCode, startNextByCode, stepDownTeam, stepDownByCode } from "@/app/queue/actions";
+import { getInstallId, appVersion, networkState, batteryPct, peekDeviceToken } from "@/lib/courtside-install";
+
+type Side = { key: "A" | "B"; color: string; soft: string; ring: string };
+const SIDES: Side[] = [
+  { key: "A", color: "#ff6a3d", soft: "rgba(255,106,61,0.12)", ring: "rgba(255,106,61,0.45)" },
+  { key: "B", color: "#22cfe0", soft: "rgba(34,207,224,0.12)", ring: "rgba(34,207,224,0.45)" },
+];
+const HOLD_MS = 3000;
+const perfNow = () => performance.now();
+
+/** One-line name with a courtside marquee when it overflows: hold 2 s at the
+ *  start, glide to reveal the end, hold 2 s, glide home — forever. Measured in
+ *  an effect and driven by the Web Animations API (no state, no re-renders):
+ *  short names never animate; long ones stay on a single line everywhere. */
+function MarqueeText({ text, children }: { text: string; children?: React.ReactNode }) {
+  const outer = useRef<HTMLSpanElement | null>(null);
+  const inner = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    const o = outer.current;
+    const el = inner.current;
+    if (!o || !el) return;
+    let anim: Animation | null = null;
+    // Re-measure on font load and any resize: a measurement taken against
+    // fallback-font metrics (before the display font swaps in) or before a
+    // column reflow settles can claim overflow that isn't there — "Fernando"
+    // must never scroll. Only genuine overflow (> 6px) animates.
+    const apply = () => {
+      anim?.cancel();
+      anim = null;
+      const shift = el.scrollWidth - o.clientWidth;
+      if (shift <= 6) return;
+      const scrollSec = Math.max(0.9, shift / 55);
+      const total = 2 + scrollSec + 2 + scrollSec;
+      anim = el.animate(
+        [
+          { transform: "translateX(0)", offset: 0 },
+          { transform: "translateX(0)", offset: 2 / total },
+          { transform: `translateX(${-shift}px)`, offset: (2 + scrollSec) / total },
+          { transform: `translateX(${-shift}px)`, offset: (2 + scrollSec + 2) / total },
+          { transform: "translateX(0)", offset: 1 },
+        ],
+        { duration: total * 1000, iterations: Infinity, easing: "linear" },
+      );
+    };
+    apply();
+    const ro = new ResizeObserver(() => apply());
+    ro.observe(o);
+    let gone = false;
+    (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts?.ready.then(() => {
+      if (!gone) apply();
+    });
+    return () => {
+      gone = true;
+      ro.disconnect();
+      anim?.cancel();
+    };
+  }, [text]);
+  return (
+    <span ref={outer} className="block overflow-hidden whitespace-nowrap">
+      <span ref={inner} className="inline-block will-change-transform">{children ?? text}</span>
+    </span>
+  );
+}
+
+/** Player names sized for the formation: 2v2 stays grand, 3s ease down, and
+ *  4+ drops a tier AND splits into two ruled columns so the card keeps its
+ *  height — every cell still gets the marquee, so long names never clip. */
+function StackedNames({ team, context }: { team: QTeam; context: "match" | "queue" }) {
+  const n = team.members.length;
+  if (!n) return <p className="text-white/50">—</p>;
+  const size =
+    context === "match"
+      ? n <= 2
+        ? "text-[clamp(1.35rem,2.9vw,2.9rem)]"
+        : n === 3
+          ? "text-[clamp(1.15rem,2.3vw,2.3rem)]"
+          : n <= 5
+            ? "text-[clamp(0.95rem,1.9vw,1.9rem)]"
+            : "text-[clamp(0.85rem,1.6vw,1.6rem)]"
+      : n <= 3
+        ? "text-[clamp(1.1rem,1.9vw,1.85rem)]"
+        : "text-[clamp(0.9rem,1.55vw,1.5rem)]";
+  const weight = context === "match" ? "font-display font-semibold" : "font-semibold";
+  const rows = (names: { name: string }[], flex = "flex-1") => (
+    <div className={`min-w-0 ${flex} space-y-[0.35em]`}>
+      {names.map((m, i) => (
+        <p key={i} className={`leading-tight text-white ${weight} ${size}`}>
+          <MarqueeText text={m.name} />
+        </p>
+      ))}
+    </div>
+  );
+  if (context === "match" && n >= 4) {
+    const half = Math.ceil(n / 2);
+    // Columns are sized by their CONTENT, not split 50/50 (courtside QA, Aug
+    // 2026). `flex-1` is `flex: 1 1 0%`, which gave a column of short names
+    // ("Sara", "Rick") exactly as much width as one holding "Maria Carolina"
+    // and "Luíz Otávio Açaí" — so the long side overflowed and marqueed while
+    // half the card sat empty. `flex-auto` is `flex: 1 1 auto`: each column
+    // starts at its natural width and shares the slack, so long names get the
+    // room that is actually available and simply stop scrolling. The marquee
+    // remains for the genuinely-too-long case, which is what it is for.
+    return (
+      <div className="flex min-w-0 items-start gap-[max(0.9rem,2vw)]">
+        {rows(team.members.slice(0, half), "flex-auto")}
+        <div className="flex min-w-0 flex-auto border-l border-white/12 pl-[max(0.9rem,2vw)]">
+          {rows(team.members.slice(half), "flex-auto")}
+        </div>
+      </div>
+    );
+  }
+  return rows(team.members);
+}
+
+/** "Gabriel" → "Gabriel\u2019s Team", "Miles" → "Miles\u2019 Team" (names ending
+ *  in s take a bare apostrophe). Letter mode passes through ("Team A"). */
+function teamWonName(mode: "letters" | "first_player" | "initials", side: string, team: QTeam): string {
+  const base = teamDisplayName(mode, side, team);
+  if (mode === "letters" || base === `Team ${side}`) return base;
+  return `${base}${/s$/i.test(base) ? "\u2019" : "\u2019s"} Team`;
+}
+
+function joinedAt(iso: string | null): string {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (!isFinite(t)) return "";
+  return new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+/** Press-and-hold to confirm: a left-to-right fill acts as a 3-second countdown so a stray tap can't end a match.
+ *  Hard-won iOS rules — do not "clean up": (1) NO onPointerLeave cancel — with pointer
+ *  capture a drifting sweaty finger keeps the hold; releasing early is the only user
+ *  cancel. (2) touch-action:none AND -webkit-touch-callout:none are both required — a
+ *  3s press sits deep in Safari's long-press territory, and without the callout kill
+ *  Safari fires pointercancel mid-hold even when the finger never moves. */
+function HoldButton({ label, color, onConfirm, disabled, ghost = false }: { label: string; color: string; onConfirm: () => void; disabled?: boolean; ghost?: boolean }) {
+  const [progress, setProgress] = useState(0);
+  const raf = useRef<number | null>(null);
+  const startT = useRef(0);
+  const holding = useRef(false);
+
+  const clear = () => {
+    if (raf.current != null) cancelAnimationFrame(raf.current);
+    raf.current = null;
+  };
+  const tick = () => {
+    const p = Math.min(1, (perfNow() - startT.current) / HOLD_MS);
+    setProgress(p);
+    if (p >= 1) {
+      holding.current = false;
+      clear();
+      setProgress(0);
+      onConfirm();
+      return;
+    }
+    raf.current = requestAnimationFrame(tick);
+  };
+  const down = (e: React.PointerEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    holding.current = true;
+    startT.current = perfNow();
+    clear();
+    raf.current = requestAnimationFrame(tick);
+  };
+  const cancel = () => {
+    if (!holding.current) return;
+    holding.current = false;
+    clear();
+    setProgress(0);
+  };
+  useEffect(() => () => clear(), []);
+
+  const active = progress > 0;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onPointerDown={down}
+      onPointerUp={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={(e) => e.preventDefault()}
+      className={
+        ghost
+          ? "press relative select-none overflow-hidden rounded-full border border-white/20 font-semibold text-white/70 transition hover:bg-white/10 disabled:opacity-40"
+          : "press relative w-full select-none overflow-hidden rounded-[1.4vw] font-display font-bold text-[#0a0f1f] transition disabled:opacity-60"
+      }
+      style={
+        ghost
+          ? { touchAction: "none", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", fontSize: "clamp(0.85rem,1.5vw,1.4rem)" }
+          : { background: color, touchAction: "none", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", fontSize: "clamp(1.1rem,2vw,2rem)" }
+      }
+    >
+      <span className={`absolute inset-y-0 left-0 ${ghost ? "bg-white/15" : "bg-black/25"}`} style={{ width: `${progress * 100}%` }} aria-hidden />
+      {ghost ? (
+        <span className="relative flex flex-col items-center justify-center gap-0.5 px-[2.5vw] py-[1.4vh] leading-none">
+          <span>{label}</span>
+          {/* the caption teaches only while a press is in flight */}
+          <span className={`overflow-hidden text-[0.56em] font-bold uppercase tracking-[0.18em] text-white/60 transition-all duration-200 ${active ? "mt-0.5 max-h-[1.2em] opacity-100" : "max-h-0 opacity-0"}`}>
+            Keep holding to confirm
+          </span>
+        </span>
+      ) : (
+        <span className="relative flex flex-col items-center justify-center gap-0.5 py-[2.1vh] leading-none">
+          <span>{label}</span>
+          <span className="text-[0.46em] font-bold uppercase tracking-[0.18em] opacity-75">{active ? "Keep holding to confirm" : "Press & hold to confirm"}</span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+const subscribeNever = () => () => {};
+const originSnapshot = () => window.location.origin;
+const emptySnapshot = () => "";
+
+export function CourtDisplay({ initial, courtId, canOperate, code, enteredCode, isApp = false }: { initial: QSessionState; courtId: string; canOperate: boolean; code?: string; enteredCode?: string; isApp?: boolean }) {
+  const sid = initial.session.id;
+  const { state, refetch, stale } = useQueueState(sid, initial, 3000);
+  // null until mounted: the server cannot know the client clock, and
+  // rendering a server timestamp then hydrating a client one is React #418.
+  const [now, setNow] = useState<number | null>(null);
+  // Origin is only knowable in the browser; the store pattern keeps SSR and
+  // hydration rendering "" (no mismatch) and fills it right after.
+  const origin = useSyncExternalStore(subscribeNever, originSnapshot, emptySnapshot);
+  const [qr, setQr] = useState("");
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState<string | null>(null);
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [isFs, setIsFs] = useState(false);
+
+  useEffect(() => {
+    const t0 = setTimeout(() => setNow(Date.now()), 0);
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(t);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onChange = () => setIsFs(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+
+
+  const walkUrl = origin ? `${origin}/q/${state.session.code}` : "";
+  const hostPath = walkUrl.replace(/^https?:\/\//, "").replace(/^www\./, "");
+
+  useEffect(() => {
+    if (!walkUrl) return;
+    let alive = true;
+    QRCode.toString(walkUrl, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#0a0f1f", light: "#ffffff" } })
+      .then((svg) => {
+        if (alive) setQr(svg);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [walkUrl]);
+
+  useEffect(() => {
+    let lock: { release: () => Promise<void> } | null = null;
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } };
+    nav.wakeLock?.request("screen").then((l) => (lock = l)).catch(() => {});
+    return () => {
+      lock?.release().catch(() => {});
+    };
+  }, []);
+
+  const showNote = (msg: string) => {
+    setNote(msg);
+    if (noteTimer.current) clearTimeout(noteTimer.current);
+    noteTimer.current = setTimeout(() => setNote(null), 8000);
+  };
+
+  // KCDX-007: a code selects the session; the device capability is what permits
+  // changing it. Every kiosk command carries the install id and the token minted
+  // at registration, and the server refuses without them. A display that has not
+  // registered — or whose token was revoked, or that has been dark for ten
+  // minutes — can still show the queue and can no longer record a result.
+  const act = (fn: (fd: FormData) => Promise<{ ok?: true; error?: string }>, fields: Record<string, string>) => {
+    start(async () => {
+      const f = new FormData();
+      for (const [k, v] of Object.entries(fields)) f.append(k, v);
+      if (fields.code) {
+        // KFU-001: the join code no longer enrolls anything. Operate with the
+        // token this display already holds; if there is none, the organizer must
+        // issue a one-time enrollment code (Queue → Displays) and someone must
+        // enter it here deliberately.
+        const token = peekDeviceToken();
+        if (!token) {
+          showNote("This display isn't set up yet. Ask the organizer for a display code, then enter it in Setup.");
+          return;
+        }
+        f.append("installId", getInstallId());
+        f.append("deviceToken", token);
+      }
+      const res = await fn(f);
+      if (res?.error) showNote(res.error);
+      await refetch();
+    });
+  };
+
+  const recordWin = (matchId: string, side: "A" | "B", team: QTeam) => {
+    const teamName = teamWonName(state.session.teamNameMode, side, team);
+    const cap = state.session.winCap;
+    const newWins = team.wins + 1;
+    if (cap > 1 && newWins >= cap) showNote(`${teamName} hit ${cap} wins 🏆 — two fresh teams are up`);
+    else if (cap > 1) showNote(`${teamName} stays on — win ${newWins} of ${cap}`);
+    else showNote(`${teamName} won — next teams up`);
+    act(code ? gameOverByCode : gameOver, code ? { code, matchId, winnerTeamId: team.id } : { matchId, winnerTeamId: team.id });
+  };
+  const startNext = (cid: string) => act(code ? startNextByCode : startNextMatch, code ? { code, courtId: cid } : { courtId: cid });
+  const stepDown = (teamId: string) => {
+    showNote("Winner stepped down — next two are up");
+    act(code ? stepDownByCode : stepDownTeam, code ? { code, teamId } : { teamId });
+  };
+
+  const sessionLive = state.session.status === "live";
+  const sessionOver = state.session.status === "ended";
+  // Reset-codes kick: this screen was opened with a display code; if the
+  // session's current display code no longer matches, the organizer rotated
+  // credentials — eject to the takeover (and, in the app, back to setup).
+  const codesRotated = !!enteredCode && !!state.session.displayCode && enteredCode !== state.session.displayCode;
+  const displayDead = sessionOver || codesRotated;
+
+  // Native app bridge (KlimrCourtside iPad shell). The page announces the
+  // session phase so the app can auto-return to its setup screen ~30s after a
+  // day ends; "Start over" exits immediately. No-ops in normal browsers.
+  useEffect(() => {
+    if (!isApp) return;
+    type BridgeWindow = Window & { webkit?: { messageHandlers?: { klimrCourtside?: { postMessage: (m: unknown) => void } } } };
+    const bridge = (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside;
+    bridge?.postMessage({ type: displayDead ? "ended" : "active" });
+  }, [isApp, displayDead]);
+  // Courtside fleet heartbeat (K2-05 · migration 0180). EVERY courtside display
+  // reports — the web display as much as the native iPad shell — because the
+  // web one is what most venues actually run. Building the endpoint for the
+  // native app alone left /admin/devices permanently at zero, which is exactly
+  // how this was caught. Bounded and cheap: one small POST every 3 minutes,
+  // plus one when the tab regains visibility so a woken iPad reports at once
+  // instead of waiting out the interval.
+  const sessionId = state.session.id;
+  const joinCode = state.session.code || state.session.displayCode || code || "";
+  useEffect(() => {
+    let stopped = false;
+    const beat = async () => {
+      if (stopped || document.visibilityState === "hidden") return;
+      try {
+        // KFU-001: heartbeats present the token this display was enrolled with;
+        // they never enroll. A display with no token simply shows the queue.
+        const token = peekDeviceToken();
+        if (!token) return;
+        await fetch("/api/courtside/heartbeat", {
+          method: "POST",
+          keepalive: true,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            installId: getInstallId(),
+            token,
+            appVersion: appVersion(),
+            platform: isApp ? "ios-app" : "web",
+            networkState: networkState(),
+            batteryPct: await batteryPct(),
+            sessionId,
+          }),
+        });
+      } catch {
+        // A failed heartbeat must never disturb the display — the unit simply
+        // ages out of the "app open" window until the next successful beat.
+      }
+    };
+    void beat();
+    // 20s cadence pairs with the 45s presence window in migration 0185:
+    // a display appears the moment it connects and drops within ~45s of
+    // going dark, allowing for one missed beat.
+    const t = setInterval(() => void beat(), 20_000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void beat();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [sessionId, isApp, joinCode]);
+
+  const exitToSetup = () => {
+    type BridgeWindow = Window & { webkit?: { messageHandlers?: { klimrCourtside?: { postMessage: (m: unknown) => void } } } };
+    (window as BridgeWindow).webkit?.messageHandlers?.klimrCourtside?.postMessage({ type: "exit" });
+  };
+  // Turned OFF (not ended, codes intact): this session is gone from under
+  // the display — eject to the code screen so the operator can join the next
+  // one. Pauses never land here (a paused session's status is still "live").
+  const sessionOff = !sessionLive && !sessionOver && !codesRotated;
+  useEffect(() => {
+    if (!sessionOff) return;
+    if (isApp) {
+      exitToSetup();
+      return;
+    }
+    const t = setTimeout(() => window.location.replace("/q"), 900);
+    return () => clearTimeout(t);
+     
+  }, [sessionOff, isApp]);
+  const sPaused = sessionLive && !!state.session.paused;
+  const court = state.courts.find((c) => c.id === courtId);
+
+  // FREEZE-BY-DERIVATION for organizer edits: the one setting that could
+  // disrupt a RUNNING game is the formation — and the running match already
+  // carries its own truth (the teams it was formed with). While a match is
+  // live, the formation pill derives from the match; the moment it ends, the
+  // court's latest value shows. Name and level edits apply immediately —
+  // renaming a court mid-game is a fix, not a disruption. Pure data, no
+  // memory, no refs (repo rules).
+  const liveMatchSize = court?.current ? (court.current.a?.size ?? court.current.b?.size ?? court.teamSize) : null;
+  const shownTeamSize = liveMatchSize ?? court?.teamSize ?? 0;
+
+  const heldTeam = court ? court.queue.find((t) => t.hold && t.wins > 0) ?? null : null;
+  const upNext = court ? court.queue.filter((t) => !t.hold) : [];
+  // Horizontal scroll with a 6-second idle snap-back: browse the whole line,
+  // and when nobody's touched it for 6s the row glides home to the next
+  // teams up — the display never sits stranded mid-list.
+  const upRef = useRef<HTMLDivElement>(null);
+  const upIdle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Overflow affordance (the sidebar's more-below fade, turned sideways):
+  // when teams extend past the right edge, a quiet gradient + chevron says
+  // "there's more" — and it disappears at the end of the line.
+  const [upMore, setUpMore] = useState(false);
+  const measureUpMore = () => {
+    const el = upRef.current;
+    setUpMore(!!el && el.scrollWidth > el.clientWidth + 8 && el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+  };
+  const onUpScroll = () => {
+    measureUpMore();
+    if (upIdle.current) clearTimeout(upIdle.current);
+    upIdle.current = setTimeout(() => {
+      upRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+    }, 6000);
+  };
+  useEffect(() => {
+    const t = setTimeout(measureUpMore, 0);
+    window.addEventListener("resize", measureUpMore);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", measureUpMore);
+    };
+     
+  }, [upNext.length]);
+  useEffect(() => () => { if (upIdle.current) clearTimeout(upIdle.current); }, []);
+  const canStart = !!court && court.queue.length >= 2;
+  const cap = state.session.winCap;
+
+  return (
+    <div className="fixed inset-0 h-[100dvh] z-[120] flex flex-col overflow-y-auto overscroll-contain text-white lg:overflow-hidden" style={{ background: "radial-gradient(120% 88% at 50% -12%, #0a0c12, #000000 62%)" }}>
+    {/* KCDX-042: the poll used to fail silently, so a venue whose network
+        had dropped showed a confidently stale queue. On a court that is the
+        difference between "nobody is ahead of me" and "this stopped updating
+        twenty minutes ago". */}
+    {stale && (
+      <p role="status" aria-live="polite" className="mb-3 rounded-lg border border-[#E9E1D1] bg-[#FFFDF8] px-3 py-2 text-sm text-[#6E6555]">
+        Not updating \u2014 checking again\u2026 the list below may be out of date.
+      </p>
+    )}
+      {/* top bar. Centered on purpose: in fullscreen, iPadOS floats its own ✕
+          dismiss control at the top-left and the status bar stays over the top
+          edge — so the safe-area padding clears the clock/battery, and centring
+          the title + court row keeps both out from under the system chrome. */}
+      <div className="px-[max(0.9rem,3vw)] pt-[max(1.4vh,env(safe-area-inset-top))]">
+        <div className="relative flex min-h-9 items-center justify-center">
+          <span className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center gap-[0.5vw] text-white">
+            <KlimrMark size={27} dot="brand" />
+            <span className="logotype text-[clamp(1.35rem,2.35vw,2.25rem)] leading-none">klimr</span>
+          </span>
+          <p className="max-w-[52%] truncate text-center text-[clamp(0.7rem,1.3vw,1.15rem)] font-bold uppercase tracking-[0.26em] text-white/40">{state.session.title}</p>
+          {isApp ? null : <button type="button" onClick={toggleFullscreen} className="press absolute right-0 top-1/2 inline-flex shrink-0 -translate-y-1/2 items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-[clamp(0.7rem,1vw,0.95rem)] font-semibold text-white/55 hover:bg-white/10" title={isFs ? "Leave full screen" : "Show full screen"}>
+            {isFs ? <Minimize size={15} /> : <Maximize size={15} />} {isFs ? "Exit full screen" : "Full screen"}
+          </button>}
+        </div>
+        <div className="mt-[1.2vh] flex flex-wrap items-center justify-center gap-x-[1.4vw] gap-y-2">
+          <h1 className="font-display leading-none text-[clamp(2.2rem,5.4vw,5rem)]">{court?.label ?? "Court"}</h1>
+          {court ? (
+            <span className="rounded-full bg-white/12 px-[1.3vw] py-[0.9vh] font-display font-bold leading-none text-[clamp(1.1rem,2.2vw,2.1rem)]">{formationLabel(shownTeamSize)}</span>
+          ) : null}
+          {court && court.levels.length ? (
+            <span className="rounded-full border border-white/15 px-[1.3vw] py-[0.9vh] font-semibold leading-none text-white/70 text-[clamp(0.9rem,1.7vw,1.6rem)]">{court.levels.map(levelLabel).join(" · ")}</span>
+          ) : null}
+          {sPaused ? (
+            <span className="rounded-full px-[1.3vw] py-[0.9vh] font-display font-bold leading-none text-[#0a0f1f] text-[clamp(0.9rem,1.7vw,1.6rem)]" style={{ background: "#f5c518" }}>{`Paused${state.session.pausedByName ? ` · ${state.session.pausedByName}` : ""}`}</span>
+          ) : null}
+        </div>
+      </div>
+
+      {!sessionLive || codesRotated ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-[1.5vh] px-6 text-center">
+          <p className="font-display font-bold text-[clamp(1.8rem,4.5vw,3.6rem)]">{codesRotated ? "Codes were reset" : sessionOver ? "Session ended" : "Queue turned off"}</p>
+          <p className="max-w-[46ch] text-[clamp(0.95rem,1.6vw,1.5rem)] text-white/55">
+            {codesRotated ? "The organizer issued fresh codes — grab the new display code from Organizer tools and start over." : sessionOver ? "Thanks for playing — the organizer can start a new session from the queue page." : "Heading back to the sign-in screen…"}
+          </p>
+          {isApp && displayDead ? (
+            <button type="button" onClick={exitToSetup} className="press mt-[1vh] rounded-lg bg-white px-8 py-3.5 font-display text-[clamp(1rem,1.7vw,1.5rem)] font-bold text-[#0a0f1f]">
+              Start over
+            </button>
+          ) : null}
+        </div>
+      ) : !court ? (
+        <div className="grid flex-1 place-items-center text-white/60">This court was removed.</div>
+      ) : court.current ? (
+        <>
+          {/* clock */}
+          <div className="relative flex flex-col items-center justify-center pt-[1vh]">
+            <div className="relative">
+              <span className="absolute -left-[max(2rem,3vw)] top-1/2 flex h-[2.2vh] min-h-3.5 w-[2.2vh] min-w-3.5 -translate-y-1/2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff5b3d] opacity-70" />
+                <span className="relative inline-flex h-full w-full rounded-full bg-[#ff5b3d]" />
+              </span>
+              <span className="font-mono font-bold tabular" style={{ fontVariantNumeric: "tabular-nums", fontSize: "clamp(3.6rem, 17vh, 13rem)", lineHeight: 0.95 }}>
+                {now == null ? "—" : clock(now - Date.parse(court.current.startedAt))}
+              </span>
+            </div>
+            {note ? <div className="mt-[1vh] rounded-full border border-white/15 bg-white/10 px-5 py-2 text-[clamp(0.85rem,1.5vw,1.35rem)] font-bold backdrop-blur">{note}</div> : null}
+          </div>
+
+          {/* teams */}
+          <div className="grid flex-1 grid-cols-1 gap-[max(0.6rem,2vw)] px-[max(0.75rem,3vw)] py-[2vh] landscape:grid-cols-2 md:grid-cols-2">
+            {[court.current.a, court.current.b].map((t, idx) => {
+              const s = SIDES[idx];
+              return (
+                <div key={t.id} className="relative flex min-h-0 flex-col overflow-hidden rounded-[2vw] border" style={{ borderColor: s.ring, background: s.soft }}>
+                  <span className="absolute inset-x-0 top-0 h-[1vh] min-h-[6px]" style={{ background: s.color }} />
+                  <div className="flex items-center justify-between gap-3 px-[2.2vw] pt-[2.6vh]">
+                    <div className="flex items-center gap-[1vw]">
+                      <span className="grid place-items-center rounded-full font-display font-bold text-[#0a0f1f]" style={{ background: s.color, width: "clamp(2.8rem,4.8vw,5rem)", height: "clamp(2.8rem,4.8vw,5rem)", fontSize: "clamp(1.4rem,2.6vw,2.8rem)" }}>
+                        {s.key}
+                      </span>
+                      <span className="font-display font-bold uppercase tracking-[0.12em]" style={{ color: s.color, fontSize: "clamp(0.85rem,1.5vw,1.5rem)" }}>
+                        Team {s.key}
+                      </span>
+                    </div>
+                    {t.hold && t.wins > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[clamp(0.75rem,1.3vw,1.25rem)] font-bold" style={{ background: "rgba(245,197,24,0.16)", color: "#f5c518" }}>
+                        <Crown size={"1.1em" as unknown as number} /> Win {t.wins} of {cap}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex min-h-0 flex-1 overflow-y-auto px-[max(0.9rem,2.2vw)] py-[1vh]">
+                    <div className="my-auto">
+                      <StackedNames team={t} context="match" />
+                    </div>
+                  </div>
+                  {canOperate ? (
+                    <div className="px-[1.6vw] pb-[1.6vh]">
+                      <HoldButton label={`${teamWonName(state.session.teamNameMode, s.key, t)} won`} color={s.color} disabled={pending} onConfirm={() => recordWin(court.current!.matchId, s.key, t)} />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-[2.5vh] px-6 text-center">
+          {note ? <div className="rounded-full border border-white/15 bg-white/10 px-6 py-3 text-[clamp(1rem,1.8vw,1.6rem)] font-bold backdrop-blur">{note}</div> : null}
+
+          {heldTeam ? (
+            <>
+              <div>
+                <p className="text-[clamp(1.05rem,2vw,1.9rem)] font-bold uppercase tracking-[0.18em] text-[#f5c518]">
+                  <span className="whitespace-nowrap">Winner stays on court</span>{" · "}
+                  <span className="whitespace-nowrap">
+                    {heldTeam.wins} {heldTeam.wins === 1 ? "win" : "wins"}
+                    {cap > 1 ? ` of ${cap}` : ""}
+                  </span>
+                </p>
+                <p className="mt-2 font-display font-bold leading-tight text-[clamp(2.2rem,5.2vw,4.6rem)]">{heldTeam.members.map((m) => m.name).join(" · ") || "—"}</p>
+              </div>
+              {canOperate ? (
+                <div className="flex flex-col items-center gap-[1.6vh]">
+                  <button
+                    type="button"
+                    disabled={pending || !canStart || sPaused}
+                    onClick={() => startNext(court.id)}
+                    className="press inline-flex items-center gap-[1vw] rounded-[1.4vw] bg-[#ff4e1b] px-[4vw] py-[2.4vh] font-display font-bold text-white transition hover:bg-[#d63a0f] disabled:opacity-40"
+                    style={{ fontSize: "clamp(1.3rem,2.5vw,2.5rem)" }}
+                  >
+                    <Play size={"1.1em" as unknown as number} /> Start next match
+                  </button>
+                  {/* Sits beside Start next match and, mispressed, dissolves the
+                      winning team — so it earns the same press-&-hold contract
+                      as recording a win. */}
+                  <HoldButton
+                    ghost
+                    label="Winners are done — call the next two in line"
+                    color="#8b93a7"
+                    disabled={pending}
+                    onConfirm={() => stepDown(heldTeam.id)}
+                  />
+                  {!canStart ? <p className="text-[clamp(0.8rem,1.3vw,1.2rem)] text-white/40">No challengers in the queue yet.</p> : null}
+                </div>
+              ) : (
+                <p className="text-[clamp(1.1rem,2vw,1.8rem)] text-white/60">Waiting for the next match to start…</p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-[clamp(1.4rem,3vw,2.6rem)] font-semibold text-white/70">{canStart ? "Ready for the next match" : "Waiting for teams to fill the queue"}</p>
+              {canOperate ? (
+                <button
+                  type="button"
+                  disabled={pending || !canStart || sPaused}
+                  onClick={() => startNext(court.id)}
+                  className="press inline-flex items-center gap-[1vw] rounded-[1.4vw] bg-[#ff4e1b] px-[4vw] py-[2.6vh] font-display font-bold text-white transition hover:bg-[#d63a0f] disabled:opacity-40"
+                  style={{ fontSize: "clamp(1.4rem,2.6vw,2.6rem)" }}
+                >
+                  <Play size={"1.1em" as unknown as number} /> Start next match
+                </button>
+              ) : null}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* up next (place in line only, no A/B) + the walk-up link so newcomers can join */}
+      {sessionLive ? (
+      <div className="shrink-0 border-t border-white/10 px-[max(0.9rem,3vw)] pt-[1.6vh] pb-[max(1.6vh,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-[1.4vh] landscape:flex-row landscape:items-stretch landscape:gap-[2vw] lg:flex-row lg:items-stretch lg:gap-[2vw]">
+          <div className="min-w-0 flex-1">
+            <div className="mb-[1vh] flex flex-wrap items-baseline justify-between gap-x-[1.5vw] gap-y-1">
+              <p className="text-[clamp(0.65rem,1vw,0.95rem)] font-bold uppercase tracking-[0.22em] text-white/50">Next up in line{upNext.length > 3 ? ` · ${upNext.length} teams` : ""}</p>
+              {court?.lastMatch ? (
+                <div className="flex min-w-0 max-w-full items-baseline gap-1.5 text-[clamp(0.72rem,1.15vw,1.05rem)] font-semibold text-white/50">
+                  <span className="shrink-0 font-bold uppercase tracking-[0.18em] text-white/35">Last match ·</span>
+                  <span className="min-w-0 flex-1">
+                    {(() => {
+                      const bWon = court.lastMatch.winner === "b";
+                      const winNames = (bWon ? court.lastMatch.bNames : court.lastMatch.aNames).join(" & ") || "—";
+                      const loseNames = (bWon ? court.lastMatch.aNames : court.lastMatch.bNames).join(" & ") || "—";
+                      const winColor = bWon ? SIDES[1].color : SIDES[0].color;
+                      const at = new Date(court.lastMatch.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                      return (
+                        <MarqueeText text={`${winNames} def. ${loseNames} · ${at}`}>
+                          <span style={{ color: winColor }} className="font-bold">{winNames}</span>
+                          <span className="px-1 text-white/35">def.</span>
+                          <span className="text-white/55">{loseNames}</span>
+                          <span className="pl-1.5 text-white/35">· {at}</span>
+                        </MarqueeText>
+                      );
+                    })()}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            {upNext.length === 0 ? (
+              <p className="text-[clamp(0.9rem,1.4vw,1.4rem)] text-white/45">No teams waiting.</p>
+            ) : (
+              <div className="relative">
+              <div ref={upRef} onScroll={onUpScroll} onTouchStart={onUpScroll} className="flex snap-x snap-mandatory gap-[max(0.5rem,1.5vw)] overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {upNext.map((t, i) => (
+                  <div key={t.id} className="flex w-[calc((100%-max(0.5rem,1.5vw))/2)] shrink-0 snap-start flex-col gap-[0.4rem] rounded-[max(0.6rem,1.2vw)] border border-white/10 bg-white/[0.05] px-[max(0.75rem,1.4vw)] py-[max(0.5rem,1.3vh)] landscape:w-[calc((100%-2*max(0.5rem,1.5vw))/3)] md:w-[calc((100%-2*max(0.5rem,1.5vw))/3)]">
+                    <div className="flex items-start gap-[max(0.5rem,1vw)]">
+                      <span className="grid shrink-0 place-items-center rounded-full bg-white/15 font-display font-bold text-white" style={{ width: "clamp(2rem,3vw,3rem)", height: "clamp(2rem,3vw,3rem)", fontSize: "clamp(1rem,1.6vw,1.6rem)" }}>
+                        {i + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <StackedNames team={t} context="queue" />
+                      </div>
+                    </div>
+                    {t.queuedAt ? (
+                      <p className="flex items-center gap-1 text-[clamp(0.6rem,0.95vw,0.9rem)] font-medium text-white/45">
+                        <Clock size={"1em" as unknown as number} /> in line since {joinedAt(t.queuedAt)}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute inset-y-0 right-0 flex w-[max(3.2rem,6vw)] items-center justify-end pr-1 transition-opacity duration-200 ${upMore ? "opacity-100" : "opacity-0"}`}
+                style={{ background: "linear-gradient(to right, transparent, #000000 78%)" }}
+              >
+                <ChevronRight size={"clamp(18px,2vw,26px)" as unknown as number} className="animate-pulse text-white/55" />
+              </div>
+              </div>
+            )}
+          </div>
+
+          {walkUrl ? (
+            <div className="flex shrink-0 items-center gap-[1.4vw] self-start rounded-[1.2vw] border border-white/15 bg-white/[0.07] px-[1.6vw] py-[1.2vh] landscape:self-stretch lg:self-stretch">
+              {qr ? (
+                <span
+                  className="block shrink-0 rounded-[0.7vw] bg-white p-[0.7vh] [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+                  style={{ width: "clamp(4.5rem,13vh,8.5rem)", height: "clamp(4.5rem,13vh,8.5rem)" }}
+                  dangerouslySetInnerHTML={{ __html: qr }}
+                />
+              ) : null}
+              <div className="min-w-0">
+                <p className="text-[clamp(0.62rem,0.95vw,0.9rem)] font-bold uppercase tracking-[0.2em] text-white/55">Join the line — scan or type</p>
+                <p className="mt-1 break-all font-mono font-bold leading-tight text-white text-[clamp(1rem,1.9vw,1.9rem)]">{hostPath}</p>
+
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      ) : null}
+    </div>
+  );
+}

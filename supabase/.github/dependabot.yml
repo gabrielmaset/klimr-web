@@ -1,0 +1,21 @@
+# Dependabot: npm supply-chain watch.
+# Security updates arrive as PRs the moment an advisory lands; routine
+# version bumps come once a week, grouped so they don't flood the inbox.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    ignore:
+      # TypeScript majors are deliberate migrations, not routine bumps —
+      # TS 7 breaks @typescript-eslint's peer range (>=4.8.4 <6.1.0) and
+      # Next's TS detection today. Revisit when the ecosystem supports it.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]

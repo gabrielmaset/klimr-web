@@ -1,0 +1,281 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { createMatch } from "./actions";
+import { SPORTS, matchFormats, defaultMatchFormat, matchFormatMeta } from "@/lib/sports";
+
+const SKILL_LEVELS = [["new", "New"], ["casual", "Casual"], ["competitive", "Competitive"], ["advanced", "Advanced"]] as const;
+import { SportIcon } from "@/components/sport-icons";
+import { CourtPicker } from "./court-picker";
+import { DateTimePicker } from "./datetime-picker";
+import { JoinSuggest } from "./join-suggest";
+import type { PickerCourt } from "@/app/courts/search-actions";
+
+export function CreateMatchForm({
+  defaultZip,
+  defaultSport,
+  initialCourt,
+}: {
+  defaultZip: string;
+  defaultSport: string;
+  initialCourt: PickerCourt | null;
+}) {
+  const [state, action, pending] = useActionState(createMatch, undefined);
+  const [sport, setSport] = useState<string>(initialCourt?.sport || defaultSport || "");
+  const [format, setFormat] = useState<string>(defaultMatchFormat(initialCourt?.sport || defaultSport || "")?.key ?? "");
+  const [court, setCourt] = useState<PickerCourt | null>(initialCourt);
+  const [recurring, setRecurring] = useState(false);
+  const [visibility, setVisibility] = useState<"public" | "followers" | "friends">("public");
+  const [skillMin, setSkillMin] = useState("");
+  const [skillMax, setSkillMax] = useState("");
+  const [recurrence, setRecurrence] = useState("weekly");
+
+  // Everything about the match STRUCTURE derives from the canonical
+  // per-sport registry (lib/sports MATCH_FORMATS) — never hard-coded here.
+  const fmt = matchFormatMeta(sport, format);
+  const courtPayload = court
+    ? JSON.stringify({
+        courtId: court.courtId,
+        placeId: court.placeId,
+        name: court.name,
+        address: court.address,
+        lat: court.lat,
+        lng: court.lng,
+        rating: court.rating,
+        ratingCount: court.ratingCount,
+        private: court.private,
+        sport: court.sport,
+        website: court.website,
+      })
+    : "";
+
+  return (
+    <form action={action} className="mt-8">
+      <div className="grid gap-x-10 gap-y-8 lg:grid-cols-2">
+        {/* LEFT — match details */}
+        <div className="space-y-7">
+          {/* sport */}
+          <div>
+            <span className="kicker text-faint">Sport</span>
+            <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(104px,1fr))" }}>
+              {SPORTS.map((s) => {
+                const on = sport === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => {
+                      setSport(s.key);
+                      setFormat(defaultMatchFormat(s.key)?.key ?? "");
+                    }}
+                    aria-pressed={on}
+                    className={`press rounded-2xl border px-2 py-3 text-center transition-all ${on ? "-translate-y-0.5 border-[#FFD4BC] bg-tint-brand shadow-[0_10px_28px_-18px_rgba(90,68,35,.45)] ring-2 ring-brand/25" : "border-rule bg-surface hover:-translate-y-0.5 hover:border-rule-2 hover:shadow-e1"}`}
+                  >
+                    <span className={`grid place-items-center transition-transform ${on ? "scale-110" : ""}`} aria-hidden>
+                      <SportIcon sport={s.key} variant="glyph" size={34} />
+                    </span>
+                    <span className={`mt-1.5 block text-xs font-bold ${on ? "text-brand-deep" : "text-ink-soft"}`}>{s.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* format — options come from the sport's registry entry, so beach
+              volleyball offers 2s/3s/4s and racquetball offers cutthroat;
+              padel is doubles-only and simply shows its one locked card. */}
+          <div>
+            <span className="kicker text-faint">Format</span>
+            {!sport ? (
+              <p className="mt-2 text-sm text-faint">Pick a sport first.</p>
+            ) : (
+              <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))" }}>
+                {matchFormats(sport).map((f) => {
+                  const on = format === f.key;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setFormat(f.key)}
+                      aria-pressed={on}
+                      className={`press rounded-xl border p-3 text-left transition-all ${on ? "-translate-y-0.5 border-[#FFD4BC] bg-tint-brand shadow-[0_10px_28px_-18px_rgba(90,68,35,.45)] ring-2 ring-brand/25" : "border-rule bg-surface hover:-translate-y-0.5 hover:border-rule-2 hover:shadow-e1"}`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span className={`text-sm font-bold ${on ? "text-brand-deep" : "text-ink"}`}>{f.label}</span>
+                        {f.casual ? (
+                          <span className="rounded-[6px] bg-bg px-1.5 py-0.5 font-mono text-floor font-bold uppercase tracking-wide text-faint">Pickup</span>
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 block font-mono text-[11px] font-semibold text-mute">{f.short} · {f.totalPlayers} players</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {fmt ? <p className="mt-2 text-xs text-mute">{fmt.blurb}</p> : null}
+          </div>
+
+          {/* when + slots */}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <span className="kicker text-faint">
+                When <span className="font-sans normal-case tracking-normal text-faint">(optional)</span>
+              </span>
+              <div className="mt-2">
+                <DateTimePicker />
+              </div>
+              <p className="mt-1.5 text-xs text-faint">Leave blank for open / anytime play. Times are in 15-minute steps.</p>
+            </div>
+            <div>
+              <span className="kicker text-faint">Who you&rsquo;re looking for</span>
+              {fmt ? (
+                <div className="mt-2 rounded-xl border border-rule bg-bg px-3.5 py-3">
+                  <p className="text-sm font-semibold text-ink">
+                    {fmt.sides === 3
+                      ? "You + 2 others — every player for themselves"
+                      : fmt.playersPerSide === 1
+                        ? "You vs 1 opponent"
+                        : `You + ${fmt.playersPerSide - 1} teammate${fmt.playersPerSide - 1 === 1 ? "" : "s"} vs ${fmt.playersPerSide} opponents`}
+                  </p>
+                  <p className="mt-1 font-mono text-[11px] font-semibold text-mute">
+                    {fmt.totalPlayers} players total · {fmt.totalPlayers - 1} open spot{fmt.totalPlayers - 1 === 1 ? "" : "s"} to fill
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-faint">Pick a sport and format — the player count comes from the format.</p>
+              )}
+              <p className="mt-1.5 text-xs text-faint">You&rsquo;re seated automatically; invite players or leave spots open for joins.</p>
+            </div>
+          </div>
+
+          {/* recurring */}
+          <div>
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={recurring}
+                onChange={(e) => setRecurring(e.target.checked)}
+                className="h-4 w-4 accent-brand"
+              />
+              <span className="text-sm text-ink">This is a recurring game</span>
+            </label>
+            {recurring ? (
+              <div className="mt-3 pl-7">
+                <label htmlFor="recurrence" className="kicker text-faint">How often</label>
+                <select
+                  id="recurrence"
+                  value={recurrence}
+                  onChange={(e) => setRecurrence(e.target.value)}
+                  className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 sm:w-56"
+                >
+                  <option value="weekly">Every week</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly">Every month</option>
+                </select>
+                <p className="mt-1.5 text-xs text-faint">Pick a date &amp; time above so players know when it repeats.</p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* RIGHT — court + note */}
+        <div className="space-y-6">
+          <CourtPicker sport={sport} defaultZip={defaultZip} selected={court} onSelect={setCourt} />
+
+          <div>
+            <label htmlFor="location" className="kicker text-faint">
+              {court ? "Note " : "Or type a location "}
+              <span className="font-sans normal-case tracking-normal text-faint">(optional)</span>
+            </label>
+            <input
+              id="location"
+              name="location"
+              type="text"
+              placeholder={court ? "e.g. court 3, meet by the gate" : "e.g. Mar Vista Rec Center, court 3"}
+              maxLength={120}
+              className="mt-2 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+            />
+            <p className="mt-1.5 text-xs text-faint">
+              {court ? "Add a specific court number or meeting spot." : "If your court isn't listed above, just type where to meet."}
+            </p>
+          </div>
+
+          <div>
+            <p className="kicker text-faint">Who can join</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {([["public", "Anyone on Klimr"], ["followers", "Friends & followers"], ["friends", "Friends only"]] as const).map(([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setVisibility(k)}
+                  className={`rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors ${visibility === k ? "border-brand bg-tint-brand text-brand-deep" : "border-rule-2 bg-surface text-mute hover:border-ink/30"}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-faint">Who can discover this match and ask to join. You approve every request either way.</p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="skill_min" className="kicker text-faint">Level from</label>
+                <select
+                  id="skill_min"
+                  value={skillMin}
+                  onChange={(e) => setSkillMin(e.target.value)}
+                  className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                >
+                  <option value="">Any</option>
+                  {SKILL_LEVELS.map(([k, l]) => (
+                    <option key={k} value={k}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="skill_max" className="kicker text-faint">Level to</label>
+                <select
+                  id="skill_max"
+                  value={skillMax}
+                  onChange={(e) => setSkillMax(e.target.value)}
+                  className="mt-1.5 w-full rounded-[10px] border border-rule-2 bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                >
+                  <option value="">Any</option>
+                  {SKILL_LEVELS.map(([k, l]) => (
+                    <option key={k} value={k}>{l}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="mt-1.5 text-xs text-faint">Optional. Shown on the match card so the right players find you.</p>
+          </div>
+        </div>
+      </div>
+
+      <input type="hidden" name="sport" value={sport} />
+      <input type="hidden" name="format" value={format} />
+      <input type="hidden" name="slots" value={fmt ? String(fmt.totalPlayers) : ""} />
+      <input type="hidden" name="court_payload" value={courtPayload} />
+      <input type="hidden" name="recurring" value={recurring ? "on" : ""} />
+      <input type="hidden" name="recurrence" value={recurring ? recurrence : ""} />
+      <input type="hidden" name="visibility" value={visibility} />
+      <input type="hidden" name="skill_min" value={skillMin} />
+      <input type="hidden" name="skill_max" value={skillMax} />
+
+      <JoinSuggest sport={sport} zip={defaultZip ?? ""} />
+
+      {state?.error ? (
+        <p className="mt-6 rounded-xl border border-brand/30 bg-tint-brand px-4 py-3 text-sm text-brand-deep">{state.error}</p>
+      ) : null}
+
+      <div className="mt-8 flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending || !sport || !fmt}
+          className="press rounded-[10px] px-5 py-2.5 text-sm font-bold text-white shadow-flame transition-[filter] hover:brightness-[1.06] disabled:opacity-50" style={{ background: "linear-gradient(140deg, #FF6A35, #E23E0D)" }}
+        >
+          {pending ? "Creating…" : "Create match"}
+        </button>
+        <span className="text-xs text-faint">You&rsquo;ll be seated automatically as the organizer.</span>
+      </div>
+    </form>
+  );
+}

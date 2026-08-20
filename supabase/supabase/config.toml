@@ -1,0 +1,121 @@
+# Klimr — Supabase configuration as code (KCDX-053).
+#
+# WHY THIS FILE EXISTS
+#
+# A database backup plus every storage object still does not bring Klimr back.
+# Neither contains the auth providers, the redirect URLs, the email templates or
+# the bucket policies — those lived only in the dashboard, which meant "restore
+# into a fresh project" ended with somebody rebuilding them from memory at the
+# worst possible moment.
+#
+# The insight worth keeping: large systems do not BACK UP configuration, they
+# make it REPRODUCIBLE. Backups are for what cannot be regenerated — member
+# photos, posts, accounts. Configuration is code. It belongs in git, it is
+# applied by a pipeline, and the dashboard becomes a read-only view of what this
+# file already declared.
+#
+# HOW TO USE IT
+#   supabase link --project-ref <ref>
+#   supabase config push          # apply this file to the project
+#   supabase config diff          # what drifted since the last push
+#
+# `config diff` is the part that pays for itself: it catches "someone changed a
+# redirect URL in the dashboard six weeks ago and told nobody", which a snapshot
+# can only notice after the damage.
+#
+# WHAT IS DELIBERATELY NOT HERE: secret VALUES. Every one is referenced by
+# `env()`, so this file names what must exist without containing it. A config
+# file holding every credential is a single file that compromises everything, and
+# it ends up in more places than the secrets ever were. Values live in the
+# password manager and in Vercel.
+
+project_id = "klimr"
+
+[api]
+enabled = true
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+# Bounded so a mistaken unfiltered query cannot pull an entire table.
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[db.pooler]
+enabled = true
+default_pool_size = 20
+max_client_conn = 200
+
+[auth]
+site_url = "https://www.klimr.com"
+# Every URL a magic link may return to. A link that lands anywhere else is
+# refused — this list is the whole defence against an open redirect in the auth
+# flow, which is why it is version-controlled rather than dashboard-edited.
+additional_redirect_urls = [
+  "https://klimr.com/**",
+  "https://www.klimr.com/**",
+  "https://vision.klimr.com/**",
+  "http://localhost:3000/**",
+]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+
+# Passwords were removed from Klimr entirely: magic link plus TOTP only. Signup
+# by password stays off so the surface cannot be reintroduced by a dashboard
+# click, which is exactly the kind of change this file exists to prevent.
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+secure_password_change = true
+# 0173 magic-link OTP: the template must include {{ .Token }} for in-app sign-in
+# on iOS, where a link cannot round-trip back into the WebView shell.
+otp_length = 6
+otp_expiry = 3600
+
+[auth.sessions]
+# A session that never expires is a lost laptop that never expires.
+timebox = "168h"        # one week absolute
+inactivity_timeout = "336h"
+
+[auth.mfa]
+max_enrolled_factors = 5
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+# Providers. Klimr is invite-only and email-first; OAuth stays off rather than
+# unconfigured, so enabling one is a reviewed commit rather than a click.
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = ""
+[auth.external.apple]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.email.smtp]
+# Resend, on the notifications subdomain. The key is referenced, never stored.
+enabled = true
+host = "smtp.resend.com"
+port = 587
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "hello@klimr.com"
+sender_name = "Klimr"
+
+[storage]
+enabled = true
+file_size_limit = "60MiB"    # the ceiling; per-bucket limits are set in migrations
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false

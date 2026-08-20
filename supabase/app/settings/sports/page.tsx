@@ -1,0 +1,51 @@
+import type { Metadata } from "next";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { SPORT_KEYS } from "@/lib/sports";
+import { SportsEditor, type SportState, type SportsInitial } from "./sports-editor";
+
+export const metadata: Metadata = { title: "Sports & skill · Settings" };
+
+
+export default async function SportsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/settings/sports");
+
+  const [{ data: rows }, { data: profile }] = await Promise.all([
+    supabase.from("player_sports").select("sport_key, skill_level, skill_rating, preferred_format, active").eq("user_id", user.id),
+    supabase.from("profiles").select("primary_sport").eq("id", user.id).maybeSingle(),
+  ]);
+
+  const byKey = new Map((rows ?? []).map((r) => [r.sport_key, r]));
+  const sports: Record<string, SportState> = {};
+  for (const k of SPORT_KEYS) {
+    const r = byKey.get(k);
+    sports[k] = {
+      on: !!(r && r.active),
+      level: r?.skill_level ?? "casual",
+      rating: r?.skill_rating != null ? String(r.skill_rating) : "",
+      format: r?.preferred_format ?? "both",
+    };
+  }
+  const primary = profile?.primary_sport && sports[profile.primary_sport]?.on
+    ? profile.primary_sport
+    : SPORT_KEYS.find((k) => sports[k].on) ?? SPORT_KEYS[0];
+
+  const initial: SportsInitial = { sports, primary };
+
+  return (
+    <div className="mx-auto max-w-page-narrow px-5 py-8 sm:py-10">
+      <Breadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: "Sports" }]} />
+      <h1 className="font-display text-3xl leading-none text-ink sm:text-4xl">Sports &amp; skill levels</h1>
+      <p className="mt-2 text-sm text-mute">Pick the sports you play, set your level in each, and choose your default sport.</p>
+
+      <div className="mt-6 rounded-2xl border border-rule bg-surface shadow-e1 p-5 sm:p-6">
+        <SportsEditor key={JSON.stringify(initial.sports)} initial={initial} />
+      </div>
+    </div>
+  );
+}
