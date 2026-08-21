@@ -79,3 +79,9 @@ paths:
 Public GO requires production-like evidence for SLOs, load/headroom, failover/degradation, security/privacy, restore, staged deployment, rollback, alerting, and incident response. Local unit tests and a build are necessary but never sufficient.
 
 Coordinate heavy load/fault tests with infrastructure providers, use isolated staging with production-shaped de-identified data, enforce cost/safety limits, and never aim unapproved load at production. Until database PITR and tested database-plus-Storage restore meet approved RPO/RTO, they remain explicit public-GO blockers.
+
+## RUM unit contract (KFU-024, 2026-08-20)
+- `perf_samples.value_ms` stores ms for lcp/inp/ttfb and MILLI-CLS for cls
+  (client sends ×1000; per-metric clamps at the route AND in rum_ingest).
+- cls is read ONLY through `rum_p75_daily`, which divides back. Never compare
+  raw value_ms to the CLS ≤ 0.1 budget.

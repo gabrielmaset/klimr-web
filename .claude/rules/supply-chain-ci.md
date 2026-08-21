@@ -70,3 +70,12 @@ paths:
 - Active exploitation, credential compromise, cross-account privileged access, payment fraud, or public sensitive-data disclosure is contained immediately and blocks release.
 - Use internally approved remediation SLAs. Never treat CISA's outer KEV timing as permission to leave an exploitable issue exposed.
 - For every high-impact defect, identify root cause, search for variants, add a regression and prevention control, and track data repair/notification obligations.
+
+## Digest pins, SBOM, and the release manifest (KFU-025/034, 2026-08-20)
+- Every workflow `uses:` is pinned to a full commit SHA with a `# vN` comment.
+  Resolve tags with `git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag> 'refs/tags/<tag>^{}'`
+  (annotated tags: take the peeled `^{}` line). Never recall a SHA from memory.
+- CI produces a CycloneDX SBOM (`npm sbom --sbom-format cyclonedx --omit dev`)
+  as a build artifact.
+- Before every zip: `node scripts/release-manifest.mjs`; record its top-hash in
+  the batch's DESIGN_DECISIONS entry. The manifest binds artifact ↔ digests.

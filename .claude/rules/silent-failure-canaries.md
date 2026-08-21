@@ -41,3 +41,11 @@ All of these looked healthy:
 - A canary added for the affected subsystem, or a written reason why the existing canaries already cover it.
 - Proof the canary detects the failure: create the bad state, watch it report, restore.
 - For scheduled work: what is checked, on what interval, and who sees it when it fires.
+
+## supabase-js never throws (KFU-035, 2026-08-20)
+- Every `.insert/.update/.delete/.upsert` destructures and checks `{ error }`.
+  Audit-trail writers fail LOUD (`AUDIT WRITE FAILED` + identifying fields),
+  never silently, and never take the audited operation down.
+- Deferred-write fallbacks are RETURNED promises the caller awaits — a
+  `void work()` fallback is fire-and-forget in exactly the contexts that kill
+  unawaited writes (the durably() lesson).

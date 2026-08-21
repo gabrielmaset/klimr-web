@@ -28,7 +28,7 @@ jobs:
           --health-cmd pg_isready --health-interval 5s
           --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Install psql 17 client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Replay gates
@@ -44,8 +44,8 @@ jobs:
   gates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           cache: npm
@@ -72,3 +72,23 @@ jobs:
             echo "First Load JS shared by all:"
             grep -E "First Load JS shared by all" /tmp/build.log || true
           } >> "$GITHUB_STEP_SUMMARY"
+      # KFU-015: the table above is a report; THIS is the gate. Parses the same
+      # route table and fails on any First Load JS over its budget.
+      # KFU-025: SBOM per build — CycloneDX of production dependencies, kept as
+      # an artifact so any release can answer "what exactly shipped".
+      - name: SBOM (CycloneDX)
+        run: npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+      - name: Bundle budgets
+        run: node scripts/check-bundle-budgets.mjs /tmp/build.log
+      - name: Upload route-bundle-stats
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: route-bundle-stats
+          path: route-bundle-stats.json
+          if-no-files-found: ignore

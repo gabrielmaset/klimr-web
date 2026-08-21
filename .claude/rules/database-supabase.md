@@ -80,3 +80,38 @@ The database is the final enforcement layer for durable data invariants. Applica
 - Concurrency and replay tests for contested operations.
 - Query plans and production-shaped load for changed hot queries; assess write cost of new indexes.
 - Rollout order, timeout/lock plan, monitoring, halt condition, forward repair, and restore evidence.
+
+## Migration checksums (KFU-034, 2026-08-20)
+- Every `journal_migration` call carries a sha256. For 0296+ the value is the
+  CANONICAL-ZEROS hash: sha256 of the file with its own checksum literal
+  replaced by 64 zeros (`node scripts/migration-checksum.mjs <file>` computes
+  and verifies). 0262–0295 were backfilled with plain file hashes by 0296.
+
+## Harness replay: one message, one owner (learned 2026-08-20, replay14 postmortem)
+- `replay.sh` **destroys and re-initdbs the persistent cluster** (`rm -rf $D` where
+  D defaults to the harness datadir). The interactive server and a replay can
+  never run concurrently — the replay owns the cluster for its whole run, and
+  whatever it leaves behind IS the next interactive harness.
+- **The container reaps `postgres` processes at message boundaries** (bash and
+  nohup survive; postmasters do not). Therefore the full replay — launch,
+  wait, verdict — must complete **synchronously inside a single tool call**.
+  Never launch detached and poll from a later message: the reaper killed a
+  mid-run replay's server at exactly file 0072 and produced a cascade of
+  bare `### FAIL` markers with no error text.
+- Those markers were textless because the failure was connection-level:
+  `psql: error: …` is **lowercase** and the FAIL grep only matched `ERROR`.
+  The grep is now case-insensitive; the standing "error greps must include
+  ERROR" rule extends to **both cases** everywhere.
+
+## Post-checks are source-derived, never retyped (learned 2026-08-20, 0297 post-check)
+- The never-retype rule extends beyond migration bodies to **every query
+  delivered for owner execution**. A post-check composed from memory shipped
+  with THREE wrong identifiers at once (`schema_journal` for
+  `migration_journal`, `version` for `id`, and a `(ready, checks)` record
+  shape for what is actually `klimr_ready() → boolean` beside
+  `klimr_readiness() → TABLE`). Production refused it; because a UNION is
+  one statement, the failure was atomic and yielded ZERO verdicts.
+- Before delivering any owner-run query: derive each table from
+  `pg_get_functiondef` of whatever writes it, each column from the insert
+  list, each function shape from `pg_get_function_result` — on the harness,
+  in the same session, pasted from the probe output.
