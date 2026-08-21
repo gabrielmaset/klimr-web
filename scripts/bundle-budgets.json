@@ -1,5 +1,5 @@
 {
-  "comment": "KFU-015: per-route First Load JS ceilings, enforced by check-bundle-budgets.mjs in CI. Raise ONLY with a reviewed override and a reason, ratchet-style like the lint ceiling.",
-  "defaultFirstLoadKB": 700,
-  "overrides": {}
+  "comment": "KFU-015 (Turbopack era): ceilings on ACTUAL shipped client JS, measured from .next build artifacts — Turbopack removed per-route sizes from the build log, so the gate reads reality instead of scraping it. sharedEntryKB guards the framework/entry graph (build-manifest rootMainFiles); totalClientKB guards the whole client payload (a us-places-class re-entry blows it instantly). Calibrated 2026-08-20 against shared=447kB, total=4006kB/113 chunks. Raise only with a reviewed reason, ratchet-style like the lint ceiling.",
+  "sharedEntryKB": 520,
+  "totalClientKB": 4600
 }
