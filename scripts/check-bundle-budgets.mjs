@@ -1,42 +1,68 @@
 #!/usr/bin/env node
-// KFU-015: the enforcing replacement for the inert bundle scraper. Parses the
-// route table Next prints at build time (the same numbers the auditor used to
-// find four ~5.57MB routes), writes route-bundle-stats.json as the machine
-// artifact, and FAILS the build when any route's First Load JS exceeds its
-// budget. A silent regression to a multi-megabyte route is now impossible.
-import { readFileSync, writeFileSync } from "node:fs";
+// KFU-015, Turbopack era: the budget gate re-grounded on build ARTIFACTS.
+// Next 16's Turbopack prints a route table with no size columns, so the old
+// log parser could only fail loudly (which it did — correctly). This version
+// measures the client JS that will actually ship: the shared entry graph
+// from .next/build-manifest.json rootMainFiles, and the total of every JS
+// chunk under .next/static/chunks. Fail-loud invariants preserved: a missing
+// build, an empty manifest, or zero chunks can never be green.
+// argv[2] (the old build-log path) is accepted for CI compatibility, unused.
+import { readFileSync, writeFileSync, statSync, readdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
-const logPath = process.argv[2] ?? "/tmp/build.log";
 const budgets = JSON.parse(readFileSync(new URL("./bundle-budgets.json", import.meta.url), "utf8"));
-const log = readFileSync(logPath, "utf8");
+const NEXT = ".next";
 
-const toKB = (num, unit) => {
-  const n = parseFloat(num);
-  if (unit === "B") return n / 1024;
-  if (unit === "kB") return n;
-  if (unit === "MB") return n * 1024;
-  throw new Error(`unknown size unit ${unit}`);
+if (!existsSync(join(NEXT, "build-manifest.json"))) {
+  console.error("check-bundle-budgets: .next/build-manifest.json missing — no build to measure. Failing loudly rather than passing on nothing.");
+  process.exit(1);
+}
+const manifest = JSON.parse(readFileSync(join(NEXT, "build-manifest.json"), "utf8"));
+const rootMainFiles = manifest.rootMainFiles ?? [];
+if (rootMainFiles.length === 0) {
+  console.error("check-bundle-budgets: rootMainFiles is empty — the manifest shape changed. Failing loudly; update this gate deliberately, never let it pass on nothing.");
+  process.exit(1);
+}
+const sharedKB = rootMainFiles.reduce((s, f) => s + (existsSync(join(NEXT, f)) ? statSync(join(NEXT, f)).size : 0), 0) / 1024;
+
+const chunks = [];
+const walk = (dir) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) walk(p);
+    else if (e.name.endsWith(".js")) chunks.push({ path: p, kb: statSync(p).size / 1024 });
+  }
 };
-
-// Rows look like: "├ ƒ /marketplace   12.3 kB   5.57 MB" (route, Size, First Load JS)
-const rowRe = /^[├└│]\s+[ƒ○●λ]?\s*(\/\S*)\s+([\d.]+)\s+(B|kB|MB)\s+([\d.]+)\s+(B|kB|MB)\s*$/;
-const routes = [];
-for (const line of log.split("\n")) {
-  const m = line.match(rowRe);
-  if (m) routes.push({ route: m[1], sizeKB: +toKB(m[2], m[3]).toFixed(1), firstLoadKB: +toKB(m[4], m[5]).toFixed(1) });
-}
-if (routes.length === 0) {
-  console.error("check-bundle-budgets: no route rows parsed from " + logPath + " — the table format changed or the build log is missing. Failing loudly rather than passing on nothing (a zero-row parse must never be green).");
+const chunksDir = join(NEXT, "static", "chunks");
+if (!existsSync(chunksDir)) {
+  console.error("check-bundle-budgets: .next/static/chunks missing — nothing to measure. Failing loudly.");
   process.exit(1);
 }
+walk(chunksDir);
+if (chunks.length === 0) {
+  console.error("check-bundle-budgets: zero JS chunks found — a zero-row measurement must never be green.");
+  process.exit(1);
+}
+const totalKB = chunks.reduce((s, c) => s + c.kb, 0);
+const top = [...chunks].sort((a, b) => b.kb - a.kb).slice(0, 10)
+  .map((c) => ({ chunk: c.path.replace(NEXT + "/", ""), kb: +c.kb.toFixed(1) }));
 
-writeFileSync("route-bundle-stats.json", JSON.stringify({ generatedAt: new Date().toISOString(), defaultFirstLoadKB: budgets.defaultFirstLoadKB, routes }, null, 2));
+writeFileSync("route-bundle-stats.json", JSON.stringify({
+  generatedAt: new Date().toISOString(),
+  sharedEntryKB: +sharedKB.toFixed(1),
+  totalClientKB: +totalKB.toFixed(1),
+  chunkCount: chunks.length,
+  ceilings: { sharedEntryKB: budgets.sharedEntryKB, totalClientKB: budgets.totalClientKB },
+  topChunks: top,
+}, null, 2));
 
-const breaches = routes.filter((r) => r.firstLoadKB > (budgets.overrides[r.route] ?? budgets.defaultFirstLoadKB));
-console.log(`check-bundle-budgets: ${routes.length} routes parsed; ceiling ${budgets.defaultFirstLoadKB} kB (${Object.keys(budgets.overrides).length} overrides)`);
+console.log(`check-bundle-budgets: shared entry ${sharedKB.toFixed(0)} kB (ceiling ${budgets.sharedEntryKB}) · total client ${totalKB.toFixed(0)} kB across ${chunks.length} chunks (ceiling ${budgets.totalClientKB})`);
+const breaches = [];
+if (sharedKB > budgets.sharedEntryKB) breaches.push(`shared entry ${sharedKB.toFixed(0)} kB > ${budgets.sharedEntryKB} kB`);
+if (totalKB > budgets.totalClientKB) breaches.push(`total client ${totalKB.toFixed(0)} kB > ${budgets.totalClientKB} kB`);
 if (breaches.length) {
-  console.error("BUDGET BREACH — First Load JS over ceiling:");
-  for (const b of breaches) console.error(`  ${b.route}  ${b.firstLoadKB} kB > ${budgets.overrides[b.route] ?? budgets.defaultFirstLoadKB} kB`);
+  console.error("BUDGET BREACH:");
+  for (const b of breaches) console.error("  " + b);
+  console.error("Largest chunks are listed in route-bundle-stats.json — find the re-entry before raising a ceiling.");
   process.exit(1);
 }
-console.log("all routes within budget");
